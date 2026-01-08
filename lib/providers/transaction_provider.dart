@@ -50,7 +50,9 @@ class TransactionProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _transactions = await _firestoreService.getTransactionsByReportId(reportId);
+      _transactions = await _firestoreService.getTransactionsByReportId(
+        reportId,
+      );
     } catch (e) {
       _errorMessage = 'Failed to load transactions for report: ${e.toString()}';
       AppLogger.severe('Error loading transactions for report: $e');
@@ -104,7 +106,7 @@ class TransactionProvider extends ChangeNotifier {
       amount: amount,
       paymentMethod: paymentMethod.name,
       requestorId: requestorId,
-      status: TransactionStatus.draft.name,
+      status: TransactionStatus.approved.name,
       attachmentUrls: attachmentUrls,
       createdAt: DateTime.now(),
       paidTo: paidTo,
@@ -164,7 +166,9 @@ class TransactionProvider extends ChangeNotifier {
       if (transaction != null) {
         // Delete attachments from Firebase Storage
         if (transaction.attachmentUrls.isNotEmpty) {
-          await _storageService.deleteMultipleAttachments(transaction.attachmentUrls);
+          await _storageService.deleteMultipleAttachments(
+            transaction.attachmentUrls,
+          );
         }
         // Delete transaction from Firestore
         await _firestoreService.deleteTransaction(transactionId);
@@ -237,7 +241,10 @@ class TransactionProvider extends ChangeNotifier {
           comments: comments,
         );
 
-        final updatedHistory = [...transaction.approvalHistory, approvalRecord.toJson()];
+        final updatedHistory = [
+          ...transaction.approvalHistory,
+          approvalRecord.toJson(),
+        ];
 
         final updated = transaction.copyWith(
           status: TransactionStatus.approved.name,
@@ -283,7 +290,10 @@ class TransactionProvider extends ChangeNotifier {
           comments: comments,
         );
 
-        final updatedHistory = [...transaction.approvalHistory, approvalRecord.toJson()];
+        final updatedHistory = [
+          ...transaction.approvalHistory,
+          approvalRecord.toJson(),
+        ];
 
         final updated = transaction.copyWith(
           status: TransactionStatus.rejected.name,
@@ -323,7 +333,9 @@ class TransactionProvider extends ChangeNotifier {
   Future<void> _updateReportFinancialSummary(String reportId) async {
     try {
       // Get all transactions for the report
-      final transactions = await _firestoreService.getTransactionsByReportId(reportId);
+      final transactions = await _firestoreService.getTransactionsByReportId(
+        reportId,
+      );
 
       // Get the report
       final report = await _firestoreService.getReport(reportId);

@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:uuid/uuid.dart';
+import 'package:intl/intl.dart';
 import '../models/user.dart';
 import '../models/petty_cash_report.dart';
 import '../models/project_report.dart';
@@ -110,7 +112,8 @@ class FirestoreService {
   }
 
   Future<List<PettyCashReport>> getReportsByCustodian(
-      String custodianId) async {
+    String custodianId,
+  ) async {
     try {
       final snapshot = await _reportsCollection
           .where('custodianId', isEqualTo: custodianId)
@@ -126,7 +129,8 @@ class FirestoreService {
   }
 
   Future<List<PettyCashReport>> getReportsByDepartment(
-      String department) async {
+    String department,
+  ) async {
     try {
       final snapshot = await _reportsCollection
           .where('department', isEqualTo: department)
@@ -179,9 +183,11 @@ class FirestoreService {
     return _reportsCollection
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => PettyCashReport.fromFirestore(doc))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => PettyCashReport.fromFirestore(doc))
+              .toList(),
+        );
   }
 
   // ===== TRANSACTION OPERATIONS =====
@@ -211,7 +217,8 @@ class FirestoreService {
   }
 
   Future<List<app.Transaction>> getTransactionsByReportId(
-      String reportId) async {
+    String reportId,
+  ) async {
     try {
       final snapshot = await _transactionsCollection
           .where('reportId', isEqualTo: reportId)
@@ -278,18 +285,22 @@ class FirestoreService {
         .where('reportId', isEqualTo: reportId)
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => app.Transaction.fromFirestore(doc))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => app.Transaction.fromFirestore(doc))
+              .toList(),
+        );
   }
 
   Stream<List<app.Transaction>> allTransactionsStream() {
     return _transactionsCollection
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => app.Transaction.fromFirestore(doc))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => app.Transaction.fromFirestore(doc))
+              .toList(),
+        );
   }
 
   // ===== SEARCH OPERATIONS =====
@@ -317,10 +328,7 @@ class FirestoreService {
     try {
       final batch = _firestore.batch();
       for (var report in reports) {
-        batch.update(
-          _reportsCollection.doc(report.id),
-          report.toFirestore(),
-        );
+        batch.update(_reportsCollection.doc(report.id), report.toFirestore());
       }
       await batch.commit();
     } catch (e) {
@@ -330,7 +338,8 @@ class FirestoreService {
   }
 
   Future<void> batchUpdateTransactions(
-      List<app.Transaction> transactions) async {
+    List<app.Transaction> transactions,
+  ) async {
     try {
       final batch = _firestore.batch();
       for (var transaction in transactions) {
@@ -388,7 +397,8 @@ class FirestoreService {
   }
 
   Future<List<ProjectReport>> getProjectReportsByCustodian(
-      String custodianId) async {
+    String custodianId,
+  ) async {
     try {
       final snapshot = await _projectReportsCollection
           .where('custodianId', isEqualTo: custodianId)
@@ -404,7 +414,8 @@ class FirestoreService {
   }
 
   Future<List<ProjectReport>> getProjectReportsByProjectName(
-      String projectName) async {
+    String projectName,
+  ) async {
     try {
       final snapshot = await _projectReportsCollection
           .where('projectName', isEqualTo: projectName)
@@ -415,6 +426,53 @@ class FirestoreService {
           .toList();
     } catch (e) {
       AppLogger.severe('Error getting project reports by project name: $e');
+      rethrow;
+    }
+  }
+
+  Future<ProjectReport> createProjectReport({
+    required String projectName,
+    required double budgetAmount,
+    required DateTime startDate,
+    required DateTime endDate,
+    required User custodian,
+    String? description,
+  }) async {
+    try {
+      // Generate project report number
+      final now = DateTime.now();
+      final formatter = DateFormat('yyyyMM');
+      final existingReports = await getAllProjectReports();
+      final count =
+          existingReports
+              .where((r) => r.id.startsWith('PROJ-${formatter.format(now)}'))
+              .length +
+          1;
+      final projectNumber =
+          'PROJ-${formatter.format(now)}-${count.toString().padLeft(3, '0')}';
+
+      final projectReport = ProjectReport(
+        id: const Uuid().v4(),
+        reportNumber: projectNumber,
+        projectName: projectName,
+        reportName: projectName, // Use project name as report name
+        budget: budgetAmount,
+        openingBalance: budgetAmount,
+        startDate: startDate,
+        endDate: endDate,
+        custodianId: custodian.id,
+        custodianName: custodian.name,
+        status: 'draft',
+        createdAt: now,
+        description: description,
+      );
+
+      await _projectReportsCollection
+          .doc(projectReport.id)
+          .set(projectReport.toFirestore());
+      return projectReport;
+    } catch (e) {
+      AppLogger.severe('Error creating project report: $e');
       rethrow;
     }
   }
@@ -430,7 +488,9 @@ class FirestoreService {
 
   Future<void> updateProjectReport(ProjectReport report) async {
     try {
-      await _projectReportsCollection.doc(report.id).update(report.toFirestore());
+      await _projectReportsCollection
+          .doc(report.id)
+          .update(report.toFirestore());
     } catch (e) {
       AppLogger.severe('Error updating project report: $e');
       rethrow;
@@ -457,12 +517,16 @@ class FirestoreService {
     return _projectReportsCollection
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => ProjectReport.fromFirestore(doc))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => ProjectReport.fromFirestore(doc))
+              .toList(),
+        );
   }
 
-  Future<List<app.Transaction>> getTransactionsByProjectId(String projectId) async {
+  Future<List<app.Transaction>> getTransactionsByProjectId(
+    String projectId,
+  ) async {
     try {
       final snapshot = await _transactionsCollection
           .where('projectId', isEqualTo: projectId)

@@ -10,12 +10,14 @@ class VoucherPreviewDialog extends StatelessWidget {
   final Transaction transaction;
   final PettyCashReport report;
   final User? requestor;
+  final VoidCallback? onPrint;
 
   const VoucherPreviewDialog({
     super.key,
     required this.transaction,
     required this.report,
     this.requestor,
+    this.onPrint,
   });
 
   @override
@@ -127,6 +129,17 @@ class VoucherPreviewDialog extends StatelessWidget {
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(false),
                   child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 12),
+                OutlinedButton.icon(
+                  onPressed: onPrint != null
+                      ? () {
+                          Navigator.of(context).pop(false);
+                          onPrint!();
+                        }
+                      : null,
+                  icon: const Icon(Icons.print),
+                  label: const Text('Print'),
                 ),
                 const SizedBox(width: 12),
                 ElevatedButton.icon(

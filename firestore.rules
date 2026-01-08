@@ -67,6 +67,28 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Project Reports collection
+    match /project_reports/{projectId} {
+      // All authenticated users can read project reports
+      // (UI will filter based on role)
+      allow read: if isAuthenticated();
+
+      // Any authenticated user can create project reports
+      // Must set themselves as custodian
+      allow create: if isAuthenticated() &&
+        request.resource.data.custodianId == request.auth.uid;
+
+      // Custodian can update their own draft project reports
+      // Approvers can update any project report
+      allow update: if isAuthenticated() && (
+        (resource.data.custodianId == request.auth.uid && resource.data.status == 'draft') ||
+        canApprove()
+      );
+
+      // Only admin can delete project reports
+      allow delete: if isAdmin();
+    }
+
     // Transactions collection
     match /transactions/{transactionId} {
       // All authenticated users can read transactions

@@ -3,39 +3,30 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/report_provider.dart';
+import '../../providers/project_report_provider.dart';
 import '../../utils/constants.dart';
 
-class NewReportScreen extends StatefulWidget {
-  const NewReportScreen({super.key});
+class NewProjectReportScreen extends StatefulWidget {
+  const NewProjectReportScreen({super.key});
 
   @override
-  State<NewReportScreen> createState() => _NewReportScreenState();
+  State<NewProjectReportScreen> createState() => _NewProjectReportScreenState();
 }
 
-class _NewReportScreenState extends State<NewReportScreen> {
+class _NewProjectReportScreenState extends State<NewProjectReportScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _reportNameController = TextEditingController();
-  final _companyNameController = TextEditingController();
-  final _openingBalanceController = TextEditingController();
-  final _notesController = TextEditingController();
+  final _projectNameController = TextEditingController();
+  final _budgetController = TextEditingController();
+  final _descriptionController = TextEditingController();
 
-  DateTime _periodStart = DateTime.now();
-  DateTime _periodEnd = DateTime.now().add(const Duration(days: 7));
-
-  @override
-  void initState() {
-    super.initState();
-    // Set default company name to Hope Channel Southeast Asia
-    _companyNameController.text = AppConstants.companyName;
-  }
+  DateTime _startDate = DateTime.now();
+  DateTime _endDate = DateTime.now().add(const Duration(days: 30));
 
   @override
   void dispose() {
-    _reportNameController.dispose();
-    _companyNameController.dispose();
-    _openingBalanceController.dispose();
-    _notesController.dispose();
+    _projectNameController.dispose();
+    _budgetController.dispose();
+    _descriptionController.dispose();
     super.dispose();
   }
 
@@ -43,7 +34,7 @@ class _NewReportScreenState extends State<NewReportScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create New Report'),
+        title: const Text('Create New Project Report'),
         actions: [
           IconButton(
             icon: const Icon(Icons.home_outlined),
@@ -69,53 +60,47 @@ class _NewReportScreenState extends State<NewReportScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Report Information',
+                            'Project Information',
                             style: Theme.of(context).textTheme.headlineSmall,
                           ),
                           const SizedBox(height: 24),
                           TextFormField(
-                            controller: _companyNameController,
+                            controller: _projectNameController,
                             decoration: const InputDecoration(
-                              labelText: 'Company Name',
+                              labelText: 'Project Name',
                               border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.business),
+                              prefixIcon: Icon(Icons.folder_special),
                               helperText:
-                                  'Default: Hope Channel Southeast Asia',
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _reportNameController,
-                            decoration: const InputDecoration(
-                              labelText: 'Report Name',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.description),
+                                  'Enter a descriptive name for the project',
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
-                                return 'Please enter a report name';
+                                return 'Please enter a project name';
                               }
                               return null;
                             },
                           ),
                           const SizedBox(height: 16),
                           TextFormField(
-                            controller: _openingBalanceController,
+                            controller: _budgetController,
                             decoration: InputDecoration(
-                              labelText: 'Opening Balance',
+                              labelText: 'Budget Amount',
                               border: const OutlineInputBorder(),
-                              prefixIcon: const Icon(
-                                Icons.account_balance_wallet,
-                              ),
+                              prefixIcon: const Icon(Icons.attach_money),
                               prefixText: AppConstants.currencySymbol,
+                              helperText:
+                                  'Total budget allocated for this project',
                             ),
                             keyboardType: TextInputType.number,
                             validator: (value) {
                               if (value == null || value.isEmpty) {
-                                return 'Please enter an opening balance';
+                                return 'Please enter a budget amount';
                               }
                               if (double.tryParse(value) == null) {
                                 return 'Please enter a valid number';
+                              }
+                              if (double.parse(value) <= 0) {
+                                return 'Budget must be greater than zero';
                               }
                               return null;
                             },
@@ -132,7 +117,7 @@ class _NewReportScreenState extends State<NewReportScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Reporting Period',
+                            'Project Timeline',
                             style: Theme.of(context).textTheme.headlineSmall,
                           ),
                           const SizedBox(height: 24),
@@ -141,27 +126,27 @@ class _NewReportScreenState extends State<NewReportScreen> {
                               Expanded(
                                 child: _buildDateField(
                                   'Start Date',
-                                  _periodStart,
+                                  _startDate,
                                   (date) {
                                     setState(() {
-                                      _periodStart = date;
+                                      _startDate = date;
                                     });
                                   },
                                 ),
                               ),
                               const SizedBox(width: 16),
                               Expanded(
-                                child: _buildDateField('End Date', _periodEnd, (
+                                child: _buildDateField('End Date', _endDate, (
                                   date,
                                 ) {
                                   setState(() {
-                                    _periodEnd = date;
+                                    _endDate = date;
                                   });
                                 }),
                               ),
                             ],
                           ),
-                          if (_periodEnd.isBefore(_periodStart)) ...[
+                          if (_endDate.isBefore(_startDate)) ...[
                             const SizedBox(height: 8),
                             const Text(
                               'End date must be after start date',
@@ -180,16 +165,18 @@ class _NewReportScreenState extends State<NewReportScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Additional Notes',
+                            'Project Description',
                             style: Theme.of(context).textTheme.headlineSmall,
                           ),
                           const SizedBox(height: 24),
                           TextFormField(
-                            controller: _notesController,
+                            controller: _descriptionController,
                             decoration: const InputDecoration(
-                              labelText: 'Notes (Optional)',
+                              labelText: 'Description (Optional)',
                               border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.note),
+                              prefixIcon: Icon(Icons.description),
+                              helperText:
+                                  'Provide details about the project scope and objectives',
                             ),
                             maxLines: 4,
                           ),
@@ -207,9 +194,9 @@ class _NewReportScreenState extends State<NewReportScreen> {
                       ),
                       const SizedBox(width: 16),
                       ElevatedButton.icon(
-                        onPressed: _createReport,
+                        onPressed: _createProjectReport,
                         icon: const Icon(Icons.check),
-                        label: const Text('Create Report'),
+                        label: const Text('Create Project Report'),
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 32,
@@ -259,12 +246,12 @@ class _NewReportScreenState extends State<NewReportScreen> {
     );
   }
 
-  Future<void> _createReport() async {
+  Future<void> _createProjectReport() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    if (_periodEnd.isBefore(_periodStart)) {
+    if (_endDate.isBefore(_startDate)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('End date must be after start date'),
@@ -275,7 +262,7 @@ class _NewReportScreenState extends State<NewReportScreen> {
     }
 
     final authProvider = context.read<AuthProvider>();
-    final reportProvider = context.read<ReportProvider>();
+    final projectReportProvider = context.read<ProjectReportProvider>();
     final user = authProvider.currentUser;
 
     if (user == null) {
@@ -289,32 +276,32 @@ class _NewReportScreenState extends State<NewReportScreen> {
     }
 
     try {
-      final report = await reportProvider.createReport(
-        periodStart: _periodStart,
-        periodEnd: _periodEnd,
-        reportName: _reportNameController.text,
+      await projectReportProvider.createProjectReport(
+        projectName: _projectNameController.text,
+        budgetAmount: double.parse(_budgetController.text),
+        startDate: _startDate,
+        endDate: _endDate,
         custodian: user,
-        openingBalance: double.parse(_openingBalanceController.text),
-        companyName: _companyNameController.text.isEmpty
+        description: _descriptionController.text.isEmpty
             ? null
-            : _companyNameController.text,
-        notes: _notesController.text.isEmpty ? null : _notesController.text,
+            : _descriptionController.text,
       );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Report created successfully'),
+            content: Text('Project report created successfully'),
             backgroundColor: Colors.green,
           ),
         );
-        context.go('/reports/${report.id}');
+        // Navigate back to reports list
+        context.go('/reports');
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error creating report: $e'),
+            content: Text('Error creating project report: $e'),
             backgroundColor: Colors.red,
           ),
         );

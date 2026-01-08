@@ -4,8 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/report_provider.dart';
+import '../../providers/project_report_provider.dart';
 import '../../models/enums.dart';
 import '../../models/petty_cash_report.dart';
+import '../../models/project_report.dart';
 import '../../utils/constants.dart';
 
 class ReportsListScreen extends StatefulWidget {
@@ -18,14 +20,27 @@ class ReportsListScreen extends StatefulWidget {
 class _ReportsListScreenState extends State<ReportsListScreen> {
   ReportStatus? _filterStatus;
   String _searchQuery = '';
+  String _reportType = 'all'; // 'all', 'petty_cash', 'project'
 
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
     final reportProvider = context.watch<ReportProvider>();
+    final projectReportProvider = context.watch<ProjectReportProvider>();
     final user = authProvider.currentUser;
 
-    var reports = reportProvider.reports;
+    // Combine both types of reports into a unified list
+    List<dynamic> allReports = [];
+
+    if (_reportType == 'all' || _reportType == 'petty_cash') {
+      allReports.addAll(reportProvider.reports);
+    }
+
+    if (_reportType == 'all' || _reportType == 'project') {
+      allReports.addAll(projectReportProvider.projectReports);
+    }
+
+    var reports = allReports;
 
     // Filter by user if not admin or manager
     if (!authProvider.canViewAllReports()) {
@@ -34,17 +49,27 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
 
     // Apply status filter
     if (_filterStatus != null) {
-      reports = reports.where((r) => r.status.toReportStatus() == _filterStatus).toList();
+      reports = reports.where((r) => r.statusEnum == _filterStatus).toList();
     }
 
     // Apply search filter
     if (_searchQuery.isNotEmpty) {
       reports = reports.where((r) {
-        return r.reportNumber.toLowerCase().contains(
-              _searchQuery.toLowerCase(),
-            ) ||
-            r.department.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            r.custodianName.toLowerCase().contains(_searchQuery.toLowerCase());
+        final reportNumber = r.reportNumber.toLowerCase();
+        final custodianName = r.custodianName.toLowerCase();
+        final searchLower = _searchQuery.toLowerCase();
+
+        // Handle different report types
+        if (r is PettyCashReport) {
+          return reportNumber.contains(searchLower) ||
+              r.department.toLowerCase().contains(searchLower) ||
+              custodianName.contains(searchLower);
+        } else if (r is ProjectReport) {
+          return reportNumber.contains(searchLower) ||
+              r.projectName.toLowerCase().contains(searchLower) ||
+              custodianName.contains(searchLower);
+        }
+        return false;
       }).toList();
     }
 
@@ -88,7 +113,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
         children: [
           TextField(
             decoration: const InputDecoration(
-              hintText: 'Search by report number, department, or custodian...',
+              hintText: 'Search by report number, report name, or custodian...',
               prefixIcon: Icon(Icons.search),
               border: OutlineInputBorder(),
             ),
@@ -103,6 +128,29 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
+                const Text(
+                  'Type: ',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(width: 8),
+                _buildTypeFilterChip('All Reports', 'all'),
+                const SizedBox(width: 8),
+                _buildTypeFilterChip('Petty Cash', 'petty_cash'),
+                const SizedBox(width: 8),
+                _buildTypeFilterChip('Projects', 'project'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                const Text(
+                  'Status: ',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(width: 8),
                 _buildFilterChip('All', null),
                 const SizedBox(width: 8),
                 _buildFilterChip('Draft', ReportStatus.draft),
@@ -130,6 +178,19 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
       onSelected: (selected) {
         setState(() {
           _filterStatus = selected ? status : null;
+        });
+      },
+    );
+  }
+
+  Widget _buildTypeFilterChip(String label, String type) {
+    final isSelected = _reportType == type;
+    return FilterChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (selected) {
+        setState(() {
+          _reportType = type;
         });
       },
     );
@@ -164,16 +225,24 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
     );
   }
 
-  Widget _buildReportsList(List<PettyCashReport> reports) {
+  Widget _buildReportsList(List<dynamic> reports) {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: reports.length,
       itemBuilder: (context, index) {
         final report = reports[index];
+        final isPettyCash = report is PettyCashReport;
+
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
           child: InkWell(
-            onTap: () => context.go('/reports/${report.id}'),
+            onTap: () {
+              if (isPettyCash) {
+                context.go('/reports/${report.id}');
+              } else {
+                context.go('/project-reports/${report.id}');
+              }
+            },
             borderRadius: BorderRadius.circular(12),
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -186,21 +255,54 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              report.reportNumber,
-                              style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isPettyCash
+                                        ? Colors.blue.shade50
+                                        : Colors.green.shade50,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    isPettyCash ? 'Petty Cash' : 'Project',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: isPettyCash
+                                          ? Colors.blue.shade700
+                                          : Colors.green.shade700,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    report.reportNumber,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleLarge
+                                        ?.copyWith(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              report.department,
+                              isPettyCash
+                                  ? report.department
+                                  : (report as ProjectReport).projectName,
                               style: Theme.of(context).textTheme.bodyMedium
                                   ?.copyWith(color: Colors.grey[600]),
                             ),
                           ],
                         ),
                       ),
-                      _buildStatusChip(report.status.toReportStatus()),
+                      _buildStatusChip(report.statusEnum),
                     ],
                   ),
                   const Divider(height: 24),
@@ -217,45 +319,162 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                         child: _buildInfoItem(
                           Icons.calendar_today,
                           'Period',
-                          '${DateFormat('MMM d').format(report.periodStart)} - ${DateFormat('MMM d, y').format(report.periodEnd)}',
+                          isPettyCash
+                              ? '${DateFormat('MMM d').format(report.periodStart)} - ${DateFormat('MMM d, y').format(report.periodEnd)}'
+                              : '${DateFormat('MMM d').format((report as ProjectReport).startDate)} - ${DateFormat('MMM d, y').format(report.endDate)}',
                         ),
                       ),
                       // Add menu button for edit/delete options
                       PopupMenuButton<String>(
                         icon: const Icon(Icons.more_vert),
-                        onSelected: (String choice) {
+                        onSelected: (String choice) async {
                           if (choice == 'edit') {
-                            // Navigate to edit report screen (or reuse new report screen with pre-filled data)
-                            // For now, we'll navigate to the report detail screen for editing
-                            context.go('/reports/${report.id}');
+                            // Navigate to the appropriate detail screen
+                            if (isPettyCash) {
+                              context.go('/reports/${report.id}');
+                            } else {
+                              context.go('/project-reports/${report.id}');
+                            }
+                          } else if (choice == 'submit') {
+                            try {
+                              if (isPettyCash) {
+                                await context
+                                    .read<ReportProvider>()
+                                    .submitReport(report.id);
+                              } else {
+                                await context
+                                    .read<ProjectReportProvider>()
+                                    .submitProjectReport(report.id);
+                              }
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Report submitted successfully',
+                                    ),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Error submitting report: $e',
+                                    ),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            }
+                          } else if (choice == 'approve') {
+                            try {
+                              if (isPettyCash) {
+                                await context
+                                    .read<ReportProvider>()
+                                    .approveReport(report.id);
+                              } else {
+                                await context
+                                    .read<ProjectReportProvider>()
+                                    .approveProjectReport(report.id);
+                              }
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Report approved successfully',
+                                    ),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Error approving report: $e'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            }
+                          } else if (choice == 'close') {
+                            try {
+                              if (isPettyCash) {
+                                await context
+                                    .read<ReportProvider>()
+                                    .closeReport(report.id);
+                              } else {
+                                await context
+                                    .read<ProjectReportProvider>()
+                                    .closeProjectReport(report.id);
+                              }
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Report closed successfully'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Error closing report: $e'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            }
                           } else if (choice == 'delete') {
                             // Show confirmation dialog before deleting
                             showDialog<bool>(
                               context: context,
                               builder: (context) => AlertDialog(
                                 title: const Text('Delete Report'),
-                                content: Text('Are you sure you want to delete report ${report.reportNumber}? This action cannot be undone.'),
+                                content: Text(
+                                  'Are you sure you want to delete report ${report.reportNumber}? This action cannot be undone.',
+                                ),
                                 actions: [
                                   TextButton(
-                                    onPressed: () => Navigator.of(context).pop(false),
+                                    onPressed: () =>
+                                        Navigator.of(context).pop(false),
                                     child: const Text('Cancel'),
                                   ),
                                   TextButton(
                                     onPressed: () async {
                                       try {
-                                        await context.read<ReportProvider>().deleteReport(report.id);
+                                        if (isPettyCash) {
+                                          await context
+                                              .read<ReportProvider>()
+                                              .deleteReport(report.id);
+                                        } else {
+                                          await context
+                                              .read<ProjectReportProvider>()
+                                              .deleteProjectReport(report.id);
+                                        }
                                         if (context.mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
                                             const SnackBar(
-                                              content: Text('Report deleted successfully'),
+                                              content: Text(
+                                                'Report deleted successfully',
+                                              ),
                                             ),
                                           );
                                         }
                                       } catch (e) {
                                         if (context.mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
                                             SnackBar(
-                                              content: Text('Error deleting report: $e'),
+                                              content: Text(
+                                                'Error deleting report: $e',
+                                              ),
                                               backgroundColor: Colors.red,
                                             ),
                                           );
@@ -265,40 +484,115 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                                         Navigator.of(context).pop(true);
                                       }
                                     },
-                                    child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                                    child: const Text(
+                                      'Delete',
+                                      style: TextStyle(color: Colors.red),
+                                    ),
                                   ),
                                 ],
                               ),
                             ).then((confirmed) async {
                               if (confirmed == true && context.mounted) {
                                 // Refresh the list after deletion
-                                await context.read<ReportProvider>().loadReports();
+                                await context
+                                    .read<ReportProvider>()
+                                    .loadReports();
+                                await context
+                                    .read<ProjectReportProvider>()
+                                    .loadProjectReports();
                               }
                             });
                           }
                         },
-                        itemBuilder: (context) => [
-                          const PopupMenuItem<String>(
-                            value: 'edit',
-                            child: Row(
-                              children: [
-                                Icon(Icons.edit, size: 18),
-                                SizedBox(width: 8),
-                                Text('Edit'),
-                              ],
+                        itemBuilder: (context) {
+                          final authProvider = context.read<AuthProvider>();
+                          final reportStatus = report.statusEnum;
+                          final canApprove = authProvider.canApprove();
+
+                          return [
+                            const PopupMenuItem<String>(
+                              value: 'edit',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.edit, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Edit'),
+                                ],
+                              ),
                             ),
-                          ),
-                          const PopupMenuItem<String>(
-                            value: 'delete',
-                            child: Row(
-                              children: [
-                                Icon(Icons.delete, size: 18, color: Colors.red),
-                                SizedBox(width: 8),
-                                Text('Delete', style: TextStyle(color: Colors.red)),
-                              ],
+                            if (reportStatus == ReportStatus.draft)
+                              const PopupMenuItem<String>(
+                                value: 'submit',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.send,
+                                      size: 18,
+                                      color: Colors.blue,
+                                    ),
+                                    SizedBox(width: 8),
+                                    Text('Submit'),
+                                  ],
+                                ),
+                              ),
+                            if (canApprove &&
+                                (reportStatus == ReportStatus.submitted ||
+                                    reportStatus == ReportStatus.underReview))
+                              const PopupMenuItem<String>(
+                                value: 'approve',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.check_circle,
+                                      size: 18,
+                                      color: Colors.green,
+                                    ),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Approve',
+                                      style: TextStyle(color: Colors.green),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            if (canApprove &&
+                                reportStatus == ReportStatus.approved)
+                              const PopupMenuItem<String>(
+                                value: 'close',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.lock,
+                                      size: 18,
+                                      color: Colors.purple,
+                                    ),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Close',
+                                      style: TextStyle(color: Colors.purple),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            const PopupMenuItem<String>(
+                              value: 'delete',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.delete,
+                                    size: 18,
+                                    color: Colors.red,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Delete',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
+                          ];
+                        },
                       ),
                     ],
                   ),
@@ -307,22 +601,28 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                     children: [
                       Expanded(
                         child: _buildAmountItem(
-                          'Opening',
-                          report.openingBalance,
+                          isPettyCash ? 'Opening' : 'Budget',
+                          isPettyCash
+                              ? report.openingBalance
+                              : (report as ProjectReport).budget,
                           Colors.blue,
                         ),
                       ),
                       Expanded(
                         child: _buildAmountItem(
-                          'Disbursements',
-                          report.totalDisbursements,
+                          isPettyCash ? 'Disbursements' : 'Expenses',
+                          isPettyCash
+                              ? report.totalDisbursements
+                              : (report as ProjectReport).totalExpenses,
                           Colors.red,
                         ),
                       ),
                       Expanded(
                         child: _buildAmountItem(
-                          'Balance',
-                          report.closingBalance,
+                          isPettyCash ? 'Balance' : 'Remaining',
+                          isPettyCash
+                              ? report.closingBalance
+                              : (report as ProjectReport).remainingBudget,
                           Colors.green,
                         ),
                       ),

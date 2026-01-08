@@ -19,6 +19,46 @@ class VoucherExportService {
     Transaction transaction,
     PettyCashReport report,
   ) async {
+    final pdf = await _generateVoucherPdf(transaction, report);
+
+    // Save file
+    final fileName =
+        'Voucher_${transaction.receiptNo}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    final bytes = await pdf.save();
+
+    if (kIsWeb) {
+      // Web platform - trigger download using printing package
+      await Printing.sharePdf(bytes: bytes, filename: fileName);
+      return fileName;
+    } else {
+      // Mobile/Desktop platform - save to file system
+      final directory = await getApplicationDocumentsDirectory();
+      final filePath = '${directory.path}/$fileName';
+      final file = File(filePath);
+      await file.writeAsBytes(bytes);
+      return filePath;
+    }
+  }
+
+  /// Print a single transaction as a Professional Petty Cash Voucher
+  Future<void> printVoucher(
+    Transaction transaction,
+    PettyCashReport report,
+  ) async {
+    final pdf = await _generateVoucherPdf(transaction, report);
+    final bytes = await pdf.save();
+
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => bytes,
+      name: 'Voucher_${transaction.receiptNo}',
+    );
+  }
+
+  /// Generate PDF document for voucher (shared logic for export and print)
+  Future<pw.Document> _generateVoucherPdf(
+    Transaction transaction,
+    PettyCashReport report,
+  ) async {
     final pdf = pw.Document();
     final dateFormat = DateFormat('dd/MM/yyyy');
 
@@ -87,26 +127,7 @@ class VoucherExportService {
       ),
     );
 
-    // Save file
-    final fileName =
-        'Voucher_${transaction.receiptNo}_${DateTime.now().millisecondsSinceEpoch}.pdf';
-    final bytes = await pdf.save();
-
-    if (kIsWeb) {
-      // Web platform - trigger download using printing package
-      await Printing.sharePdf(
-        bytes: bytes,
-        filename: fileName,
-      );
-      return fileName;
-    } else {
-      // Mobile/Desktop platform - save to file system
-      final directory = await getApplicationDocumentsDirectory();
-      final filePath = '${directory.path}/$fileName';
-      final file = File(filePath);
-      await file.writeAsBytes(bytes);
-      return filePath;
-    }
+    return pdf;
   }
 
   pw.Widget _buildHeader(pw.Font? font, pw.Font? fontBold) {
@@ -194,12 +215,22 @@ class VoucherExportService {
             children: [
               pw.Expanded(
                 flex: 2,
-                child: _buildInfoRow('Voucher No:', transaction.receiptNo, font, fontBold),
+                child: _buildInfoRow(
+                  'Voucher No:',
+                  transaction.receiptNo,
+                  font,
+                  fontBold,
+                ),
               ),
               pw.SizedBox(width: 20),
               pw.Expanded(
                 flex: 2,
-                child: _buildInfoRow('Date:', dateFormat.format(transaction.date), font, fontBold),
+                child: _buildInfoRow(
+                  'Date:',
+                  dateFormat.format(transaction.date),
+                  font,
+                  fontBold,
+                ),
               ),
             ],
           ),
@@ -210,12 +241,22 @@ class VoucherExportService {
             children: [
               pw.Expanded(
                 flex: 2,
-                child: _buildInfoRow('Report No:', report.reportNumber, font, fontBold),
+                child: _buildInfoRow(
+                  'Report No:',
+                  report.reportNumber,
+                  font,
+                  fontBold,
+                ),
               ),
               pw.SizedBox(width: 20),
               pw.Expanded(
                 flex: 2,
-                child: _buildInfoRow('Department:', report.department, font, fontBold),
+                child: _buildInfoRow(
+                  'Department:',
+                  report.department,
+                  font,
+                  fontBold,
+                ),
               ),
             ],
           ),
@@ -250,7 +291,12 @@ class VoucherExportService {
     );
   }
 
-  pw.Widget _buildInfoRow(String label, String value, pw.Font? font, pw.Font? fontBold) {
+  pw.Widget _buildInfoRow(
+    String label,
+    String value,
+    pw.Font? font,
+    pw.Font? fontBold,
+  ) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
@@ -264,18 +310,16 @@ class VoucherExportService {
           ),
         ),
         pw.SizedBox(height: 2),
-        pw.Text(
-          value,
-          style: pw.TextStyle(
-            fontSize: 10,
-            font: font,
-          ),
-        ),
+        pw.Text(value, style: pw.TextStyle(fontSize: 10, font: font)),
       ],
     );
   }
 
-  pw.Widget _buildDescriptionSection(Transaction transaction, pw.Font? font, pw.Font? fontBold) {
+  pw.Widget _buildDescriptionSection(
+    Transaction transaction,
+    pw.Font? font,
+    pw.Font? fontBold,
+  ) {
     return pw.Container(
       decoration: pw.BoxDecoration(
         border: pw.Border.all(color: PdfColors.grey400),
@@ -297,17 +341,30 @@ class VoucherExportService {
           pw.SizedBox(height: 6),
           pw.Text(
             transaction.description,
-            style: pw.TextStyle(fontSize: 10, font: font ?? pw.Font.helvetica()),
+            style: pw.TextStyle(
+              fontSize: 10,
+              font: font ?? pw.Font.helvetica(),
+            ),
           ),
           pw.SizedBox(height: 4),
           pw.Row(
             children: [
               pw.Expanded(
-                child: _buildInfoRow('Category:', transaction.category.toExpenseCategory().displayName, font, fontBold),
+                child: _buildInfoRow(
+                  'Category:',
+                  transaction.category.toExpenseCategory().displayName,
+                  font,
+                  fontBold,
+                ),
               ),
               pw.SizedBox(width: 20),
               pw.Expanded(
-                child: _buildInfoRow('Payment Method:', transaction.paymentMethod.toPaymentMethod().displayName, font, fontBold),
+                child: _buildInfoRow(
+                  'Payment Method:',
+                  transaction.paymentMethod.toPaymentMethod().displayName,
+                  font,
+                  fontBold,
+                ),
               ),
             ],
           ),
@@ -316,8 +373,13 @@ class VoucherExportService {
     );
   }
 
-  pw.Widget _buildAmountSection(Transaction transaction, pw.Font? font, pw.Font? fontBold) {
-    final amountText = '฿ ${NumberFormat('#,##0.00').format(transaction.amount)}';
+  pw.Widget _buildAmountSection(
+    Transaction transaction,
+    pw.Font? font,
+    pw.Font? fontBold,
+  ) {
+    final amountText =
+        '฿ ${NumberFormat('#,##0.00').format(transaction.amount)}';
 
     return pw.Container(
       decoration: pw.BoxDecoration(
@@ -453,7 +515,11 @@ class VoucherExportService {
     );
   }
 
-  pw.Widget _buildFooter(Transaction transaction, DateFormat dateFormat, pw.Font? font) {
+  pw.Widget _buildFooter(
+    Transaction transaction,
+    DateFormat dateFormat,
+    pw.Font? font,
+  ) {
     return pw.Container(
       decoration: pw.BoxDecoration(
         border: pw.Border.all(color: PdfColors.grey300),

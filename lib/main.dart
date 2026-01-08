@@ -6,12 +6,16 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
 import 'providers/report_provider.dart';
+import 'providers/project_report_provider.dart';
 import 'providers/transaction_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/dashboard/dashboard_screen.dart';
 import 'screens/reports/reports_list_screen.dart';
+import 'screens/reports/choose_report_type_screen.dart';
 import 'screens/reports/new_report_screen.dart';
+import 'screens/reports/new_project_report_screen.dart';
 import 'screens/reports/report_detail_screen.dart';
+import 'screens/reports/project_report_detail_screen.dart';
 import 'screens/approval/approvals_screen.dart';
 import 'screens/admin/admin_screen.dart';
 import 'screens/transactions/transactions_summary_screen.dart';
@@ -52,6 +56,7 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()..initialize()),
         ChangeNotifierProvider(create: (_) => ReportProvider()),
+        ChangeNotifierProvider(create: (_) => ProjectReportProvider()),
         ChangeNotifierProvider(create: (_) => TransactionProvider()),
       ],
       child: Consumer<AuthProvider>(
@@ -117,13 +122,28 @@ class MyApp extends StatelessWidget {
         ),
         GoRoute(
           path: '/reports/new',
+          builder: (context, state) => const ChooseReportTypeScreen(),
+        ),
+        GoRoute(
+          path: '/reports/new/petty-cash',
           builder: (context, state) => const NewReportScreen(),
+        ),
+        GoRoute(
+          path: '/reports/new/project',
+          builder: (context, state) => const NewProjectReportScreen(),
         ),
         GoRoute(
           path: '/reports/:id',
           builder: (context, state) {
             final id = state.pathParameters['id']!;
             return ReportDetailScreen(reportId: id);
+          },
+        ),
+        GoRoute(
+          path: '/project-reports/:id',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            return ProjectReportDetailScreen(reportId: id);
           },
         ),
         GoRoute(

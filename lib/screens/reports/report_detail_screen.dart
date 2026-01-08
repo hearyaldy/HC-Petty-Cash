@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/report_provider.dart';
+import '../../providers/project_report_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../models/petty_cash_report.dart';
 import '../../models/transaction.dart';
@@ -29,6 +30,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<TransactionProvider>().loadTransactions();
+      context.read<ProjectReportProvider>().loadProjectReports();
     });
   }
 
@@ -71,6 +73,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 await _exportPdf(report, transactions);
               } else if (value == 'submit') {
                 await _submitReport(report, reportProvider);
+              } else if (value == 'approve') {
+                await _approveReport(report, reportProvider);
               } else if (value == 'close') {
                 await _closeReport(report, reportProvider);
               }
@@ -104,6 +108,22 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       Icon(Icons.send),
                       SizedBox(width: 8),
                       Text('Submit Report'),
+                    ],
+                  ),
+                ),
+              if (authProvider.canApprove() &&
+                  (report.status == ReportStatus.submitted.name ||
+                      report.status == ReportStatus.underReview.name))
+                const PopupMenuItem(
+                  value: 'approve',
+                  child: Row(
+                    children: [
+                      Icon(Icons.check_circle, color: Colors.green),
+                      SizedBox(width: 8),
+                      Text(
+                        'Approve Report',
+                        style: TextStyle(color: Colors.green),
+                      ),
                     ],
                   ),
                 ),
@@ -169,7 +189,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             ),
             const Divider(height: 32),
             _buildDetailRow('Report Number', report.reportNumber),
-            _buildDetailRow('Department', report.department),
+            _buildDetailRow('Report Name', report.department),
             _buildDetailRow('Custodian', report.custodianName),
             _buildDetailRow(
               'Period',
@@ -441,7 +461,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         child: Row(
           children: [
             CircleAvatar(
-              backgroundColor: _getTransactionStatusColor(transaction.statusEnum),
+              backgroundColor: _getTransactionStatusColor(
+                transaction.statusEnum,
+              ),
               child: Icon(
                 _getTransactionIcon(transaction.categoryEnum),
                 color: Colors.white,
@@ -481,18 +503,62 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: () => _exportVoucher(transaction),
-                  icon: const Icon(Icons.receipt_long, size: 16),
-                  label: const Text('Voucher', style: TextStyle(fontSize: 12)),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 4,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () => _exportVoucher(transaction),
+                      icon: const Icon(Icons.receipt_long, size: 16),
+                      label: const Text(
+                        'Voucher',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
                     ),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert, size: 20),
+                      padding: EdgeInsets.zero,
+                      onSelected: (value) async {
+                        if (value == 'edit') {
+                          await _showEditTransactionDialog(transaction);
+                        } else if (value == 'delete') {
+                          await _showDeleteTransactionConfirmation(transaction);
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'edit',
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit, size: 18),
+                              SizedBox(width: 8),
+                              Text('Edit'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete, size: 18, color: Colors.red),
+                              SizedBox(width: 8),
+                              Text(
+                                'Delete',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -579,7 +645,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     String? selectedProjectId;
 
     // Get project reports before showing modal
-    final projectReports = context.read<ReportProvider>().reports;
+    final projectReports = context.read<ProjectReportProvider>().projectReports;
 
     await showModalBottomSheet(
       context: context,
@@ -744,10 +810,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                               value: null,
                               child: Text('No Project'),
                             ),
-                            ...projectReports.map((project) => DropdownMenuItem(
-                              value: project.id,
-                              child: Text(project.department), // Using department as project name
-                            )),
+                            ...projectReports.map(
+                              (project) => DropdownMenuItem(
+                                value: project.id,
+                                child: Text(project.projectName),
+                              ),
+                            ),
                           ],
                           onChanged: (value) {
                             setState(() {
@@ -830,9 +898,15 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                   );
 
                                   if (!context.mounted) return;
-                                  await context
-                                      .read<ReportProvider>()
-                                      .loadReports();
+                                  // Reload both transactions and reports to update the UI
+                                  await Future.wait([
+                                    context
+                                        .read<TransactionProvider>()
+                                        .loadTransactions(),
+                                    context
+                                        .read<ReportProvider>()
+                                        .loadReports(),
+                                  ]);
 
                                   if (context.mounted) {
                                     Navigator.of(context).pop();
@@ -920,6 +994,25 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     }
   }
 
+  Future<void> _approveReport(
+    PettyCashReport report,
+    ReportProvider provider,
+  ) async {
+    final updatedReport = report.copyWith(
+      status: ReportStatus.approved.name,
+      updatedAt: DateTime.now(),
+    );
+    await provider.updateReport(updatedReport);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Report approved successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
   Future<void> _closeReport(
     PettyCashReport report,
     ReportProvider provider,
@@ -948,8 +1041,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         context: context,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
-        builder: (context) =>
-            VoucherPreviewDialog(transaction: transaction, report: report),
+        builder: (context) => VoucherPreviewDialog(
+          transaction: transaction,
+          report: report,
+          onPrint: () => _printVoucher(transaction, report),
+        ),
       );
 
       // If user confirmed export
@@ -974,6 +1070,281 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             backgroundColor: Colors.red,
           ),
         );
+      }
+    }
+  }
+
+  Future<void> _printVoucher(
+    Transaction transaction,
+    PettyCashReport report,
+  ) async {
+    try {
+      final voucherService = VoucherExportService();
+      await voucherService.printVoucher(transaction, report);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error printing voucher: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _showEditTransactionDialog(Transaction transaction) async {
+    final amountController = TextEditingController(
+      text: transaction.amount.toString(),
+    );
+    final descriptionController = TextEditingController(
+      text: transaction.description,
+    );
+    final receiptNoController = TextEditingController(
+      text: transaction.receiptNo,
+    );
+    final paidToController = TextEditingController(
+      text: transaction.paidTo ?? '',
+    );
+    DateTime selectedDate = transaction.date;
+    ExpenseCategory selectedCategory = transaction.categoryEnum;
+    PaymentMethod selectedPaymentMethod = transaction.paymentMethodEnum;
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Transaction'),
+        content: SizedBox(
+          width: 500,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Description',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: amountController,
+                  decoration: const InputDecoration(
+                    labelText: 'Amount',
+                    border: OutlineInputBorder(),
+                    prefixText: '${AppConstants.currencySymbol} ',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: receiptNoController,
+                  decoration: const InputDecoration(
+                    labelText: 'Receipt No.',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: paidToController,
+                  decoration: const InputDecoration(
+                    labelText: 'Paid To',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                StatefulBuilder(
+                  builder: (context, setState) => Column(
+                    children: [
+                      InkWell(
+                        onTap: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            initialDate: selectedDate,
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime(2030),
+                          );
+                          if (date != null) {
+                            setState(() => selectedDate = date);
+                          }
+                        },
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'Date',
+                            border: OutlineInputBorder(),
+                            suffixIcon: Icon(Icons.calendar_today),
+                          ),
+                          child: Text(
+                            DateFormat('MMM d, y').format(selectedDate),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<ExpenseCategory>(
+                        value: selectedCategory,
+                        decoration: const InputDecoration(
+                          labelText: 'Category',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: ExpenseCategory.values
+                            .map(
+                              (cat) => DropdownMenuItem(
+                                value: cat,
+                                child: Text(cat.displayName),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() => selectedCategory = value);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<PaymentMethod>(
+                        value: selectedPaymentMethod,
+                        decoration: const InputDecoration(
+                          labelText: 'Payment Method',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: PaymentMethod.values
+                            .map(
+                              (method) => DropdownMenuItem(
+                                value: method,
+                                child: Text(method.displayName),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() => selectedPaymentMethod = value);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (descriptionController.text.isEmpty ||
+                  amountController.text.isEmpty ||
+                  receiptNoController.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please fill all required fields'),
+                  ),
+                );
+                return;
+              }
+
+              final transactionProvider = context.read<TransactionProvider>();
+
+              final updatedTransaction = transaction.copyWith(
+                date: selectedDate,
+                receiptNo: receiptNoController.text,
+                description: descriptionController.text,
+                category: selectedCategory.name,
+                amount: double.parse(amountController.text),
+                paymentMethod: selectedPaymentMethod.name,
+                paidTo: paidToController.text.isEmpty
+                    ? null
+                    : paidToController.text,
+                updatedAt: DateTime.now(),
+              );
+
+              await transactionProvider.updateTransaction(updatedTransaction);
+
+              if (!context.mounted) return;
+              // Reload both transactions and reports to update the UI
+              await Future.wait([
+                context.read<TransactionProvider>().loadTransactions(),
+                context.read<ReportProvider>().loadReports(),
+              ]);
+
+              if (context.mounted) {
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Transaction updated successfully'),
+                  ),
+                );
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showDeleteTransactionConfirmation(
+    Transaction transaction,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Transaction'),
+        content: Text(
+          'Are you sure you want to delete this transaction?\n\n'
+          '${transaction.description}\n'
+          '${AppConstants.currencySymbol}${transaction.amount.toStringAsFixed(2)}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      try {
+        final transactionProvider = context.read<TransactionProvider>();
+        await transactionProvider.deleteTransaction(transaction.id);
+
+        if (!mounted) return;
+        // Reload both transactions and reports to update the UI
+        await Future.wait([
+          context.read<TransactionProvider>().loadTransactions(),
+          context.read<ReportProvider>().loadReports(),
+        ]);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Transaction deleted successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error deleting transaction: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
   }
