@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import '../utils/logger.dart';
 
 class FirebaseStorageService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
@@ -23,7 +23,7 @@ class FirebaseStorageService {
 
       return downloadUrl;
     } catch (e) {
-      print('Upload error: $e');
+      AppLogger.severe('Upload error: $e');
       throw Exception('Failed to upload file: $e');
     }
   }
@@ -45,7 +45,7 @@ class FirebaseStorageService {
 
       return downloadUrl;
     } catch (e) {
-      print('Upload error: $e');
+      AppLogger.severe('Upload error: $e');
       throw Exception('Failed to upload file: $e');
     }
   }
@@ -64,7 +64,7 @@ class FirebaseStorageService {
         );
         urls.add(url);
       } catch (e) {
-        print('Error uploading file ${file.path}: $e');
+        AppLogger.warning('Error uploading file ${file.path}: $e');
         // Continue with other files even if one fails
       }
     }
@@ -77,7 +77,7 @@ class FirebaseStorageService {
       final ref = _storage.refFromURL(downloadUrl);
       await ref.delete();
     } catch (e) {
-      print('Delete error: $e');
+      AppLogger.warning('Delete error: $e');
       // Don't throw - file might already be deleted or URL invalid
     }
   }
@@ -92,11 +92,11 @@ class FirebaseStorageService {
         try {
           await item.delete();
         } catch (e) {
-          print('Error deleting item ${item.name}: $e');
+          AppLogger.warning('Error deleting item ${item.name}: $e');
         }
       }
     } catch (e) {
-      print('Delete all error: $e');
+      AppLogger.warning('Delete all error: $e');
     }
   }
 
@@ -113,7 +113,7 @@ class FirebaseStorageService {
       final ref = _storage.ref().child(storagePath);
       return await ref.getDownloadURL();
     } catch (e) {
-      print('Error getting download URL: $e');
+      AppLogger.warning('Error getting download URL: $e');
       return null;
     }
   }

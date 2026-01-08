@@ -54,8 +54,12 @@ class ExcelExportService {
     currentRow++;
 
     _setCellValue(sheet, 0, currentRow, 'Period:');
-    _setCellValue(sheet, 1, currentRow,
-        '${dateFormat.format(report.periodStart)} - ${dateFormat.format(report.periodEnd)}');
+    _setCellValue(
+      sheet,
+      1,
+      currentRow,
+      '${dateFormat.format(report.periodStart)} - ${dateFormat.format(report.periodEnd)}',
+    );
     _styleCell(sheet, 0, currentRow, bold: true);
     currentRow++;
 
@@ -70,7 +74,7 @@ class ExcelExportService {
     currentRow++;
 
     _setCellValue(sheet, 0, currentRow, 'Status:');
-    _setCellValue(sheet, 1, currentRow, report.status.reportStatusDisplayName);
+    _setCellValue(sheet, 1, currentRow, report.statusEnum.displayName);
     _styleCell(sheet, 0, currentRow, bold: true);
     currentRow++;
 
@@ -78,7 +82,12 @@ class ExcelExportService {
 
     // Opening Balance
     _setCellValue(sheet, 0, currentRow, 'Opening Balance:');
-    _setCellValue(sheet, 1, currentRow, currencyFormat.format(report.openingBalance));
+    _setCellValue(
+      sheet,
+      1,
+      currentRow,
+      currencyFormat.format(report.openingBalance),
+    );
     _styleCell(sheet, 0, currentRow, bold: true);
     _styleCell(sheet, 1, currentRow, bold: true);
     currentRow++;
@@ -95,7 +104,7 @@ class ExcelExportService {
       'Requestor',
       'Approver',
       'Status',
-      'Amount'
+      'Amount',
     ];
 
     for (int i = 0; i < headers.length; i++) {
@@ -107,7 +116,9 @@ class ExcelExportService {
 
     // Get transactions
     final firestoreService = FirestoreService();
-    final transactions = await firestoreService.getTransactionsByReportId(report.id);
+    final transactions = await firestoreService.getTransactionsByReportId(
+      report.id,
+    );
 
     // Transactions Data
     for (var transaction in transactions) {
@@ -119,12 +130,32 @@ class ExcelExportService {
       _setCellValue(sheet, 0, currentRow, dateFormat.format(transaction.date));
       _setCellValue(sheet, 1, currentRow, transaction.receiptNo);
       _setCellValue(sheet, 2, currentRow, transaction.description);
-      _setCellValue(sheet, 3, currentRow, transaction.category.expenseCategoryDisplayName);
-      _setCellValue(sheet, 4, currentRow, transaction.paymentMethod.paymentMethodDisplayName);
+      _setCellValue(
+        sheet,
+        3,
+        currentRow,
+        transaction.category.expenseCategoryDisplayName,
+      );
+      _setCellValue(
+        sheet,
+        4,
+        currentRow,
+        transaction.paymentMethod.paymentMethodDisplayName,
+      );
       _setCellValue(sheet, 5, currentRow, requestor?.name ?? 'Unknown');
       _setCellValue(sheet, 6, currentRow, approver?.name ?? '-');
-      _setCellValue(sheet, 7, currentRow, transaction.status.transactionStatusDisplayName);
-      _setCellValue(sheet, 8, currentRow, currencyFormat.format(transaction.amount));
+      _setCellValue(
+        sheet,
+        7,
+        currentRow,
+        transaction.status.transactionStatusDisplayName,
+      );
+      _setCellValue(
+        sheet,
+        8,
+        currentRow,
+        currencyFormat.format(transaction.amount),
+      );
 
       currentRow++;
     }
@@ -133,19 +164,34 @@ class ExcelExportService {
 
     // Summary Section
     _setCellValue(sheet, 7, currentRow, 'Total Disbursements:');
-    _setCellValue(sheet, 8, currentRow, currencyFormat.format(report.totalDisbursements));
+    _setCellValue(
+      sheet,
+      8,
+      currentRow,
+      currencyFormat.format(report.totalDisbursements),
+    );
     _styleCell(sheet, 7, currentRow, bold: true);
     _styleCell(sheet, 8, currentRow, bold: true);
     currentRow++;
 
     _setCellValue(sheet, 7, currentRow, 'Cash on Hand:');
-    _setCellValue(sheet, 8, currentRow, currencyFormat.format(report.cashOnHand));
+    _setCellValue(
+      sheet,
+      8,
+      currentRow,
+      currencyFormat.format(report.cashOnHand),
+    );
     _styleCell(sheet, 7, currentRow, bold: true);
     _styleCell(sheet, 8, currentRow, bold: true);
     currentRow++;
 
     _setCellValue(sheet, 7, currentRow, 'Closing Balance:');
-    _setCellValue(sheet, 8, currentRow, currencyFormat.format(report.closingBalance));
+    _setCellValue(
+      sheet,
+      8,
+      currentRow,
+      currencyFormat.format(report.closingBalance),
+    );
     _styleCell(sheet, 7, currentRow, bold: true);
     _styleCell(sheet, 8, currentRow, bold: true);
     currentRow++;
@@ -167,7 +213,8 @@ class ExcelExportService {
     }
 
     final directory = await getApplicationDocumentsDirectory();
-    final fileName = '${report.reportNumber}_${DateTime.now().millisecondsSinceEpoch}.xlsx';
+    final fileName =
+        '${report.reportNumber}_${DateTime.now().millisecondsSinceEpoch}.xlsx';
     final filePath = '${directory.path}/$fileName';
 
     final file = File(filePath);
@@ -177,7 +224,9 @@ class ExcelExportService {
   }
 
   void _setCellValue(Sheet sheet, int col, int row, dynamic value) {
-    final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
+    final cell = sheet.cell(
+      CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row),
+    );
     cell.value = TextCellValue(value.toString());
   }
 
@@ -189,7 +238,9 @@ class ExcelExportService {
     int fontSize = 11,
     String? backgroundColor,
   }) {
-    final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
+    final cell = sheet.cell(
+      CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row),
+    );
     if (backgroundColor != null) {
       cell.cellStyle = CellStyle(
         bold: bold,
@@ -197,15 +248,14 @@ class ExcelExportService {
         backgroundColorHex: ExcelColor.fromHexString(backgroundColor),
       );
     } else {
-      cell.cellStyle = CellStyle(
-        bold: bold,
-        fontSize: fontSize,
-      );
+      cell.cellStyle = CellStyle(bold: bold, fontSize: fontSize);
     }
   }
 
   void _setTextColor(Sheet sheet, int col, int row, String colorHex) {
-    final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
+    final cell = sheet.cell(
+      CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row),
+    );
     cell.cellStyle = CellStyle(
       bold: true,
       fontSize: 11,
@@ -214,7 +264,13 @@ class ExcelExportService {
     );
   }
 
-  void _mergeCells(Sheet sheet, int startRow, int startCol, int endRow, int endCol) {
+  void _mergeCells(
+    Sheet sheet,
+    int startRow,
+    int startCol,
+    int endRow,
+    int endCol,
+  ) {
     sheet.merge(
       CellIndex.indexByColumnRow(columnIndex: startCol, rowIndex: startRow),
       CellIndex.indexByColumnRow(columnIndex: endCol, rowIndex: endRow),

@@ -5,6 +5,7 @@ import 'approval_record.dart';
 class Transaction {
   final String id;
   final String reportId;
+  final String? projectId; // Optional project ID for linking to Project/Production reports
   final DateTime date;
   final String receiptNo;
   final String description;
@@ -23,6 +24,7 @@ class Transaction {
   Transaction({
     required this.id,
     required this.reportId,
+    this.projectId,
     required this.date,
     required this.receiptNo,
     required this.description,
@@ -65,6 +67,7 @@ class Transaction {
     return {
       'id': id,
       'reportId': reportId,
+      'projectId': projectId,
       'date': firestore.Timestamp.fromDate(date),
       'receiptNo': receiptNo,
       'description': description,
@@ -102,6 +105,7 @@ class Transaction {
     return Transaction(
       id: doc.id,
       reportId: data['reportId'] as String,
+      projectId: data['projectId'] as String?,
       date: (data['date'] as firestore.Timestamp).toDate(),
       receiptNo: data['receiptNo'] as String,
       description: data['description'] as String,
@@ -137,6 +141,7 @@ class Transaction {
     return {
       'id': id,
       'reportId': reportId,
+      'projectId': projectId,
       'date': date.toIso8601String(),
       'receiptNo': receiptNo,
       'description': description,
@@ -158,6 +163,7 @@ class Transaction {
     return Transaction(
       id: json['id'] as String,
       reportId: json['reportId'] as String,
+      projectId: json['projectId'] as String?,
       date: DateTime.parse(json['date'] as String),
       receiptNo: json['receiptNo'] as String,
       description: json['description'] as String,
@@ -185,6 +191,7 @@ class Transaction {
   // Helper method to create a copy with updates
   Transaction copyWith({
     String? reportId,
+    String? projectId,
     DateTime? date,
     String? receiptNo,
     String? description,
@@ -201,6 +208,7 @@ class Transaction {
     return Transaction(
       id: id,
       reportId: reportId ?? this.reportId,
+      projectId: projectId ?? this.projectId,
       date: date ?? this.date,
       receiptNo: receiptNo ?? this.receiptNo,
       description: description ?? this.description,

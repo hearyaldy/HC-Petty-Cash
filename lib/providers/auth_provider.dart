@@ -2,12 +2,21 @@ import 'package:flutter/foundation.dart';
 import '../services/firebase_auth_service.dart';
 import '../models/user.dart';
 import '../models/enums.dart';
+import '../utils/logger.dart';
+import '../utils/validation.dart';
 
 class AuthProvider extends ChangeNotifier {
   final FirebaseAuthService _authService = FirebaseAuthService();
+  String? _errorMessage;
 
   User? get currentUser => _authService.currentUser;
   bool get isAuthenticated => _authService.isAuthenticated;
+  String? get errorMessage => _errorMessage;
+
+  void clearError() {
+    _errorMessage = null;
+    notifyListeners();
+  }
 
   // Initialize and listen to auth state changes
   Future<void> initialize() async {
@@ -26,11 +35,18 @@ class AuthProvider extends ChangeNotifier {
 
   Future<bool> login(String email, String password) async {
     try {
-      final result = await _authService.login(email, password);
+      // Sanitize inputs
+      final sanitizedEmail = ValidationUtils.sanitizeString(email);
+      final sanitizedPassword = ValidationUtils.sanitizeString(password);
+
+      final result = await _authService.login(sanitizedEmail, sanitizedPassword);
+      _errorMessage = null;
       notifyListeners();
       return result;
     } catch (e) {
-      print('Login error in provider: $e');
+      _errorMessage = 'Login failed: ${e.toString()}';
+      AppLogger.severe('Login error in provider: $e');
+      notifyListeners();
       rethrow;
     }
   }
@@ -55,15 +71,21 @@ class AuthProvider extends ChangeNotifier {
     required String department,
   }) async {
     try {
+      // Sanitize inputs
+      final sanitizedEmail = ValidationUtils.sanitizeString(email);
+      final sanitizedPassword = ValidationUtils.sanitizeString(password);
+      final sanitizedName = ValidationUtils.sanitizeString(name);
+      final sanitizedDepartment = ValidationUtils.sanitizeString(department);
+
       return await _authService.registerUser(
-        email: email,
-        password: password,
-        name: name,
+        email: sanitizedEmail,
+        password: sanitizedPassword,
+        name: sanitizedName,
         role: role,
-        department: department,
+        department: sanitizedDepartment,
       );
     } catch (e) {
-      print('Registration error in provider: $e');
+      AppLogger.severe('Registration error in provider: $e');
       rethrow;
     }
   }

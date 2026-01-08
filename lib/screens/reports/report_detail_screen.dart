@@ -576,6 +576,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     DateTime selectedDate = DateTime.now();
     ExpenseCategory selectedCategory = ExpenseCategory.other;
     PaymentMethod selectedPaymentMethod = PaymentMethod.cash;
+    String? selectedProjectId;
+
+    // Get project reports before showing modal
+    final projectReports = context.read<ReportProvider>().reports;
 
     await showModalBottomSheet(
       context: context,
@@ -727,6 +731,31 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                           },
                         ),
                         const SizedBox(height: 16),
+                        // Project selection dropdown
+                        DropdownButtonFormField<String?>(
+                          value: selectedProjectId,
+                          decoration: const InputDecoration(
+                            labelText: 'Project (Optional)',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.work),
+                          ),
+                          items: [
+                            const DropdownMenuItem(
+                              value: null,
+                              child: Text('No Project'),
+                            ),
+                            ...projectReports.map((project) => DropdownMenuItem(
+                              value: project.id,
+                              child: Text(project.department), // Using department as project name
+                            )),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              selectedProjectId = value;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 16),
                         DropdownButtonFormField<ExpenseCategory>(
                           value: selectedCategory,
                           decoration: const InputDecoration(
@@ -789,6 +818,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
                                   await transactionProvider.createTransaction(
                                     reportId: report.id,
+                                    projectId: selectedProjectId,
                                     date: selectedDate,
                                     receiptNo: receiptNoController.text,
                                     description: descriptionController.text,

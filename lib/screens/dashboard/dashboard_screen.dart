@@ -304,7 +304,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   title: Text(report.reportNumber),
                   subtitle: Text(
-                    '${report.department} • ${report.status.reportStatusDisplayName}',
+                    '${report.department} • ${report.statusEnum.displayName}',
                   ),
                   trailing: Text(
                     '${AppConstants.currencySymbol}${report.totalDisbursements.toStringAsFixed(2)}',

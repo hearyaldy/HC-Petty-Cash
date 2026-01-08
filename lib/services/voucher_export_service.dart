@@ -7,12 +7,14 @@ import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/transaction.dart';
 import '../models/petty_cash_report.dart';
+import '../models/enums.dart';
 import '../utils/constants.dart';
+import '../utils/logger.dart';
 import 'firestore_service.dart';
 import 'package:printing/printing.dart';
 
 class VoucherExportService {
-  /// Export a single transaction as a Petty Cash Voucher (A5 Simple Format)
+  /// Export a single transaction as a Professional Petty Cash Voucher
   Future<String> exportVoucher(
     Transaction transaction,
     PettyCashReport report,
@@ -20,11 +22,19 @@ class VoucherExportService {
     final pdf = pw.Document();
     final dateFormat = DateFormat('dd/MM/yyyy');
 
-    // Load Thai font for proper rendering
-    final fontData = await rootBundle.load('fonts/NotoSansThai-Regular.ttf');
-    final ttf = pw.Font.ttf(fontData);
-    final fontBoldData = await rootBundle.load('fonts/NotoSansThai-Bold.ttf');
-    final ttfBold = pw.Font.ttf(fontBoldData);
+    // Load Thai font for proper rendering, with fallback to default fonts
+    pw.Font? ttf;
+    pw.Font? ttfBold;
+
+    try {
+      final fontData = await rootBundle.load('fonts/NotoSansThai-Regular.ttf');
+      ttf = pw.Font.ttf(fontData);
+      final fontBoldData = await rootBundle.load('fonts/NotoSansThai-Bold.ttf');
+      ttfBold = pw.Font.ttf(fontBoldData);
+    } catch (e) {
+      // If custom fonts fail to load, use default fonts
+      AppLogger.warning('Failed to load custom fonts: $e');
+    }
 
     // Get user information
     final requestor = await FirestoreService().getUser(transaction.requestorId);
@@ -36,23 +46,42 @@ class VoucherExportService {
         build: (context) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            // Organization Name (simple, no border)
-            _buildSimpleHeader(ttf, ttfBold),
+            // Header with organization details
+            _buildHeader(ttf, ttfBold),
             pw.SizedBox(height: 12),
 
-            // Voucher Fields
-            _buildSimpleVoucherContent(
+            // Voucher Title
+            _buildTitle(ttf, ttfBold),
+            pw.SizedBox(height: 16),
+
+            // Voucher Information Section
+            _buildVoucherInfoSection(
               transaction,
+              report,
               requestor,
               dateFormat,
               ttf,
               ttfBold,
             ),
+            pw.SizedBox(height: 16),
 
-            pw.Spacer(),
+            // Description Section
+            _buildDescriptionSection(transaction, ttf, ttfBold),
+            pw.SizedBox(height: 16),
 
-            // Simple signature line
-            _buildSimpleSignature(ttf, ttfBold),
+            // Amount Section with Amount in Words
+            _buildAmountSection(transaction, ttf, ttfBold),
+            pw.SizedBox(height: 16),
+
+            // Spacer to push signature section to bottom
+            pw.Expanded(child: pw.Container()),
+
+            // Signature Section
+            _buildSignatureSection(ttf, ttfBold),
+
+            // Footer with voucher ID and timestamp
+            pw.SizedBox(height: 16),
+            _buildFooter(transaction, dateFormat, ttf),
           ],
         ),
       ),
@@ -80,203 +109,310 @@ class VoucherExportService {
     }
   }
 
-  pw.Widget _buildSimpleHeader(pw.Font font, pw.Font fontBold) {
+  pw.Widget _buildHeader(pw.Font? font, pw.Font? fontBold) {
     return pw.Column(
       children: [
-        pw.Text(
-          AppConstants.organizationName,
-          style: pw.TextStyle(
-            fontSize: 10,
-            fontWeight: pw.FontWeight.bold,
-            font: fontBold,
-          ),
-          textAlign: pw.TextAlign.center,
-        ),
-        pw.SizedBox(height: 2),
-        pw.Text(
-          AppConstants.organizationNameThai,
-          style: pw.TextStyle(
-            fontSize: 9,
-            fontWeight: pw.FontWeight.bold,
-            font: fontBold,
-          ),
-          textAlign: pw.TextAlign.center,
-        ),
-        pw.SizedBox(height: 2),
-        pw.Text(
-          AppConstants.organizationAddress,
-          style: pw.TextStyle(
-            fontSize: 8,
-            color: PdfColors.grey700,
-            font: font,
-          ),
-          textAlign: pw.TextAlign.center,
-        ),
-        pw.SizedBox(height: 8),
-        pw.Text(
-          'PETTY CASH VOUCHER',
-          style: pw.TextStyle(
-            fontSize: 12,
-            fontWeight: pw.FontWeight.bold,
-            font: fontBold,
-          ),
-          textAlign: pw.TextAlign.center,
-        ),
-      ],
-    );
-  }
-
-  pw.Widget _buildSimpleVoucherContent(
-    Transaction transaction,
-    dynamic requestor,
-    DateFormat dateFormat,
-    pw.Font font,
-    pw.Font fontBold,
-  ) {
-    // Use direct Baht symbol for better rendering
-    final amountText =
-        '฿ ${NumberFormat('#,##0.00').format(transaction.amount)}';
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        // Number with decorative line
-        pw.Container(
-          decoration: const pw.BoxDecoration(
-            border: pw.Border(bottom: pw.BorderSide(color: PdfColors.grey300)),
-          ),
-          padding: const pw.EdgeInsets.only(bottom: 6),
-          child: _buildSimpleField(
-            'No.:',
-            transaction.receiptNo,
-            font,
-            fontBold,
-          ),
-        ),
-        pw.SizedBox(height: 8),
-
-        // Date
-        _buildSimpleField(
-          'Date:',
-          dateFormat.format(transaction.date),
-          font,
-          fontBold,
-        ),
-        pw.SizedBox(height: 8),
-
-        // Paid to
-        _buildSimpleField(
-          'Paid to:',
-          transaction.paidTo ?? requestor?.name ?? 'Unknown',
-          font,
-          fontBold,
-        ),
-        pw.SizedBox(height: 8),
-
-        // Amount (highlighted)
-        pw.Container(
-          decoration: pw.BoxDecoration(
-            color: PdfColors.grey100,
-            border: pw.Border.all(color: PdfColors.grey400),
-            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
-          ),
-          padding: const pw.EdgeInsets.all(6),
-          child: _buildSimpleField('Amount:', amountText, font, fontBold),
-        ),
-        pw.SizedBox(height: 4),
-
-        // Amount in words
-        pw.Container(
-          padding: const pw.EdgeInsets.symmetric(vertical: 2, horizontal: 6),
+        pw.Center(
           child: pw.Text(
-            '(${_convertToWords(transaction.amount)})',
+            AppConstants.organizationName,
             style: pw.TextStyle(
-              fontSize: 9,
-              fontStyle: pw.FontStyle.italic,
-              color: PdfColors.grey800,
-              font: font,
+              fontSize: 12,
+              fontWeight: pw.FontWeight.bold,
+              font: fontBold ?? pw.Font.helvetica(),
             ),
+            textAlign: pw.TextAlign.center,
           ),
         ),
-        pw.SizedBox(height: 8),
-
-        // For (Description) with box
-        pw.Container(
-          decoration: pw.BoxDecoration(
-            border: pw.Border.all(color: PdfColors.grey300),
-            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
-          ),
-          padding: const pw.EdgeInsets.all(6),
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Text(
-                'For:',
-                style: pw.TextStyle(
-                  fontSize: 10,
-                  fontWeight: pw.FontWeight.bold,
-                  font: fontBold,
-                ),
-              ),
-              pw.SizedBox(height: 4),
-              pw.Text(
-                transaction.description,
-                style: pw.TextStyle(fontSize: 10, font: font),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  pw.Widget _buildSimpleField(
-    String label,
-    String value,
-    pw.Font font,
-    pw.Font fontBold,
-  ) {
-    return pw.Row(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.SizedBox(
-          width: 65,
+        pw.SizedBox(height: 2),
+        pw.Center(
           child: pw.Text(
-            label,
+            AppConstants.organizationNameThai,
             style: pw.TextStyle(
               fontSize: 10,
               fontWeight: pw.FontWeight.bold,
-              font: fontBold,
+              font: fontBold ?? pw.Font.helvetica(),
             ),
+            textAlign: pw.TextAlign.center,
           ),
         ),
-        pw.Expanded(
-          child: pw.Text(value, style: pw.TextStyle(fontSize: 10, font: font)),
+        pw.SizedBox(height: 2),
+        pw.Center(
+          child: pw.Text(
+            AppConstants.organizationAddress,
+            style: pw.TextStyle(
+              fontSize: 8,
+              color: PdfColors.grey700,
+              font: font ?? pw.Font.helvetica(),
+            ),
+            textAlign: pw.TextAlign.center,
+          ),
         ),
       ],
     );
   }
 
-  pw.Widget _buildSimpleSignature(pw.Font font, pw.Font fontBold) {
+  pw.Widget _buildTitle(pw.Font? font, pw.Font? fontBold) {
     return pw.Container(
       decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: PdfColors.grey300),
+        border: pw.Border.all(color: PdfColors.grey600),
         borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
       ),
-      padding: const pw.EdgeInsets.all(8),
-      child: pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+      padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      child: pw.Center(
+        child: pw.Text(
+          'PETTY CASH VOUCHER',
+          style: pw.TextStyle(
+            fontSize: 14,
+            fontWeight: pw.FontWeight.bold,
+            font: fontBold ?? pw.Font.helvetica(),
+          ),
+          textAlign: pw.TextAlign.center,
+        ),
+      ),
+    );
+  }
+
+  pw.Widget _buildVoucherInfoSection(
+    Transaction transaction,
+    PettyCashReport report,
+    dynamic requestor,
+    DateFormat dateFormat,
+    pw.Font? font,
+    pw.Font? fontBold,
+  ) {
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.grey400),
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+      ),
+      padding: const pw.EdgeInsets.all(12),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          _buildSignatureBox('Received By', fontBold),
-          _buildSignatureBox('Paid By', fontBold),
-          _buildSignatureBox('Approved By', fontBold),
+          // Voucher number and date row
+          pw.Row(
+            children: [
+              pw.Expanded(
+                flex: 2,
+                child: _buildInfoRow('Voucher No:', transaction.receiptNo, font, fontBold),
+              ),
+              pw.SizedBox(width: 20),
+              pw.Expanded(
+                flex: 2,
+                child: _buildInfoRow('Date:', dateFormat.format(transaction.date), font, fontBold),
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 8),
+
+          // Report number and department row
+          pw.Row(
+            children: [
+              pw.Expanded(
+                flex: 2,
+                child: _buildInfoRow('Report No:', report.reportNumber, font, fontBold),
+              ),
+              pw.SizedBox(width: 20),
+              pw.Expanded(
+                flex: 2,
+                child: _buildInfoRow('Department:', report.department, font, fontBold),
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 8),
+
+          // Paid to and requestor row
+          pw.Row(
+            children: [
+              pw.Expanded(
+                flex: 2,
+                child: _buildInfoRow(
+                  'Paid to:',
+                  transaction.paidTo ?? requestor?.name ?? 'Unknown',
+                  font,
+                  fontBold,
+                ),
+              ),
+              pw.SizedBox(width: 20),
+              pw.Expanded(
+                flex: 2,
+                child: _buildInfoRow(
+                  'Requestor:',
+                  requestor?.name ?? 'Unknown',
+                  font,
+                  fontBold,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  pw.Widget _buildSignatureBox(String title, pw.Font fontBold) {
+  pw.Widget _buildInfoRow(String label, String value, pw.Font? font, pw.Font? fontBold) {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text(
+          label,
+          style: pw.TextStyle(
+            fontSize: 9,
+            fontWeight: pw.FontWeight.bold,
+            color: PdfColors.grey700,
+            font: fontBold,
+          ),
+        ),
+        pw.SizedBox(height: 2),
+        pw.Text(
+          value,
+          style: pw.TextStyle(
+            fontSize: 10,
+            font: font,
+          ),
+        ),
+      ],
+    );
+  }
+
+  pw.Widget _buildDescriptionSection(Transaction transaction, pw.Font? font, pw.Font? fontBold) {
     return pw.Container(
-      width: 100,
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.grey400),
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+      ),
+      padding: const pw.EdgeInsets.all(12),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            'DESCRIPTION',
+            style: pw.TextStyle(
+              fontSize: 10,
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColors.grey700,
+              font: fontBold ?? pw.Font.helvetica(),
+            ),
+          ),
+          pw.SizedBox(height: 6),
+          pw.Text(
+            transaction.description,
+            style: pw.TextStyle(fontSize: 10, font: font ?? pw.Font.helvetica()),
+          ),
+          pw.SizedBox(height: 4),
+          pw.Row(
+            children: [
+              pw.Expanded(
+                child: _buildInfoRow('Category:', transaction.category.toExpenseCategory().displayName, font, fontBold),
+              ),
+              pw.SizedBox(width: 20),
+              pw.Expanded(
+                child: _buildInfoRow('Payment Method:', transaction.paymentMethod.toPaymentMethod().displayName, font, fontBold),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildAmountSection(Transaction transaction, pw.Font? font, pw.Font? fontBold) {
+    final amountText = '฿ ${NumberFormat('#,##0.00').format(transaction.amount)}';
+
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+        color: PdfColors.grey100,
+        border: pw.Border.all(color: PdfColors.grey500),
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+      ),
+      padding: const pw.EdgeInsets.all(12),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Row(
+            children: [
+              pw.Expanded(
+                flex: 2,
+                child: pw.Text(
+                  'AMOUNT',
+                  style: pw.TextStyle(
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.grey700,
+                    font: fontBold ?? pw.Font.helvetica(),
+                  ),
+                ),
+              ),
+              pw.Expanded(
+                flex: 3,
+                child: pw.Align(
+                  alignment: pw.Alignment.centerRight,
+                  child: pw.Text(
+                    amountText,
+                    style: pw.TextStyle(
+                      fontSize: 14,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.red,
+                      font: fontBold ?? pw.Font.helvetica(),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 8),
+          pw.Container(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 4),
+            child: pw.Text(
+              '(${_convertToWords(transaction.amount)})',
+              style: pw.TextStyle(
+                fontSize: 9,
+                fontStyle: pw.FontStyle.italic,
+                color: PdfColors.grey800,
+                font: font ?? pw.Font.helvetica(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildSignatureSection(pw.Font? font, pw.Font? fontBold) {
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.grey400),
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+      ),
+      padding: const pw.EdgeInsets.all(12),
+      child: pw.Column(
+        children: [
+          pw.Text(
+            'SIGNATURES',
+            style: pw.TextStyle(
+              fontSize: 10,
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColors.grey700,
+              font: fontBold ?? pw.Font.helvetica(),
+            ),
+          ),
+          pw.SizedBox(height: 12),
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildSignatureBox('Received By', font, fontBold),
+              _buildSignatureBox('Paid By', font, fontBold),
+              _buildSignatureBox('Approved By', font, fontBold),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildSignatureBox(String title, pw.Font? font, pw.Font? fontBold) {
+    return pw.Container(
+      width: 80,
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.center,
         children: [
@@ -285,10 +421,10 @@ class VoucherExportService {
             style: pw.TextStyle(
               fontSize: 8,
               fontWeight: pw.FontWeight.bold,
-              font: fontBold,
+              font: fontBold ?? pw.Font.helvetica(),
             ),
           ),
-          pw.SizedBox(height: 20),
+          pw.SizedBox(height: 25),
           pw.Container(
             decoration: const pw.BoxDecoration(
               border: pw.Border(top: pw.BorderSide(color: PdfColors.black)),
@@ -299,8 +435,48 @@ class VoucherExportService {
               style: pw.TextStyle(
                 fontSize: 7,
                 color: PdfColors.grey,
-                font: fontBold,
+                font: font ?? pw.Font.helvetica(),
               ),
+            ),
+          ),
+          pw.SizedBox(height: 4),
+          pw.Text(
+            'Date',
+            style: pw.TextStyle(
+              fontSize: 7,
+              color: PdfColors.grey,
+              font: font ?? pw.Font.helvetica(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildFooter(Transaction transaction, DateFormat dateFormat, pw.Font? font) {
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.grey300),
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+      ),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text(
+            'Voucher ID: ${transaction.id.substring(0, 10)}...',
+            style: pw.TextStyle(
+              fontSize: 7,
+              color: PdfColors.grey600,
+              font: font ?? pw.Font.helvetica(),
+            ),
+          ),
+          pw.Text(
+            'Printed: ${dateFormat.format(DateTime.now())}',
+            style: pw.TextStyle(
+              fontSize: 7,
+              color: PdfColors.grey600,
+              font: font ?? pw.Font.helvetica(),
             ),
           ),
         ],

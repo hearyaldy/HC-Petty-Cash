@@ -65,6 +65,9 @@ dependencies:
   # HTTP (for future API integration)
   http: ^1.2.2
 
+  # Logging
+  logging: ^1.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -2,6 +2,8 @@ import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:cloud_firestore/cloud_firestore.dart' as firestore;
 import '../models/user.dart';
 import '../models/enums.dart';
+import '../utils/logger.dart';
+import '../utils/validation.dart';
 
 class FirebaseAuthService {
   final firebase_auth.FirebaseAuth _auth = firebase_auth.FirebaseAuth.instance;
@@ -27,17 +29,21 @@ class FirebaseAuthService {
   // Login with email and password
   Future<bool> login(String email, String password) async {
     try {
+      // Sanitize inputs
+      final sanitizedEmail = ValidationUtils.sanitizeString(email);
+      final sanitizedPassword = ValidationUtils.sanitizeString(password);
+
       final credential = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
+        email: sanitizedEmail,
+        password: sanitizedPassword,
       );
       await _loadUserData(credential.user!.uid);
       return true;
     } on firebase_auth.FirebaseAuthException catch (e) {
-      print('Login error: ${e.code} - ${e.message}');
+      AppLogger.severe('Login error: ${e.code} - ${e.message}');
       throw _handleAuthException(e);
     } catch (e) {
-      print('Unexpected login error: $e');
+      AppLogger.severe('Unexpected login error: $e');
       throw 'An unexpected error occurred';
     }
   }
@@ -51,19 +57,25 @@ class FirebaseAuthService {
     required String department,
   }) async {
     try {
+      // Sanitize inputs
+      final sanitizedEmail = ValidationUtils.sanitizeString(email);
+      final sanitizedPassword = ValidationUtils.sanitizeString(password);
+      final sanitizedName = ValidationUtils.sanitizeString(name);
+      final sanitizedDepartment = ValidationUtils.sanitizeString(department);
+
       // Create Firebase Auth user
       final credential = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
+        email: sanitizedEmail,
+        password: sanitizedPassword,
       );
 
       // Create user document in Firestore
       final user = User(
         id: credential.user!.uid,
-        name: name,
-        email: email,
+        name: sanitizedName,
+        email: sanitizedEmail,
         role: role.name,
-        department: department,
+        department: sanitizedDepartment,
         createdAt: DateTime.now(),
       );
 
@@ -74,10 +86,10 @@ class FirebaseAuthService {
 
       return true;
     } on firebase_auth.FirebaseAuthException catch (e) {
-      print('Registration error: ${e.code} - ${e.message}');
+      AppLogger.severe('Registration error: ${e.code} - ${e.message}');
       throw _handleAuthException(e);
     } catch (e) {
-      print('Unexpected registration error: $e');
+      AppLogger.severe('Unexpected registration error: $e');
       throw 'An unexpected error occurred';
     }
   }
@@ -95,11 +107,11 @@ class FirebaseAuthService {
       if (doc.exists) {
         _currentUser = User.fromFirestore(doc);
       } else {
-        print('User document not found for UID: $uid');
+        AppLogger.warning('User document not found for UID: $uid');
         throw 'User profile not found';
       }
     } catch (e) {
-      print('Error loading user data: $e');
+      AppLogger.severe('Error loading user data: $e');
       rethrow;
     }
   }
@@ -115,7 +127,7 @@ class FirebaseAuthService {
       _currentUser = updatedUser;
       return true;
     } catch (e) {
-      print('Update user error: $e');
+      AppLogger.severe('Update user error: $e');
       return false;
     }
   }

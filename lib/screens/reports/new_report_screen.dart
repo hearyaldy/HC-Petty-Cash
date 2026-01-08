@@ -15,7 +15,7 @@ class NewReportScreen extends StatefulWidget {
 
 class _NewReportScreenState extends State<NewReportScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _departmentController = TextEditingController();
+  final _reportNameController = TextEditingController();
   final _companyNameController = TextEditingController();
   final _openingBalanceController = TextEditingController();
   final _notesController = TextEditingController();
@@ -32,7 +32,7 @@ class _NewReportScreenState extends State<NewReportScreen> {
 
   @override
   void dispose() {
-    _departmentController.dispose();
+    _reportNameController.dispose();
     _companyNameController.dispose();
     _openingBalanceController.dispose();
     _notesController.dispose();
@@ -85,7 +85,7 @@ class _NewReportScreenState extends State<NewReportScreen> {
                           ),
                           const SizedBox(height: 16),
                           TextFormField(
-                            controller: _departmentController,
+                            controller: _reportNameController,
                             decoration: const InputDecoration(
                               labelText: 'Department',
                               border: OutlineInputBorder(),
@@ -292,7 +292,7 @@ class _NewReportScreenState extends State<NewReportScreen> {
       final report = await reportProvider.createReport(
         periodStart: _periodStart,
         periodEnd: _periodEnd,
-        department: _departmentController.text,
+        reportName: _reportNameController.text,
         custodian: user,
         openingBalance: double.parse(_openingBalanceController.text),
         companyName: _companyNameController.text.isEmpty

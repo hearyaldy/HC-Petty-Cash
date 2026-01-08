@@ -16,9 +16,13 @@ import 'screens/approval/approvals_screen.dart';
 import 'screens/admin/admin_screen.dart';
 import 'screens/transactions/transactions_summary_screen.dart';
 import 'utils/constants.dart';
+import 'utils/logger.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize logger
+  AppLogger.init();
 
   // Initialize Firebase
   try {
@@ -32,7 +36,7 @@ void main() async {
       cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
     );
   } catch (e) {
-    print('Firebase initialization error: $e');
+    AppLogger.severe('Firebase initialization error: $e');
     // Continue anyway for demo purposes
   }
 

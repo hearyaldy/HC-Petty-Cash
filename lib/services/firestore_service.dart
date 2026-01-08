@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user.dart';
 import '../models/petty_cash_report.dart';
+import '../models/project_report.dart';
 import '../models/transaction.dart' as app;
+import '../utils/logger.dart';
 
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -11,6 +13,8 @@ class FirestoreService {
       _firestore.collection('users');
   CollectionReference<Map<String, dynamic>> get _reportsCollection =>
       _firestore.collection('reports');
+  CollectionReference<Map<String, dynamic>> get _projectReportsCollection =>
+      _firestore.collection('project_reports');
   CollectionReference<Map<String, dynamic>> get _transactionsCollection =>
       _firestore.collection('transactions');
 
@@ -21,7 +25,7 @@ class FirestoreService {
       final doc = await _usersCollection.doc(userId).get();
       return doc.exists ? User.fromFirestore(doc) : null;
     } catch (e) {
-      print('Error getting user: $e');
+      AppLogger.severe('Error getting user: $e');
       rethrow;
     }
   }
@@ -31,7 +35,7 @@ class FirestoreService {
       final snapshot = await _usersCollection.get();
       return snapshot.docs.map((doc) => User.fromFirestore(doc)).toList();
     } catch (e) {
-      print('Error getting all users: $e');
+      AppLogger.severe('Error getting all users: $e');
       rethrow;
     }
   }
@@ -40,7 +44,7 @@ class FirestoreService {
     try {
       await _usersCollection.doc(user.id).set(user.toFirestore());
     } catch (e) {
-      print('Error saving user: $e');
+      AppLogger.severe('Error saving user: $e');
       rethrow;
     }
   }
@@ -50,7 +54,7 @@ class FirestoreService {
       final updated = user.copyWith(updatedAt: DateTime.now());
       await _usersCollection.doc(user.id).update(updated.toFirestore());
     } catch (e) {
-      print('Error updating user: $e');
+      AppLogger.severe('Error updating user: $e');
       rethrow;
     }
   }
@@ -59,7 +63,7 @@ class FirestoreService {
     try {
       await _usersCollection.doc(userId).delete();
     } catch (e) {
-      print('Error deleting user: $e');
+      AppLogger.severe('Error deleting user: $e');
       rethrow;
     }
   }
@@ -71,7 +75,7 @@ class FirestoreService {
       final doc = await _reportsCollection.doc(reportId).get();
       return doc.exists ? PettyCashReport.fromFirestore(doc) : null;
     } catch (e) {
-      print('Error getting report: $e');
+      AppLogger.severe('Error getting report: $e');
       rethrow;
     }
   }
@@ -85,7 +89,7 @@ class FirestoreService {
           .map((doc) => PettyCashReport.fromFirestore(doc))
           .toList();
     } catch (e) {
-      print('Error getting all reports: $e');
+      AppLogger.severe('Error getting all reports: $e');
       rethrow;
     }
   }
@@ -100,7 +104,7 @@ class FirestoreService {
           .map((doc) => PettyCashReport.fromFirestore(doc))
           .toList();
     } catch (e) {
-      print('Error getting reports by status: $e');
+      AppLogger.severe('Error getting reports by status: $e');
       rethrow;
     }
   }
@@ -116,7 +120,7 @@ class FirestoreService {
           .map((doc) => PettyCashReport.fromFirestore(doc))
           .toList();
     } catch (e) {
-      print('Error getting reports by custodian: $e');
+      AppLogger.severe('Error getting reports by custodian: $e');
       rethrow;
     }
   }
@@ -132,7 +136,7 @@ class FirestoreService {
           .map((doc) => PettyCashReport.fromFirestore(doc))
           .toList();
     } catch (e) {
-      print('Error getting reports by department: $e');
+      AppLogger.severe('Error getting reports by department: $e');
       rethrow;
     }
   }
@@ -141,7 +145,7 @@ class FirestoreService {
     try {
       await _reportsCollection.doc(report.id).set(report.toFirestore());
     } catch (e) {
-      print('Error saving report: $e');
+      AppLogger.severe('Error saving report: $e');
       rethrow;
     }
   }
@@ -150,7 +154,7 @@ class FirestoreService {
     try {
       await _reportsCollection.doc(report.id).update(report.toFirestore());
     } catch (e) {
-      print('Error updating report: $e');
+      AppLogger.severe('Error updating report: $e');
       rethrow;
     }
   }
@@ -165,7 +169,7 @@ class FirestoreService {
       // Then delete the report
       await _reportsCollection.doc(reportId).delete();
     } catch (e) {
-      print('Error deleting report: $e');
+      AppLogger.severe('Error deleting report: $e');
       rethrow;
     }
   }
@@ -187,7 +191,7 @@ class FirestoreService {
       final doc = await _transactionsCollection.doc(transactionId).get();
       return doc.exists ? app.Transaction.fromFirestore(doc) : null;
     } catch (e) {
-      print('Error getting transaction: $e');
+      AppLogger.severe('Error getting transaction: $e');
       rethrow;
     }
   }
@@ -201,7 +205,7 @@ class FirestoreService {
           .map((doc) => app.Transaction.fromFirestore(doc))
           .toList();
     } catch (e) {
-      print('Error getting all transactions: $e');
+      AppLogger.severe('Error getting all transactions: $e');
       rethrow;
     }
   }
@@ -217,7 +221,7 @@ class FirestoreService {
           .map((doc) => app.Transaction.fromFirestore(doc))
           .toList();
     } catch (e) {
-      print('Error getting transactions by report: $e');
+      AppLogger.severe('Error getting transactions by report: $e');
       rethrow;
     }
   }
@@ -232,7 +236,7 @@ class FirestoreService {
           .map((doc) => app.Transaction.fromFirestore(doc))
           .toList();
     } catch (e) {
-      print('Error getting transactions by status: $e');
+      AppLogger.severe('Error getting transactions by status: $e');
       rethrow;
     }
   }
@@ -243,7 +247,7 @@ class FirestoreService {
           .doc(transaction.id)
           .set(transaction.toFirestore());
     } catch (e) {
-      print('Error saving transaction: $e');
+      AppLogger.severe('Error saving transaction: $e');
       rethrow;
     }
   }
@@ -254,7 +258,7 @@ class FirestoreService {
           .doc(transaction.id)
           .update(transaction.toFirestore());
     } catch (e) {
-      print('Error updating transaction: $e');
+      AppLogger.severe('Error updating transaction: $e');
       rethrow;
     }
   }
@@ -263,7 +267,7 @@ class FirestoreService {
     try {
       await _transactionsCollection.doc(transactionId).delete();
     } catch (e) {
-      print('Error deleting transaction: $e');
+      AppLogger.severe('Error deleting transaction: $e');
       rethrow;
     }
   }
@@ -302,7 +306,7 @@ class FirestoreService {
             report.custodianName.toLowerCase().contains(lowerQuery);
       }).toList();
     } catch (e) {
-      print('Error searching reports: $e');
+      AppLogger.severe('Error searching reports: $e');
       rethrow;
     }
   }
@@ -320,7 +324,7 @@ class FirestoreService {
       }
       await batch.commit();
     } catch (e) {
-      print('Error batch updating reports: $e');
+      AppLogger.severe('Error batch updating reports: $e');
       rethrow;
     }
   }
@@ -337,7 +341,154 @@ class FirestoreService {
       }
       await batch.commit();
     } catch (e) {
-      print('Error batch updating transactions: $e');
+      AppLogger.severe('Error batch updating transactions: $e');
+      rethrow;
+    }
+  }
+
+  // ===== PROJECT REPORT OPERATIONS =====
+
+  Future<ProjectReport?> getProjectReport(String reportId) async {
+    try {
+      final doc = await _projectReportsCollection.doc(reportId).get();
+      return doc.exists ? ProjectReport.fromFirestore(doc) : null;
+    } catch (e) {
+      AppLogger.severe('Error getting project report: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<ProjectReport>> getAllProjectReports() async {
+    try {
+      final snapshot = await _projectReportsCollection
+          .orderBy('createdAt', descending: true)
+          .get();
+      return snapshot.docs
+          .map((doc) => ProjectReport.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      AppLogger.severe('Error getting all project reports: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<ProjectReport>> getProjectReportsByStatus(String status) async {
+    try {
+      final snapshot = await _projectReportsCollection
+          .where('status', isEqualTo: status)
+          .orderBy('createdAt', descending: true)
+          .get();
+      return snapshot.docs
+          .map((doc) => ProjectReport.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      AppLogger.severe('Error getting project reports by status: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<ProjectReport>> getProjectReportsByCustodian(
+      String custodianId) async {
+    try {
+      final snapshot = await _projectReportsCollection
+          .where('custodianId', isEqualTo: custodianId)
+          .orderBy('createdAt', descending: true)
+          .get();
+      return snapshot.docs
+          .map((doc) => ProjectReport.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      AppLogger.severe('Error getting project reports by custodian: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<ProjectReport>> getProjectReportsByProjectName(
+      String projectName) async {
+    try {
+      final snapshot = await _projectReportsCollection
+          .where('projectName', isEqualTo: projectName)
+          .orderBy('createdAt', descending: true)
+          .get();
+      return snapshot.docs
+          .map((doc) => ProjectReport.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      AppLogger.severe('Error getting project reports by project name: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> saveProjectReport(ProjectReport report) async {
+    try {
+      await _projectReportsCollection.doc(report.id).set(report.toFirestore());
+    } catch (e) {
+      AppLogger.severe('Error saving project report: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateProjectReport(ProjectReport report) async {
+    try {
+      await _projectReportsCollection.doc(report.id).update(report.toFirestore());
+    } catch (e) {
+      AppLogger.severe('Error updating project report: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteProjectReport(String reportId) async {
+    try {
+      // Get and delete associated transactions first
+      final transactions = await getTransactionsByProjectId(reportId);
+      for (var transaction in transactions) {
+        await deleteTransaction(transaction.id);
+      }
+      // Then delete the report
+      await _projectReportsCollection.doc(reportId).delete();
+    } catch (e) {
+      AppLogger.severe('Error deleting project report: $e');
+      rethrow;
+    }
+  }
+
+  // Stream for real-time updates
+  Stream<List<ProjectReport>> projectReportsStream() {
+    return _projectReportsCollection
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => ProjectReport.fromFirestore(doc))
+            .toList());
+  }
+
+  Future<List<app.Transaction>> getTransactionsByProjectId(String projectId) async {
+    try {
+      final snapshot = await _transactionsCollection
+          .where('projectId', isEqualTo: projectId)
+          .orderBy('createdAt', descending: true)
+          .get();
+      return snapshot.docs
+          .map((doc) => app.Transaction.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      AppLogger.severe('Error getting transactions by project: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> batchUpdateProjectReports(List<ProjectReport> reports) async {
+    try {
+      final batch = _firestore.batch();
+      for (var report in reports) {
+        batch.update(
+          _projectReportsCollection.doc(report.id),
+          report.toFirestore(),
+        );
+      }
+      await batch.commit();
+    } catch (e) {
+      AppLogger.severe('Error batch updating project reports: $e');
       rethrow;
     }
   }

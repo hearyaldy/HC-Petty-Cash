@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../utils/validation.dart';
+import '../../utils/constants.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -28,10 +30,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = true);
 
+    // Sanitize inputs
+    final email = ValidationUtils.sanitizeString(_emailController.text);
+    final password = ValidationUtils.sanitizeString(_passwordController.text);
+
     final authProvider = context.read<AuthProvider>();
     final success = await authProvider.login(
-      _emailController.text.trim(),
-      _passwordController.text,
+      email,
+      password,
     );
 
     if (!mounted) return;
@@ -93,12 +99,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           border: OutlineInputBorder(),
                         ),
                         keyboardType: TextInputType.emailAddress,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter your email';
-                          }
-                          return null;
-                        },
+                        validator: ValidationUtils.validateEmail,
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
@@ -121,12 +122,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         obscureText: _obscurePassword,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter your password';
-                          }
-                          return null;
-                        },
+                        validator: ValidationUtils.validatePassword,
                         onFieldSubmitted: (_) => _handleLogin(),
                       ),
                       const SizedBox(height: 24),
@@ -147,16 +143,18 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 16),
                       const Divider(),
                       const SizedBox(height: 8),
-                      Text(
-                        'Demo Accounts:',
-                        style: Theme.of(context).textTheme.labelSmall,
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 8),
-                      _buildDemoAccount('Admin', 'admin@company.com', 'admin123'),
-                      _buildDemoAccount('Manager', 'manager@company.com', 'manager123'),
-                      _buildDemoAccount('Finance', 'finance@company.com', 'finance123'),
-                      _buildDemoAccount('User', 'user@company.com', 'user123'),
+                      if (AppConstants.enableDemoAccounts) ...[
+                        Text(
+                          'Demo Accounts:',
+                          style: Theme.of(context).textTheme.labelSmall,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        _buildDemoAccount('Admin', 'admin@company.com', 'admin123'),
+                        _buildDemoAccount('Manager', 'manager@company.com', 'manager123'),
+                        _buildDemoAccount('Finance', 'finance@company.com', 'finance123'),
+                        _buildDemoAccount('User', 'user@company.com', 'user123'),
+                      ],
                     ],
                   ),
                 ),

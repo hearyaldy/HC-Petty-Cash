@@ -12,6 +12,7 @@ import '../../providers/report_provider.dart';
 import '../../models/transaction.dart';
 import '../../models/enums.dart';
 import '../../utils/constants.dart';
+import '../../utils/logger.dart';
 
 class TransactionsSummaryScreen extends StatefulWidget {
   const TransactionsSummaryScreen({super.key});
@@ -1073,7 +1074,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
         final directory = await getApplicationDocumentsDirectory();
         final filePath = '${directory.path}/$fileName';
         final output = await File(filePath).writeAsBytes(bytes);
-        print('PDF saved to ${output.path}');
+        AppLogger.info('PDF saved to ${output.path}');
       }
 
       if (mounted) {

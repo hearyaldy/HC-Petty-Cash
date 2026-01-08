@@ -6,6 +6,7 @@ import '../services/firebase_storage_service.dart';
 import '../models/transaction.dart';
 import '../models/enums.dart';
 import '../models/approval_record.dart';
+import '../utils/logger.dart';
 
 class TransactionProvider extends ChangeNotifier {
   final FirestoreService _firestoreService = FirestoreService();
@@ -14,19 +15,28 @@ class TransactionProvider extends ChangeNotifier {
   List<Transaction> _transactions = [];
   Transaction? _selectedTransaction;
   bool _isLoading = false;
+  String? _errorMessage;
 
   List<Transaction> get transactions => _transactions;
   Transaction? get selectedTransaction => _selectedTransaction;
   bool get isLoading => _isLoading;
+  String? get errorMessage => _errorMessage;
+
+  void clearError() {
+    _errorMessage = null;
+    notifyListeners();
+  }
 
   Future<void> loadTransactions() async {
     _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
 
     try {
       _transactions = await _firestoreService.getAllTransactions();
     } catch (e) {
-      print('Error loading transactions: $e');
+      _errorMessage = 'Failed to load transactions: ${e.toString()}';
+      AppLogger.severe('Error loading transactions: $e');
       _transactions = [];
     }
 
@@ -36,12 +46,14 @@ class TransactionProvider extends ChangeNotifier {
 
   Future<void> loadTransactionsByReportId(String reportId) async {
     _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
 
     try {
       _transactions = await _firestoreService.getTransactionsByReportId(reportId);
     } catch (e) {
-      print('Error loading transactions for report: $e');
+      _errorMessage = 'Failed to load transactions for report: ${e.toString()}';
+      AppLogger.severe('Error loading transactions for report: $e');
       _transactions = [];
     }
 
@@ -51,6 +63,7 @@ class TransactionProvider extends ChangeNotifier {
 
   Future<Transaction> createTransaction({
     required String reportId,
+    String? projectId,
     required DateTime date,
     required String receiptNo,
     required String description,
@@ -61,6 +74,10 @@ class TransactionProvider extends ChangeNotifier {
     String? paidTo,
     List<File>? attachmentFiles,
   }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
     // Upload files to Firebase Storage first
     List<String> attachmentUrls = [];
     if (attachmentFiles != null && attachmentFiles.isNotEmpty) {
@@ -71,7 +88,7 @@ class TransactionProvider extends ChangeNotifier {
           files: attachmentFiles,
         );
       } catch (e) {
-        print('Error uploading attachments: $e');
+        AppLogger.warning('Error uploading attachments: $e');
         // Continue without attachments if upload fails
       }
     }
@@ -79,6 +96,7 @@ class TransactionProvider extends ChangeNotifier {
     final transaction = Transaction(
       id: _uuid.v4(),
       reportId: reportId,
+      projectId: projectId,
       date: date,
       receiptNo: receiptNo,
       description: description,
@@ -95,12 +113,19 @@ class TransactionProvider extends ChangeNotifier {
     try {
       await _firestoreService.saveTransaction(transaction);
       await loadTransactionsByReportId(reportId);
+      // Update financial summary for the report
+      await _updateReportFinancialSummary(reportId);
+      _isLoading = false;
+      notifyListeners();
     } catch (e) {
-      print('Error saving transaction: $e');
+      _errorMessage = 'Failed to save transaction: ${e.toString()}';
+      AppLogger.severe('Error saving transaction: $e');
       // Clean up uploaded files if transaction save fails
       if (attachmentUrls.isNotEmpty) {
         await _storageService.deleteMultipleAttachments(attachmentUrls);
       }
+      _isLoading = false;
+      notifyListeners();
       rethrow;
     }
 
@@ -108,17 +133,32 @@ class TransactionProvider extends ChangeNotifier {
   }
 
   Future<void> updateTransaction(Transaction transaction) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
     try {
       final updated = transaction.copyWith(updatedAt: DateTime.now());
       await _firestoreService.updateTransaction(updated);
       await loadTransactionsByReportId(transaction.reportId);
+      // Update financial summary for the report
+      await _updateReportFinancialSummary(transaction.reportId);
+      _isLoading = false;
+      notifyListeners();
     } catch (e) {
-      print('Error updating transaction: $e');
+      _errorMessage = 'Failed to update transaction: ${e.toString()}';
+      AppLogger.severe('Error updating transaction: $e');
+      _isLoading = false;
+      notifyListeners();
       rethrow;
     }
   }
 
   Future<void> deleteTransaction(String transactionId) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
     try {
       final transaction = await _firestoreService.getTransaction(transactionId);
       if (transaction != null) {
@@ -129,9 +169,16 @@ class TransactionProvider extends ChangeNotifier {
         // Delete transaction from Firestore
         await _firestoreService.deleteTransaction(transactionId);
         await loadTransactionsByReportId(transaction.reportId);
+        // Update financial summary for the report
+        await _updateReportFinancialSummary(transaction.reportId);
       }
+      _isLoading = false;
+      notifyListeners();
     } catch (e) {
-      print('Error deleting transaction: $e');
+      _errorMessage = 'Failed to delete transaction: ${e.toString()}';
+      AppLogger.severe('Error deleting transaction: $e');
+      _isLoading = false;
+      notifyListeners();
       rethrow;
     }
   }
@@ -142,6 +189,10 @@ class TransactionProvider extends ChangeNotifier {
   }
 
   Future<void> submitForApproval(String transactionId) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
     try {
       final transaction = await _firestoreService.getTransaction(transactionId);
       if (transaction != null) {
@@ -151,9 +202,16 @@ class TransactionProvider extends ChangeNotifier {
         );
         await _firestoreService.updateTransaction(updated);
         await loadTransactionsByReportId(transaction.reportId);
+        // Update financial summary for the report
+        await _updateReportFinancialSummary(transaction.reportId);
       }
+      _isLoading = false;
+      notifyListeners();
     } catch (e) {
-      print('Error submitting for approval: $e');
+      _errorMessage = 'Failed to submit for approval: ${e.toString()}';
+      AppLogger.severe('Error submitting for approval: $e');
+      _isLoading = false;
+      notifyListeners();
       rethrow;
     }
   }
@@ -164,6 +222,10 @@ class TransactionProvider extends ChangeNotifier {
     String approverName, {
     String? comments,
   }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
     try {
       final transaction = await _firestoreService.getTransaction(transactionId);
       if (transaction != null) {
@@ -186,9 +248,16 @@ class TransactionProvider extends ChangeNotifier {
 
         await _firestoreService.updateTransaction(updated);
         await loadTransactionsByReportId(transaction.reportId);
+        // Update financial summary for the report
+        await _updateReportFinancialSummary(transaction.reportId);
       }
+      _isLoading = false;
+      notifyListeners();
     } catch (e) {
-      print('Error approving transaction: $e');
+      _errorMessage = 'Failed to approve transaction: ${e.toString()}';
+      AppLogger.severe('Error approving transaction: $e');
+      _isLoading = false;
+      notifyListeners();
       rethrow;
     }
   }
@@ -199,6 +268,10 @@ class TransactionProvider extends ChangeNotifier {
     String approverName, {
     String? comments,
   }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
     try {
       final transaction = await _firestoreService.getTransaction(transactionId);
       if (transaction != null) {
@@ -220,9 +293,16 @@ class TransactionProvider extends ChangeNotifier {
 
         await _firestoreService.updateTransaction(updated);
         await loadTransactionsByReportId(transaction.reportId);
+        // Update financial summary for the report
+        await _updateReportFinancialSummary(transaction.reportId);
       }
+      _isLoading = false;
+      notifyListeners();
     } catch (e) {
-      print('Error rejecting transaction: $e');
+      _errorMessage = 'Failed to reject transaction: ${e.toString()}';
+      AppLogger.severe('Error rejecting transaction: $e');
+      _isLoading = false;
+      notifyListeners();
       rethrow;
     }
   }
@@ -237,5 +317,25 @@ class TransactionProvider extends ChangeNotifier {
     return _transactions
         .where((t) => t.status == TransactionStatus.approved.name)
         .toList();
+  }
+
+  // Update financial summary for a report after transaction changes
+  Future<void> _updateReportFinancialSummary(String reportId) async {
+    try {
+      // Get all transactions for the report
+      final transactions = await _firestoreService.getTransactionsByReportId(reportId);
+
+      // Get the report
+      final report = await _firestoreService.getReport(reportId);
+      if (report != null) {
+        // Calculate totals based on transactions
+        final updatedReport = report.calculateTotals(transactions);
+
+        // Update the report in Firestore
+        await _firestoreService.updateReport(updatedReport);
+      }
+    } catch (e) {
+      AppLogger.severe('Error updating report financial summary: $e');
+    }
   }
 }

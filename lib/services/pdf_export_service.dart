@@ -16,7 +16,9 @@ class PdfExportService {
     final currencyFormat = NumberFormat.currency(symbol: '\$');
 
     // Get transactions
-    final transactions = await FirestoreService().getTransactionsByReportId(report.id);
+    final transactions = await FirestoreService().getTransactionsByReportId(
+      report.id,
+    );
 
     pdf.addPage(
       pw.MultiPage(
@@ -48,9 +50,7 @@ class PdfExportService {
                 pw.SizedBox(height: 4),
                 pw.Text(
                   AppConstants.organizationAddress,
-                  style: const pw.TextStyle(
-                    fontSize: 9,
-                  ),
+                  style: const pw.TextStyle(fontSize: 9),
                   textAlign: pw.TextAlign.center,
                 ),
                 pw.SizedBox(height: 16),
@@ -91,10 +91,7 @@ class PdfExportService {
           // Transactions Table
           pw.Text(
             'Transactions',
-            style: pw.TextStyle(
-              fontSize: 14,
-              fontWeight: pw.FontWeight.bold,
-            ),
+            style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
           ),
           pw.SizedBox(height: 10),
           _buildTransactionsTable(transactions, dateFormat, currencyFormat),
@@ -137,7 +134,8 @@ class PdfExportService {
 
     // Save file
     final directory = await getApplicationDocumentsDirectory();
-    final fileName = '${report.reportNumber}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    final fileName =
+        '${report.reportNumber}_${DateTime.now().millisecondsSinceEpoch}.pdf';
     final filePath = '${directory.path}/$fileName';
 
     final file = File(filePath);
@@ -163,7 +161,7 @@ class PdfExportService {
           ),
           _buildInfoRow('Department:', report.department),
           _buildInfoRow('Custodian:', report.custodianName),
-          _buildInfoRow('Status:', report.status.reportStatusDisplayName),
+          _buildInfoRow('Status:', report.statusEnum.displayName),
         ],
       ),
     );
@@ -263,9 +261,18 @@ class PdfExportService {
       ),
       child: pw.Column(
         children: [
-          _buildSummaryRow('Total Disbursements:', currencyFormat.format(report.totalDisbursements)),
-          _buildSummaryRow('Cash on Hand:', currencyFormat.format(report.cashOnHand)),
-          _buildSummaryRow('Closing Balance:', currencyFormat.format(report.closingBalance)),
+          _buildSummaryRow(
+            'Total Disbursements:',
+            currencyFormat.format(report.totalDisbursements),
+          ),
+          _buildSummaryRow(
+            'Cash on Hand:',
+            currencyFormat.format(report.cashOnHand),
+          ),
+          _buildSummaryRow(
+            'Closing Balance:',
+            currencyFormat.format(report.closingBalance),
+          ),
           pw.Divider(),
           _buildSummaryRow(
             'Variance:',
@@ -277,7 +284,11 @@ class PdfExportService {
     );
   }
 
-  pw.Widget _buildSummaryRow(String label, String value, {bool isBold = false}) {
+  pw.Widget _buildSummaryRow(
+    String label,
+    String value, {
+    bool isBold = false,
+  }) {
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(vertical: 4),
       child: pw.Row(

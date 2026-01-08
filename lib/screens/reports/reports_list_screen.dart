@@ -220,6 +220,86 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                           '${DateFormat('MMM d').format(report.periodStart)} - ${DateFormat('MMM d, y').format(report.periodEnd)}',
                         ),
                       ),
+                      // Add menu button for edit/delete options
+                      PopupMenuButton<String>(
+                        icon: const Icon(Icons.more_vert),
+                        onSelected: (String choice) {
+                          if (choice == 'edit') {
+                            // Navigate to edit report screen (or reuse new report screen with pre-filled data)
+                            // For now, we'll navigate to the report detail screen for editing
+                            context.go('/reports/${report.id}');
+                          } else if (choice == 'delete') {
+                            // Show confirmation dialog before deleting
+                            showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Delete Report'),
+                                content: Text('Are you sure you want to delete report ${report.reportNumber}? This action cannot be undone.'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.of(context).pop(false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () async {
+                                      try {
+                                        await context.read<ReportProvider>().deleteReport(report.id);
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('Report deleted successfully'),
+                                            ),
+                                          );
+                                        }
+                                      } catch (e) {
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text('Error deleting report: $e'),
+                                              backgroundColor: Colors.red,
+                                            ),
+                                          );
+                                        }
+                                      }
+                                      if (context.mounted) {
+                                        Navigator.of(context).pop(true);
+                                      }
+                                    },
+                                    child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                                  ),
+                                ],
+                              ),
+                            ).then((confirmed) async {
+                              if (confirmed == true && context.mounted) {
+                                // Refresh the list after deletion
+                                await context.read<ReportProvider>().loadReports();
+                              }
+                            });
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          const PopupMenuItem<String>(
+                            value: 'edit',
+                            child: Row(
+                              children: [
+                                Icon(Icons.edit, size: 18),
+                                SizedBox(width: 8),
+                                Text('Edit'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem<String>(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete, size: 18, color: Colors.red),
+                                SizedBox(width: 8),
+                                Text('Delete', style: TextStyle(color: Colors.red)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),

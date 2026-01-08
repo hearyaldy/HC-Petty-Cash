@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/transaction.dart';
 import '../models/petty_cash_report.dart';
 import '../models/user.dart';
+import '../models/enums.dart';
 import '../utils/constants.dart';
 
 class VoucherPreviewDialog extends StatelessWidget {
@@ -61,7 +62,7 @@ class VoucherPreviewDialog extends StatelessWidget {
           ),
           const Divider(height: 1),
 
-          // Preview Content (Simple A5 Layout)
+          // Preview Content (Professional A5 Layout)
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
@@ -73,25 +74,40 @@ class VoucherPreviewDialog extends StatelessWidget {
                   border: Border.all(color: Colors.grey.shade300),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                padding: const EdgeInsets.all(32),
+                padding: const EdgeInsets.all(24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Organization Name (simple, no border)
-                    _buildSimpleHeader(),
-                    const SizedBox(height: 32),
+                    // Organization Header
+                    _buildHeader(),
+                    const SizedBox(height: 16),
 
-                    // Voucher Fields
-                    _buildSimpleVoucherContent(
+                    // Title
+                    _buildTitle(),
+                    const SizedBox(height: 16),
+
+                    // Voucher Information Section
+                    _buildVoucherInfoSection(
                       requestor,
                       dateFormat,
                       currencyFormat,
                     ),
+                    const SizedBox(height: 16),
 
-                    const SizedBox(height: 40),
+                    // Description Section
+                    _buildDescriptionSection(),
+                    const SizedBox(height: 16),
 
-                    // Signature
-                    _buildSimpleSignature(),
+                    // Amount Section
+                    _buildAmountSection(currencyFormat),
+                    const SizedBox(height: 16),
+
+                    // Signature Section
+                    _buildSignatureSection(),
+
+                    // Footer
+                    const SizedBox(height: 16),
+                    _buildFooter(dateFormat),
                   ],
                 ),
               ),
@@ -126,7 +142,7 @@ class VoucherPreviewDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildSimpleHeader() {
+  Widget _buildHeader() {
     return Column(
       children: [
         Text(
@@ -134,168 +150,310 @@ class VoucherPreviewDialog extends StatelessWidget {
           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 2),
         Text(
           AppConstants.organizationNameThai,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 2),
         Text(
           AppConstants.organizationAddress,
-          style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 16),
-        const Text(
-          'PETTY CASH VOUCHER',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          style: TextStyle(fontSize: 9, color: Colors.grey.shade700),
           textAlign: TextAlign.center,
         ),
       ],
     );
   }
 
-  Widget _buildSimpleVoucherContent(
+  Widget _buildTitle() {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade500),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+      child: const Center(
+        child: Text(
+          'PETTY CASH VOUCHER',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVoucherInfoSection(
     User? requestor,
     DateFormat dateFormat,
     NumberFormat currencyFormat,
   ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Number with decorative line
-        Container(
-          decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
-          ),
-          padding: const EdgeInsets.only(bottom: 8),
-          child: _buildSimpleField('No.:', transaction.receiptNo),
-        ),
-        const SizedBox(height: 16),
-
-        // Date
-        _buildSimpleField('Date:', dateFormat.format(transaction.date)),
-        const SizedBox(height: 16),
-
-        // Paid to
-        _buildSimpleField(
-          'Paid to:',
-          transaction.paidTo ?? requestor?.name ?? 'Unknown',
-        ),
-        const SizedBox(height: 16),
-
-        // Amount (highlighted)
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-            border: Border.all(color: Colors.grey.shade400),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          padding: const EdgeInsets.all(12),
-          child: _buildSimpleField(
-            'Amount:',
-            currencyFormat.format(transaction.amount),
-          ),
-        ),
-        const SizedBox(height: 8),
-
-        // Amount in words
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-          child: Text(
-            '(${_convertToWords(transaction.amount)})',
-            style: TextStyle(
-              fontSize: 12,
-              fontStyle: FontStyle.italic,
-              color: Colors.grey.shade700,
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // For (Description) with box
-        Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade400),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Voucher number and date row
+          Row(
             children: [
-              const Text(
-                'For:',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              Expanded(
+                flex: 2,
+                child: _buildInfoRow('Voucher No:', transaction.receiptNo),
               ),
-              const SizedBox(height: 4),
-              Text(
-                transaction.description,
-                style: const TextStyle(fontSize: 12),
+              const SizedBox(width: 20),
+              Expanded(
+                flex: 2,
+                child: _buildInfoRow(
+                  'Date:',
+                  dateFormat.format(transaction.date),
+                ),
               ),
             ],
           ),
-        ),
-      ],
+          const SizedBox(height: 8),
+
+          // Report number and department row
+          Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: _buildInfoRow('Report No:', report.reportNumber),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                flex: 2,
+                child: _buildInfoRow('Department:', report.department),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // Paid to and requestor row
+          Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: _buildInfoRow(
+                  'Paid to:',
+                  transaction.paidTo ?? requestor?.name ?? 'Unknown',
+                ),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                flex: 2,
+                child: _buildInfoRow(
+                  'Requestor:',
+                  requestor?.name ?? 'Unknown',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildSimpleField(String label, String value) {
-    return Row(
+  Widget _buildInfoRow(String label, String value) {
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          width: 100,
-          child: Text(
-            label,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey,
           ),
         ),
-        Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
+        const SizedBox(height: 2),
+        Text(value, style: const TextStyle(fontSize: 11)),
       ],
     );
   }
 
-  Widget _buildSimpleSignature() {
+  Widget _buildDescriptionSection() {
     return Container(
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: Colors.grey.shade400),
+        borderRadius: BorderRadius.circular(6),
       ),
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(child: _buildSignatureBox('Received By')),
-          const SizedBox(width: 8),
-          Expanded(child: _buildSignatureBox('Paid By')),
-          const SizedBox(width: 8),
-          Expanded(child: _buildSignatureBox('Approved By')),
+          const Text(
+            'DESCRIPTION',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(transaction.description, style: const TextStyle(fontSize: 11)),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Expanded(
+                child: _buildInfoRow(
+                  'Category:',
+                  transaction.category.toExpenseCategory().displayName,
+                ),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: _buildInfoRow(
+                  'Payment Method:',
+                  transaction.paymentMethod.toPaymentMethod().displayName,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAmountSection(NumberFormat currencyFormat) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        border: Border.all(color: Colors.grey.shade500),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: const Text(
+                  'AMOUNT',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    currencyFormat.format(transaction.amount),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              '(${_convertToWords(transaction.amount)})',
+              style: const TextStyle(
+                fontSize: 10,
+                fontStyle: FontStyle.italic,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSignatureSection() {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade400),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        children: [
+          const Text(
+            'SIGNATURES',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildSignatureBox('Received By'),
+              _buildSignatureBox('Paid By'),
+              _buildSignatureBox('Approved By'),
+            ],
+          ),
         ],
       ),
     );
   }
 
   Widget _buildSignatureBox(String title) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 30),
-        Container(
-          decoration: const BoxDecoration(
-            border: Border(top: BorderSide(color: Colors.black)),
+    return SizedBox(
+      width: 80,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
           ),
-          padding: const EdgeInsets.only(top: 4),
-          child: const Text(
-            'Signature',
-            style: TextStyle(fontSize: 9, color: Colors.grey),
+          const SizedBox(height: 25),
+          Container(
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: Colors.black)),
+            ),
+            padding: const EdgeInsets.only(top: 2),
+            child: const Text(
+              'Signature',
+              style: TextStyle(fontSize: 8, color: Colors.grey),
+            ),
           ),
-        ),
-      ],
+          const SizedBox(height: 4),
+          const Text('Date', style: TextStyle(fontSize: 8, color: Colors.grey)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFooter(DateFormat dateFormat) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Voucher ID: ${transaction.id.substring(0, 10)}...',
+            style: TextStyle(fontSize: 9, color: Colors.grey.shade600),
+          ),
+          Text(
+            'Printed: ${dateFormat.format(DateTime.now())}',
+            style: TextStyle(fontSize: 9, color: Colors.grey.shade600),
+          ),
+        ],
+      ),
     );
   }
 

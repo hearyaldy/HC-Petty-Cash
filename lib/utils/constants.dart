@@ -35,6 +35,9 @@ class AppConstants {
   static const String dateFormat = 'MMM dd, yyyy';
   static const String dateTimeFormat = 'MMM dd, yyyy hh:mm a';
   static const String reportNumberFormat = 'PCR-yyyyMMdd-000';
+
+  // Security and Demo Mode
+  static const bool enableDemoAccounts = false; // Set to false for production
 }
 
 class AppRoutes {
