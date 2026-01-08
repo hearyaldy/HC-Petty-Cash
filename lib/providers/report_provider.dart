@@ -18,7 +18,13 @@ class ReportProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    _reports = _reportService.getAllReports();
+    try {
+      _reports = await _reportService.getAllReports();
+    } catch (e) {
+      print('Error loading reports: $e');
+      _reports = [];
+    }
+
     _isLoading = false;
     notifyListeners();
   }
@@ -82,14 +88,19 @@ class ReportProvider extends ChangeNotifier {
   }
 
   List<PettyCashReport> getReportsByStatus(ReportStatus status) {
-    return _reports.where((r) => r.status == status).toList();
+    return _reports.where((r) => r.status == status.name).toList();
   }
 
   List<PettyCashReport> getReportsByCustodian(String custodianId) {
     return _reports.where((r) => r.custodianId == custodianId).toList();
   }
 
-  List<PettyCashReport> searchReports(String query) {
-    return _reportService.searchReports(query);
+  Future<List<PettyCashReport>> searchReports(String query) async {
+    try {
+      return await _reportService.searchReports(query);
+    } catch (e) {
+      print('Error searching reports: $e');
+      return [];
+    }
   }
 }

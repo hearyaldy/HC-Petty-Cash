@@ -1,11 +1,15 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
-import '../services/storage_service.dart';
+import '../services/firestore_service.dart';
+import '../services/firebase_storage_service.dart';
 import '../models/transaction.dart';
 import '../models/enums.dart';
 import '../models/approval_record.dart';
 
 class TransactionProvider extends ChangeNotifier {
+  final FirestoreService _firestoreService = FirestoreService();
+  final FirebaseStorageService _storageService = FirebaseStorageService();
   final _uuid = const Uuid();
   List<Transaction> _transactions = [];
   Transaction? _selectedTransaction;
@@ -19,7 +23,13 @@ class TransactionProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    _transactions = StorageService.getAllTransactions();
+    try {
+      _transactions = await _firestoreService.getAllTransactions();
+    } catch (e) {
+      print('Error loading transactions: $e');
+      _transactions = [];
+    }
+
     _isLoading = false;
     notifyListeners();
   }
@@ -28,7 +38,13 @@ class TransactionProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    _transactions = StorageService.getTransactionsByReportId(reportId);
+    try {
+      _transactions = await _firestoreService.getTransactionsByReportId(reportId);
+    } catch (e) {
+      print('Error loading transactions for report: $e');
+      _transactions = [];
+    }
+
     _isLoading = false;
     notifyListeners();
   }
@@ -43,40 +59,80 @@ class TransactionProvider extends ChangeNotifier {
     required PaymentMethod paymentMethod,
     required String requestorId,
     String? paidTo,
-    List<String>? attachments,
+    List<File>? attachmentFiles,
   }) async {
+    // Upload files to Firebase Storage first
+    List<String> attachmentUrls = [];
+    if (attachmentFiles != null && attachmentFiles.isNotEmpty) {
+      final transactionId = _uuid.v4();
+      try {
+        attachmentUrls = await _storageService.uploadMultipleAttachments(
+          transactionId: transactionId,
+          files: attachmentFiles,
+        );
+      } catch (e) {
+        print('Error uploading attachments: $e');
+        // Continue without attachments if upload fails
+      }
+    }
+
     final transaction = Transaction(
       id: _uuid.v4(),
       reportId: reportId,
       date: date,
       receiptNo: receiptNo,
       description: description,
-      category: category,
+      category: category.name,
       amount: amount,
-      paymentMethod: paymentMethod,
+      paymentMethod: paymentMethod.name,
       requestorId: requestorId,
-      status: TransactionStatus.draft,
-      attachments: attachments,
+      status: TransactionStatus.draft.name,
+      attachmentUrls: attachmentUrls,
       createdAt: DateTime.now(),
       paidTo: paidTo,
     );
 
-    await StorageService.saveTransaction(transaction);
-    await loadTransactionsByReportId(reportId);
+    try {
+      await _firestoreService.saveTransaction(transaction);
+      await loadTransactionsByReportId(reportId);
+    } catch (e) {
+      print('Error saving transaction: $e');
+      // Clean up uploaded files if transaction save fails
+      if (attachmentUrls.isNotEmpty) {
+        await _storageService.deleteMultipleAttachments(attachmentUrls);
+      }
+      rethrow;
+    }
+
     return transaction;
   }
 
   Future<void> updateTransaction(Transaction transaction) async {
-    transaction.updatedAt = DateTime.now();
-    await StorageService.saveTransaction(transaction);
-    await loadTransactionsByReportId(transaction.reportId);
+    try {
+      final updated = transaction.copyWith(updatedAt: DateTime.now());
+      await _firestoreService.updateTransaction(updated);
+      await loadTransactionsByReportId(transaction.reportId);
+    } catch (e) {
+      print('Error updating transaction: $e');
+      rethrow;
+    }
   }
 
   Future<void> deleteTransaction(String transactionId) async {
-    final transaction = StorageService.getTransaction(transactionId);
-    if (transaction != null) {
-      await StorageService.deleteTransaction(transactionId);
-      await loadTransactionsByReportId(transaction.reportId);
+    try {
+      final transaction = await _firestoreService.getTransaction(transactionId);
+      if (transaction != null) {
+        // Delete attachments from Firebase Storage
+        if (transaction.attachmentUrls.isNotEmpty) {
+          await _storageService.deleteMultipleAttachments(transaction.attachmentUrls);
+        }
+        // Delete transaction from Firestore
+        await _firestoreService.deleteTransaction(transactionId);
+        await loadTransactionsByReportId(transaction.reportId);
+      }
+    } catch (e) {
+      print('Error deleting transaction: $e');
+      rethrow;
     }
   }
 
@@ -86,10 +142,19 @@ class TransactionProvider extends ChangeNotifier {
   }
 
   Future<void> submitForApproval(String transactionId) async {
-    final transaction = StorageService.getTransaction(transactionId);
-    if (transaction != null) {
-      transaction.status = TransactionStatus.pendingApproval;
-      await updateTransaction(transaction);
+    try {
+      final transaction = await _firestoreService.getTransaction(transactionId);
+      if (transaction != null) {
+        final updated = transaction.copyWith(
+          status: TransactionStatus.pendingApproval.name,
+          updatedAt: DateTime.now(),
+        );
+        await _firestoreService.updateTransaction(updated);
+        await loadTransactionsByReportId(transaction.reportId);
+      }
+    } catch (e) {
+      print('Error submitting for approval: $e');
+      rethrow;
     }
   }
 
@@ -99,24 +164,32 @@ class TransactionProvider extends ChangeNotifier {
     String approverName, {
     String? comments,
   }) async {
-    final transaction = StorageService.getTransaction(transactionId);
-    if (transaction != null) {
-      transaction.status = TransactionStatus.approved;
-      transaction.approverId = approverId;
+    try {
+      final transaction = await _firestoreService.getTransaction(transactionId);
+      if (transaction != null) {
+        final approvalRecord = ApprovalRecord(
+          approverId: approverId,
+          approverName: approverName,
+          timestamp: DateTime.now(),
+          action: 'approved',
+          comments: comments,
+        );
 
-      final approvalRecord = ApprovalRecord(
-        approverId: approverId,
-        approverName: approverName,
-        timestamp: DateTime.now(),
-        action: 'approved',
-        comments: comments,
-      );
+        final updatedHistory = [...transaction.approvalHistory, approvalRecord.toMap()];
 
-      final history = transaction.approvalHistory;
-      history.add(approvalRecord);
-      transaction.approvalHistory = history;
+        final updated = transaction.copyWith(
+          status: TransactionStatus.approved.name,
+          approverId: approverId,
+          approvalHistory: updatedHistory,
+          updatedAt: DateTime.now(),
+        );
 
-      await updateTransaction(transaction);
+        await _firestoreService.updateTransaction(updated);
+        await loadTransactionsByReportId(transaction.reportId);
+      }
+    } catch (e) {
+      print('Error approving transaction: $e');
+      rethrow;
     }
   }
 
@@ -126,35 +199,43 @@ class TransactionProvider extends ChangeNotifier {
     String approverName, {
     String? comments,
   }) async {
-    final transaction = StorageService.getTransaction(transactionId);
-    if (transaction != null) {
-      transaction.status = TransactionStatus.rejected;
+    try {
+      final transaction = await _firestoreService.getTransaction(transactionId);
+      if (transaction != null) {
+        final approvalRecord = ApprovalRecord(
+          approverId: approverId,
+          approverName: approverName,
+          timestamp: DateTime.now(),
+          action: 'rejected',
+          comments: comments,
+        );
 
-      final approvalRecord = ApprovalRecord(
-        approverId: approverId,
-        approverName: approverName,
-        timestamp: DateTime.now(),
-        action: 'rejected',
-        comments: comments,
-      );
+        final updatedHistory = [...transaction.approvalHistory, approvalRecord.toMap()];
 
-      final history = transaction.approvalHistory;
-      history.add(approvalRecord);
-      transaction.approvalHistory = history;
+        final updated = transaction.copyWith(
+          status: TransactionStatus.rejected.name,
+          approvalHistory: updatedHistory,
+          updatedAt: DateTime.now(),
+        );
 
-      await updateTransaction(transaction);
+        await _firestoreService.updateTransaction(updated);
+        await loadTransactionsByReportId(transaction.reportId);
+      }
+    } catch (e) {
+      print('Error rejecting transaction: $e');
+      rethrow;
     }
   }
 
   List<Transaction> getPendingApprovals() {
     return _transactions
-        .where((t) => t.status == TransactionStatus.pendingApproval)
+        .where((t) => t.status == TransactionStatus.pendingApproval.name)
         .toList();
   }
 
   List<Transaction> getApprovedTransactions() {
     return _transactions
-        .where((t) => t.status == TransactionStatus.approved)
+        .where((t) => t.status == TransactionStatus.approved.name)
         .toList();
   }
 }
