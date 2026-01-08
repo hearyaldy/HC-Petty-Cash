@@ -7,12 +7,17 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:380309314630:android:6c9ba4a3581e3fd12e7e47",
+        "mobilesdk_app_id": "1:380309314630:android:67f93959a81a48a92e7e47",
         "android_client_info": {
-          "package_name": "com.haweeinc.hc_Report"
+          "package_name": "com.example.hc_finannce_report"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "380309314630-hhd7pann6sj8c56iunqjk8gubuput1rm.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBCMz7x47_ezSp33b7BTeeST-N5b2DKpYk"
@@ -20,7 +25,55 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "380309314630-hhd7pann6sj8c56iunqjk8gubuput1rm.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "380309314630-qekqs5ijls2gtp39m7bfo8io9491gnmf.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.hcFinannceReport"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:380309314630:android:6c9ba4a3581e3fd12e7e47",
+        "android_client_info": {
+          "package_name": "com.haweeinc.hc_Report"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "380309314630-hhd7pann6sj8c56iunqjk8gubuput1rm.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBCMz7x47_ezSp33b7BTeeST-N5b2DKpYk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "380309314630-hhd7pann6sj8c56iunqjk8gubuput1rm.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "380309314630-qekqs5ijls2gtp39m7bfo8io9491gnmf.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.hcFinannceReport"
+              }
+            }
+          ]
         }
       }
     }

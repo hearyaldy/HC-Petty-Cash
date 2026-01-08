@@ -3,8 +3,9 @@ import 'package:excel/excel.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/petty_cash_report.dart';
+import '../models/enums.dart';
 import '../utils/constants.dart';
-import 'storage_service.dart';
+import 'firestore_service.dart';
 
 class ExcelExportService {
   Future<String> exportReport(PettyCashReport report) async {
@@ -69,7 +70,7 @@ class ExcelExportService {
     currentRow++;
 
     _setCellValue(sheet, 0, currentRow, 'Status:');
-    _setCellValue(sheet, 1, currentRow, report.status.displayName);
+    _setCellValue(sheet, 1, currentRow, report.status.reportStatusDisplayName);
     _styleCell(sheet, 0, currentRow, bold: true);
     currentRow++;
 
@@ -105,23 +106,24 @@ class ExcelExportService {
     currentRow++;
 
     // Get transactions
-    final transactions = StorageService.getTransactionsByReportId(report.id);
+    final firestoreService = FirestoreService();
+    final transactions = await firestoreService.getTransactionsByReportId(report.id);
 
     // Transactions Data
     for (var transaction in transactions) {
-      final requestor = StorageService.getUser(transaction.requestorId);
+      final requestor = await firestoreService.getUser(transaction.requestorId);
       final approver = transaction.approverId != null
-          ? StorageService.getUser(transaction.approverId!)
+          ? await firestoreService.getUser(transaction.approverId!)
           : null;
 
       _setCellValue(sheet, 0, currentRow, dateFormat.format(transaction.date));
       _setCellValue(sheet, 1, currentRow, transaction.receiptNo);
       _setCellValue(sheet, 2, currentRow, transaction.description);
-      _setCellValue(sheet, 3, currentRow, transaction.category.displayName);
-      _setCellValue(sheet, 4, currentRow, transaction.paymentMethod.displayName);
+      _setCellValue(sheet, 3, currentRow, transaction.category.expenseCategoryDisplayName);
+      _setCellValue(sheet, 4, currentRow, transaction.paymentMethod.paymentMethodDisplayName);
       _setCellValue(sheet, 5, currentRow, requestor?.name ?? 'Unknown');
       _setCellValue(sheet, 6, currentRow, approver?.name ?? '-');
-      _setCellValue(sheet, 7, currentRow, transaction.status.displayName);
+      _setCellValue(sheet, 7, currentRow, transaction.status.transactionStatusDisplayName);
       _setCellValue(sheet, 8, currentRow, currencyFormat.format(transaction.amount));
 
       currentRow++;

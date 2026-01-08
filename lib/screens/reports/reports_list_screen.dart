@@ -34,7 +34,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
 
     // Apply status filter
     if (_filterStatus != null) {
-      reports = reports.where((r) => r.status == _filterStatus).toList();
+      reports = reports.where((r) => r.status.toReportStatus() == _filterStatus).toList();
     }
 
     // Apply search filter
@@ -200,7 +200,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                           ],
                         ),
                       ),
-                      _buildStatusChip(report.status),
+                      _buildStatusChip(report.status.toReportStatus()),
                     ],
                   ),
                   const Divider(height: 24),

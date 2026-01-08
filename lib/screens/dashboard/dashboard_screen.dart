@@ -36,7 +36,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ? allReports.where((r) => r.custodianId == user.id).toList()
         : [];
     final draftReports = allReports
-        .where((r) => r.status == ReportStatus.draft)
+        .where((r) => r.status == ReportStatus.draft.name)
         .toList();
     final pendingApprovals = transactionProvider.getPendingApprovals();
 
@@ -59,7 +59,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
                   Text(
-                    user?.role.displayName ?? '',
+                    user?.role.userRoleDisplayName ?? '',
                     style: const TextStyle(fontSize: 12),
                   ),
                 ],
@@ -299,12 +299,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               return Card(
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: _getStatusColor(report.status),
+                    backgroundColor: _getStatusColor(report.statusEnum),
                     child: const Icon(Icons.description, color: Colors.white),
                   ),
                   title: Text(report.reportNumber),
                   subtitle: Text(
-                    '${report.department} • ${report.status.displayName}',
+                    '${report.department} • ${report.status.reportStatusDisplayName}',
                   ),
                   trailing: Text(
                     '${AppConstants.currencySymbol}${report.totalDisbursements.toStringAsFixed(2)}',
@@ -362,7 +362,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   title: Text(transaction.description),
                   subtitle: Text(
-                    '${transaction.category.displayName} • ${transaction.receiptNo}',
+                    '${transaction.category.expenseCategoryDisplayName} • ${transaction.receiptNo}',
                   ),
                   trailing: Text(
                     '${AppConstants.currencySymbol}${transaction.amount.toStringAsFixed(2)}',

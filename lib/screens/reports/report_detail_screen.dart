@@ -57,7 +57,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             onPressed: () => context.go('/dashboard'),
             tooltip: 'Home',
           ),
-          if (report.status != ReportStatus.closed)
+          if (report.status != ReportStatus.closed.name)
             IconButton(
               icon: const Icon(Icons.add),
               onPressed: () => _showAddTransactionDialog(report),
@@ -96,7 +96,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   ],
                 ),
               ),
-              if (report.status == ReportStatus.draft)
+              if (report.status == ReportStatus.draft.name)
                 const PopupMenuItem(
                   value: 'submit',
                   child: Row(
@@ -107,7 +107,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     ],
                   ),
                 ),
-              if (report.status == ReportStatus.approved &&
+              if (report.status == ReportStatus.approved.name &&
                   authProvider.canApprove())
                 const PopupMenuItem(
                   value: 'close',
@@ -164,7 +164,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     ],
                   ),
                 ),
-                _buildStatusChip(report.status),
+                _buildStatusChip(report.statusEnum),
               ],
             ),
             const Divider(height: 32),
@@ -397,7 +397,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                 ),
-                if (report.status != ReportStatus.closed)
+                if (report.status != ReportStatus.closed.name)
                   ElevatedButton.icon(
                     onPressed: () => _showAddTransactionDialog(report),
                     icon: const Icon(Icons.add),
@@ -441,9 +441,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         child: Row(
           children: [
             CircleAvatar(
-              backgroundColor: _getTransactionStatusColor(transaction.status),
+              backgroundColor: _getTransactionStatusColor(transaction.statusEnum),
               child: Icon(
-                _getTransactionIcon(transaction.category),
+                _getTransactionIcon(transaction.categoryEnum),
                 color: Colors.white,
               ),
             ),
@@ -458,15 +458,15 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${transaction.category.displayName} • ${DateFormat('MMM d, y').format(transaction.date)}',
+                    '${transaction.categoryEnum.displayName} • ${DateFormat('MMM d, y').format(transaction.date)}',
                     style: TextStyle(fontSize: 13, color: Colors.grey[700]),
                   ),
                   Text(
-                    'Receipt: ${transaction.receiptNo} • ${transaction.paymentMethod.displayName}',
+                    'Receipt: ${transaction.receiptNo} • ${transaction.paymentMethodEnum.displayName}',
                     style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 4),
-                  _buildTransactionStatusChip(transaction.status),
+                  _buildTransactionStatusChip(transaction.statusEnum),
                 ],
               ),
             ),
@@ -878,8 +878,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     PettyCashReport report,
     ReportProvider provider,
   ) async {
-    report.status = ReportStatus.submitted;
-    await provider.updateReport(report);
+    final updatedReport = report.copyWith(
+      status: ReportStatus.submitted.name,
+      updatedAt: DateTime.now(),
+    );
+    await provider.updateReport(updatedReport);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Report submitted successfully')),
@@ -891,8 +894,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     PettyCashReport report,
     ReportProvider provider,
   ) async {
-    report.status = ReportStatus.closed;
-    await provider.updateReport(report);
+    final updatedReport = report.copyWith(
+      status: ReportStatus.closed.name,
+      updatedAt: DateTime.now(),
+    );
+    await provider.updateReport(updatedReport);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Report closed successfully')),

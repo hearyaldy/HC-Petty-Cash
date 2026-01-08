@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
-import '../../services/storage_service.dart';
+import '../../services/firestore_service.dart';
 import '../../models/user.dart';
 import '../../models/enums.dart';
 
@@ -28,7 +28,7 @@ class _AdminScreenState extends State<AdminScreen> {
       _isLoading = true;
     });
 
-    _users = StorageService.getAllUsers();
+    _users = await FirestoreService().getAllUsers();
 
     setState(() {
       _isLoading = false;
@@ -107,7 +107,7 @@ class _AdminScreenState extends State<AdminScreen> {
           margin: const EdgeInsets.only(bottom: 12),
           child: ListTile(
             leading: CircleAvatar(
-              backgroundColor: _getRoleColor(user.role),
+              backgroundColor: _getRoleColor(user.role.toUserRole()),
               child: Text(
                 user.name[0].toUpperCase(),
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
@@ -125,10 +125,10 @@ class _AdminScreenState extends State<AdminScreen> {
                 const SizedBox(height: 4),
                 Chip(
                   label: Text(
-                    user.role.displayName,
+                    user.role.userRoleDisplayName,
                     style: const TextStyle(color: Colors.white, fontSize: 12),
                   ),
-                  backgroundColor: _getRoleColor(user.role),
+                  backgroundColor: _getRoleColor(user.role.toUserRole()),
                   padding: EdgeInsets.zero,
                   visualDensity: VisualDensity.compact,
                 ),
@@ -337,18 +337,14 @@ class _AdminScreenState extends State<AdminScreen> {
                           ElevatedButton(
                             onPressed: () async {
                               if (formKey.currentState!.validate()) {
-                                final user = User(
-                                  id: DateTime.now().millisecondsSinceEpoch.toString(),
-                                  name: nameController.text,
+                                final authProvider = context.read<AuthProvider>();
+                                await authProvider.registerUser(
                                   email: emailController.text,
                                   password: passwordController.text,
+                                  name: nameController.text,
                                   role: selectedRole,
                                   department: departmentController.text,
-                                  createdAt: DateTime.now(),
                                 );
-
-                                final authProvider = context.read<AuthProvider>();
-                                await authProvider.register(user);
                                 await _loadUsers();
 
                                 if (context.mounted) {
@@ -379,7 +375,7 @@ class _AdminScreenState extends State<AdminScreen> {
     final nameController = TextEditingController(text: user.name);
     final emailController = TextEditingController(text: user.email);
     final departmentController = TextEditingController(text: user.department);
-    UserRole selectedRole = user.role;
+    UserRole selectedRole = user.role.toUserRole();
 
     await showModalBottomSheet(
       context: context,
@@ -507,12 +503,15 @@ class _AdminScreenState extends State<AdminScreen> {
                           ElevatedButton(
                             onPressed: () async {
                               if (formKey.currentState!.validate()) {
-                                user.name = nameController.text;
-                                user.email = emailController.text;
-                                user.department = departmentController.text;
-                                user.role = selectedRole;
+                                final updated = user.copyWith(
+                                  name: nameController.text,
+                                  email: emailController.text,
+                                  department: departmentController.text,
+                                  role: selectedRole.name,
+                                  updatedAt: DateTime.now(),
+                                );
 
-                                await StorageService.saveUser(user);
+                                await FirestoreService().updateUser(updated);
                                 await _loadUsers();
 
                                 if (context.mounted) {
@@ -600,7 +599,7 @@ class _AdminScreenState extends State<AdminScreen> {
                 const SizedBox(width: 12),
                 ElevatedButton(
                   onPressed: () async {
-                    await StorageService.deleteUser(user.id);
+                    await FirestoreService().deleteUser(user.id);
                     await _loadUsers();
 
                     if (context.mounted) {

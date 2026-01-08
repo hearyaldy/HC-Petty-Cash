@@ -6,7 +6,8 @@ import 'package:path_provider/path_provider.dart';
 import '../models/petty_cash_report.dart';
 import '../models/transaction.dart';
 import '../utils/constants.dart';
-import 'storage_service.dart';
+import 'firestore_service.dart';
+import '../models/enums.dart';
 
 class PdfExportService {
   Future<String> exportReport(PettyCashReport report) async {
@@ -15,7 +16,7 @@ class PdfExportService {
     final currencyFormat = NumberFormat.currency(symbol: '\$');
 
     // Get transactions
-    final transactions = StorageService.getTransactionsByReportId(report.id);
+    final transactions = await FirestoreService().getTransactionsByReportId(report.id);
 
     pdf.addPage(
       pw.MultiPage(
@@ -162,7 +163,7 @@ class PdfExportService {
           ),
           _buildInfoRow('Department:', report.department),
           _buildInfoRow('Custodian:', report.custodianName),
-          _buildInfoRow('Status:', report.status.displayName),
+          _buildInfoRow('Status:', report.status.reportStatusDisplayName),
         ],
       ),
     );
@@ -219,7 +220,7 @@ class PdfExportService {
               _buildTableCell(dateFormat.format(transaction.date)),
               _buildTableCell(transaction.receiptNo),
               _buildTableCell(transaction.description),
-              _buildTableCell(transaction.category.displayName),
+              _buildTableCell(transaction.category.expenseCategoryDisplayName),
               _buildTableCell(
                 currencyFormat.format(transaction.amount),
                 alignment: pw.Alignment.centerRight,

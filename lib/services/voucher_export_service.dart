@@ -8,7 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import '../models/transaction.dart';
 import '../models/petty_cash_report.dart';
 import '../utils/constants.dart';
-import 'storage_service.dart';
+import 'firestore_service.dart';
 import 'package:printing/printing.dart';
 
 class VoucherExportService {
@@ -27,7 +27,7 @@ class VoucherExportService {
     final ttfBold = pw.Font.ttf(fontBoldData);
 
     // Get user information
-    final requestor = StorageService.getUser(transaction.requestorId);
+    final requestor = await FirestoreService().getUser(transaction.requestorId);
 
     pdf.addPage(
       pw.Page(

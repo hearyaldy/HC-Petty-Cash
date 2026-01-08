@@ -48,21 +48,21 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
     // Filter by category
     if (_selectedCategory != null && _selectedCategory != 'All') {
       filtered = filtered
-          .where((t) => t.category.displayName == _selectedCategory)
+          .where((t) => t.category.expenseCategoryDisplayName == _selectedCategory)
           .toList();
     }
 
     // Filter by payment method
     if (_selectedPaymentMethod != null && _selectedPaymentMethod != 'All') {
       filtered = filtered
-          .where((t) => t.paymentMethod.displayName == _selectedPaymentMethod)
+          .where((t) => t.paymentMethod.paymentMethodDisplayName == _selectedPaymentMethod)
           .toList();
     }
 
     // Filter by status
     if (_selectedStatus != null && _selectedStatus != 'All') {
       filtered = filtered
-          .where((t) => t.status.displayName == _selectedStatus)
+          .where((t) => t.status.transactionStatusDisplayName == _selectedStatus)
           .toList();
     }
 
@@ -84,7 +84,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
   Map<String, double> _getCategorySummary(List<Transaction> transactions) {
     final summary = <String, double>{};
     for (var transaction in transactions) {
-      final category = transaction.category.displayName;
+      final category = transaction.category.expenseCategoryDisplayName;
       summary[category] = (summary[category] ?? 0) + transaction.amount;
     }
     return summary;
@@ -93,7 +93,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
   Map<String, double> _getPaymentMethodSummary(List<Transaction> transactions) {
     final summary = <String, double>{};
     for (var transaction in transactions) {
-      final method = transaction.paymentMethod.displayName;
+      final method = transaction.paymentMethod.paymentMethodDisplayName;
       summary[method] = (summary[method] ?? 0) + transaction.amount;
     }
     return summary;
@@ -102,7 +102,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
   Map<String, int> _getStatusSummary(List<Transaction> transactions) {
     final summary = <String, int>{};
     for (var transaction in transactions) {
-      final status = transaction.status.displayName;
+      final status = transaction.status.transactionStatusDisplayName;
       summary[status] = (summary[status] ?? 0) + 1;
     }
     return summary;
@@ -589,15 +589,15 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                           ),
                         ),
                       ),
-                      DataCell(Text(transaction.category.displayName)),
-                      DataCell(Text(transaction.paymentMethod.displayName)),
+                      DataCell(Text(transaction.category.expenseCategoryDisplayName)),
+                      DataCell(Text(transaction.paymentMethod.paymentMethodDisplayName)),
                       DataCell(
                         Text(
                           currencyFormat.format(transaction.amount),
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ),
-                      DataCell(_buildStatusChip(transaction.status)),
+                      DataCell(_buildStatusChip(transaction.statusEnum)),
                       DataCell(Text(report.reportNumber)),
                     ],
                   );
@@ -1023,14 +1023,14 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(4),
                         child: pw.Text(
-                          transaction.category.displayName,
+                          transaction.category.expenseCategoryDisplayName,
                           style: const pw.TextStyle(fontSize: 7),
                         ),
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(4),
                         child: pw.Text(
-                          transaction.paymentMethod.displayName,
+                          transaction.paymentMethod.paymentMethodDisplayName,
                           style: const pw.TextStyle(fontSize: 7),
                         ),
                       ),
@@ -1045,7 +1045,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(4),
                         child: pw.Text(
-                          transaction.status.displayName,
+                          transaction.status.transactionStatusDisplayName,
                           style: const pw.TextStyle(fontSize: 7),
                         ),
                       ),

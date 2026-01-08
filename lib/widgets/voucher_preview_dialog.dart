@@ -4,16 +4,17 @@ import '../models/transaction.dart';
 import '../models/petty_cash_report.dart';
 import '../models/user.dart';
 import '../utils/constants.dart';
-import '../services/storage_service.dart';
 
 class VoucherPreviewDialog extends StatelessWidget {
   final Transaction transaction;
   final PettyCashReport report;
+  final User? requestor;
 
   const VoucherPreviewDialog({
     super.key,
     required this.transaction,
     required this.report,
+    this.requestor,
   });
 
   @override
@@ -22,8 +23,6 @@ class VoucherPreviewDialog extends StatelessWidget {
     final currencyFormat = NumberFormat.currency(
       symbol: '${AppConstants.currencySymbol} ',
     );
-
-    final User? requestor = StorageService.getUser(transaction.requestorId);
 
     return Container(
       decoration: const BoxDecoration(

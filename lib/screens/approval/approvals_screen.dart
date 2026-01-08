@@ -136,7 +136,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
             leading: CircleAvatar(
               backgroundColor: Colors.orange,
               child: Icon(
-                _getCategoryIcon(transaction.category),
+                _getCategoryIcon(transaction.category.toExpenseCategory()),
                 color: Colors.white,
               ),
             ),
@@ -153,7 +153,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                   style: const TextStyle(fontWeight: FontWeight.w500),
                 ),
                 Text(
-                  '${transaction.category.displayName} • ${DateFormat('MMM d, y').format(transaction.date)}',
+                  '${transaction.category.expenseCategoryDisplayName} • ${DateFormat('MMM d, y').format(transaction.date)}',
                 ),
                 Text(
                   'Receipt: ${transaction.receiptNo}',
@@ -182,12 +182,12 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                     ),
                     _buildDetailRow(
                       'Payment Method',
-                      transaction.paymentMethod.displayName,
+                      transaction.paymentMethod.paymentMethodDisplayName,
                     ),
                     _buildDetailRow('Receipt Number', transaction.receiptNo),
                     _buildDetailRow(
                       'Category',
-                      transaction.category.displayName,
+                      transaction.category.expenseCategoryDisplayName,
                     ),
                     _buildDetailRow(
                       'Date',
