@@ -175,7 +175,7 @@ class TransactionProvider extends ChangeNotifier {
           comments: comments,
         );
 
-        final updatedHistory = [...transaction.approvalHistory, approvalRecord.toMap()];
+        final updatedHistory = [...transaction.approvalHistory, approvalRecord.toJson()];
 
         final updated = transaction.copyWith(
           status: TransactionStatus.approved.name,
@@ -210,7 +210,7 @@ class TransactionProvider extends ChangeNotifier {
           comments: comments,
         );
 
-        final updatedHistory = [...transaction.approvalHistory, approvalRecord.toMap()];
+        final updatedHistory = [...transaction.approvalHistory, approvalRecord.toJson()];
 
         final updated = transaction.copyWith(
           status: TransactionStatus.rejected.name,
