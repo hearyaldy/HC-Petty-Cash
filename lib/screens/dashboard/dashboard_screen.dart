@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/report_provider.dart';
 import '../../providers/project_report_provider.dart';
@@ -60,10 +61,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
     final reportProvider = context.watch<ReportProvider>();
+    final projectReportProvider = context.watch<ProjectReportProvider>();
     final transactionProvider = context.watch<TransactionProvider>();
     final user = authProvider.currentUser;
 
     final allReports = reportProvider.reports;
+    final allProjectReports = projectReportProvider.projectReports;
+    final allTransactions = transactionProvider.transactions;
+
     final myReports = user != null
         ? allReports.where((r) => r.custodianId == user.id).toList()
         : [];
@@ -71,6 +76,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
         .where((r) => r.status == ReportStatus.draft.name)
         .toList();
     final pendingApprovals = transactionProvider.getPendingApprovals();
+
+    // Calculate petty cash totals
+    final pettyCashReceived = allReports.fold<double>(
+      0.0,
+      (sum, report) => sum + report.openingBalance,
+    );
+    final pettyCashUsed = allReports.fold<double>(
+      0.0,
+      (sum, report) => sum + report.totalDisbursements,
+    );
+
+    // Calculate project totals
+    final projectBudgetTotal = allProjectReports.fold<double>(
+      0.0,
+      (sum, report) => sum + report.budget,
+    );
+
+    // Calculate actual project expenses from transactions
+    final projectExpensesTotal = allProjectReports.fold<double>(0.0, (
+      sum,
+      report,
+    ) {
+      final reportTransactions = allTransactions.where(
+        (t) =>
+            t.projectId == report.id &&
+            (t.statusEnum == TransactionStatus.approved ||
+                t.statusEnum == TransactionStatus.processed),
+      );
+      final reportTotal = reportTransactions.fold<double>(
+        0.0,
+        (txSum, tx) => txSum + tx.amount,
+      );
+      return sum + reportTotal;
+    });
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -122,6 +161,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               draftReports.length,
               pendingApprovals.length,
               authProvider.canApprove(),
+            ),
+            const SizedBox(height: 16),
+            _buildFinancialSummary(
+              context,
+              pettyCashReceived,
+              pettyCashUsed,
+              projectBudgetTotal,
+              projectExpensesTotal,
             ),
             const SizedBox(height: 32),
             _buildQuickActions(context, authProvider),
@@ -345,6 +392,223 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildFinancialSummary(
+    BuildContext context,
+    double pettyCashReceived,
+    double pettyCashUsed,
+    double projectBudget,
+    double projectExpenses,
+  ) {
+    final currencyFormat = NumberFormat.currency(
+      symbol: '${AppConstants.currencySymbol} ',
+      decimalDigits: 2,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.analytics, color: Colors.purple.shade700, size: 24),
+            const SizedBox(width: 8),
+            Text(
+              'Financial Summary',
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isMobile = constraints.maxWidth < 600;
+
+            if (isMobile) {
+              return Column(
+                children: [
+                  _buildFinancialCard(
+                    'Petty Cash',
+                    Icons.account_balance_wallet,
+                    [Colors.blue.shade400, Colors.blue.shade600],
+                    currencyFormat.format(pettyCashReceived),
+                    currencyFormat.format(pettyCashUsed),
+                    pettyCashReceived - pettyCashUsed,
+                    currencyFormat,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildFinancialCard(
+                    'Projects',
+                    Icons.business_center,
+                    [Colors.green.shade400, Colors.green.shade600],
+                    currencyFormat.format(projectBudget),
+                    currencyFormat.format(projectExpenses),
+                    projectBudget - projectExpenses,
+                    currencyFormat,
+                  ),
+                ],
+              );
+            }
+
+            return Row(
+              children: [
+                Expanded(
+                  child: _buildFinancialCard(
+                    'Petty Cash',
+                    Icons.account_balance_wallet,
+                    [Colors.blue.shade400, Colors.blue.shade600],
+                    currencyFormat.format(pettyCashReceived),
+                    currencyFormat.format(pettyCashUsed),
+                    pettyCashReceived - pettyCashUsed,
+                    currencyFormat,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildFinancialCard(
+                    'Projects',
+                    Icons.business_center,
+                    [Colors.green.shade400, Colors.green.shade600],
+                    currencyFormat.format(projectBudget),
+                    currencyFormat.format(projectExpenses),
+                    projectBudget - projectExpenses,
+                    currencyFormat,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFinancialCard(
+    String title,
+    IconData icon,
+    List<Color> gradient,
+    String received,
+    String used,
+    double balance,
+    NumberFormat currencyFormat,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: gradient,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: Colors.white, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          _buildFinancialRow(
+            'Received',
+            received,
+            Icons.arrow_downward,
+            Colors.green,
+          ),
+          const SizedBox(height: 12),
+          _buildFinancialRow('Used', used, Icons.arrow_upward, Colors.red),
+          const SizedBox(height: 12),
+          Divider(color: Colors.grey.shade300),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.account_balance,
+                    size: 18,
+                    color: Colors.grey.shade700,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Balance',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade700,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                currencyFormat.format(balance),
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: balance >= 0
+                      ? Colors.green.shade700
+                      : Colors.red.shade700,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFinancialRow(
+    String label,
+    String amount,
+    IconData icon,
+    Color iconColor,
+  ) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 16, color: iconColor),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+        Text(
+          amount,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        ),
+      ],
     );
   }
 

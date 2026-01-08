@@ -117,6 +117,10 @@ class TransactionProvider extends ChangeNotifier {
       await loadTransactionsByReportId(reportId);
       // Update financial summary for the report
       await _updateReportFinancialSummary(reportId);
+      // Update project report if transaction is linked to a project
+      if (projectId != null) {
+        await _updateProjectReportFinancialSummary(projectId);
+      }
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -145,6 +149,10 @@ class TransactionProvider extends ChangeNotifier {
       await loadTransactionsByReportId(transaction.reportId);
       // Update financial summary for the report
       await _updateReportFinancialSummary(transaction.reportId);
+      // Update project report if transaction is linked to a project
+      if (transaction.projectId != null) {
+        await _updateProjectReportFinancialSummary(transaction.projectId!);
+      }
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -175,6 +183,10 @@ class TransactionProvider extends ChangeNotifier {
         await loadTransactionsByReportId(transaction.reportId);
         // Update financial summary for the report
         await _updateReportFinancialSummary(transaction.reportId);
+        // Update project report if transaction is linked to a project
+        if (transaction.projectId != null) {
+          await _updateProjectReportFinancialSummary(transaction.projectId!);
+        }
       }
       _isLoading = false;
       notifyListeners();
@@ -208,6 +220,10 @@ class TransactionProvider extends ChangeNotifier {
         await loadTransactionsByReportId(transaction.reportId);
         // Update financial summary for the report
         await _updateReportFinancialSummary(transaction.reportId);
+        // Update project report if transaction is linked to a project
+        if (transaction.projectId != null) {
+          await _updateProjectReportFinancialSummary(transaction.projectId!);
+        }
       }
       _isLoading = false;
       notifyListeners();
@@ -257,6 +273,10 @@ class TransactionProvider extends ChangeNotifier {
         await loadTransactionsByReportId(transaction.reportId);
         // Update financial summary for the report
         await _updateReportFinancialSummary(transaction.reportId);
+        // Update project report if transaction is linked to a project
+        if (transaction.projectId != null) {
+          await _updateProjectReportFinancialSummary(transaction.projectId!);
+        }
       }
       _isLoading = false;
       notifyListeners();
@@ -305,6 +325,10 @@ class TransactionProvider extends ChangeNotifier {
         await loadTransactionsByReportId(transaction.reportId);
         // Update financial summary for the report
         await _updateReportFinancialSummary(transaction.reportId);
+        // Update project report if transaction is linked to a project
+        if (transaction.projectId != null) {
+          await _updateProjectReportFinancialSummary(transaction.projectId!);
+        }
       }
       _isLoading = false;
       notifyListeners();
@@ -348,6 +372,28 @@ class TransactionProvider extends ChangeNotifier {
       }
     } catch (e) {
       AppLogger.severe('Error updating report financial summary: $e');
+    }
+  }
+
+  // Update financial summary for a project report after transaction changes
+  Future<void> _updateProjectReportFinancialSummary(String projectId) async {
+    try {
+      // Get all transactions for the project
+      final transactions = await _firestoreService.getTransactionsByProjectId(
+        projectId,
+      );
+
+      // Get the project report
+      final projectReport = await _firestoreService.getProjectReport(projectId);
+      if (projectReport != null) {
+        // Calculate totals based on transactions
+        final updatedReport = projectReport.calculateTotals(transactions);
+
+        // Update the project report in Firestore
+        await _firestoreService.updateProjectReport(updatedReport);
+      }
+    } catch (e) {
+      AppLogger.severe('Error updating project report financial summary: $e');
     }
   }
 }

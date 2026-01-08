@@ -63,6 +63,16 @@ class PdfExportService {
                     fontWeight: pw.FontWeight.bold,
                   ),
                 ),
+                pw.SizedBox(height: 8),
+                pw.Text(
+                  'Requested by: Heary Healdy Sairin',
+                  style: const pw.TextStyle(fontSize: 10),
+                ),
+                pw.SizedBox(height: 2),
+                pw.Text(
+                  'Department: Hope Channel Southeast Asia',
+                  style: const pw.TextStyle(fontSize: 10),
+                ),
               ],
             ),
           ),
@@ -110,6 +120,10 @@ class PdfExportService {
             pw.SizedBox(height: 5),
             pw.Text(report.notes!),
           ],
+
+          // Signature Section
+          pw.SizedBox(height: 30),
+          _buildSignatureSection(),
 
           // Footer
           pw.SizedBox(height: 30),
@@ -262,9 +276,35 @@ class PdfExportService {
       child: pw.Column(
         children: [
           _buildSummaryRow(
+            'Opening Balance:',
+            currencyFormat.format(report.openingBalance),
+          ),
+          _buildSummaryRow(
             'Total Disbursements:',
             currencyFormat.format(report.totalDisbursements),
           ),
+          pw.Divider(),
+          pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              _buildSummaryRow(
+                'Balance:',
+                currencyFormat.format(report.openingBalance - report.totalDisbursements),
+                isBold: true,
+              ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.only(left: 4, top: 2),
+                child: pw.Text(
+                  '(${_convertToWords(report.openingBalance - report.totalDisbursements)})',
+                  style: const pw.TextStyle(
+                    fontSize: 8,
+                    color: PdfColors.grey700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 8),
           _buildSummaryRow(
             'Cash on Hand:',
             currencyFormat.format(report.cashOnHand),
@@ -273,11 +313,9 @@ class PdfExportService {
             'Closing Balance:',
             currencyFormat.format(report.closingBalance),
           ),
-          pw.Divider(),
           _buildSummaryRow(
             'Variance:',
             currencyFormat.format(report.variance),
-            isBold: true,
           ),
         ],
       ),
@@ -309,5 +347,151 @@ class PdfExportService {
         ],
       ),
     );
+  }
+
+  pw.Widget _buildSignatureSection() {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(16),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.grey300),
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+      ),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
+        children: [
+          _buildSignatureBox('Requested By:', 'Name'),
+          _buildSignatureBox('Approved By:', ''),
+          _buildActionNumberBox(),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildSignatureBox(String title, String subtitle) {
+    return pw.Container(
+      width: 150,
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            title,
+            style: pw.TextStyle(
+              fontSize: 10,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+          pw.SizedBox(height: 30),
+          pw.Container(
+            decoration: const pw.BoxDecoration(
+              border: pw.Border(bottom: pw.BorderSide(color: PdfColors.black)),
+            ),
+            height: 1,
+          ),
+          pw.SizedBox(height: 4),
+          if (subtitle.isNotEmpty)
+            pw.Text(
+              subtitle,
+              style: const pw.TextStyle(
+                fontSize: 9,
+                color: PdfColors.grey600,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildActionNumberBox() {
+    return pw.Container(
+      width: 120,
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            'Action No:',
+            style: pw.TextStyle(
+              fontSize: 10,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+          pw.SizedBox(height: 30),
+          pw.Container(
+            decoration: const pw.BoxDecoration(
+              border: pw.Border(bottom: pw.BorderSide(color: PdfColors.black)),
+            ),
+            height: 1,
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _convertToWords(double amount) {
+    final baht = amount.floor();
+    final satang = ((amount - baht) * 100).round();
+
+    final bahtInWords = _numberToWords(baht);
+    final satangInWords = satang > 0
+        ? 'and ${_numberToWords(satang)} Satang'
+        : '';
+
+    return '${bahtInWords.toUpperCase()} BAHT $satangInWords'.trim();
+  }
+
+  String _numberToWords(int number) {
+    if (number == 0) return 'Zero';
+
+    final ones = [
+      '',
+      'One',
+      'Two',
+      'Three',
+      'Four',
+      'Five',
+      'Six',
+      'Seven',
+      'Eight',
+      'Nine',
+    ];
+    final teens = [
+      'Ten',
+      'Eleven',
+      'Twelve',
+      'Thirteen',
+      'Fourteen',
+      'Fifteen',
+      'Sixteen',
+      'Seventeen',
+      'Eighteen',
+      'Nineteen',
+    ];
+    final tens = [
+      '',
+      '',
+      'Twenty',
+      'Thirty',
+      'Forty',
+      'Fifty',
+      'Sixty',
+      'Seventy',
+      'Eighty',
+      'Ninety',
+    ];
+
+    if (number < 10) return ones[number];
+    if (number < 20) return teens[number - 10];
+    if (number < 100) {
+      return '${tens[number ~/ 10]} ${ones[number % 10]}'.trim();
+    }
+    if (number < 1000) {
+      return '${ones[number ~/ 100]} Hundred ${_numberToWords(number % 100)}'
+          .trim();
+    }
+    if (number < 1000000) {
+      return '${_numberToWords(number ~/ 1000)} Thousand ${_numberToWords(number % 1000)}'
+          .trim();
+    }
+
+    return number.toString(); // Fallback for very large numbers
   }
 }

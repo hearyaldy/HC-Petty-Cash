@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import '../../providers/auth_provider.dart';
 import '../../providers/report_provider.dart';
 import '../../providers/project_report_provider.dart';
@@ -15,6 +19,48 @@ import '../../services/voucher_export_service.dart';
 import '../../widgets/voucher_preview_dialog.dart';
 import '../../utils/constants.dart';
 
+enum TransactionSortOption {
+  dateNewest,
+  dateOldest,
+  amountHighest,
+  amountLowest,
+  receiptNoAsc,
+  receiptNoDesc,
+}
+
+extension TransactionSortOptionExtension on TransactionSortOption {
+  String get displayName {
+    switch (this) {
+      case TransactionSortOption.dateNewest:
+        return 'Date (Newest First)';
+      case TransactionSortOption.dateOldest:
+        return 'Date (Oldest First)';
+      case TransactionSortOption.amountHighest:
+        return 'Amount (Highest First)';
+      case TransactionSortOption.amountLowest:
+        return 'Amount (Lowest First)';
+      case TransactionSortOption.receiptNoAsc:
+        return 'Receipt No (1-9)';
+      case TransactionSortOption.receiptNoDesc:
+        return 'Receipt No (9-1)';
+    }
+  }
+
+  IconData get icon {
+    switch (this) {
+      case TransactionSortOption.dateNewest:
+      case TransactionSortOption.dateOldest:
+        return Icons.calendar_today;
+      case TransactionSortOption.amountHighest:
+      case TransactionSortOption.amountLowest:
+        return Icons.attach_money;
+      case TransactionSortOption.receiptNoAsc:
+      case TransactionSortOption.receiptNoDesc:
+        return Icons.receipt;
+    }
+  }
+}
+
 class ReportDetailScreen extends StatefulWidget {
   final String reportId;
 
@@ -25,6 +71,8 @@ class ReportDetailScreen extends StatefulWidget {
 }
 
 class _ReportDetailScreenState extends State<ReportDetailScreen> {
+  TransactionSortOption _sortOption = TransactionSortOption.receiptNoAsc;
+
   @override
   void initState() {
     super.initState();
@@ -48,7 +96,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     final transactions = transactionProvider.transactions
         .where((t) => t.reportId == report.id)
         .toList();
-    transactions.sort((a, b) => b.date.compareTo(a.date));
+    _sortTransactions(transactions);
 
     return Scaffold(
       appBar: AppBar(
@@ -155,6 +203,76 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             _buildTransactionsList(transactions, report, authProvider),
           ],
         ),
+      ),
+    );
+  }
+
+  void _sortTransactions(List<Transaction> transactions) {
+    switch (_sortOption) {
+      case TransactionSortOption.dateNewest:
+        transactions.sort((a, b) => b.date.compareTo(a.date));
+        break;
+      case TransactionSortOption.dateOldest:
+        transactions.sort((a, b) => a.date.compareTo(b.date));
+        break;
+      case TransactionSortOption.amountHighest:
+        transactions.sort((a, b) => b.amount.compareTo(a.amount));
+        break;
+      case TransactionSortOption.amountLowest:
+        transactions.sort((a, b) => a.amount.compareTo(b.amount));
+        break;
+      case TransactionSortOption.receiptNoAsc:
+        transactions.sort((a, b) {
+          final aNum = int.tryParse(a.receiptNo) ?? 0;
+          final bNum = int.tryParse(b.receiptNo) ?? 0;
+          return aNum.compareTo(bNum);
+        });
+        break;
+      case TransactionSortOption.receiptNoDesc:
+        transactions.sort((a, b) {
+          final aNum = int.tryParse(a.receiptNo) ?? 0;
+          final bNum = int.tryParse(b.receiptNo) ?? 0;
+          return bNum.compareTo(aNum);
+        });
+        break;
+    }
+  }
+
+  void _showSortDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sort Transactions'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: TransactionSortOption.values.map((option) {
+            return RadioListTile<TransactionSortOption>(
+              title: Row(
+                children: [
+                  Icon(option.icon, size: 20),
+                  const SizedBox(width: 12),
+                  Text(option.displayName),
+                ],
+              ),
+              value: option,
+              groupValue: _sortOption,
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    _sortOption = value;
+                  });
+                  Navigator.of(context).pop();
+                }
+              },
+            );
+          }).toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+        ],
       ),
     );
   }
@@ -417,6 +535,19 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                 ),
+                if (transactions.isNotEmpty) ...[
+                  IconButton(
+                    onPressed: _showSortDialog,
+                    icon: const Icon(Icons.sort),
+                    tooltip: 'Sort Transactions',
+                  ),
+                  IconButton(
+                    onPressed: () =>
+                        _printTransactionsTable(report, transactions),
+                    icon: const Icon(Icons.print),
+                    tooltip: 'Print Transactions',
+                  ),
+                ],
                 if (report.status != ReportStatus.closed.name)
                   ElevatedButton.icon(
                     onPressed: () => _showAddTransactionDialog(report),
@@ -425,6 +556,20 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   ),
               ],
             ),
+            if (transactions.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8, bottom: 16),
+                child: Row(
+                  children: [
+                    Icon(_sortOption.icon, size: 16, color: Colors.grey[600]),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Sorted by: ${_sortOption.displayName}',
+                      style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              ),
             const Divider(height: 32),
             if (transactions.isEmpty)
               const Center(
@@ -636,7 +781,28 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   Future<void> _showAddTransactionDialog(PettyCashReport report) async {
     final formKey = GlobalKey<FormState>();
     final descriptionController = TextEditingController();
-    final receiptNoController = TextEditingController();
+
+    // Auto-generate next receipt number starting from 1
+    final transactionProvider = context.read<TransactionProvider>();
+    final existingTransactions = transactionProvider.transactions
+        .where((t) => t.reportId == report.id)
+        .toList();
+
+    int nextReceiptNumber = 1;
+    if (existingTransactions.isNotEmpty) {
+      // Find the highest receipt number and add 1
+      final receiptNumbers = existingTransactions
+          .map((t) => int.tryParse(t.receiptNo) ?? 0)
+          .where((n) => n > 0)
+          .toList();
+      if (receiptNumbers.isNotEmpty) {
+        nextReceiptNumber = receiptNumbers.reduce((a, b) => a > b ? a : b) + 1;
+      }
+    }
+
+    final receiptNoController = TextEditingController(
+      text: nextReceiptNumber.toString(),
+    );
     final amountController = TextEditingController();
     final paidToController = TextEditingController();
     DateTime selectedDate = DateTime.now();
@@ -898,7 +1064,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                   );
 
                                   if (!context.mounted) return;
-                                  // Reload both transactions and reports to update the UI
+                                  // Reload transactions, reports, and project reports to update the UI
                                   await Future.wait([
                                     context
                                         .read<TransactionProvider>()
@@ -906,6 +1072,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                     context
                                         .read<ReportProvider>()
                                         .loadReports(),
+                                    context
+                                        .read<ProjectReportProvider>()
+                                        .loadProjectReports(),
                                   ]);
 
                                   if (context.mounted) {
@@ -1265,10 +1434,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               await transactionProvider.updateTransaction(updatedTransaction);
 
               if (!context.mounted) return;
-              // Reload both transactions and reports to update the UI
+              // Reload transactions, reports, and project reports to update the UI
               await Future.wait([
                 context.read<TransactionProvider>().loadTransactions(),
                 context.read<ReportProvider>().loadReports(),
+                context.read<ProjectReportProvider>().loadProjectReports(),
               ]);
 
               if (context.mounted) {
@@ -1322,10 +1492,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         await transactionProvider.deleteTransaction(transaction.id);
 
         if (!mounted) return;
-        // Reload both transactions and reports to update the UI
+        // Reload transactions, reports, and project reports to update the UI
         await Future.wait([
           context.read<TransactionProvider>().loadTransactions(),
           context.read<ReportProvider>().loadReports(),
+          context.read<ProjectReportProvider>().loadProjectReports(),
         ]);
 
         if (mounted) {
@@ -1347,5 +1518,532 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         }
       }
     }
+  }
+
+  Future<void> _printTransactionsTable(
+    PettyCashReport report,
+    List<Transaction> transactions,
+  ) async {
+    final pdf = pw.Document();
+    final dateFormat = DateFormat('MMM dd, yyyy');
+    final currencyFormat = NumberFormat.currency(
+      symbol: AppConstants.currencySymbol,
+    );
+
+    // Load font
+    final fontData = await rootBundle.load('assets/fonts/NotoSansThai-Regular.ttf');
+    final ttf = pw.Font.ttf(fontData);
+    final boldFontData = await rootBundle.load('assets/fonts/NotoSansThai-Bold.ttf');
+    final boldTtf = pw.Font.ttf(boldFontData);
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4.landscape,
+        theme: pw.ThemeData.withFont(
+          base: ttf,
+          bold: boldTtf,
+          fontFallback: [pw.Font.helvetica()],
+        ),
+        build: (context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Header
+              pw.Text(
+                'Transactions Report',
+                style: pw.TextStyle(font: boldTtf, fontSize: 20),
+              ),
+              pw.SizedBox(height: 8),
+              pw.Text(
+                '${report.reportNumber} - ${report.department}',
+                style: pw.TextStyle(font: ttf, fontSize: 12),
+              ),
+              pw.Text(
+                'Period: ${dateFormat.format(report.periodStart)} - ${dateFormat.format(report.periodEnd)}',
+                style: pw.TextStyle(font: ttf, fontSize: 10),
+              ),
+              pw.SizedBox(height: 8),
+              pw.Text(
+                'Requested by: Heary Healdy Sairin',
+                style: pw.TextStyle(font: ttf, fontSize: 10),
+              ),
+              pw.SizedBox(height: 2),
+              pw.Text(
+                'Department: Hope Channel Southeast Asia',
+                style: pw.TextStyle(font: ttf, fontSize: 10),
+              ),
+              pw.SizedBox(height: 20),
+
+              // Table
+              pw.Table(
+                border: pw.TableBorder.all(color: PdfColors.grey400),
+                columnWidths: {
+                  0: const pw.FlexColumnWidth(1),
+                  1: const pw.FlexColumnWidth(1),
+                  2: const pw.FlexColumnWidth(2.5),
+                  3: const pw.FlexColumnWidth(1.5),
+                  4: const pw.FlexColumnWidth(1),
+                  5: const pw.FlexColumnWidth(1.5),
+                  6: const pw.FlexColumnWidth(1),
+                },
+                children: [
+                  // Header row
+                  pw.TableRow(
+                    decoration: const pw.BoxDecoration(
+                      color: PdfColors.grey300,
+                    ),
+                    children: [
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(4),
+                        child: pw.Text(
+                          'Date',
+                          style: pw.TextStyle(font: boldTtf, fontSize: 9),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(4),
+                        child: pw.Text(
+                          'Receipt No',
+                          style: pw.TextStyle(font: boldTtf, fontSize: 9),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(4),
+                        child: pw.Text(
+                          'Description',
+                          style: pw.TextStyle(font: boldTtf, fontSize: 9),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(4),
+                        child: pw.Text(
+                          'Category',
+                          style: pw.TextStyle(font: boldTtf, fontSize: 9),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(4),
+                        child: pw.Text(
+                          'Amount',
+                          style: pw.TextStyle(font: boldTtf, fontSize: 9),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(4),
+                        child: pw.Text(
+                          'Payment',
+                          style: pw.TextStyle(font: boldTtf, fontSize: 9),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(4),
+                        child: pw.Text(
+                          'Status',
+                          style: pw.TextStyle(font: boldTtf, fontSize: 9),
+                        ),
+                      ),
+                    ],
+                  ),
+                  // Data rows
+                  ...transactions.map((transaction) {
+                    return pw.TableRow(
+                      children: [
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            dateFormat.format(transaction.date),
+                            style: pw.TextStyle(font: ttf, fontSize: 8),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            transaction.receiptNo,
+                            style: pw.TextStyle(font: ttf, fontSize: 8),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            transaction.description,
+                            style: pw.TextStyle(font: ttf, fontSize: 8),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            transaction.categoryEnum.displayName,
+                            style: pw.TextStyle(font: ttf, fontSize: 8),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            currencyFormat.format(transaction.amount),
+                            style: pw.TextStyle(font: ttf, fontSize: 8),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            transaction.paymentMethodEnum.displayName,
+                            style: pw.TextStyle(font: ttf, fontSize: 8),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            transaction.statusEnum.displayName,
+                            style: pw.TextStyle(font: ttf, fontSize: 8),
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                  // Total row
+                  pw.TableRow(
+                    decoration: const pw.BoxDecoration(
+                      color: PdfColors.grey200,
+                    ),
+                    children: [
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(4),
+                        child: pw.Text('', style: pw.TextStyle(font: ttf)),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(4),
+                        child: pw.Text('', style: pw.TextStyle(font: ttf)),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(4),
+                        child: pw.Text('', style: pw.TextStyle(font: ttf)),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(4),
+                        child: pw.Text(
+                          'Total:',
+                          style: pw.TextStyle(font: boldTtf, fontSize: 9),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(4),
+                        child: pw.Text(
+                          currencyFormat.format(
+                            transactions.fold<double>(
+                              0,
+                              (sum, t) => sum + t.amount,
+                            ),
+                          ),
+                          style: pw.TextStyle(font: boldTtf, fontSize: 9),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(4),
+                        child: pw.Text('', style: pw.TextStyle(font: ttf)),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(4),
+                        child: pw.Text('', style: pw.TextStyle(font: ttf)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 20),
+
+              // Balance Summary
+              pw.Container(
+                padding: const pw.EdgeInsets.all(12),
+                decoration: pw.BoxDecoration(
+                  color: PdfColors.grey100,
+                  border: pw.Border.all(color: PdfColors.grey400),
+                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                ),
+                child: pw.Column(
+                  children: [
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text(
+                          'Opening Balance:',
+                          style: pw.TextStyle(font: ttf, fontSize: 10),
+                        ),
+                        pw.Text(
+                          currencyFormat.format(report.openingBalance),
+                          style: pw.TextStyle(font: ttf, fontSize: 10),
+                        ),
+                      ],
+                    ),
+                    pw.SizedBox(height: 6),
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text(
+                          'Total Disbursements:',
+                          style: pw.TextStyle(font: ttf, fontSize: 10),
+                        ),
+                        pw.Text(
+                          currencyFormat.format(
+                            transactions.fold<double>(
+                              0,
+                              (sum, t) => sum + t.amount,
+                            ),
+                          ),
+                          style: pw.TextStyle(font: ttf, fontSize: 10),
+                        ),
+                      ],
+                    ),
+                    pw.Divider(thickness: 1, color: PdfColors.grey400),
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Row(
+                          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                          children: [
+                            pw.Text(
+                              'Balance:',
+                              style: pw.TextStyle(font: boldTtf, fontSize: 11),
+                            ),
+                            pw.Text(
+                              currencyFormat.format(
+                                report.openingBalance -
+                                    transactions.fold<double>(
+                                      0,
+                                      (sum, t) => sum + t.amount,
+                                    ),
+                              ),
+                              style: pw.TextStyle(font: boldTtf, fontSize: 11),
+                            ),
+                          ],
+                        ),
+                        pw.SizedBox(height: 4),
+                        pw.Text(
+                          '(${_convertToWords(
+                            report.openingBalance -
+                                transactions.fold<double>(
+                                  0,
+                                  (sum, t) => sum + t.amount,
+                                ),
+                          )})',
+                          style: pw.TextStyle(
+                            font: ttf,
+                            fontSize: 9,
+                            fontStyle: pw.FontStyle.italic,
+                            color: PdfColors.grey700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              pw.SizedBox(height: 20),
+
+              // Signature Section
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
+                children: [
+                  pw.Container(
+                    width: 150,
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          'Requested By:',
+                          style: pw.TextStyle(font: boldTtf, fontSize: 10),
+                        ),
+                        pw.SizedBox(height: 30),
+                        pw.Container(
+                          decoration: const pw.BoxDecoration(
+                            border: pw.Border(
+                              bottom: pw.BorderSide(color: PdfColors.black),
+                            ),
+                          ),
+                          height: 1,
+                        ),
+                        pw.SizedBox(height: 4),
+                        pw.Text(
+                          'Name',
+                          style: pw.TextStyle(
+                            font: ttf,
+                            fontSize: 9,
+                            color: PdfColors.grey600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  pw.Container(
+                    width: 150,
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          'Approved By:',
+                          style: pw.TextStyle(font: boldTtf, fontSize: 10),
+                        ),
+                        pw.SizedBox(height: 30),
+                        pw.Container(
+                          decoration: const pw.BoxDecoration(
+                            border: pw.Border(
+                              bottom: pw.BorderSide(color: PdfColors.black),
+                            ),
+                          ),
+                          height: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                  pw.Container(
+                    width: 120,
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          'Action No:',
+                          style: pw.TextStyle(font: boldTtf, fontSize: 10),
+                        ),
+                        pw.SizedBox(height: 30),
+                        pw.Container(
+                          decoration: const pw.BoxDecoration(
+                            border: pw.Border(
+                              bottom: pw.BorderSide(color: PdfColors.black),
+                            ),
+                          ),
+                          height: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    // Show preview dialog
+    await showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.9,
+          height: MediaQuery.of(context).size.height * 0.9,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Transactions Report Preview',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  Row(
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: () async {
+                          await Printing.layoutPdf(
+                            onLayout: (format) async => pdf.save(),
+                          );
+                        },
+                        icon: const Icon(Icons.print),
+                        label: const Text('Print'),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: PdfPreview(
+                  build: (format) async => pdf.save(),
+                  allowPrinting: true,
+                  allowSharing: true,
+                  canChangePageFormat: false,
+                  canChangeOrientation: false,
+                  canDebug: false,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _convertToWords(double amount) {
+    final baht = amount.floor();
+    final satang = ((amount - baht) * 100).round();
+
+    final bahtInWords = _numberToWords(baht);
+    final satangInWords = satang > 0
+        ? 'and ${_numberToWords(satang)} Satang'
+        : '';
+
+    return '${bahtInWords.toUpperCase()} BAHT $satangInWords'.trim();
+  }
+
+  String _numberToWords(int number) {
+    if (number == 0) return 'Zero';
+
+    final ones = [
+      '',
+      'One',
+      'Two',
+      'Three',
+      'Four',
+      'Five',
+      'Six',
+      'Seven',
+      'Eight',
+      'Nine',
+    ];
+    final teens = [
+      'Ten',
+      'Eleven',
+      'Twelve',
+      'Thirteen',
+      'Fourteen',
+      'Fifteen',
+      'Sixteen',
+      'Seventeen',
+      'Eighteen',
+      'Nineteen',
+    ];
+    final tens = [
+      '',
+      '',
+      'Twenty',
+      'Thirty',
+      'Forty',
+      'Fifty',
+      'Sixty',
+      'Seventy',
+      'Eighty',
+      'Ninety',
+    ];
+
+    if (number < 10) return ones[number];
+    if (number < 20) return teens[number - 10];
+    if (number < 100) {
+      return '${tens[number ~/ 10]} ${ones[number % 10]}'.trim();
+    }
+    if (number < 1000) {
+      return '${ones[number ~/ 100]} Hundred ${_numberToWords(number % 100)}'
+          .trim();
+    }
+    if (number < 1000000) {
+      return '${_numberToWords(number ~/ 1000)} Thousand ${_numberToWords(number % 1000)}'
+          .trim();
+    }
+
+    return number.toString(); // Fallback for very large numbers
   }
 }

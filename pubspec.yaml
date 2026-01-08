@@ -102,8 +102,8 @@ flutter:
   fonts:
     - family: NotoSansThai
       fonts:
-        - asset: fonts/NotoSansThai-Regular.ttf
-        - asset: fonts/NotoSansThai-Bold.ttf
+        - asset: assets/fonts/NotoSansThai-Regular.ttf
+        - asset: assets/fonts/NotoSansThai-Bold.ttf
           weight: 700
   #   - family: Schyler
   #     fonts:

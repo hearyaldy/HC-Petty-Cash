@@ -86,6 +86,10 @@ class VoucherPreviewDialog extends StatelessWidget {
 
                     // Title
                     _buildTitle(),
+                    const SizedBox(height: 8),
+
+                    // Requested By Information
+                    _buildRequestedByInfo(),
                     const SizedBox(height: 16),
 
                     // Voucher Information Section
@@ -192,6 +196,24 @@ class VoucherPreviewDialog extends StatelessWidget {
           style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
           textAlign: TextAlign.center,
         ),
+      ),
+    );
+  }
+
+  Widget _buildRequestedByInfo() {
+    return const Center(
+      child: Column(
+        children: [
+          Text(
+            'Requested by: Heary Healdy Sairin',
+            style: TextStyle(fontSize: 10),
+          ),
+          SizedBox(height: 2),
+          Text(
+            'Department: Hope Channel Southeast Asia',
+            style: TextStyle(fontSize: 10),
+          ),
+        ],
       ),
     );
   }
@@ -395,53 +417,62 @@ class VoucherPreviewDialog extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
       ),
       padding: const EdgeInsets.all(12),
-      child: Column(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
-            'SIGNATURES',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildSignatureBox('Received By'),
-              _buildSignatureBox('Paid By'),
-              _buildSignatureBox('Approved By'),
-            ],
-          ),
+          _buildSignatureBox('Requested By:', 'Name'),
+          _buildSignatureBox('Approved By:', ''),
+          _buildActionNumberBox(),
         ],
       ),
     );
   }
 
-  Widget _buildSignatureBox(String title) {
+  Widget _buildSignatureBox(String title, String subtitle) {
     return SizedBox(
-      width: 80,
+      width: 100,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
             style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 25),
+          const SizedBox(height: 20),
           Container(
             decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: Colors.black)),
+              border: Border(bottom: BorderSide(color: Colors.black)),
             ),
-            padding: const EdgeInsets.only(top: 2),
-            child: const Text(
-              'Signature',
-              style: TextStyle(fontSize: 8, color: Colors.grey),
-            ),
+            height: 1,
           ),
-          const SizedBox(height: 4),
-          const Text('Date', style: TextStyle(fontSize: 8, color: Colors.grey)),
+          const SizedBox(height: 2),
+          if (subtitle.isNotEmpty)
+            Text(
+              subtitle,
+              style: TextStyle(fontSize: 8, color: Colors.grey.shade600),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionNumberBox() {
+    return SizedBox(
+      width: 80,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Action No:',
+            style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 20),
+          Container(
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: Colors.black)),
+            ),
+            height: 1,
+          ),
         ],
       ),
     );

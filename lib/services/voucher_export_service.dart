@@ -67,9 +67,9 @@ class VoucherExportService {
     pw.Font? ttfBold;
 
     try {
-      final fontData = await rootBundle.load('fonts/NotoSansThai-Regular.ttf');
+      final fontData = await rootBundle.load('assets/fonts/NotoSansThai-Regular.ttf');
       ttf = pw.Font.ttf(fontData);
-      final fontBoldData = await rootBundle.load('fonts/NotoSansThai-Bold.ttf');
+      final fontBoldData = await rootBundle.load('assets/fonts/NotoSansThai-Bold.ttf');
       ttfBold = pw.Font.ttf(fontBoldData);
     } catch (e) {
       // If custom fonts fail to load, use default fonts
@@ -81,37 +81,61 @@ class VoucherExportService {
 
     pdf.addPage(
       pw.Page(
-        pageFormat: PdfPageFormat.a5,
+        pageFormat: PdfPageFormat.a5.landscape,
         margin: const pw.EdgeInsets.all(20),
+        theme: pw.ThemeData.withFont(
+          base: ttf ?? pw.Font.helvetica(),
+          bold: ttfBold ?? pw.Font.helveticaBold(),
+          fontFallback: [pw.Font.helvetica()],
+        ),
         build: (context) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
             // Header with organization details
             _buildHeader(ttf, ttfBold),
+            pw.SizedBox(height: 10),
+
+            // Voucher Title and Requested By Info in a row
+            pw.Row(
+              children: [
+                pw.Expanded(
+                  flex: 2,
+                  child: _buildTitle(ttf, ttfBold),
+                ),
+                pw.SizedBox(width: 16),
+                pw.Expanded(
+                  flex: 1,
+                  child: _buildRequestedByInfo(ttf, ttfBold),
+                ),
+              ],
+            ),
             pw.SizedBox(height: 12),
 
-            // Voucher Title
-            _buildTitle(ttf, ttfBold),
-            pw.SizedBox(height: 16),
-
-            // Voucher Information Section
-            _buildVoucherInfoSection(
-              transaction,
-              report,
-              requestor,
-              dateFormat,
-              ttf,
-              ttfBold,
+            // Voucher Information and Description in columns
+            pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Expanded(
+                  child: _buildVoucherInfoSection(
+                    transaction,
+                    report,
+                    requestor,
+                    dateFormat,
+                    ttf,
+                    ttfBold,
+                  ),
+                ),
+                pw.SizedBox(width: 16),
+                pw.Expanded(
+                  child: _buildDescriptionSection(transaction, ttf, ttfBold),
+                ),
+              ],
             ),
-            pw.SizedBox(height: 16),
+            pw.SizedBox(height: 12),
 
-            // Description Section
-            _buildDescriptionSection(transaction, ttf, ttfBold),
-            pw.SizedBox(height: 16),
-
-            // Amount Section with Amount in Words
+            // Amount Section
             _buildAmountSection(transaction, ttf, ttfBold),
-            pw.SizedBox(height: 16),
+            pw.SizedBox(height: 12),
 
             // Spacer to push signature section to bottom
             pw.Expanded(child: pw.Container()),
@@ -120,7 +144,7 @@ class VoucherExportService {
             _buildSignatureSection(ttf, ttfBold),
 
             // Footer with voucher ID and timestamp
-            pw.SizedBox(height: 16),
+            pw.SizedBox(height: 12),
             _buildFooter(transaction, dateFormat, ttf),
           ],
         ),
@@ -206,7 +230,7 @@ class VoucherExportService {
         border: pw.Border.all(color: PdfColors.grey400),
         borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
       ),
-      padding: const pw.EdgeInsets.all(12),
+      padding: const pw.EdgeInsets.all(10),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
@@ -222,7 +246,7 @@ class VoucherExportService {
                   fontBold,
                 ),
               ),
-              pw.SizedBox(width: 20),
+              pw.SizedBox(width: 12),
               pw.Expanded(
                 flex: 2,
                 child: _buildInfoRow(
@@ -234,7 +258,7 @@ class VoucherExportService {
               ),
             ],
           ),
-          pw.SizedBox(height: 8),
+          pw.SizedBox(height: 6),
 
           // Report number and department row
           pw.Row(
@@ -248,7 +272,7 @@ class VoucherExportService {
                   fontBold,
                 ),
               ),
-              pw.SizedBox(width: 20),
+              pw.SizedBox(width: 12),
               pw.Expanded(
                 flex: 2,
                 child: _buildInfoRow(
@@ -274,7 +298,7 @@ class VoucherExportService {
                   fontBold,
                 ),
               ),
-              pw.SizedBox(width: 20),
+              pw.SizedBox(width: 12),
               pw.Expanded(
                 flex: 2,
                 child: _buildInfoRow(
@@ -325,7 +349,7 @@ class VoucherExportService {
         border: pw.Border.all(color: PdfColors.grey400),
         borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
       ),
-      padding: const pw.EdgeInsets.all(12),
+      padding: const pw.EdgeInsets.all(10),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
@@ -357,7 +381,7 @@ class VoucherExportService {
                   fontBold,
                 ),
               ),
-              pw.SizedBox(width: 20),
+              pw.SizedBox(width: 12),
               pw.Expanded(
                 child: _buildInfoRow(
                   'Payment Method:',
@@ -387,7 +411,7 @@ class VoucherExportService {
         border: pw.Border.all(color: PdfColors.grey500),
         borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
       ),
-      padding: const pw.EdgeInsets.all(12),
+      padding: const pw.EdgeInsets.all(10),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
@@ -440,43 +464,78 @@ class VoucherExportService {
     );
   }
 
-  pw.Widget _buildSignatureSection(pw.Font? font, pw.Font? fontBold) {
+  pw.Widget _buildRequestedByInfo(pw.Font? font, pw.Font? fontBold) {
     return pw.Container(
       decoration: pw.BoxDecoration(
         border: pw.Border.all(color: PdfColors.grey400),
-        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
       ),
-      padding: const pw.EdgeInsets.all(12),
+      padding: const pw.EdgeInsets.all(8),
       child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           pw.Text(
-            'SIGNATURES',
+            'Requested by:',
             style: pw.TextStyle(
-              fontSize: 10,
+              fontSize: 8,
               fontWeight: pw.FontWeight.bold,
-              color: PdfColors.grey700,
               font: fontBold ?? pw.Font.helvetica(),
             ),
           ),
-          pw.SizedBox(height: 12),
-          pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildSignatureBox('Received By', font, fontBold),
-              _buildSignatureBox('Paid By', font, fontBold),
-              _buildSignatureBox('Approved By', font, fontBold),
-            ],
+          pw.SizedBox(height: 2),
+          pw.Text(
+            'Heary Healdy Sairin',
+            style: pw.TextStyle(
+              fontSize: 8,
+              font: font ?? pw.Font.helvetica(),
+            ),
+          ),
+          pw.SizedBox(height: 6),
+          pw.Text(
+            'Department:',
+            style: pw.TextStyle(
+              fontSize: 8,
+              fontWeight: pw.FontWeight.bold,
+              font: fontBold ?? pw.Font.helvetica(),
+            ),
+          ),
+          pw.SizedBox(height: 2),
+          pw.Text(
+            'Hope Channel Southeast Asia',
+            style: pw.TextStyle(
+              fontSize: 8,
+              font: font ?? pw.Font.helvetica(),
+            ),
           ),
         ],
       ),
     );
   }
 
-  pw.Widget _buildSignatureBox(String title, pw.Font? font, pw.Font? fontBold) {
+  pw.Widget _buildSignatureSection(pw.Font? font, pw.Font? fontBold) {
     return pw.Container(
-      width: 80,
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.grey400),
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+      ),
+      padding: const pw.EdgeInsets.all(10),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          _buildSignatureBox('Requested By:', 'Name', font, fontBold),
+          _buildSignatureBox('Approved By:', '', font, fontBold),
+          _buildActionNumberBox(font, fontBold),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildSignatureBox(
+      String title, String subtitle, pw.Font? font, pw.Font? fontBold) {
+    return pw.Container(
+      width: 100,
       child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           pw.Text(
             title,
@@ -486,29 +545,48 @@ class VoucherExportService {
               font: fontBold ?? pw.Font.helvetica(),
             ),
           ),
-          pw.SizedBox(height: 25),
+          pw.SizedBox(height: 16),
           pw.Container(
             decoration: const pw.BoxDecoration(
-              border: pw.Border(top: pw.BorderSide(color: PdfColors.black)),
+              border: pw.Border(bottom: pw.BorderSide(color: PdfColors.black)),
             ),
-            padding: const pw.EdgeInsets.only(top: 2),
-            child: pw.Text(
-              'Signature',
+            height: 1,
+          ),
+          pw.SizedBox(height: 2),
+          if (subtitle.isNotEmpty)
+            pw.Text(
+              subtitle,
               style: pw.TextStyle(
                 fontSize: 7,
-                color: PdfColors.grey,
+                color: PdfColors.grey600,
                 font: font ?? pw.Font.helvetica(),
               ),
             ),
-          ),
-          pw.SizedBox(height: 4),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildActionNumberBox(pw.Font? font, pw.Font? fontBold) {
+    return pw.Container(
+      width: 80,
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
           pw.Text(
-            'Date',
+            'Action No:',
             style: pw.TextStyle(
-              fontSize: 7,
-              color: PdfColors.grey,
-              font: font ?? pw.Font.helvetica(),
+              fontSize: 8,
+              fontWeight: pw.FontWeight.bold,
+              font: fontBold ?? pw.Font.helvetica(),
             ),
+          ),
+          pw.SizedBox(height: 16),
+          pw.Container(
+            decoration: const pw.BoxDecoration(
+              border: pw.Border(bottom: pw.BorderSide(color: PdfColors.black)),
+            ),
+            height: 1,
           ),
         ],
       ),

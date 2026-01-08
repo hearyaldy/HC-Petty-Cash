@@ -500,9 +500,13 @@ class FirestoreService {
   Future<void> deleteProjectReport(String reportId) async {
     try {
       // Get and delete associated transactions first
-      final transactions = await getTransactionsByProjectId(reportId);
-      for (var transaction in transactions) {
-        await deleteTransaction(transaction.id);
+      // Don't use orderBy to avoid needing composite index for deletion
+      final snapshot = await _transactionsCollection
+          .where('projectId', isEqualTo: reportId)
+          .get();
+
+      for (var doc in snapshot.docs) {
+        await deleteTransaction(doc.id);
       }
       // Then delete the report
       await _projectReportsCollection.doc(reportId).delete();
