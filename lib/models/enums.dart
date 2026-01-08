@@ -112,3 +112,89 @@ enum ExpenseCategory {
     }
   }
 }
+
+// Extension methods to provide displayName for string-based enum values
+extension UserRoleExtension on String {
+  String get userRoleDisplayName {
+    final role = UserRole.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => UserRole.requester,
+    );
+    return role.displayName;
+  }
+
+  UserRole toUserRole() {
+    return UserRole.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => UserRole.requester,
+    );
+  }
+}
+
+extension TransactionStatusExtension on String {
+  String get transactionStatusDisplayName {
+    final status = TransactionStatus.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => TransactionStatus.draft,
+    );
+    return status.displayName;
+  }
+
+  TransactionStatus toTransactionStatus() {
+    return TransactionStatus.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => TransactionStatus.draft,
+    );
+  }
+}
+
+extension ReportStatusExtension on String {
+  String get reportStatusDisplayName {
+    final status = ReportStatus.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => ReportStatus.draft,
+    );
+    return status.displayName;
+  }
+
+  ReportStatus toReportStatus() {
+    return ReportStatus.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => ReportStatus.draft,
+    );
+  }
+}
+
+extension ExpenseCategoryExtension on String {
+  String get expenseCategoryDisplayName {
+    final category = ExpenseCategory.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => ExpenseCategory.other,
+    );
+    return category.displayName;
+  }
+
+  ExpenseCategory toExpenseCategory() {
+    return ExpenseCategory.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => ExpenseCategory.other,
+    );
+  }
+}
+
+extension PaymentMethodExtension on String {
+  String get paymentMethodDisplayName {
+    final method = PaymentMethod.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => PaymentMethod.cash,
+    );
+    return method.displayName;
+  }
+
+  PaymentMethod toPaymentMethod() {
+    return PaymentMethod.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => PaymentMethod.cash,
+    );
+  }
+}
