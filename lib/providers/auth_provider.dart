@@ -1,24 +1,44 @@
 import 'package:flutter/foundation.dart';
-import '../services/auth_service.dart';
+import '../services/firebase_auth_service.dart';
 import '../models/user.dart';
 import '../models/enums.dart';
 
 class AuthProvider extends ChangeNotifier {
-  final AuthService _authService = AuthService();
+  final FirebaseAuthService _authService = FirebaseAuthService();
 
   User? get currentUser => _authService.currentUser;
   bool get isAuthenticated => _authService.isAuthenticated;
 
-  Future<bool> login(String email, String password) async {
-    final result = await _authService.login(email, password);
+  // Initialize and listen to auth state changes
+  Future<void> initialize() async {
+    await _authService.initialize();
+
+    // Listen to auth state changes
+    _authService.authStateChanges.listen((firebaseUser) async {
+      if (firebaseUser != null) {
+        await _authService.initialize();
+      }
+      notifyListeners();
+    });
+
     notifyListeners();
-    return result;
   }
 
+  Future<bool> login(String email, String password) async {
+    try {
+      final result = await _authService.login(email, password);
+      notifyListeners();
+      return result;
+    } catch (e) {
+      print('Login error in provider: $e');
+      rethrow;
+    }
+  }
+
+  // Restore session is now handled by initialize()
   Future<bool> restoreSession() async {
-    final result = await _authService.restoreSession();
-    notifyListeners();
-    return result;
+    await initialize();
+    return isAuthenticated;
   }
 
   Future<void> logout() async {
@@ -26,8 +46,31 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> register(User user) async {
-    return await _authService.register(user);
+  // Register user with Firebase Auth
+  Future<bool> registerUser({
+    required String email,
+    required String password,
+    required String name,
+    required UserRole role,
+    required String department,
+  }) async {
+    try {
+      return await _authService.registerUser(
+        email: email,
+        password: password,
+        name: name,
+        role: role,
+        department: department,
+      );
+    } catch (e) {
+      print('Registration error in provider: $e');
+      rethrow;
+    }
+  }
+
+  // Reset password
+  Future<void> resetPassword(String email) async {
+    await _authService.resetPassword(email);
   }
 
   bool hasRole(UserRole role) {
@@ -47,8 +90,8 @@ class AuthProvider extends ChangeNotifier {
   }
 
   bool canViewAllReports() {
-    return currentUser?.role == UserRole.admin ||
-        currentUser?.role == UserRole.manager ||
-        currentUser?.role == UserRole.finance;
+    return currentUser?.roleEnum == UserRole.admin ||
+        currentUser?.roleEnum == UserRole.manager ||
+        currentUser?.roleEnum == UserRole.finance;
   }
 }

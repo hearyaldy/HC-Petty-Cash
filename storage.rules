@@ -1,0 +1,30 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return request.auth != null &&
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Attachments stored under /attachments/{transactionId}/{fileName}
+    match /attachments/{transactionId}/{fileName} {
+      // Allow authenticated users to upload attachments
+      allow create: if isAuthenticated() &&
+        request.resource.size < 10 * 1024 * 1024 && // 10MB max file size
+        request.resource.contentType.matches('image/.*|application/pdf|application/msword|application/vnd.*');
+
+      // Allow all authenticated users to read attachments
+      allow read: if isAuthenticated();
+
+      // Allow deletion only by admins or the user who owns the transaction
+      allow delete: if isAdmin();
+    }
+  }
+}

@@ -1,20 +1,23 @@
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import '../models/petty_cash_report.dart';
-import '../models/transaction.dart';
+import '../models/transaction.dart' as app;
 import '../models/enums.dart';
 import '../models/user.dart';
-import 'storage_service.dart';
+import 'firestore_service.dart';
 
 class ReportService {
+  final FirestoreService _firestoreService = FirestoreService();
   final _uuid = const Uuid();
 
   /// Generate a unique report number
-  String generateReportNumber() {
+  Future<String> generateReportNumber() async {
     final now = DateTime.now();
     final formatter = DateFormat('yyyyMMdd');
-    final count = StorageService.getAllReports()
-            .where((r) => r.reportNumber.startsWith('PCR-${formatter.format(now)}'))
+    final allReports = await _firestoreService.getAllReports();
+    final count = allReports
+            .where((r) =>
+                r.reportNumber.startsWith('PCR-${formatter.format(now)}'))
             .length +
         1;
     return 'PCR-${formatter.format(now)}-${count.toString().padLeft(3, '0')}';
@@ -30,129 +33,126 @@ class ReportService {
     String? companyName,
     String? notes,
   }) async {
+    final reportNumber = await generateReportNumber();
+
     final report = PettyCashReport(
       id: _uuid.v4(),
-      reportNumber: generateReportNumber(),
+      reportNumber: reportNumber,
       periodStart: periodStart,
       periodEnd: periodEnd,
       department: department,
       custodianId: custodian.id,
       custodianName: custodian.name,
       openingBalance: openingBalance,
-      status: ReportStatus.draft,
+      status: ReportStatus.draft.name,
       createdAt: DateTime.now(),
       companyName: companyName,
       notes: notes,
     );
 
-    await StorageService.saveReport(report);
+    await _firestoreService.saveReport(report);
     return report;
   }
 
   /// Update an existing report
   Future<void> updateReport(PettyCashReport report) async {
-    report.updatedAt = DateTime.now();
-    await StorageService.saveReport(report);
+    final updated = report.copyWith(updatedAt: DateTime.now());
+    await _firestoreService.updateReport(updated);
   }
 
   /// Delete a report and all its transactions
   Future<void> deleteReport(String reportId) async {
-    // Delete all transactions associated with this report
-    final transactions = StorageService.getTransactionsByReportId(reportId);
-    for (var transaction in transactions) {
-      await StorageService.deleteTransaction(transaction.id);
-    }
-
-    // Delete the report
-    await StorageService.deleteReport(reportId);
+    await _firestoreService.deleteReport(reportId);
   }
 
   /// Get all reports
-  List<PettyCashReport> getAllReports() {
-    return StorageService.getAllReports();
+  Future<List<PettyCashReport>> getAllReports() async {
+    return await _firestoreService.getAllReports();
   }
 
   /// Get reports by status
-  List<PettyCashReport> getReportsByStatus(ReportStatus status) {
-    return StorageService.getAllReports()
-        .where((r) => r.status == status)
-        .toList();
+  Future<List<PettyCashReport>> getReportsByStatus(ReportStatus status) async {
+    return await _firestoreService.getReportsByStatus(status.name);
   }
 
   /// Get reports by custodian
-  List<PettyCashReport> getReportsByCustodian(String custodianId) {
-    return StorageService.getAllReports()
-        .where((r) => r.custodianId == custodianId)
-        .toList();
+  Future<List<PettyCashReport>> getReportsByCustodian(
+      String custodianId) async {
+    return await _firestoreService.getReportsByCustodian(custodianId);
   }
 
   /// Get reports by department
-  List<PettyCashReport> getReportsByDepartment(String department) {
-    return StorageService.getAllReports()
-        .where((r) => r.department == department)
-        .toList();
+  Future<List<PettyCashReport>> getReportsByDepartment(
+      String department) async {
+    return await _firestoreService.getReportsByDepartment(department);
+  }
+
+  /// Get a single report
+  Future<PettyCashReport?> getReport(String reportId) async {
+    return await _firestoreService.getReport(reportId);
   }
 
   /// Submit a report for approval
   Future<void> submitReport(String reportId) async {
-    final report = StorageService.getReport(reportId);
+    final report = await _firestoreService.getReport(reportId);
     if (report != null) {
-      report.status = ReportStatus.submitted;
-      await updateReport(report);
+      final updated =
+          report.copyWith(status: ReportStatus.submitted.name, updatedAt: DateTime.now());
+      await _firestoreService.updateReport(updated);
     }
   }
 
   /// Approve a report
   Future<void> approveReport(String reportId) async {
-    final report = StorageService.getReport(reportId);
+    final report = await _firestoreService.getReport(reportId);
     if (report != null) {
-      report.status = ReportStatus.approved;
-      await updateReport(report);
+      final updated =
+          report.copyWith(status: ReportStatus.approved.name, updatedAt: DateTime.now());
+      await _firestoreService.updateReport(updated);
     }
   }
 
   /// Close a report
   Future<void> closeReport(String reportId) async {
-    final report = StorageService.getReport(reportId);
+    final report = await _firestoreService.getReport(reportId);
     if (report != null) {
-      report.status = ReportStatus.closed;
-      await updateReport(report);
+      final updated =
+          report.copyWith(status: ReportStatus.closed.name, updatedAt: DateTime.now());
+      await _firestoreService.updateReport(updated);
     }
   }
 
   /// Recalculate report totals
   Future<void> recalculateTotals(String reportId) async {
-    final report = StorageService.getReport(reportId);
+    final report = await _firestoreService.getReport(reportId);
     if (report != null) {
-      final transactions = StorageService.getTransactionsByReportId(reportId);
-      report.calculateTotals(transactions);
-      await updateReport(report);
+      final transactions =
+          await _firestoreService.getTransactionsByReportId(reportId);
+      final updated = report.calculateTotals(transactions);
+      await _firestoreService.updateReport(updated);
     }
   }
 
   /// Get report with its transactions
-  ReportWithTransactions? getReportWithTransactions(String reportId) {
-    final report = StorageService.getReport(reportId);
+  Future<ReportWithTransactions?> getReportWithTransactions(
+      String reportId) async {
+    final report = await _firestoreService.getReport(reportId);
     if (report == null) return null;
 
-    final transactions = StorageService.getTransactionsByReportId(reportId);
+    final transactions =
+        await _firestoreService.getTransactionsByReportId(reportId);
     return ReportWithTransactions(report: report, transactions: transactions);
   }
 
   /// Search reports
-  List<PettyCashReport> searchReports(String query) {
-    final lowerQuery = query.toLowerCase();
-    return StorageService.getAllReports().where((r) {
-      return r.reportNumber.toLowerCase().contains(lowerQuery) ||
-          r.department.toLowerCase().contains(lowerQuery) ||
-          r.custodianName.toLowerCase().contains(lowerQuery);
-    }).toList();
+  Future<List<PettyCashReport>> searchReports(String query) async {
+    return await _firestoreService.searchReports(query);
   }
 }
 
 class ReportWithTransactions {
   final PettyCashReport report;
-  final List<Transaction> transactions;
+  final List<app.Transaction> transactions;
 
   ReportWithTransactions({
     required this.report,

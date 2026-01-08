@@ -1,0 +1,91 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions for authentication and authorization
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && getUserRole() == 'admin';
+    }
+
+    function isManager() {
+      return isAuthenticated() && getUserRole() == 'manager';
+    }
+
+    function isFinance() {
+      return isAuthenticated() && getUserRole() == 'finance';
+    }
+
+    function canApprove() {
+      return isManager() || isFinance() || isAdmin();
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      // Anyone authenticated can read user profiles (for display names, etc.)
+      allow read: if isAuthenticated();
+
+      // Users can update their own profile (except role field)
+      allow update: if isOwner(userId) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']));
+
+      // Only admins can create users and change roles
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin();
+    }
+
+    // Reports collection
+    match /reports/{reportId} {
+      // All authenticated users can read reports
+      // (UI will filter based on role)
+      allow read: if isAuthenticated();
+
+      // Any authenticated user can create reports
+      // Must set themselves as custodian
+      allow create: if isAuthenticated() &&
+        request.resource.data.custodianId == request.auth.uid;
+
+      // Custodian can update their own draft reports
+      // Approvers can update any report
+      allow update: if isAuthenticated() && (
+        (resource.data.custodianId == request.auth.uid && resource.data.status == 'draft') ||
+        canApprove()
+      );
+
+      // Only admin can delete reports
+      allow delete: if isAdmin();
+    }
+
+    // Transactions collection
+    match /transactions/{transactionId} {
+      // All authenticated users can read transactions
+      allow read: if isAuthenticated();
+
+      // Any authenticated user can create transactions
+      // Must set themselves as requestor
+      allow create: if isAuthenticated() &&
+        request.resource.data.requestorId == request.auth.uid;
+
+      // Requestor can update draft transactions
+      // Approvers can update status and approval-related fields
+      allow update: if isAuthenticated() && (
+        (resource.data.requestorId == request.auth.uid && resource.data.status == 'draft') ||
+        canApprove()
+      );
+
+      // Only admin can delete transactions
+      allow delete: if isAdmin();
+    }
+  }
+}

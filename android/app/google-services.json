@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "380309314630",
+    "project_id": "hc-petty-cash-report",
+    "storage_bucket": "hc-petty-cash-report.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:380309314630:android:6c9ba4a3581e3fd12e7e47",
+        "android_client_info": {
+          "package_name": "com.haweeinc.hc_Report"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBCMz7x47_ezSp33b7BTeeST-N5b2DKpYk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
