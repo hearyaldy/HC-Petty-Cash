@@ -1,0 +1,30 @@
+==========================================
+  HOPE CHANNEL SOUTHEAST ASIA LOGO
+==========================================
+
+Please place your logo file here:
+
+Required filename: hope_channel_logo.png
+
+📁 This folder location:
+   assets/images/
+
+✅ Supported formats:
+   - PNG (recommended - supports transparency)
+   - JPG/JPEG
+   - SVG
+
+📐 Recommended size:
+   - Width: 200-400 pixels
+   - Transparent background preferred
+
+After adding your logo:
+1. Delete this file (PLACE_LOGO_HERE.txt)
+2. Run: flutter pub get
+3. Restart the app
+
+For detailed instructions, see:
+- assets/images/README.md
+- LOGO_SETUP.md (in project root)
+
+==========================================
