@@ -48,8 +48,8 @@ class FirebaseAuthService {
     }
   }
 
-  // Register new user (admin only - enforce in UI)
-  Future<bool> registerUser({
+  // Register new user - returns userId on success, throws on failure
+  Future<String?> registerUser({
     required String email,
     required String password,
     required String name,
@@ -63,15 +63,19 @@ class FirebaseAuthService {
       final sanitizedName = ValidationUtils.sanitizeString(name);
       final sanitizedDepartment = ValidationUtils.sanitizeString(department);
 
+      print('DEBUG AUTH: Creating Firebase Auth user');
       // Create Firebase Auth user
       final credential = await _auth.createUserWithEmailAndPassword(
         email: sanitizedEmail,
         password: sanitizedPassword,
       );
 
+      final userId = credential.user!.uid;
+      print('DEBUG AUTH: User created with ID: $userId');
+
       // Create user document in Firestore
       final user = User(
-        id: credential.user!.uid,
+        id: userId,
         name: sanitizedName,
         email: sanitizedEmail,
         role: role.name,
@@ -79,18 +83,25 @@ class FirebaseAuthService {
         createdAt: DateTime.now(),
       );
 
-      await _firestore
-          .collection('users')
-          .doc(user.id)
-          .set(user.toFirestore());
+      print('DEBUG AUTH: Saving user to Firestore');
+      await _firestore.collection('users').doc(user.id).set(user.toFirestore());
+      print('DEBUG AUTH: User saved to Firestore');
 
-      return true;
+      // Load the newly created user data
+      print('DEBUG AUTH: Initializing user data');
+      await initialize();
+      print('DEBUG AUTH: User data initialized');
+
+      return userId;
     } on firebase_auth.FirebaseAuthException catch (e) {
       AppLogger.severe('Registration error: ${e.code} - ${e.message}');
+      print('DEBUG AUTH: Firebase auth error: ${e.code} - ${e.message}');
       throw _handleAuthException(e);
-    } catch (e) {
+    } catch (e, stackTrace) {
       AppLogger.severe('Unexpected registration error: $e');
-      throw 'An unexpected error occurred';
+      print('DEBUG AUTH: Unexpected error: $e');
+      print('DEBUG AUTH: Stack trace: $stackTrace');
+      throw 'An unexpected error occurred: $e';
     }
   }
 
@@ -151,8 +162,7 @@ class FirebaseAuthService {
         _currentUser!.roleEnum == UserRole.admin;
   }
 
-  bool canManageUsers() =>
-      _currentUser?.roleEnum == UserRole.admin;
+  bool canManageUsers() => _currentUser?.roleEnum == UserRole.admin;
 
   bool canCreateReports() => _currentUser != null;
 

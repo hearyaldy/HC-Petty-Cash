@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/report_provider.dart';
 import '../../providers/project_report_provider.dart';
@@ -185,6 +186,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             if (authProvider.canApprove()) ...[
               const SizedBox(height: 32),
               _buildPendingApprovals(context, pendingApprovals),
+            ],
+            // Add student reports for admins
+            if (authProvider.canManageUsers()) ...[
+              const SizedBox(height: 32),
+              _buildStudentReports(context),
             ],
           ],
         ),
@@ -1196,4 +1202,149 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+
+  Widget _buildStudentReports(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('student_monthly_reports')
+          .orderBy('month', descending: true)
+          .limit(5)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const SizedBox.shrink();
+        }
+
+        final reports = snapshot.data!.docs;
+
+        if (reports.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        final currencyFormat = NumberFormat.currency(symbol: '${AppConstants.currencySymbol} ');
+        final dateFormat = DateFormat('MMMM yyyy');
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.orange.shade50, Colors.orange.shade100],
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.orange,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.assignment,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Student Reports',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange.shade900,
+                        ),
+                      ),
+                    ],
+                  ),
+                  TextButton.icon(
+                    onPressed: () => context.push('/admin/student-reports'),
+                    icon: const Icon(Icons.arrow_forward),
+                    label: const Text('View All'),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: reports.length,
+              itemBuilder: (context, index) {
+                final reportDoc = reports[index];
+                final reportData = reportDoc.data() as Map<String, dynamic>;
+                final studentName = reportData['studentName'] ?? 'Unknown';
+                final month = reportData['month'] ?? '';
+                final status = reportData['status'] ?? 'draft';
+                final totalHours = (reportData['totalHours'] ?? 0.0).toDouble();
+                final totalAmount = (reportData['totalAmount'] ?? 0.0).toDouble();
+
+                // Format month display (YYYY-MM to Month Year)
+                String monthDisplay = month;
+                try {
+                  final parts = month.split('-');
+                  if (parts.length == 2) {
+                    final monthDate = DateTime(int.parse(parts[0]), int.parse(parts[1]));
+                    monthDisplay = dateFormat.format(monthDate);
+                  }
+                } catch (e) {
+                  // Keep original month string if parsing fails
+                }
+
+                Color statusColor;
+                switch (status) {
+                  case 'approved':
+                    statusColor = Colors.green;
+                    break;
+                  case 'rejected':
+                    statusColor = Colors.red;
+                    break;
+                  case 'submitted':
+                    statusColor = Colors.orange;
+                    break;
+                  default:
+                    statusColor = Colors.grey;
+                }
+
+                return Card(
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: statusColor,
+                      child: Text(
+                        studentName.isNotEmpty ? studentName[0].toUpperCase() : 'S',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    title: Text(studentName),
+                    subtitle: Text(
+                      '$monthDisplay • ${status.toUpperCase()} • ${totalHours.toStringAsFixed(1)}h',
+                    ),
+                    trailing: Text(
+                      currencyFormat.format(totalAmount),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    onTap: () => context.push(
+                      '/admin/student-reports/${reportDoc.id}?month=$month&monthDisplay=${Uri.encodeComponent(monthDisplay)}',
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
 }

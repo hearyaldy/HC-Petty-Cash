@@ -8,6 +8,7 @@ import 'providers/auth_provider.dart';
 import 'providers/report_provider.dart';
 import 'providers/project_report_provider.dart';
 import 'providers/transaction_provider.dart';
+import 'providers/theme_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/dashboard/dashboard_screen.dart';
 import 'screens/reports/reports_list_screen.dart';
@@ -19,8 +20,17 @@ import 'screens/reports/project_report_detail_screen.dart';
 import 'screens/approval/approvals_screen.dart';
 import 'screens/admin/admin_screen.dart';
 import 'screens/admin/user_management_screen.dart';
+import 'screens/admin/payment_rate_screen.dart';
+import 'screens/admin/admin_student_reports_screen.dart';
+import 'screens/admin/admin_student_report_detail_screen.dart';
 import 'screens/transactions/transactions_summary_screen.dart';
 import 'screens/settings/settings_screen_impl.dart';
+import 'screens/student/student_onboarding_screen.dart';
+import 'screens/student/student_report_screen.dart';
+import 'screens/student/student_registration_screen.dart';
+import 'screens/student/student_dashboard_screen.dart';
+import 'screens/student/student_monthly_report_detail_screen.dart';
+import 'screens/student/new_student_report_screen.dart';
 import 'utils/constants.dart';
 import 'utils/logger.dart';
 
@@ -57,37 +67,18 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()..initialize()),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => ReportProvider()),
         ChangeNotifierProvider(create: (_) => ProjectReportProvider()),
         ChangeNotifierProvider(create: (_) => TransactionProvider()),
       ],
-      child: Consumer<AuthProvider>(
-        builder: (context, authProvider, _) {
+      child: Consumer2<AuthProvider, ThemeProvider>(
+        builder: (context, authProvider, themeProvider, _) {
           return MaterialApp.router(
             title: AppConstants.appName,
-            theme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: AppConstants.primaryColor,
-                brightness: Brightness.light,
-              ),
-              useMaterial3: true,
-              cardTheme: CardThemeData(
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(
-                    AppConstants.defaultRadius,
-                  ),
-                ),
-              ),
-              inputDecorationTheme: InputDecorationTheme(
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(
-                    AppConstants.defaultRadius,
-                  ),
-                ),
-                filled: true,
-              ),
-            ),
+            theme: themeProvider.lightTheme,
+            darkTheme: themeProvider.darkTheme,
+            themeMode: themeProvider.themeMode,
             routerConfig: _createRouter(authProvider),
             debugShowCheckedModeBanner: false,
           );
@@ -99,21 +90,57 @@ class MyApp extends StatelessWidget {
   GoRouter _createRouter(AuthProvider authProvider) {
     return GoRouter(
       refreshListenable: authProvider,
-      redirect: (context, state) {
+      redirect: (context, state) async {
         final isLoggingIn = state.matchedLocation == '/';
+        final isRegistering = state.matchedLocation == '/student-register';
+        final user = authProvider.currentUser;
 
-        if (!authProvider.isAuthenticated && !isLoggingIn) {
+        if (!authProvider.isAuthenticated && !isLoggingIn && !isRegistering) {
           return '/';
         }
 
-        if (authProvider.isAuthenticated && isLoggingIn) {
+        if (authProvider.isAuthenticated && (isLoggingIn || isRegistering)) {
+          // Check if student worker needs onboarding
+          if (user?.role == 'studentWorker') {
+            // Check if student profile exists in Firestore
+            final profileDoc = await FirebaseFirestore.instance
+                .collection('student_profiles')
+                .doc(user!.id)
+                .get();
+
+            if (!profileDoc.exists) {
+              return '/student-onboarding';
+            }
+            return '/student-dashboard';
+          }
           return '/dashboard';
+        }
+
+        // Student workers can only access student routes
+        if (user?.role == 'studentWorker') {
+          final studentRoutes = [
+            '/student-dashboard',
+            '/student-report',
+            '/student-report/new',
+            '/student-monthly-report-detail',
+            '/student-onboarding',
+            '/settings',
+          ];
+          if (!studentRoutes.any(
+            (route) => state.matchedLocation.startsWith(route),
+          )) {
+            return '/student-dashboard';
+          }
         }
 
         return null;
       },
       routes: [
         GoRoute(path: '/', builder: (context, state) => const LoginScreen()),
+        GoRoute(
+          path: '/student-register',
+          builder: (context, state) => const StudentRegistrationScreen(),
+        ),
         GoRoute(
           path: '/dashboard',
           builder: (context, state) => const DashboardScreen(),
@@ -167,6 +194,80 @@ class MyApp extends StatelessWidget {
         GoRoute(
           path: '/admin/users',
           builder: (context, state) => const UserManagementScreen(),
+        ),
+        GoRoute(
+          path: '/admin/payment-rates',
+          builder: (context, state) => const PaymentRateScreen(),
+        ),
+        GoRoute(
+          path: '/admin/student-reports',
+          builder: (context, state) => const AdminStudentReportsScreen(),
+        ),
+        GoRoute(
+          path: '/admin/student-reports/:id',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            final month = state.uri.queryParameters['month'] ?? '';
+            final monthDisplay = state.uri.queryParameters['monthDisplay'] ?? '';
+            return AdminStudentReportDetailScreen(
+              reportId: id,
+              month: month,
+              monthDisplay: monthDisplay,
+            );
+          },
+        ),
+        GoRoute(
+          path: '/student-dashboard',
+          builder: (context, state) => const StudentDashboardScreen(),
+        ),
+        GoRoute(
+          path: '/student-onboarding',
+          builder: (context, state) {
+            // Try to get data from query parameters first (from registration)
+            final queryUserId = state.uri.queryParameters['userId'];
+            final queryUserName = state.uri.queryParameters['userName'];
+            final queryUserEmail = state.uri.queryParameters['userEmail'];
+
+            // Fallback to authProvider if query params not available
+            final user = authProvider.currentUser;
+
+            // Use query params if available, otherwise use current user
+            final userId = queryUserId ?? user?.id;
+            final userName = queryUserName ?? user?.name;
+            final userEmail = queryUserEmail ?? user?.email;
+
+            if (userId == null || userName == null || userEmail == null) {
+              // If we still don't have user data, show loading
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
+            }
+
+            return StudentOnboardingScreen(
+              userId: userId,
+              userName: userName,
+              userEmail: userEmail,
+            );
+          },
+        ),
+        GoRoute(
+          path: '/student-report',
+          builder: (context, state) => const StudentReportScreen(),
+        ),
+        GoRoute(
+          path: '/student-report/new',
+          builder: (context, state) => const NewStudentReportScreen(),
+        ),
+        GoRoute(
+          path: '/student-monthly-report-detail',
+          builder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>;
+            return StudentMonthlyReportDetailScreen(
+              reportId: extra['reportId'] as String,
+              month: extra['month'] as String,
+              monthDisplay: extra['monthDisplay'] as String,
+            );
+          },
         ),
       ],
     );

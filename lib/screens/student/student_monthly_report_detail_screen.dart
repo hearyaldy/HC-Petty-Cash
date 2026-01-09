@@ -1,0 +1,1525 @@
+import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:excel/excel.dart' as excel_package;
+import 'package:go_router/go_router.dart';
+import '../../models/student_timesheet.dart';
+
+class StudentMonthlyReportDetailScreen extends StatefulWidget {
+  final String reportId;
+  final String month;
+  final String monthDisplay;
+
+  const StudentMonthlyReportDetailScreen({
+    super.key,
+    required this.reportId,
+    required this.month,
+    required this.monthDisplay,
+  });
+
+  @override
+  State<StudentMonthlyReportDetailScreen> createState() =>
+      _StudentMonthlyReportDetailScreenState();
+}
+
+class _StudentMonthlyReportDetailScreenState
+    extends State<StudentMonthlyReportDetailScreen> {
+  bool _isLoading = true;
+  Map<String, dynamic>? _reportData;
+  List<StudentTimesheet> _timesheets = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadReportDetails();
+  }
+
+  Future<void> _loadReportDetails() async {
+    setState(() => _isLoading = true);
+
+    try {
+      // Load the monthly report
+      final reportDoc = await FirebaseFirestore.instance
+          .collection('student_monthly_reports')
+          .doc(widget.reportId)
+          .get();
+
+      if (reportDoc.exists) {
+        _reportData = reportDoc.data() as Map<String, dynamic>;
+
+        // Load associated timesheets
+        final timesheetQuery = await FirebaseFirestore.instance
+            .collection('student_timesheets')
+            .where('reportId', isEqualTo: widget.reportId)
+            .orderBy('date', descending: false)
+            .get();
+
+        _timesheets = timesheetQuery.docs
+            .map((doc) => StudentTimesheet.fromFirestore(doc))
+            .toList();
+      }
+    } catch (e) {
+      print('Error loading report details: $e');
+    }
+
+    setState(() => _isLoading = false);
+  }
+
+  Future<void> _generatePdf() async {
+    final pdf = pw.Document();
+
+    final timesheetCount = _timesheets.length;
+    final totalHours = _timesheets.fold<double>(
+      0.0,
+      (sum, ts) => sum + ts.totalHours,
+    );
+    final hourlyRate = _reportData?['hourlyRate'] ?? 0.0;
+    final totalAmount = totalHours * hourlyRate;
+
+    pdf.addPage(
+      pw.MultiPage(
+        header: (context) => pw.Container(
+          alignment: pw.Alignment.center,
+          margin: const pw.EdgeInsets.only(bottom: 20),
+          child: pw.Text(
+            'Student Labour Report - ${widget.monthDisplay}',
+            style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+          ),
+        ),
+        footer: (context) => pw.Container(
+          alignment: pw.Alignment.center,
+          margin: const pw.EdgeInsets.only(top: 20),
+          child: pw.Text(
+            'Page ${context.pageNumber} of ${context.pagesCount}',
+            style: pw.TextStyle(fontSize: 10),
+          ),
+        ),
+        build: (context) => [
+          pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Expanded(
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          'Student: ${_reportData?['studentName'] ?? ''}',
+                          style: pw.TextStyle(
+                            fontSize: 12,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                        pw.SizedBox(height: 4),
+                        pw.Text(
+                          'Student ID: ${_reportData?['studentId'] ?? ''}',
+                          style: pw.TextStyle(fontSize: 10),
+                        ),
+                        pw.SizedBox(height: 4),
+                        pw.Text(
+                          'Report Period: ${widget.monthDisplay}',
+                          style: pw.TextStyle(fontSize: 10),
+                        ),
+                      ],
+                    ),
+                  ),
+                  pw.Expanded(
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.end,
+                      children: [
+                        pw.Text(
+                          'Report ID: ${widget.reportId}',
+                          style: pw.TextStyle(fontSize: 10),
+                        ),
+                        pw.SizedBox(height: 4),
+                        pw.Text(
+                          'Generated: ${DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())}',
+                          style: pw.TextStyle(fontSize: 10),
+                        ),
+                        pw.SizedBox(height: 4),
+                        pw.Text(
+                          'Status: ${_reportData?['status'] ?? 'Unknown'}',
+                          style: pw.TextStyle(fontSize: 10),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 20),
+              pw.Text(
+                'Summary',
+                style: pw.TextStyle(
+                  fontSize: 14,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 10),
+              pw.Table(
+                border: pw.TableBorder.all(),
+                children: [
+                  pw.TableRow(
+                    children: [
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text('Entries'),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text('Total Hours'),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text('Hourly Rate'),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text('Total Amount'),
+                      ),
+                    ],
+                  ),
+                  pw.TableRow(
+                    children: [
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text('$timesheetCount'),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text('${totalHours.toStringAsFixed(2)} h'),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text('฿${hourlyRate.toStringAsFixed(2)}/h'),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text('฿${totalAmount.toStringAsFixed(2)}'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 20),
+              pw.Text(
+                'Detailed Timesheet Entries',
+                style: pw.TextStyle(
+                  fontSize: 14,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 10),
+              pw.Table(
+                border: pw.TableBorder.all(),
+                columnWidths: const {
+                  0: pw.FlexColumnWidth(1),
+                  1: pw.FlexColumnWidth(1),
+                  2: pw.FlexColumnWidth(1),
+                  3: pw.FlexColumnWidth(1),
+                  4: pw.FlexColumnWidth(1),
+                  5: pw.FlexColumnWidth(1),
+                },
+                children: [
+                  pw.TableRow(
+                    children: [
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text(
+                          'Date',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text(
+                          'Start Time',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text(
+                          'End Time',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text(
+                          'Hours',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text(
+                          'Amount',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text(
+                          'Status',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                  ..._timesheets
+                      .map(
+                        (ts) => pw.TableRow(
+                          children: [
+                            pw.Padding(
+                              padding: pw.EdgeInsets.all(8),
+                              child: pw.Text(
+                                DateFormat('dd/MM/yyyy').format(ts.date),
+                              ),
+                            ),
+                            pw.Padding(
+                              padding: pw.EdgeInsets.all(8),
+                              child: pw.Text(
+                                DateFormat('HH:mm').format(ts.startTime),
+                              ),
+                            ),
+                            pw.Padding(
+                              padding: pw.EdgeInsets.all(8),
+                              child: pw.Text(
+                                DateFormat('HH:mm').format(ts.endTime),
+                              ),
+                            ),
+                            pw.Padding(
+                              padding: pw.EdgeInsets.all(8),
+                              child: pw.Text(
+                                '${ts.totalHours.toStringAsFixed(2)} h',
+                              ),
+                            ),
+                            pw.Padding(
+                              padding: pw.EdgeInsets.all(8),
+                              child: pw.Text(
+                                '฿${ts.totalAmount.toStringAsFixed(2)}',
+                              ),
+                            ),
+                            pw.Padding(
+                              padding: pw.EdgeInsets.all(8),
+                              child: pw.Text(ts.status),
+                            ),
+                          ],
+                        ),
+                      )
+                      .toList(),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+
+    await Printing.layoutPdf(onLayout: (format) async => pdf.save());
+  }
+
+  Future<void> _generateExcel() async {
+    final excel = excel_package.Excel.createExcel();
+    final sheet =
+        excel['Student_Labour_Report_${widget.monthDisplay.replaceAll(' ', '_')}'];
+
+    var rowIndex = 0;
+
+    // Header
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 0,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'Student Labour Report - ${widget.monthDisplay}',
+    );
+    rowIndex++;
+
+    rowIndex++; // Empty row
+
+    // Report Info
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 0,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'Student:',
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 1,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      _reportData?['studentName'] ?? '',
+    );
+    rowIndex++;
+
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 0,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'Student ID:',
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 1,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      _reportData?['studentId'] ?? '',
+    );
+    rowIndex++;
+
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 0,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'Report Period:',
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 1,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      widget.monthDisplay,
+    );
+    rowIndex++;
+
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 0,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'Report ID:',
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 1,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      widget.reportId,
+    );
+    rowIndex++;
+
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 0,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'Status:',
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 1,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      _reportData?['status'] ?? 'Unknown',
+    );
+    rowIndex++;
+
+    rowIndex++; // Empty row
+
+    // Summary
+    final timesheetCount = _timesheets.length;
+    final totalHours = _timesheets.fold<double>(
+      0.0,
+      (sum, ts) => sum + ts.totalHours,
+    );
+    final hourlyRate = _reportData?['hourlyRate'] ?? 0.0;
+    final totalAmount = totalHours * hourlyRate;
+
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 0,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'SUMMARY',
+    );
+    rowIndex++;
+
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 0,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'Entries',
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 1,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'Total Hours',
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 2,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'Hourly Rate',
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 3,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'Total Amount',
+    );
+    rowIndex++;
+
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 0,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.IntCellValue(
+      timesheetCount,
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 1,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      totalHours.toStringAsFixed(2),
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 2,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      '฿${hourlyRate.toStringAsFixed(2)}/h',
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 3,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      '฿${totalAmount.toStringAsFixed(2)}',
+    );
+    rowIndex++;
+
+    rowIndex++; // Empty row
+
+    // Detailed entries
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 0,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'DETAILED TIMESHEET ENTRIES',
+    );
+    rowIndex++;
+
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 0,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'Date',
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 1,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'Start Time',
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 2,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'End Time',
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 3,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'Hours',
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 4,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'Amount',
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 5,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'Status',
+    );
+    rowIndex++;
+
+    for (final ts in _timesheets) {
+      sheet
+          .cell(
+            excel_package.CellIndex.indexByColumnRow(
+              columnIndex: 0,
+              rowIndex: rowIndex,
+            ),
+          )
+          .value = excel_package.TextCellValue(
+        DateFormat('dd/MM/yyyy').format(ts.date),
+      );
+      sheet
+          .cell(
+            excel_package.CellIndex.indexByColumnRow(
+              columnIndex: 1,
+              rowIndex: rowIndex,
+            ),
+          )
+          .value = excel_package.TextCellValue(
+        DateFormat('HH:mm').format(ts.startTime),
+      );
+      sheet
+          .cell(
+            excel_package.CellIndex.indexByColumnRow(
+              columnIndex: 2,
+              rowIndex: rowIndex,
+            ),
+          )
+          .value = excel_package.TextCellValue(
+        DateFormat('HH:mm').format(ts.endTime),
+      );
+      sheet
+          .cell(
+            excel_package.CellIndex.indexByColumnRow(
+              columnIndex: 3,
+              rowIndex: rowIndex,
+            ),
+          )
+          .value = excel_package.TextCellValue(
+        ts.totalHours.toStringAsFixed(2),
+      );
+      sheet
+          .cell(
+            excel_package.CellIndex.indexByColumnRow(
+              columnIndex: 4,
+              rowIndex: rowIndex,
+            ),
+          )
+          .value = excel_package.TextCellValue(
+        ts.totalAmount.toStringAsFixed(2),
+      );
+      sheet
+          .cell(
+            excel_package.CellIndex.indexByColumnRow(
+              columnIndex: 5,
+              rowIndex: rowIndex,
+            ),
+          )
+          .value = excel_package.TextCellValue(
+        ts.status,
+      );
+      rowIndex++;
+    }
+
+    // Save the Excel file
+    final bytes = excel.save();
+    if (bytes != null) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => Scaffold(
+            appBar: AppBar(title: Text('Download Excel')),
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.file_download, size: 64, color: Colors.green),
+                  SizedBox(height: 16),
+                  Text('Excel file generated successfully!'),
+                  SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      // In a real app, you would save the file to device storage
+                      // For now, we'll just show a success message
+                      Navigator.of(context).pop();
+                    },
+                    child: Text('Download File'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Report Details - ${widget.monthDisplay}'),
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Colors.orange.shade400, Colors.orange.shade600],
+            ),
+          ),
+        ),
+        actions: [
+          PopupMenuButton<String>(
+            icon: Icon(Icons.print),
+            onSelected: (value) {
+              if (value == 'pdf') {
+                _generatePdf();
+              } else if (value == 'excel') {
+                _generateExcel();
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'pdf',
+                child: Row(
+                  children: [
+                    Icon(Icons.picture_as_pdf, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('Export as PDF'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'excel',
+                child: Row(
+                  children: [
+                    Icon(Icons.table_chart, color: Colors.green),
+                    SizedBox(width: 8),
+                    Text('Export as Excel'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          IconButton(
+            icon: Icon(Icons.arrow_back),
+            onPressed: () => context.pop(),
+          ),
+        ],
+      ),
+      floatingActionButton: (_reportData?['status'] ?? 'draft') == 'draft'
+          ? FloatingActionButton.extended(
+              onPressed: _showAddTimesheetDialog,
+              backgroundColor: Colors.orange.shade600,
+              icon: const Icon(Icons.add),
+              label: const Text('Add Time Entry'),
+            )
+          : null,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _reportData == null
+          ? const Center(child: Text('Report not found'))
+          : _buildContent(),
+    );
+  }
+
+  Widget _buildContent() {
+    final timesheetCount = _timesheets.length;
+    final totalHours = _timesheets.fold<double>(
+      0.0,
+      (sum, ts) => sum + ts.totalHours,
+    );
+    final hourlyRate = _reportData?['hourlyRate'] ?? 0.0;
+    final totalAmount = totalHours * hourlyRate;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Report Header
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Colors.orange.shade400, Colors.orange.shade600],
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Student Labour Report',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Period: ${widget.monthDisplay}',
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Student: ${_reportData?['studentName'] ?? ''}',
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Summary Cards
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(Icons.event_note, color: Colors.orange.shade700),
+                      const SizedBox(height: 8),
+                      Text(
+                        '$timesheetCount',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange.shade800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Entries',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.orange.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(Icons.access_time, color: Colors.blue.shade700),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${totalHours.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue.shade800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Hours',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.blue.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(Icons.attach_money, color: Colors.green.shade700),
+                      const SizedBox(height: 8),
+                      Text(
+                        '฿${totalAmount.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green.shade800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Total',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.green.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+
+          // Status
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: _getStatusColor(_reportData?['status']).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: _getStatusColor(_reportData?['status']).withOpacity(0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  _getStatusIcon(_reportData?['status']),
+                  color: _getStatusColor(_reportData?['status']),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Status: ${_reportData?['status']?.toUpperCase() ?? 'UNKNOWN'}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: _getStatusColor(_reportData?['status']),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Detailed Table View
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(12),
+                    ),
+                    border: Border(
+                      bottom: BorderSide(color: Colors.grey.shade200),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Detailed Timesheet Entries',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        '${_timesheets.length} entries',
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Table Header
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    border: Border(
+                      bottom: BorderSide(color: Colors.grey.shade200),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: Text(
+                            'Date',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Text(
+                            'Time Range',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 1,
+                          child: Text(
+                            'Hours',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 1,
+                          child: Text(
+                            'Amount',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 1,
+                          child: Text(
+                            'Status',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Table Rows
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: NeverScrollableScrollPhysics(),
+                  itemCount: _timesheets.length,
+                  itemBuilder: (context, index) {
+                    final ts = _timesheets[index];
+                    return Container(
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: index == _timesheets.length - 1
+                                ? Colors.transparent
+                                : Colors.grey.shade200,
+                          ),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                DateFormat('dd/MM/yyyy').format(ts.date),
+                                style: TextStyle(fontSize: 14),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                '${DateFormat('HH:mm').format(ts.startTime)} - ${DateFormat('HH:mm').format(ts.endTime)}',
+                                style: TextStyle(fontSize: 14),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: Text(
+                                '${ts.totalHours.toStringAsFixed(2)} h',
+                                style: TextStyle(fontSize: 14),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: Text(
+                                '฿${ts.totalAmount.toStringAsFixed(2)}',
+                                style: TextStyle(fontSize: 14),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _getStatusColor(
+                                    ts.status,
+                                  ).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  ts.status.toUpperCase(),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: _getStatusColor(ts.status),
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getStatusColor(String? status) {
+    switch (status) {
+      case 'approved':
+        return Colors.green;
+      case 'rejected':
+        return Colors.red;
+      case 'paid':
+        return Colors.blue;
+      case 'submitted':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _getStatusIcon(String? status) {
+    switch (status) {
+      case 'approved':
+        return Icons.check_circle;
+      case 'rejected':
+        return Icons.cancel;
+      case 'paid':
+        return Icons.payment;
+      case 'submitted':
+        return Icons.pending;
+      default:
+        return Icons.help_outline;
+    }
+  }
+
+  Future<void> _showAddTimesheetDialog() async {
+    DateTime? selectedDate;
+    TimeOfDay? startTime;
+    TimeOfDay? endTime;
+    final notesController = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.access_time, color: Colors.orange.shade600),
+                const SizedBox(width: 12),
+                const Text('Add Time Entry'),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Date Picker
+                  Text(
+                    'Date',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: () async {
+                      // Parse month to get valid date range
+                      final monthParts = widget.month.split('-');
+                      final year = int.parse(monthParts[0]);
+                      final month = int.parse(monthParts[1]);
+                      final firstDay = DateTime(year, month, 1);
+                      final lastDay = DateTime(year, month + 1, 0);
+
+                      final date = await showDatePicker(
+                        context: context,
+                        initialDate: selectedDate ?? DateTime.now(),
+                        firstDate: firstDay,
+                        lastDate: lastDay,
+                      );
+                      if (date != null) {
+                        setDialogState(() => selectedDate = date);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            selectedDate == null
+                                ? 'Select date'
+                                : DateFormat(
+                                    'MMM dd, yyyy',
+                                  ).format(selectedDate!),
+                          ),
+                          const Icon(Icons.calendar_today, size: 20),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Start Time
+                  Text(
+                    'Start Time',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: () async {
+                      final time = await showTimePicker(
+                        context: context,
+                        initialTime: startTime ?? TimeOfDay.now(),
+                      );
+                      if (time != null) {
+                        setDialogState(() => startTime = time);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            startTime == null
+                                ? 'Select start time'
+                                : startTime!.format(context),
+                          ),
+                          const Icon(Icons.access_time, size: 20),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // End Time
+                  Text(
+                    'End Time',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: () async {
+                      final time = await showTimePicker(
+                        context: context,
+                        initialTime: endTime ?? TimeOfDay.now(),
+                      );
+                      if (time != null) {
+                        setDialogState(() => endTime = time);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            endTime == null
+                                ? 'Select end time'
+                                : endTime!.format(context),
+                          ),
+                          const Icon(Icons.access_time, size: 20),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Notes
+                  TextField(
+                    controller: notesController,
+                    decoration: InputDecoration(
+                      labelText: 'Notes (Optional)',
+                      hintText: 'Add any notes about this time entry',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    maxLines: 3,
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (selectedDate == null ||
+                      startTime == null ||
+                      endTime == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please fill in all required fields'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+
+                  // Calculate hours
+                  final start = DateTime(
+                    selectedDate!.year,
+                    selectedDate!.month,
+                    selectedDate!.day,
+                    startTime!.hour,
+                    startTime!.minute,
+                  );
+                  final end = DateTime(
+                    selectedDate!.year,
+                    selectedDate!.month,
+                    selectedDate!.day,
+                    endTime!.hour,
+                    endTime!.minute,
+                  );
+                  final duration = end.difference(start);
+                  final hours = duration.inMinutes / 60.0;
+
+                  if (hours <= 0) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('End time must be after start time'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+
+                  // Create timesheet entry
+                  final timesheetRef = FirebaseFirestore.instance
+                      .collection('student_timesheets')
+                      .doc();
+
+                  final hourlyRate = _reportData?['hourlyRate'] ?? 0.0;
+                  final timesheet = StudentTimesheet(
+                    id: timesheetRef.id,
+                    studentId: _reportData!['studentId'],
+                    studentName: _reportData!['studentName'],
+                    studentEmail: _reportData!['studentEmail'],
+                    department: _reportData!['department'] ?? '',
+                    studentNumber: _reportData!['studentNumber'] ?? '',
+                    date: selectedDate!,
+                    startTime: start,
+                    endTime: end,
+                    totalHours: hours,
+                    hourlyRate: hourlyRate,
+                    totalAmount: hours * hourlyRate,
+                    status: 'draft',
+                    notes: notesController.text.isNotEmpty
+                        ? notesController.text
+                        : null,
+                    createdAt: DateTime.now(),
+                    reportId: widget.reportId,
+                    reportMonth: widget.month,
+                  );
+
+                  await timesheetRef.set(timesheet.toFirestore());
+
+                  // Update report totals
+                  await _updateReportTotals();
+
+                  Navigator.pop(context);
+                  _loadReportDetails();
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Time entry added successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange.shade600,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Add Entry'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _updateReportTotals() async {
+    final timesheetQuery = await FirebaseFirestore.instance
+        .collection('student_timesheets')
+        .where('reportId', isEqualTo: widget.reportId)
+        .get();
+
+    final timesheets = timesheetQuery.docs
+        .map((doc) => StudentTimesheet.fromFirestore(doc))
+        .toList();
+
+    final totalHours = timesheets.fold<double>(
+      0.0,
+      (sum, ts) => sum + ts.totalHours,
+    );
+    final hourlyRate = _reportData?['hourlyRate'] ?? 0.0;
+
+    await FirebaseFirestore.instance
+        .collection('student_monthly_reports')
+        .doc(widget.reportId)
+        .update({
+          'timesheetCount': timesheets.length,
+          'totalHours': totalHours,
+          'totalAmount': totalHours * hourlyRate,
+        });
+  }
+}

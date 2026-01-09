@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -49,21 +50,29 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
     // Filter by category
     if (_selectedCategory != null && _selectedCategory != 'All') {
       filtered = filtered
-          .where((t) => t.category.expenseCategoryDisplayName == _selectedCategory)
+          .where(
+            (t) => t.category.expenseCategoryDisplayName == _selectedCategory,
+          )
           .toList();
     }
 
     // Filter by payment method
     if (_selectedPaymentMethod != null && _selectedPaymentMethod != 'All') {
       filtered = filtered
-          .where((t) => t.paymentMethod.paymentMethodDisplayName == _selectedPaymentMethod)
+          .where(
+            (t) =>
+                t.paymentMethod.paymentMethodDisplayName ==
+                _selectedPaymentMethod,
+          )
           .toList();
     }
 
     // Filter by status
     if (_selectedStatus != null && _selectedStatus != 'All') {
       filtered = filtered
-          .where((t) => t.status.transactionStatusDisplayName == _selectedStatus)
+          .where(
+            (t) => t.status.transactionStatusDisplayName == _selectedStatus,
+          )
           .toList();
     }
 
@@ -126,14 +135,22 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
     final statusSummary = _getStatusSummary(filteredTransactions);
 
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text('Transactions Summary'),
+        elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.home_outlined),
+            onPressed: () => context.go('/dashboard'),
+            tooltip: 'Home',
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
               context.read<TransactionProvider>().loadTransactions();
             },
+            tooltip: 'Refresh',
           ),
         ],
       ),
@@ -189,55 +206,89 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
         Row(
           children: [
             Expanded(
-              child: Card(
-                color: Colors.blue.shade50,
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      const Icon(
-                        Icons.receipt_long,
-                        size: 40,
-                        color: Colors.blue,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        count.toString(),
-                        style: const TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const Text('Total Transactions'),
-                    ],
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Colors.blue.shade400, Colors.blue.shade600],
                   ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.blue.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    const Icon(
+                      Icons.receipt_long,
+                      size: 48,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      count.toString(),
+                      style: const TextStyle(
+                        fontSize: 36,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Total Transactions',
+                      style: TextStyle(color: Colors.white, fontSize: 14),
+                    ),
+                  ],
                 ),
               ),
             ),
             const SizedBox(width: 16),
             Expanded(
-              child: Card(
-                color: Colors.green.shade50,
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      const Icon(
-                        Icons.attach_money,
-                        size: 40,
-                        color: Colors.green,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        currencyFormat.format(total),
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const Text('Total Amount'),
-                    ],
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Colors.green.shade400, Colors.green.shade600],
                   ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.green.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    const Icon(
+                      Icons.attach_money,
+                      size: 48,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      currencyFormat.format(total),
+                      style: const TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Total Amount',
+                      style: TextStyle(color: Colors.white, fontSize: 14),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -246,34 +297,78 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
         const SizedBox(height: 16),
 
         // Category Breakdown
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'By Category',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const Divider(),
-                ...categorySummary.entries.map(
-                  (entry) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(entry.key),
-                        Text(
-                          currencyFormat.format(entry.value),
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Colors.purple.shade400, Colors.purple.shade600],
+                  ),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(12),
+                    topRight: Radius.circular(12),
                   ),
                 ),
-              ],
-            ),
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    const Icon(Icons.category, color: Colors.white, size: 24),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'By Category',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    ...categorySummary.entries.map(
+                      (entry) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              entry.key,
+                              style: const TextStyle(fontSize: 15),
+                            ),
+                            Text(
+                              currencyFormat.format(entry.value),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 16),
@@ -283,85 +378,168 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'By Payment Method',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Colors.orange.shade400,
+                            Colors.orange.shade600,
+                          ],
+                        ),
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(12),
+                          topRight: Radius.circular(12),
                         ),
                       ),
-                      const Divider(),
-                      ...paymentMethodSummary.entries.map(
-                        (entry) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                entry.key,
-                                style: const TextStyle(fontSize: 13),
-                              ),
-                              Text(
-                                currencyFormat.format(entry.value),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.payment,
+                            color: Colors.white,
+                            size: 20,
                           ),
-                        ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'By Payment Method',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          ...paymentMethodSummary.entries.map(
+                            (entry) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 6),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    entry.key,
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                                  Text(
+                                    currencyFormat.format(entry.value),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
             const SizedBox(width: 16),
             Expanded(
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'By Status',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Colors.teal.shade400, Colors.teal.shade600],
+                        ),
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(12),
+                          topRight: Radius.circular(12),
                         ),
                       ),
-                      const Divider(),
-                      ...statusSummary.entries.map(
-                        (entry) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                entry.key,
-                                style: const TextStyle(fontSize: 13),
-                              ),
-                              Text(
-                                entry.value.toString(),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.check_circle,
+                            color: Colors.white,
+                            size: 20,
                           ),
-                        ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'By Status',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          ...statusSummary.entries.map(
+                            (entry) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 6),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    entry.key,
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                                  Text(
+                                    entry.value.toString(),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -372,108 +550,156 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
   }
 
   Widget _buildFilters() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Filters',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Colors.blue.shade400, Colors.blue.shade600],
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
             ),
-            const SizedBox(height: 16),
-            Row(
+            padding: const EdgeInsets.all(16),
+            child: Row(
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      labelText: 'Search',
-                      hintText: 'Description or receipt number',
-                      border: const OutlineInputBorder(),
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear),
-                              onPressed: () {
-                                setState(() {
-                                  _searchController.clear();
-                                });
-                              },
-                            )
-                          : null,
-                    ),
-                    onChanged: (value) => setState(() {}),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _selectedCategory,
-                    decoration: const InputDecoration(
-                      labelText: 'Category',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: [
-                      const DropdownMenuItem(value: null, child: Text('All')),
-                      ...ExpenseCategory.values.map((category) {
-                        return DropdownMenuItem(
-                          value: category.displayName,
-                          child: Text(category.displayName),
-                        );
-                      }),
-                    ],
-                    onChanged: (value) =>
-                        setState(() => _selectedCategory = value),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _selectedPaymentMethod,
-                    decoration: const InputDecoration(
-                      labelText: 'Payment Method',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: [
-                      const DropdownMenuItem(value: null, child: Text('All')),
-                      ...PaymentMethod.values.map((method) {
-                        return DropdownMenuItem(
-                          value: method.displayName,
-                          child: Text(method.displayName),
-                        );
-                      }),
-                    ],
-                    onChanged: (value) =>
-                        setState(() => _selectedPaymentMethod = value),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _selectedStatus,
-                    decoration: const InputDecoration(
-                      labelText: 'Status',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: [
-                      const DropdownMenuItem(value: null, child: Text('All')),
-                      ...TransactionStatus.values.map((status) {
-                        return DropdownMenuItem(
-                          value: status.displayName,
-                          child: Text(status.displayName),
-                        );
-                      }),
-                    ],
-                    onChanged: (value) =>
-                        setState(() => _selectedStatus = value),
+                const Icon(Icons.filter_list, color: Colors.white, size: 24),
+                const SizedBox(width: 12),
+                const Text(
+                  'Filters',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
                   ),
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          labelText: 'Search',
+                          hintText: 'Description or receipt number',
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.search),
+                          suffixIcon: _searchController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () {
+                                    setState(() {
+                                      _searchController.clear();
+                                    });
+                                  },
+                                )
+                              : null,
+                        ),
+                        onChanged: (value) => setState(() {}),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: _selectedCategory,
+                        decoration: const InputDecoration(
+                          labelText: 'Category',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: [
+                          const DropdownMenuItem(
+                            value: null,
+                            child: Text('All'),
+                          ),
+                          ...ExpenseCategory.values.map((category) {
+                            return DropdownMenuItem(
+                              value: category.displayName,
+                              child: Text(category.displayName),
+                            );
+                          }),
+                        ],
+                        onChanged: (value) =>
+                            setState(() => _selectedCategory = value),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: _selectedPaymentMethod,
+                        decoration: const InputDecoration(
+                          labelText: 'Payment Method',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: [
+                          const DropdownMenuItem(
+                            value: null,
+                            child: Text('All'),
+                          ),
+                          ...PaymentMethod.values.map((method) {
+                            return DropdownMenuItem(
+                              value: method.displayName,
+                              child: Text(method.displayName),
+                            );
+                          }),
+                        ],
+                        onChanged: (value) =>
+                            setState(() => _selectedPaymentMethod = value),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: _selectedStatus,
+                        decoration: const InputDecoration(
+                          labelText: 'Status',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: [
+                          const DropdownMenuItem(
+                            value: null,
+                            child: Text('All'),
+                          ),
+                          ...TransactionStatus.values.map((status) {
+                            return DropdownMenuItem(
+                              value: status.displayName,
+                              child: Text(status.displayName),
+                            );
+                          }),
+                        ],
+                        onChanged: (value) =>
+                            setState(() => _selectedStatus = value),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -590,8 +816,14 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                           ),
                         ),
                       ),
-                      DataCell(Text(transaction.category.expenseCategoryDisplayName)),
-                      DataCell(Text(transaction.paymentMethod.paymentMethodDisplayName)),
+                      DataCell(
+                        Text(transaction.category.expenseCategoryDisplayName),
+                      ),
+                      DataCell(
+                        Text(
+                          transaction.paymentMethod.paymentMethodDisplayName,
+                        ),
+                      ),
                       DataCell(
                         Text(
                           currencyFormat.format(transaction.amount),
@@ -1065,10 +1297,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
 
       if (kIsWeb) {
         // Web platform - trigger download using printing package
-        await Printing.sharePdf(
-          bytes: bytes,
-          filename: fileName,
-        );
+        await Printing.sharePdf(bytes: bytes, filename: fileName);
       } else {
         // Mobile/Desktop platform
         final directory = await getApplicationDocumentsDirectory();

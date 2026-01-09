@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart' as firestore;
 class AppSettings {
   final String id;
   final String theme; // 'light', 'dark', 'auto'
+  final String colorTheme; // 'blue', 'purple', 'green', 'orange', 'red', 'teal'
   final String language; // 'en', 'th'
   final String currency; // 'THB', 'USD', 'EUR'
   final String dateFormat; // 'dd/MM/yyyy', 'MM/dd/yyyy', 'yyyy-MM-dd'
@@ -22,6 +23,7 @@ class AppSettings {
   AppSettings({
     required this.id,
     this.theme = 'light',
+    this.colorTheme = 'blue',
     this.language = 'en',
     this.currency = 'THB',
     this.dateFormat = 'dd/MM/yyyy',
@@ -37,17 +39,19 @@ class AppSettings {
     List<String>? customStaff,
     List<String>? customStudentWorkers,
     this.updatedAt,
-  }) : customVendors = customVendors ?? [
-        'Lazada',
-        'Shopee',
-        'Amazon',
-        '7-Eleven',
-        'Family Mart',
-        'Big C',
-        'Tesco Lotus',
-        'Makro',
-        'Office Mate',
-      ],
+  }) : customVendors =
+           customVendors ??
+           [
+             'Lazada',
+             'Shopee',
+             'Amazon',
+             '7-Eleven',
+             'Family Mart',
+             'Big C',
+             'Tesco Lotus',
+             'Makro',
+             'Office Mate',
+           ],
        customStaff = customStaff ?? [],
        customStudentWorkers = customStudentWorkers ?? [];
 
@@ -55,6 +59,7 @@ class AppSettings {
     return {
       'id': id,
       'theme': theme,
+      'colorTheme': colorTheme,
       'language': language,
       'currency': currency,
       'dateFormat': dateFormat,
@@ -82,6 +87,7 @@ class AppSettings {
     return AppSettings(
       id: doc.id,
       theme: data['theme'] as String? ?? 'light',
+      colorTheme: data['colorTheme'] as String? ?? 'blue',
       language: data['language'] as String? ?? 'en',
       currency: data['currency'] as String? ?? 'THB',
       dateFormat: data['dateFormat'] as String? ?? 'dd/MM/yyyy',
@@ -90,13 +96,16 @@ class AppSettings {
       autoBackup: data['autoBackup'] as bool? ?? true,
       defaultExportFormat: data['defaultExportFormat'] as String? ?? 'PDF',
       defaultReportType: data['defaultReportType'] as String? ?? 'petty_cash',
-      organizationName: data['organizationName'] as String? ??
-          'Hope Channel Southeast Asia',
-      organizationNameThai: data['organizationNameThai'] as String? ??
+      organizationName:
+          data['organizationName'] as String? ?? 'Hope Channel Southeast Asia',
+      organizationNameThai:
+          data['organizationNameThai'] as String? ??
           'โฮป แชนแนล เอเชียตะวันออกเฉียงใต้',
-      organizationAddress: data['organizationAddress'] as String? ??
+      organizationAddress:
+          data['organizationAddress'] as String? ??
           '123 Main Street, Bangkok, Thailand',
-      customVendors: (data['customVendors'] as List<dynamic>?)?.cast<String>() ??
+      customVendors:
+          (data['customVendors'] as List<dynamic>?)?.cast<String>() ??
           [
             'Lazada',
             'Shopee',
@@ -108,8 +117,11 @@ class AppSettings {
             'Makro',
             'Office Mate',
           ],
-      customStaff: (data['customStaff'] as List<dynamic>?)?.cast<String>() ?? [],
-      customStudentWorkers: (data['customStudentWorkers'] as List<dynamic>?)?.cast<String>() ?? [],
+      customStaff:
+          (data['customStaff'] as List<dynamic>?)?.cast<String>() ?? [],
+      customStudentWorkers:
+          (data['customStudentWorkers'] as List<dynamic>?)?.cast<String>() ??
+          [],
       updatedAt: data['updatedAt'] != null
           ? (data['updatedAt'] as firestore.Timestamp).toDate()
           : null,
@@ -118,6 +130,7 @@ class AppSettings {
 
   AppSettings copyWith({
     String? theme,
+    String? colorTheme,
     String? language,
     String? currency,
     String? dateFormat,
@@ -137,6 +150,7 @@ class AppSettings {
     return AppSettings(
       id: id,
       theme: theme ?? this.theme,
+      colorTheme: colorTheme ?? this.colorTheme,
       language: language ?? this.language,
       currency: currency ?? this.currency,
       dateFormat: dateFormat ?? this.dateFormat,

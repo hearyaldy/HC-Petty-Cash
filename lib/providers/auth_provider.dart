@@ -39,7 +39,10 @@ class AuthProvider extends ChangeNotifier {
       final sanitizedEmail = ValidationUtils.sanitizeString(email);
       final sanitizedPassword = ValidationUtils.sanitizeString(password);
 
-      final result = await _authService.login(sanitizedEmail, sanitizedPassword);
+      final result = await _authService.login(
+        sanitizedEmail,
+        sanitizedPassword,
+      );
       _errorMessage = null;
       notifyListeners();
       return result;
@@ -62,8 +65,8 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Register user with Firebase Auth
-  Future<bool> registerUser({
+  // Register user with Firebase Auth - returns userId on success, null on failure
+  Future<String?> registerUser({
     required String email,
     required String password,
     required String name,
@@ -77,13 +80,20 @@ class AuthProvider extends ChangeNotifier {
       final sanitizedName = ValidationUtils.sanitizeString(name);
       final sanitizedDepartment = ValidationUtils.sanitizeString(department);
 
-      return await _authService.registerUser(
+      final userId = await _authService.registerUser(
         email: sanitizedEmail,
         password: sanitizedPassword,
         name: sanitizedName,
         role: role,
         department: sanitizedDepartment,
       );
+
+      // Notify listeners after successful registration to trigger navigation
+      if (userId != null) {
+        notifyListeners();
+      }
+
+      return userId;
     } catch (e) {
       AppLogger.severe('Registration error in provider: $e');
       rethrow;

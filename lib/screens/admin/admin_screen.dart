@@ -41,18 +41,12 @@ class _AdminScreenState extends State<AdminScreen> {
 
     if (!authProvider.canManageUsers()) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('Admin'),
-        ),
+        appBar: AppBar(title: const Text('Admin')),
         body: const Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.lock,
-                size: 80,
-                color: Colors.grey,
-              ),
+              Icon(Icons.lock, size: 80, color: Colors.grey),
               SizedBox(height: 16),
               Text(
                 'Access Denied',
@@ -74,6 +68,11 @@ class _AdminScreenState extends State<AdminScreen> {
         title: const Text('User Management'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.attach_money),
+            onPressed: () => context.push('/admin/payment-rates'),
+            tooltip: 'Student Payment Rates',
+          ),
+          IconButton(
             icon: const Icon(Icons.home_outlined),
             onPressed: () => context.go('/dashboard'),
             tooltip: 'Home',
@@ -93,9 +92,7 @@ class _AdminScreenState extends State<AdminScreen> {
 
   Widget _buildUsersList() {
     if (_users.isEmpty) {
-      return const Center(
-        child: Text('No users found'),
-      );
+      return const Center(child: Text('No users found'));
     }
 
     return ListView.builder(
@@ -110,7 +107,10 @@ class _AdminScreenState extends State<AdminScreen> {
               backgroundColor: _getRoleColor(user.role.toUserRole()),
               child: Text(
                 user.name[0].toUpperCase(),
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             title: Text(
@@ -182,6 +182,8 @@ class _AdminScreenState extends State<AdminScreen> {
         return Colors.green;
       case UserRole.requester:
         return Colors.orange;
+      case UserRole.studentWorker:
+        return Colors.deepOrange;
     }
   }
 
@@ -246,68 +248,68 @@ class _AdminScreenState extends State<AdminScreen> {
                     controller: scrollController,
                     padding: const EdgeInsets.all(16),
                     children: [
-                TextFormField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Name',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a name';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: emailController,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter an email';
-                    }
-                    if (!value.contains('@')) {
-                      return 'Please enter a valid email';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: passwordController,
-                  decoration: const InputDecoration(
-                    labelText: 'Password',
-                    border: OutlineInputBorder(),
-                  ),
-                  obscureText: true,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a password';
-                    }
-                    if (value.length < 6) {
-                      return 'Password must be at least 6 characters';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: departmentController,
-                  decoration: const InputDecoration(
-                    labelText: 'Department',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a department';
-                    }
-                    return null;
-                  },
-                ),
+                      TextFormField(
+                        controller: nameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Name',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a name';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: emailController,
+                        decoration: const InputDecoration(
+                          labelText: 'Email',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter an email';
+                          }
+                          if (!value.contains('@')) {
+                            return 'Please enter a valid email';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: passwordController,
+                        decoration: const InputDecoration(
+                          labelText: 'Password',
+                          border: OutlineInputBorder(),
+                        ),
+                        obscureText: true,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a password';
+                          }
+                          if (value.length < 6) {
+                            return 'Password must be at least 6 characters';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: departmentController,
+                        decoration: const InputDecoration(
+                          labelText: 'Department',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a department';
+                          }
+                          return null;
+                        },
+                      ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<UserRole>(
                         value: selectedRole,
@@ -337,7 +339,8 @@ class _AdminScreenState extends State<AdminScreen> {
                           ElevatedButton(
                             onPressed: () async {
                               if (formKey.currentState!.validate()) {
-                                final authProvider = context.read<AuthProvider>();
+                                final authProvider = context
+                                    .read<AuthProvider>();
                                 await authProvider.registerUser(
                                   email: emailController.text,
                                   password: passwordController.text,
@@ -350,7 +353,9 @@ class _AdminScreenState extends State<AdminScreen> {
                                 if (context.mounted) {
                                   Navigator.of(context).pop();
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('User added successfully')),
+                                    const SnackBar(
+                                      content: Text('User added successfully'),
+                                    ),
                                   );
                                 }
                               }
@@ -430,50 +435,50 @@ class _AdminScreenState extends State<AdminScreen> {
                     controller: scrollController,
                     padding: const EdgeInsets.all(16),
                     children: [
-                TextFormField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Name',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a name';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: emailController,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter an email';
-                    }
-                    if (!value.contains('@')) {
-                      return 'Please enter a valid email';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: departmentController,
-                  decoration: const InputDecoration(
-                    labelText: 'Department',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a department';
-                    }
-                    return null;
-                  },
-                ),
+                      TextFormField(
+                        controller: nameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Name',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a name';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: emailController,
+                        decoration: const InputDecoration(
+                          labelText: 'Email',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter an email';
+                          }
+                          if (!value.contains('@')) {
+                            return 'Please enter a valid email';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: departmentController,
+                        decoration: const InputDecoration(
+                          labelText: 'Department',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a department';
+                          }
+                          return null;
+                        },
+                      ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<UserRole>(
                         value: selectedRole,
@@ -517,7 +522,11 @@ class _AdminScreenState extends State<AdminScreen> {
                                 if (context.mounted) {
                                   Navigator.of(context).pop();
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('User updated successfully')),
+                                    const SnackBar(
+                                      content: Text(
+                                        'User updated successfully',
+                                      ),
+                                    ),
                                   );
                                 }
                               }
@@ -605,7 +614,9 @@ class _AdminScreenState extends State<AdminScreen> {
                     if (context.mounted) {
                       Navigator.of(context).pop();
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('User deleted successfully')),
+                        const SnackBar(
+                          content: Text('User deleted successfully'),
+                        ),
                       );
                     }
                   },
