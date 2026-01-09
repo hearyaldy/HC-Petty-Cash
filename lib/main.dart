@@ -18,7 +18,9 @@ import 'screens/reports/report_detail_screen.dart';
 import 'screens/reports/project_report_detail_screen.dart';
 import 'screens/approval/approvals_screen.dart';
 import 'screens/admin/admin_screen.dart';
+import 'screens/admin/user_management_screen.dart';
 import 'screens/transactions/transactions_summary_screen.dart';
+import 'screens/settings/settings_screen_impl.dart';
 import 'utils/constants.dart';
 import 'utils/logger.dart';
 
@@ -157,6 +159,14 @@ class MyApp extends StatelessWidget {
         GoRoute(
           path: '/admin',
           builder: (context, state) => const AdminScreen(),
+        ),
+        GoRoute(
+          path: '/settings',
+          builder: (context, state) => const SettingsScreenImpl(),
+        ),
+        GoRoute(
+          path: '/admin/users',
+          builder: (context, state) => const UserManagementScreen(),
         ),
       ],
     );

@@ -81,7 +81,7 @@ class VoucherExportService {
 
     pdf.addPage(
       pw.Page(
-        pageFormat: PdfPageFormat.a5.landscape,
+        pageFormat: PdfPageFormat.a5,
         margin: const pw.EdgeInsets.all(20),
         theme: pw.ThemeData.withFont(
           base: ttf ?? pw.Font.helvetica(),
@@ -95,42 +95,23 @@ class VoucherExportService {
             _buildHeader(ttf, ttfBold),
             pw.SizedBox(height: 10),
 
-            // Voucher Title and Requested By Info in a row
-            pw.Row(
-              children: [
-                pw.Expanded(
-                  flex: 2,
-                  child: _buildTitle(ttf, ttfBold),
-                ),
-                pw.SizedBox(width: 16),
-                pw.Expanded(
-                  flex: 1,
-                  child: _buildRequestedByInfo(ttf, ttfBold),
-                ),
-              ],
+            // Voucher Title
+            _buildTitle(ttf, ttfBold),
+            pw.SizedBox(height: 12),
+
+            // Voucher Information Section
+            _buildVoucherInfoSection(
+              transaction,
+              report,
+              requestor,
+              dateFormat,
+              ttf,
+              ttfBold,
             ),
             pw.SizedBox(height: 12),
 
-            // Voucher Information and Description in columns
-            pw.Row(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Expanded(
-                  child: _buildVoucherInfoSection(
-                    transaction,
-                    report,
-                    requestor,
-                    dateFormat,
-                    ttf,
-                    ttfBold,
-                  ),
-                ),
-                pw.SizedBox(width: 16),
-                pw.Expanded(
-                  child: _buildDescriptionSection(transaction, ttf, ttfBold),
-                ),
-              ],
-            ),
+            // Description Section
+            _buildDescriptionSection(transaction, ttf, ttfBold),
             pw.SizedBox(height: 12),
 
             // Amount Section
@@ -457,54 +438,6 @@ class VoucherExportService {
                 color: PdfColors.grey800,
                 font: font ?? pw.Font.helvetica(),
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  pw.Widget _buildRequestedByInfo(pw.Font? font, pw.Font? fontBold) {
-    return pw.Container(
-      decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: PdfColors.grey400),
-        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
-      ),
-      padding: const pw.EdgeInsets.all(8),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          pw.Text(
-            'Requested by:',
-            style: pw.TextStyle(
-              fontSize: 8,
-              fontWeight: pw.FontWeight.bold,
-              font: fontBold ?? pw.Font.helvetica(),
-            ),
-          ),
-          pw.SizedBox(height: 2),
-          pw.Text(
-            'Heary Healdy Sairin',
-            style: pw.TextStyle(
-              fontSize: 8,
-              font: font ?? pw.Font.helvetica(),
-            ),
-          ),
-          pw.SizedBox(height: 6),
-          pw.Text(
-            'Department:',
-            style: pw.TextStyle(
-              fontSize: 8,
-              fontWeight: pw.FontWeight.bold,
-              font: fontBold ?? pw.Font.helvetica(),
-            ),
-          ),
-          pw.SizedBox(height: 2),
-          pw.Text(
-            'Hope Channel Southeast Asia',
-            style: pw.TextStyle(
-              fontSize: 8,
-              font: font ?? pw.Font.helvetica(),
             ),
           ),
         ],

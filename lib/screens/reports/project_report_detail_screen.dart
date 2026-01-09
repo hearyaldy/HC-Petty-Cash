@@ -13,6 +13,7 @@ import '../../models/project_report.dart';
 import '../../models/transaction.dart';
 import '../../models/enums.dart';
 import '../../utils/constants.dart';
+import '../../widgets/edit_project_report_dialog.dart';
 
 class ProjectReportDetailScreen extends StatefulWidget {
   final String reportId;
@@ -71,7 +72,9 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
           ),
           PopupMenuButton<String>(
             onSelected: (value) async {
-              if (value == 'submit') {
+              if (value == 'edit') {
+                await _showEditReportDialog(report, projectReportProvider);
+              } else if (value == 'submit') {
                 await _submitReport(report, projectReportProvider);
               } else if (value == 'approve') {
                 await _approveReport(report, projectReportProvider);
@@ -80,6 +83,18 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
               }
             },
             itemBuilder: (context) => [
+              if (report.statusEnum == ReportStatus.draft ||
+                  authProvider.canApprove())
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit),
+                      SizedBox(width: 8),
+                      Text('Edit Report'),
+                    ],
+                  ),
+                ),
               if (report.statusEnum == ReportStatus.draft)
                 const PopupMenuItem(
                   value: 'submit',
@@ -498,6 +513,39 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
     }
   }
 
+  Future<void> _showEditReportDialog(
+    ProjectReport report,
+    ProjectReportProvider provider,
+  ) async {
+    final updatedReport = await showDialog<ProjectReport>(
+      context: context,
+      builder: (context) => EditProjectReportDialog(report: report),
+    );
+
+    if (updatedReport != null) {
+      try {
+        await provider.updateProjectReport(updatedReport);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Project report updated successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error updating report: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   Future<void> _submitReport(
     ProjectReport report,
     ProjectReportProvider provider,
@@ -589,9 +637,13 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
     );
 
     // Load font
-    final fontData = await rootBundle.load('assets/fonts/NotoSansThai-Regular.ttf');
+    final fontData = await rootBundle.load(
+      'assets/fonts/NotoSansThai-Regular.ttf',
+    );
     final ttf = pw.Font.ttf(fontData);
-    final boldFontData = await rootBundle.load('assets/fonts/NotoSansThai-Bold.ttf');
+    final boldFontData = await rootBundle.load(
+      'assets/fonts/NotoSansThai-Bold.ttf',
+    );
     final boldTtf = pw.Font.ttf(boldFontData);
 
     pdf.addPage(
@@ -757,7 +809,7 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
                         ),
                       ],
                     );
-                  }).toList(),
+                  }),
                   // Total row
                   pw.TableRow(
                     decoration: const pw.BoxDecoration(
@@ -815,7 +867,9 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
                 decoration: pw.BoxDecoration(
                   color: PdfColors.grey100,
                   border: pw.Border.all(color: PdfColors.grey400),
-                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                  borderRadius: const pw.BorderRadius.all(
+                    pw.Radius.circular(4),
+                  ),
                 ),
                 child: pw.Column(
                   children: [
@@ -876,13 +930,7 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
                         ),
                         pw.SizedBox(height: 4),
                         pw.Text(
-                          '(${_convertToWords(
-                            report.openingBalance -
-                                transactions.fold<double>(
-                                  0,
-                                  (sum, t) => sum + t.amount,
-                                ),
-                          )})',
+                          '(${_convertToWords(report.openingBalance - transactions.fold<double>(0, (sum, t) => sum + t.amount))})',
                           style: pw.TextStyle(
                             font: ttf,
                             fontSize: 9,

@@ -109,5 +109,17 @@ service cloud.firestore {
       // Only admin can delete transactions
       allow delete: if isAdmin();
     }
+
+    // Settings collection
+    match /settings/{settingId} {
+      // All authenticated users can read settings
+      allow read: if isAuthenticated();
+
+      // Only admins can update settings
+      allow create, update: if canApprove();
+
+      // Only admins can delete settings
+      allow delete: if isAdmin();
+    }
   }
 }

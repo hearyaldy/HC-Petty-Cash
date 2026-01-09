@@ -17,6 +17,9 @@ import '../../services/excel_export_service.dart';
 import '../../services/pdf_export_service.dart';
 import '../../services/voucher_export_service.dart';
 import '../../widgets/voucher_preview_dialog.dart';
+import '../../widgets/edit_petty_cash_report_dialog.dart';
+import '../../widgets/paid_to_field.dart';
+import '../../services/settings_service.dart';
 import '../../utils/constants.dart';
 
 enum TransactionSortOption {
@@ -99,7 +102,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     _sortTransactions(transactions);
 
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
+        elevation: 0,
         title: Text(report.reportNumber),
         actions: [
           IconButton(
@@ -115,7 +120,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             ),
           PopupMenuButton<String>(
             onSelected: (value) async {
-              if (value == 'export_excel') {
+              if (value == 'edit') {
+                await _showEditReportDialog(report, reportProvider);
+              } else if (value == 'export_excel') {
                 await _exportExcel(report, transactions);
               } else if (value == 'export_pdf') {
                 await _exportPdf(report, transactions);
@@ -128,6 +135,18 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               }
             },
             itemBuilder: (context) => [
+              if (report.status == ReportStatus.draft.name ||
+                  authProvider.canApprove())
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit),
+                      SizedBox(width: 8),
+                      Text('Edit Report'),
+                    ],
+                  ),
+                ),
               const PopupMenuItem(
                 value: 'export_excel',
                 child: Row(
@@ -196,6 +215,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _buildPageHeader(report),
+            const SizedBox(height: 24),
             _buildReportHeader(report),
             const SizedBox(height: 24),
             _buildFinancialSummary(report),
@@ -277,55 +298,128 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     );
   }
 
-  Widget _buildReportHeader(PettyCashReport report) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+  Widget _buildPageHeader(PettyCashReport report) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.blue.shade600, Colors.blue.shade400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Report Details',
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Created ${DateFormat('MMM d, y').format(report.createdAt)}',
-                        style: TextStyle(color: Colors.grey[600]),
-                      ),
-                    ],
+                Text(
+                  report.reportNumber,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
                   ),
                 ),
-                _buildStatusChip(report.statusEnum),
+                const SizedBox(height: 8),
+                Text(
+                  report.department,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.white.withOpacity(0.9),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Created ${DateFormat('MMM d, y').format(report.createdAt)}',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.white.withOpacity(0.8),
+                  ),
+                ),
               ],
             ),
-            const Divider(height: 32),
-            _buildDetailRow('Report Number', report.reportNumber),
-            _buildDetailRow('Report Name', report.department),
-            _buildDetailRow('Custodian', report.custodianName),
-            _buildDetailRow(
-              'Period',
-              '${DateFormat('MMM d, y').format(report.periodStart)} - ${DateFormat('MMM d, y').format(report.periodEnd)}',
+          ),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              shape: BoxShape.circle,
             ),
-            if (report.companyName != null)
-              _buildDetailRow('Company', report.companyName!),
-            if (report.notes != null && report.notes!.isNotEmpty)
-              _buildDetailRow('Notes', report.notes!),
-          ],
-        ),
+            child: const Icon(Icons.description, size: 48, color: Colors.white),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReportHeader(PettyCashReport report) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Report Details',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Created ${DateFormat('MMM d, y').format(report.createdAt)}',
+                      style: TextStyle(color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              ),
+              _buildStatusChip(report.statusEnum),
+            ],
+          ),
+          const Divider(height: 32),
+          _buildDetailRow('Report Number', report.reportNumber),
+          _buildDetailRow('Report Name', report.department),
+          _buildDetailRow('Custodian', report.custodianName),
+          _buildDetailRow(
+            'Period',
+            '${DateFormat('MMM d, y').format(report.periodStart)} - ${DateFormat('MMM d, y').format(report.periodEnd)}',
+          ),
+          if (report.companyName != null)
+            _buildDetailRow('Company', report.companyName!),
+          if (report.notes != null && report.notes!.isNotEmpty)
+            _buildDetailRow('Notes', report.notes!),
+        ],
       ),
     );
   }
 
   Widget _buildDetailRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -335,14 +429,15 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               label,
               style: TextStyle(
                 color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
               ),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(fontWeight: FontWeight.w600),
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
             ),
           ),
         ],
@@ -351,122 +446,141 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   }
 
   Widget _buildStatusChip(ReportStatus status) {
-    Color color;
+    Color backgroundColor;
+    Color textColor = Colors.white;
+
     switch (status) {
       case ReportStatus.draft:
-        color = Colors.grey;
+        backgroundColor = Colors.grey.shade600;
         break;
       case ReportStatus.submitted:
-        color = Colors.blue;
+        backgroundColor = Colors.blue.shade600;
         break;
       case ReportStatus.underReview:
-        color = Colors.orange;
+        backgroundColor = Colors.orange.shade600;
         break;
       case ReportStatus.approved:
-        color = Colors.green;
+        backgroundColor = Colors.green.shade600;
         break;
       case ReportStatus.closed:
-        color = Colors.purple;
+        backgroundColor = Colors.purple.shade600;
         break;
     }
 
-    return Chip(
-      label: Text(
-        status.displayName,
-        style: const TextStyle(color: Colors.white),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(20),
       ),
-      backgroundColor: color,
+      child: Text(
+        status.displayName,
+        style: TextStyle(
+          color: textColor,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 
   Widget _buildFinancialSummary(PettyCashReport report) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Financial Summary',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const Divider(height: 32),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildAmountCard(
-                    'Opening Balance',
-                    report.openingBalance,
-                    Colors.blue,
-                    Icons.account_balance_wallet,
-                  ),
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Financial Summary',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          const Divider(height: 32),
+          Row(
+            children: [
+              Expanded(
+                child: _buildAmountCard(
+                  'Opening Balance',
+                  report.openingBalance,
+                  Colors.blue,
+                  Icons.account_balance_wallet,
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildAmountCard(
-                    'Total Disbursements',
-                    report.totalDisbursements,
-                    Colors.red,
-                    Icons.money_off,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildAmountCard(
-                    'Cash on Hand',
-                    report.cashOnHand,
-                    Colors.orange,
-                    Icons.payments,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildAmountCard(
-                    'Closing Balance',
-                    report.closingBalance,
-                    Colors.green,
-                    Icons.account_balance,
-                  ),
-                ),
-              ],
-            ),
-            if (report.variance != 0) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.amber),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.warning_amber, color: Colors.amber),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Variance Detected',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            '${AppConstants.currencySymbol}${report.variance.abs().toStringAsFixed(2)} ${report.variance > 0 ? 'over' : 'under'}',
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildAmountCard(
+                  'Total Disbursements',
+                  report.totalDisbursements,
+                  Colors.red,
+                  Icons.money_off,
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildAmountCard(
+                  'Cash on Hand',
+                  report.cashOnHand,
+                  Colors.orange,
+                  Icons.payments,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildAmountCard(
+                  'Closing Balance',
+                  report.closingBalance,
+                  Colors.green,
+                  Icons.account_balance,
+                ),
+              ),
+            ],
+          ),
+          if (report.variance != 0) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.amber),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber, color: Colors.amber),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Variance Detected',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          '${AppConstants.currencySymbol}${report.variance.abs().toStringAsFixed(2)} ${report.variance > 0 ? 'over' : 'under'}',
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -478,31 +592,38 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     IconData icon,
   ) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, size: 20, color: color),
-              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, size: 20, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   label,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 14,
                     color: Colors.grey[700],
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Text(
             '${AppConstants.currencySymbol}${amount.toStringAsFixed(2)}',
             style: TextStyle(
@@ -521,7 +642,18 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     PettyCashReport report,
     AuthProvider authProvider,
   ) {
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -553,6 +685,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     onPressed: () => _showAddTransactionDialog(report),
                     icon: const Icon(Icons.add),
                     label: const Text('Add Transaction'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                    ),
                   ),
               ],
             ),
@@ -572,10 +708,32 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               ),
             const Divider(height: 32),
             if (transactions.isEmpty)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Text('No transactions yet'),
+              Container(
+                padding: const EdgeInsets.all(32),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.inbox_outlined,
+                        size: 64,
+                        color: Colors.grey[400],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No transactions yet',
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.grey[700],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Add your first transaction to get started',
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
                 ),
               )
             else
@@ -599,40 +757,74 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     Transaction transaction,
     AuthProvider authProvider,
   ) {
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            CircleAvatar(
-              backgroundColor: _getTransactionStatusColor(
-                transaction.statusEnum,
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _getTransactionStatusColor(transaction.statusEnum),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 _getTransactionIcon(transaction.categoryEnum),
                 color: Colors.white,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     transaction.description,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          transaction.categoryEnum.displayName,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.blue.shade700,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '• ${DateFormat('MMM d, y').format(transaction.date)}',
+                        style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    '${transaction.categoryEnum.displayName} • ${DateFormat('MMM d, y').format(transaction.date)}',
-                    style: TextStyle(fontSize: 13, color: Colors.grey[700]),
-                  ),
                   Text(
                     'Receipt: ${transaction.receiptNo} • ${transaction.paymentMethodEnum.displayName}',
                     style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 8),
                   _buildTransactionStatusChip(transaction.statusEnum),
                 ],
               ),
@@ -644,10 +836,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   '${AppConstants.currencySymbol}${transaction.amount.toStringAsFixed(2)}',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                    fontSize: 18,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -661,8 +853,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
-                          vertical: 4,
+                          vertical: 6,
                         ),
+                        side: BorderSide(color: Colors.blue.shade300),
+                        foregroundColor: Colors.blue.shade700,
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
@@ -714,33 +908,41 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   }
 
   Widget _buildTransactionStatusChip(TransactionStatus status) {
-    Color color;
+    Color backgroundColor;
+    Color textColor = Colors.white;
+
     switch (status) {
       case TransactionStatus.draft:
-        color = Colors.grey;
+        backgroundColor = Colors.grey.shade600;
         break;
       case TransactionStatus.pendingApproval:
-        color = Colors.orange;
+        backgroundColor = Colors.orange.shade600;
         break;
       case TransactionStatus.approved:
-        color = Colors.green;
+        backgroundColor = Colors.green.shade600;
         break;
       case TransactionStatus.rejected:
-        color = Colors.red;
+        backgroundColor = Colors.red.shade600;
         break;
       case TransactionStatus.processed:
-        color = Colors.blue;
+        backgroundColor = Colors.blue.shade600;
         break;
     }
 
-    return Chip(
-      label: Text(
-        status.displayName,
-        style: const TextStyle(color: Colors.white, fontSize: 10),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(12),
       ),
-      backgroundColor: color,
-      padding: EdgeInsets.zero,
-      visualDensity: VisualDensity.compact,
+      child: Text(
+        status.displayName,
+        style: TextStyle(
+          color: textColor,
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 
@@ -760,6 +962,25 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   }
 
   IconData _getTransactionIcon(ExpenseCategory category) {
+    switch (category) {
+      case ExpenseCategory.office:
+        return Icons.business;
+      case ExpenseCategory.travel:
+        return Icons.flight;
+      case ExpenseCategory.meals:
+        return Icons.restaurant;
+      case ExpenseCategory.utilities:
+        return Icons.lightbulb;
+      case ExpenseCategory.maintenance:
+        return Icons.build;
+      case ExpenseCategory.supplies:
+        return Icons.shopping_cart;
+      case ExpenseCategory.other:
+        return Icons.more_horiz;
+    }
+  }
+
+  IconData _getCategoryIcon(ExpenseCategory category) {
     switch (category) {
       case ExpenseCategory.office:
         return Icons.business;
@@ -801,17 +1022,24 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     }
 
     final receiptNoController = TextEditingController(
-      text: nextReceiptNumber.toString(),
+      text: nextReceiptNumber.toString().padLeft(3, '0'),
     );
     final amountController = TextEditingController();
     final paidToController = TextEditingController();
     DateTime selectedDate = DateTime.now();
-    ExpenseCategory selectedCategory = ExpenseCategory.other;
+    String selectedCategory = ExpenseCategory.other.name;
     PaymentMethod selectedPaymentMethod = PaymentMethod.cash;
     String? selectedProjectId;
 
     // Get project reports before showing modal
     final projectReports = context.read<ProjectReportProvider>().projectReports;
+
+    // Load custom categories
+    final settingsService = SettingsService();
+    final customCategories = await settingsService.getCustomCategories();
+    final enabledCustomCategories = customCategories
+        .where((c) => c.enabled)
+        .toList();
 
     await showModalBottomSheet(
       context: context,
@@ -910,19 +1138,37 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        TextFormField(
-                          controller: paidToController,
-                          decoration: const InputDecoration(
-                            labelText: 'Paid to',
-                            border: OutlineInputBorder(),
-                            prefixIcon: Icon(Icons.person),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter who this was paid to';
+                        InkWell(
+                          onTap: () async {
+                            final result = await showDialog<String>(
+                              context: context,
+                              builder: (context) => PaidToFieldDialog(
+                                initialValue: paidToController.text,
+                              ),
+                            );
+                            if (result != null) {
+                              setState(() {
+                                paidToController.text = result;
+                              });
                             }
-                            return null;
                           },
+                          child: IgnorePointer(
+                            child: TextFormField(
+                              controller: paidToController,
+                              decoration: const InputDecoration(
+                                labelText: 'Paid to',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.person),
+                                suffixIcon: Icon(Icons.arrow_drop_down),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter who this was paid to';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 16),
                         TextFormField(
@@ -990,19 +1236,52 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                           },
                         ),
                         const SizedBox(height: 16),
-                        DropdownButtonFormField<ExpenseCategory>(
+                        DropdownButtonFormField<String>(
                           value: selectedCategory,
                           decoration: const InputDecoration(
                             labelText: 'Category',
                             border: OutlineInputBorder(),
                             prefixIcon: Icon(Icons.category),
                           ),
-                          items: ExpenseCategory.values.map((category) {
-                            return DropdownMenuItem(
-                              value: category,
-                              child: Text(category.displayName),
-                            );
-                          }).toList(),
+                          items: [
+                            // Default categories
+                            ...ExpenseCategory.values.map((category) {
+                              return DropdownMenuItem(
+                                value: category.name,
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      _getCategoryIcon(category),
+                                      size: 20,
+                                      color: Colors.blue,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(category.displayName),
+                                  ],
+                                ),
+                              );
+                            }),
+                            // Custom categories
+                            ...enabledCustomCategories.map((category) {
+                              return DropdownMenuItem(
+                                value: 'custom_${category.id}',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      IconData(
+                                        int.parse(category.iconCodePoint),
+                                        fontFamily: 'MaterialIcons',
+                                      ),
+                                      size: 20,
+                                      color: Colors.purple,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(category.name),
+                                  ],
+                                ),
+                              );
+                            }),
+                          ],
                           onChanged: (value) {
                             if (value != null) {
                               setState(() {
@@ -1050,13 +1329,27 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                   final authProvider = context
                                       .read<AuthProvider>();
 
+                                  final ExpenseCategory categoryEnum;
+                                  if (selectedCategory.startsWith('custom_')) {
+                                    // For custom categories, use 'other' as default
+                                    categoryEnum = ExpenseCategory.other;
+                                  } else {
+                                    // For standard categories, find the corresponding enum value
+                                    categoryEnum = ExpenseCategory.values
+                                        .firstWhere(
+                                          (e) => e.name == selectedCategory,
+                                          orElse: () => ExpenseCategory
+                                              .other, // fallback to 'other' if not found
+                                        );
+                                  }
+
                                   await transactionProvider.createTransaction(
                                     reportId: report.id,
                                     projectId: selectedProjectId,
                                     date: selectedDate,
                                     receiptNo: receiptNoController.text,
                                     description: descriptionController.text,
-                                    category: selectedCategory,
+                                    category: categoryEnum,
                                     amount: double.parse(amountController.text),
                                     paymentMethod: selectedPaymentMethod,
                                     requestorId: authProvider.currentUser!.id,
@@ -1143,6 +1436,25 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error exporting PDF: $e')));
+      }
+    }
+  }
+
+  Future<void> _showEditReportDialog(
+    PettyCashReport report,
+    ReportProvider provider,
+  ) async {
+    final updatedReport = await showDialog<PettyCashReport>(
+      context: context,
+      builder: (context) => EditPettyCashReportDialog(report: report),
+    );
+
+    if (updatedReport != null) {
+      await provider.updateReport(updatedReport);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Report updated successfully')),
+        );
       }
     }
   }
@@ -1270,7 +1582,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       text: transaction.description,
     );
     final receiptNoController = TextEditingController(
-      text: transaction.receiptNo,
+      text:
+          int.tryParse(transaction.receiptNo)?.toString().padLeft(3, '0') ??
+          transaction.receiptNo,
     );
     final paidToController = TextEditingController(
       text: transaction.paidTo ?? '',
@@ -1531,9 +1845,13 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     );
 
     // Load font
-    final fontData = await rootBundle.load('assets/fonts/NotoSansThai-Regular.ttf');
+    final fontData = await rootBundle.load(
+      'assets/fonts/NotoSansThai-Regular.ttf',
+    );
     final ttf = pw.Font.ttf(fontData);
-    final boldFontData = await rootBundle.load('assets/fonts/NotoSansThai-Bold.ttf');
+    final boldFontData = await rootBundle.load(
+      'assets/fonts/NotoSansThai-Bold.ttf',
+    );
     final boldTtf = pw.Font.ttf(boldFontData);
 
     pdf.addPage(
@@ -1699,7 +2017,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                         ),
                       ],
                     );
-                  }).toList(),
+                  }),
                   // Total row
                   pw.TableRow(
                     decoration: const pw.BoxDecoration(
@@ -1757,7 +2075,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 decoration: pw.BoxDecoration(
                   color: PdfColors.grey100,
                   border: pw.Border.all(color: PdfColors.grey400),
-                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                  borderRadius: const pw.BorderRadius.all(
+                    pw.Radius.circular(4),
+                  ),
                 ),
                 child: pw.Column(
                   children: [
@@ -1818,13 +2138,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                         ),
                         pw.SizedBox(height: 4),
                         pw.Text(
-                          '(${_convertToWords(
-                            report.openingBalance -
-                                transactions.fold<double>(
-                                  0,
-                                  (sum, t) => sum + t.amount,
-                                ),
-                          )})',
+                          '(${_convertToWords(report.openingBalance - transactions.fold<double>(0, (sum, t) => sum + t.amount))})',
                           style: pw.TextStyle(
                             font: ttf,
                             fontSize: 9,

@@ -86,10 +86,6 @@ class VoucherPreviewDialog extends StatelessWidget {
 
                     // Title
                     _buildTitle(),
-                    const SizedBox(height: 8),
-
-                    // Requested By Information
-                    _buildRequestedByInfo(),
                     const SizedBox(height: 16),
 
                     // Voucher Information Section
@@ -196,24 +192,6 @@ class VoucherPreviewDialog extends StatelessWidget {
           style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
           textAlign: TextAlign.center,
         ),
-      ),
-    );
-  }
-
-  Widget _buildRequestedByInfo() {
-    return const Center(
-      child: Column(
-        children: [
-          Text(
-            'Requested by: Heary Healdy Sairin',
-            style: TextStyle(fontSize: 10),
-          ),
-          SizedBox(height: 2),
-          Text(
-            'Department: Hope Channel Southeast Asia',
-            style: TextStyle(fontSize: 10),
-          ),
-        ],
       ),
     );
   }

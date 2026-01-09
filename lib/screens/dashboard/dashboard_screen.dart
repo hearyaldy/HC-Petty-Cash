@@ -140,10 +140,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => context.push('/settings'),
+            tooltip: 'Settings',
+          ),
+          IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
               await authProvider.logout();
             },
+            tooltip: 'Logout',
           ),
         ],
       ),
