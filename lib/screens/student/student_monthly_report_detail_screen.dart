@@ -5,7 +5,10 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:excel/excel.dart' as excel_package;
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../models/student_timesheet.dart';
+import '../../providers/auth_provider.dart';
+import '../../utils/responsive_helper.dart';
 
 class StudentMonthlyReportDetailScreen extends StatefulWidget {
   final String reportId;
@@ -815,47 +818,47 @@ class _StudentMonthlyReportDetailScreenState
     final totalAmount = totalHours * hourlyRate;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      child: ResponsiveContainer(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           // Report Header
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Colors.orange.shade400, Colors.orange.shade600],
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Colors.orange.shade400, Colors.orange.shade600],
+                ),
+                borderRadius: BorderRadius.circular(12),
               ),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Student Labour Report',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Student Labour Report',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Period: ${widget.monthDisplay}',
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Student: ${_reportData?['studentName'] ?? ''}',
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  Text(
+                    'Period: ${widget.monthDisplay}',
+                    style: TextStyle(color: Colors.white70, fontSize: 14),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Student: ${_reportData?['studentName'] ?? ''}',
+                    style: TextStyle(color: Colors.white70, fontSize: 14),
+                  ),
+                ],
+              ),
             ),
-          ),
 
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
           // Summary Cards
           Row(
@@ -1190,10 +1193,111 @@ class _StudentMonthlyReportDetailScreenState
               ],
             ),
           ),
+
+          const SizedBox(height: 24),
+
+          // Submit Button (only show for draft status)
+          if ((_reportData?['status'] ?? 'draft') == 'draft' && _timesheets.isNotEmpty)
+            Container(
+              width: double.infinity,
+              height: 56,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.green.shade500, Colors.green.shade700],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.green.shade200,
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _submitReport,
+                  borderRadius: BorderRadius.circular(12),
+                  child: const Center(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.send, color: Colors.white),
+                        SizedBox(width: 12),
+                        Text(
+                          'Submit Report for Approval',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          // Info message for draft reports
+          if ((_reportData?['status'] ?? 'draft') == 'draft' && _timesheets.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.orange.shade700),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Add at least one time entry before submitting your report',
+                      style: TextStyle(
+                        color: Colors.orange.shade900,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          // Status message for submitted reports
+          if ((_reportData?['status'] ?? 'draft') != 'draft')
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.check_circle_outline, color: Colors.blue.shade700),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'This report has been submitted and cannot be edited',
+                      style: TextStyle(
+                        color: Colors.blue.shade900,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          const SizedBox(height: 24),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Color _getStatusColor(String? status) {
     switch (status) {
@@ -1521,5 +1625,118 @@ class _StudentMonthlyReportDetailScreenState
           'totalHours': totalHours,
           'totalAmount': totalHours * hourlyRate,
         });
+  }
+
+  Future<void> _submitReport() async {
+    // Show confirmation dialog
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.send, color: Colors.orange.shade600),
+            const SizedBox(width: 12),
+            const Text('Submit Report?'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Are you sure you want to submit this report for approval?',
+              style: TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.orange.shade700, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'You will not be able to edit the report after submission',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.orange.shade900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange.shade600,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Submit'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      final authProvider = context.read<AuthProvider>();
+      final user = authProvider.currentUser;
+
+      // Update report status to submitted
+      await FirebaseFirestore.instance
+          .collection('student_monthly_reports')
+          .doc(widget.reportId)
+          .update({
+        'status': 'submitted',
+        'submittedAt': DateTime.now(),
+        'submittedBy': user?.name ?? 'Unknown',
+      });
+
+      // Update all associated timesheets to submitted status
+      final timesheetQuery = await FirebaseFirestore.instance
+          .collection('student_timesheets')
+          .where('reportId', isEqualTo: widget.reportId)
+          .get();
+
+      final batch = FirebaseFirestore.instance.batch();
+      for (final doc in timesheetQuery.docs) {
+        batch.update(doc.reference, {'status': 'submitted'});
+      }
+      await batch.commit();
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Report submitted successfully for approval!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      // Reload the report to show updated status
+      _loadReportDetails();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error submitting report: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }

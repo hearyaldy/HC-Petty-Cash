@@ -5,6 +5,7 @@ import '../../providers/auth_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../models/user.dart';
 import '../../models/enums.dart';
+import '../../utils/responsive_helper.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
@@ -86,7 +87,9 @@ class _AdminScreenState extends State<AdminScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _buildUsersList(),
+          : ResponsiveContainer(
+              child: _buildUsersList(),
+            ),
     );
   }
 
@@ -96,7 +99,6 @@ class _AdminScreenState extends State<AdminScreen> {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
       itemCount: _users.length,
       itemBuilder: (context, index) {
         final user = _users[index];
@@ -125,7 +127,10 @@ class _AdminScreenState extends State<AdminScreen> {
                 const SizedBox(height: 4),
                 Chip(
                   label: Text(
-                    user.role.userRoleDisplayName,
+                    UserRole.values.firstWhere(
+                      (e) => e.name == user.role.trim().toLowerCase(),
+                      orElse: () => UserRole.requester,
+                    ).displayName,
                     style: const TextStyle(color: Colors.white, fontSize: 12),
                   ),
                   backgroundColor: _getRoleColor(user.role.toUserRole()),

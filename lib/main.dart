@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import 'package:go_router/go_router.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -33,6 +34,7 @@ import 'screens/student/student_monthly_report_detail_screen.dart';
 import 'screens/student/new_student_report_screen.dart';
 import 'utils/constants.dart';
 import 'utils/logger.dart';
+import 'utils/responsive_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -76,8 +78,8 @@ class MyApp extends StatelessWidget {
         builder: (context, authProvider, themeProvider, _) {
           return MaterialApp.router(
             title: AppConstants.appName,
-            theme: themeProvider.lightTheme,
-            darkTheme: themeProvider.darkTheme,
+            theme: ResponsiveTheme.getTheme(context),
+            darkTheme: ResponsiveTheme.getTheme(context),
             themeMode: themeProvider.themeMode,
             routerConfig: _createRouter(authProvider),
             debugShowCheckedModeBanner: false,
@@ -208,7 +210,8 @@ class MyApp extends StatelessWidget {
           builder: (context, state) {
             final id = state.pathParameters['id']!;
             final month = state.uri.queryParameters['month'] ?? '';
-            final monthDisplay = state.uri.queryParameters['monthDisplay'] ?? '';
+            final monthDisplay =
+                state.uri.queryParameters['monthDisplay'] ?? '';
             return AdminStudentReportDetailScreen(
               reportId: id,
               month: month,

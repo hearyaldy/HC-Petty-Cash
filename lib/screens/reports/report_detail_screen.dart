@@ -21,6 +21,7 @@ import '../../widgets/edit_petty_cash_report_dialog.dart';
 import '../../widgets/paid_to_field.dart';
 import '../../services/settings_service.dart';
 import '../../utils/constants.dart';
+import '../../utils/responsive_helper.dart';
 
 enum TransactionSortOption {
   dateNewest,
@@ -211,18 +212,19 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildPageHeader(report),
-            const SizedBox(height: 24),
-            _buildReportHeader(report),
-            const SizedBox(height: 24),
-            _buildFinancialSummary(report),
-            const SizedBox(height: 32),
-            _buildTransactionsList(transactions, report, authProvider),
-          ],
+        child: ResponsiveContainer(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildPageHeader(report),
+              const SizedBox(height: 24),
+              _buildReportHeader(report),
+              const SizedBox(height: 24),
+              _buildFinancialSummary(report),
+              const SizedBox(height: 32),
+              _buildTransactionsList(transactions, report, authProvider),
+            ],
+          ),
         ),
       ),
     );

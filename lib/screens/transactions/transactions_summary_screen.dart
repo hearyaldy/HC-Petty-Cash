@@ -13,6 +13,7 @@ import '../../providers/report_provider.dart';
 import '../../models/transaction.dart';
 import '../../models/enums.dart';
 import '../../utils/constants.dart';
+import '../../utils/responsive_helper.dart';
 import '../../utils/logger.dart';
 
 class TransactionsSummaryScreen extends StatefulWidget {
@@ -157,8 +158,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
       body: transactionProvider.isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
+              child: ResponsiveContainer(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

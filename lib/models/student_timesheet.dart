@@ -223,8 +223,11 @@ class StudentMonthlyReport {
   final String status; // 'draft', 'submitted', 'approved', 'rejected', 'paid'
   final DateTime createdAt;
   final DateTime? submittedAt;
+  final String? submittedBy;
   final DateTime? approvedAt;
   final String? approvedBy;
+  final DateTime? paidAt;
+  final String? paidBy;
   final String? notes;
 
   StudentMonthlyReport({
@@ -241,8 +244,11 @@ class StudentMonthlyReport {
     this.status = 'draft',
     required this.createdAt,
     this.submittedAt,
+    this.submittedBy,
     this.approvedAt,
     this.approvedBy,
+    this.paidAt,
+    this.paidBy,
     this.notes,
   });
 
@@ -261,8 +267,11 @@ class StudentMonthlyReport {
       'status': status,
       'createdAt': Timestamp.fromDate(createdAt),
       'submittedAt': submittedAt != null ? Timestamp.fromDate(submittedAt!) : null,
+      'submittedBy': submittedBy,
       'approvedAt': approvedAt != null ? Timestamp.fromDate(approvedAt!) : null,
       'approvedBy': approvedBy,
+      'paidAt': paidAt != null ? Timestamp.fromDate(paidAt!) : null,
+      'paidBy': paidBy,
       'notes': notes,
     };
   }
@@ -285,10 +294,15 @@ class StudentMonthlyReport {
       submittedAt: data['submittedAt'] != null
           ? (data['submittedAt'] as Timestamp).toDate()
           : null,
+      submittedBy: data['submittedBy'],
       approvedAt: data['approvedAt'] != null
           ? (data['approvedAt'] as Timestamp).toDate()
           : null,
       approvedBy: data['approvedBy'],
+      paidAt: data['paidAt'] != null
+          ? (data['paidAt'] as Timestamp).toDate()
+          : null,
+      paidBy: data['paidBy'],
       notes: data['notes'],
     );
   }

@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import '../../models/student_timesheet.dart';
+import '../../utils/responsive_helper.dart';
 
 class PaymentRateScreen extends StatefulWidget {
   const PaymentRateScreen({super.key});
@@ -246,9 +247,11 @@ class _PaymentRateScreenState extends State<PaymentRateScreen> {
       backgroundColor: Colors.grey[50],
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _studentProfiles.isEmpty
-          ? _buildEmptyState()
-          : _buildStudentList(),
+          : ResponsiveContainer(
+              child: _studentProfiles.isEmpty
+                  ? _buildEmptyState()
+                  : _buildStudentList(),
+            ),
     );
   }
 
@@ -310,7 +313,6 @@ class _PaymentRateScreenState extends State<PaymentRateScreen> {
 
   Widget _buildStudentList() {
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
       itemCount: _studentProfiles.length,
       itemBuilder: (context, index) {
         final profile = _studentProfiles[index];

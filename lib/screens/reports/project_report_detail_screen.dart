@@ -13,6 +13,7 @@ import '../../models/project_report.dart';
 import '../../models/transaction.dart';
 import '../../models/enums.dart';
 import '../../utils/constants.dart';
+import '../../utils/responsive_helper.dart';
 import '../../widgets/edit_project_report_dialog.dart';
 
 class ProjectReportDetailScreen extends StatefulWidget {
@@ -138,16 +139,17 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(report),
-            const SizedBox(height: 24),
-            _buildFinancialSummary(report, actualExpenses, remainingBudget),
-            const SizedBox(height: 24),
-            _buildTransactionsList(transactions, authProvider),
-          ],
+        child: ResponsiveContainer(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(report),
+              const SizedBox(height: 24),
+              _buildFinancialSummary(report, actualExpenses, remainingBudget),
+              const SizedBox(height: 24),
+              _buildTransactionsList(transactions, authProvider),
+            ],
+          ),
         ),
       ),
     );

@@ -9,6 +9,7 @@ import '../../models/enums.dart';
 import '../../models/petty_cash_report.dart';
 import '../../models/project_report.dart';
 import '../../utils/constants.dart';
+import '../../utils/responsive_helper.dart';
 
 class ReportsListScreen extends StatefulWidget {
   const ReportsListScreen({super.key});
@@ -95,18 +96,19 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildPageHeader(context),
-            const SizedBox(height: 24),
-            _buildFilters(),
-            const SizedBox(height: 24),
-            reports.isEmpty
-                ? _buildEmptyState()
-                : _buildReportsList(reports),
-          ],
+        child: ResponsiveContainer(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildPageHeader(context),
+              const SizedBox(height: 24),
+              _buildFilters(),
+              const SizedBox(height: 24),
+              reports.isEmpty
+                  ? _buildEmptyState()
+                  : _buildReportsList(reports),
+            ],
+          ),
         ),
       ),
     );

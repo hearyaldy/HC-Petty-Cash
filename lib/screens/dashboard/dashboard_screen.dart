@@ -9,6 +9,7 @@ import '../../providers/project_report_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../models/enums.dart';
 import '../../utils/constants.dart';
+import '../../utils/responsive_helper.dart';
 
 class _StatData {
   final String title;
@@ -114,10 +115,57 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        elevation: 0,
-        title: const Text('Dashboard'),
-        actions: [
+      appBar: _buildResponsiveAppBar(context, user),
+      body: ResponsiveBuilder(
+        mobile: _buildMobileLayout(
+          context,
+          allReports,
+          myReports,
+          draftReports,
+          pendingApprovals,
+          pettyCashReceived,
+          pettyCashUsed,
+          projectBudgetTotal,
+          projectExpensesTotal,
+          authProvider,
+        ),
+        tablet: _buildTabletLayout(
+          context,
+          allReports,
+          myReports,
+          draftReports,
+          pendingApprovals,
+          pettyCashReceived,
+          pettyCashUsed,
+          projectBudgetTotal,
+          projectExpensesTotal,
+          authProvider,
+        ),
+        desktop: _buildDesktopLayout(
+          context,
+          allReports,
+          myReports,
+          draftReports,
+          pendingApprovals,
+          pettyCashReceived,
+          pettyCashUsed,
+          projectBudgetTotal,
+          projectExpensesTotal,
+          authProvider,
+        ),
+      ),
+    );
+  }
+
+  AppBar _buildResponsiveAppBar(BuildContext context, dynamic user) {
+    return AppBar(
+      elevation: ResponsiveHelper.isDesktop(context) ? 1 : 0,
+      title: Text(
+        'Dashboard',
+        style: ResponsiveHelper.getResponsiveTextTheme(context).titleLarge,
+      ),
+      actions: [
+        if (!ResponsiveHelper.isMobile(context))
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Center(
@@ -133,34 +181,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
                   Text(
-                    user?.role.userRoleDisplayName ?? '',
+                    user != null
+                        ? UserRole.values.firstWhere(
+                            (e) => e.name == user.role.trim().toLowerCase(),
+                            orElse: () => UserRole.requester,
+                          ).displayName
+                        : '',
                     style: const TextStyle(fontSize: 12),
                   ),
                 ],
               ),
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => context.push('/settings'),
-            tooltip: 'Settings',
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await authProvider.logout();
-            },
-            tooltip: 'Logout',
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        IconButton(
+          icon: const Icon(Icons.settings_outlined),
+          onPressed: () => context.push('/settings'),
+          tooltip: 'Settings',
+        ),
+        IconButton(
+          icon: const Icon(Icons.logout),
+          onPressed: () async {
+            await context.read<AuthProvider>().logout();
+          },
+          tooltip: 'Logout',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMobileLayout(
+    BuildContext context,
+    List allReports,
+    List myReports,
+    List draftReports,
+    List pendingApprovals,
+    double pettyCashReceived,
+    double pettyCashUsed,
+    double projectBudgetTotal,
+    double projectExpensesTotal,
+    dynamic authProvider,
+  ) {
+    return SingleChildScrollView(
+      child: ResponsiveContainer(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildWelcomeHeader(context, user?.name ?? ''),
-            const SizedBox(height: 24),
+            _buildWelcomeHeader(context, authProvider.currentUser?.name ?? ''),
+            SizedBox(height: ResponsiveHelper.getSpacing(context)),
             _buildStatCards(
               context,
               allReports.length,
@@ -169,7 +236,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               pendingApprovals.length,
               authProvider.canApprove(),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: ResponsiveHelper.getSpacing(context)),
             _buildFinancialSummary(
               context,
               pettyCashReceived,
@@ -177,19 +244,161 @@ class _DashboardScreenState extends State<DashboardScreen> {
               projectBudgetTotal,
               projectExpensesTotal,
             ),
-            const SizedBox(height: 32),
+            SizedBox(height: ResponsiveHelper.getSpacing(context)),
             _buildQuickActions(context, authProvider),
-            const SizedBox(height: 32),
+            SizedBox(height: ResponsiveHelper.getSpacing(context)),
             _buildPettyCashReports(context, myReports),
-            const SizedBox(height: 32),
+            SizedBox(height: ResponsiveHelper.getSpacing(context)),
             _buildProjectReports(context),
             if (authProvider.canApprove()) ...[
-              const SizedBox(height: 32),
+              SizedBox(height: ResponsiveHelper.getSpacing(context)),
               _buildPendingApprovals(context, pendingApprovals),
             ],
-            // Add student reports for admins
             if (authProvider.canManageUsers()) ...[
-              const SizedBox(height: 32),
+              SizedBox(height: ResponsiveHelper.getSpacing(context)),
+              _buildStudentReports(context),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabletLayout(
+    BuildContext context,
+    List allReports,
+    List myReports,
+    List draftReports,
+    List pendingApprovals,
+    double pettyCashReceived,
+    double pettyCashUsed,
+    double projectBudgetTotal,
+    double projectExpensesTotal,
+    dynamic authProvider,
+  ) {
+    return SingleChildScrollView(
+      child: ResponsiveContainer(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildWelcomeHeader(context, authProvider.currentUser?.name ?? ''),
+            SizedBox(height: ResponsiveHelper.getSpacing(context)),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: Column(
+                    children: [
+                      _buildStatCards(
+                        context,
+                        allReports.length,
+                        myReports.length,
+                        draftReports.length,
+                        pendingApprovals.length,
+                        authProvider.canApprove(),
+                      ),
+                      SizedBox(height: ResponsiveHelper.getSpacing(context)),
+                      _buildQuickActions(context, authProvider),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 24),
+                Expanded(
+                  flex: 1,
+                  child: _buildFinancialSummary(
+                    context,
+                    pettyCashReceived,
+                    pettyCashUsed,
+                    projectBudgetTotal,
+                    projectExpensesTotal,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: ResponsiveHelper.getSpacing(context)),
+            _buildPettyCashReports(context, myReports),
+            SizedBox(height: ResponsiveHelper.getSpacing(context)),
+            _buildProjectReports(context),
+            if (authProvider.canApprove()) ...[
+              SizedBox(height: ResponsiveHelper.getSpacing(context)),
+              _buildPendingApprovals(context, pendingApprovals),
+            ],
+            if (authProvider.canManageUsers()) ...[
+              SizedBox(height: ResponsiveHelper.getSpacing(context)),
+              _buildStudentReports(context),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDesktopLayout(
+    BuildContext context,
+    List allReports,
+    List myReports,
+    List draftReports,
+    List pendingApprovals,
+    double pettyCashReceived,
+    double pettyCashUsed,
+    double projectBudgetTotal,
+    double projectExpensesTotal,
+    dynamic authProvider,
+  ) {
+    return SingleChildScrollView(
+      child: ResponsiveContainer(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildWelcomeHeader(context, authProvider.currentUser?.name ?? ''),
+            SizedBox(height: ResponsiveHelper.getSpacing(context)),
+            // Top section with stats and financial summary
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: _buildStatCards(
+                    context,
+                    allReports.length,
+                    myReports.length,
+                    draftReports.length,
+                    pendingApprovals.length,
+                    authProvider.canApprove(),
+                  ),
+                ),
+                const SizedBox(width: 24),
+                Expanded(
+                  flex: 1,
+                  child: _buildFinancialSummary(
+                    context,
+                    pettyCashReceived,
+                    pettyCashUsed,
+                    projectBudgetTotal,
+                    projectExpensesTotal,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: ResponsiveHelper.getSpacing(context)),
+            _buildQuickActions(context, authProvider),
+            SizedBox(height: ResponsiveHelper.getSpacing(context)),
+            // Bottom section with reports in columns
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: _buildPettyCashReports(context, myReports)),
+                const SizedBox(width: 24),
+                Expanded(child: _buildProjectReports(context)),
+              ],
+            ),
+            if (authProvider.canApprove()) ...[
+              SizedBox(height: ResponsiveHelper.getSpacing(context)),
+              _buildPendingApprovals(context, pendingApprovals),
+            ],
+            if (authProvider.canManageUsers()) ...[
+              SizedBox(height: ResponsiveHelper.getSpacing(context)),
               _buildStudentReports(context),
             ],
           ],
@@ -302,52 +511,81 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
     ];
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final crossAxisCount = constraints.maxWidth > 1200
-            ? 4
-            : constraints.maxWidth > 800
-            ? 3
-            : constraints.maxWidth > 600
-            ? 2
-            : 1;
+    // Custom responsive grid implementation to avoid overflow issues within SingleChildScrollView
+    final crossAxisCount = ResponsiveHelper.getGridCrossAxisCount(
+      context,
+      maxColumns: ResponsiveHelper.isMobile(context) ? 2 : 4,
+      minItemWidth: 200,
+    );
 
-        return GridView.builder(
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 2.5,
+    // Split the stats into rows based on the calculated cross axis count
+    final rows = <List<_StatData>>[];
+    for (int i = 0; i < stats.length; i += crossAxisCount) {
+      rows.add(stats.sublist(i,
+        i + crossAxisCount > stats.length ? stats.length : i + crossAxisCount));
+    }
+
+    return Column(
+      children: rows.map((row) =>
+        Padding(
+          padding: EdgeInsets.only(
+            bottom: ResponsiveHelper.getSpacing(
+              context,
+              mobile: 12,
+              tablet: 16,
+              desktop: 16,
+            ),
           ),
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: stats.length,
-          itemBuilder: (context, index) => _buildModernStatCard(stats[index]),
-        );
-      },
+          child: Row(
+            children: row.asMap().entries.map((entry) {
+              int index = entry.key;
+              _StatData stat = entry.value;
+              return Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    right: index < row.length - 1
+                      ? ResponsiveHelper.getSpacing(
+                          context,
+                          mobile: 12,
+                          tablet: 16,
+                          desktop: 16,
+                        )
+                      : 0,
+                  ),
+                  child: _buildModernStatCard(context, stat),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ).toList(),
     );
   }
 
-  Widget _buildModernStatCard(_StatData stat) {
+  Widget _buildModernStatCard(BuildContext context, _StatData stat) {
+    final borderRadius = ResponsiveHelper.getBorderRadius(context);
+    final elevation = ResponsiveHelper.getCardElevation(context);
+    final textTheme = ResponsiveHelper.getResponsiveTextTheme(context);
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(borderRadius),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            blurRadius: elevation * 2,
+            offset: Offset(0, elevation),
           ),
         ],
       ),
       child: Stack(
         children: [
           Positioned(
-            right: -20,
-            top: -20,
+            right: ResponsiveHelper.isMobile(context) ? -15 : -20,
+            top: ResponsiveHelper.isMobile(context) ? -15 : -20,
             child: Container(
-              width: 100,
+              width: ResponsiveHelper.isMobile(context) ? 80 : 100,
               height: 100,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -669,71 +907,77 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(width: 8),
             Text(
               'Quick Actions',
-              style: Theme.of(
+              style: ResponsiveHelper.getResponsiveTextTheme(
                 context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              ).titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final crossAxisCount = constraints.maxWidth > 1200
-                ? 5
-                : constraints.maxWidth > 800
-                ? 4
-                : constraints.maxWidth > 600
-                ? 3
-                : 2;
-
-            return GridView.builder(
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: crossAxisCount,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 1.3,
-              ),
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: actions.length,
-              itemBuilder: (context, index) => _buildActionCard(actions[index]),
-            );
-          },
+        SizedBox(
+          height: ResponsiveHelper.getSpacing(
+            context,
+            mobile: 12,
+            tablet: 16,
+            desktop: 16,
+          ),
+        ),
+        ResponsiveWrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: actions
+              .map(
+                (action) => ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minWidth: ResponsiveHelper.isMobile(context) ? 150 : 180,
+                    maxWidth: ResponsiveHelper.isMobile(context) ? 200 : 250,
+                  ),
+                  child: _buildActionCard(context, action),
+                ),
+              )
+              .toList(),
         ),
       ],
     );
   }
 
-  Widget _buildActionCard(_ActionData action) {
+  Widget _buildActionCard(BuildContext context, _ActionData action) {
+    final borderRadius = ResponsiveHelper.getBorderRadius(context);
+    final textTheme = ResponsiveHelper.getResponsiveTextTheme(context);
+
     return InkWell(
       onTap: action.onPressed,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(borderRadius),
       child: Container(
+        padding: EdgeInsets.all(ResponsiveHelper.isMobile(context) ? 12 : 16),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: action.gradient,
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(borderRadius),
           boxShadow: [
             BoxShadow(
               color: action.gradient[1].withOpacity(0.3),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
+              blurRadius: ResponsiveHelper.getCardElevation(context) * 2,
+              offset: Offset(0, ResponsiveHelper.getCardElevation(context)),
             ),
           ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(action.icon, color: Colors.white, size: 32),
-            const SizedBox(height: 8),
+            Icon(
+              action.icon,
+              color: Colors.white,
+              size: ResponsiveHelper.isMobile(context) ? 28 : 32,
+            ),
+            SizedBox(height: ResponsiveHelper.isMobile(context) ? 6 : 8),
             Text(
               action.label,
-              style: const TextStyle(
+              style: TextStyle(
                 color: Colors.white,
-                fontSize: 13,
+                fontSize: ResponsiveHelper.isMobile(context) ? 12 : 13,
                 fontWeight: FontWeight.w600,
               ),
               textAlign: TextAlign.center,
@@ -1221,7 +1465,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           return const SizedBox.shrink();
         }
 
-        final currencyFormat = NumberFormat.currency(symbol: '${AppConstants.currencySymbol} ');
+        final currencyFormat = NumberFormat.currency(
+          symbol: '${AppConstants.currencySymbol} ',
+        );
         final dateFormat = DateFormat('MMMM yyyy');
 
         return Column(
@@ -1282,14 +1528,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 final month = reportData['month'] ?? '';
                 final status = reportData['status'] ?? 'draft';
                 final totalHours = (reportData['totalHours'] ?? 0.0).toDouble();
-                final totalAmount = (reportData['totalAmount'] ?? 0.0).toDouble();
+                final totalAmount = (reportData['totalAmount'] ?? 0.0)
+                    .toDouble();
 
                 // Format month display (YYYY-MM to Month Year)
                 String monthDisplay = month;
                 try {
                   final parts = month.split('-');
                   if (parts.length == 2) {
-                    final monthDate = DateTime(int.parse(parts[0]), int.parse(parts[1]));
+                    final monthDate = DateTime(
+                      int.parse(parts[0]),
+                      int.parse(parts[1]),
+                    );
                     monthDisplay = dateFormat.format(monthDate);
                   }
                 } catch (e) {
@@ -1316,7 +1566,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     leading: CircleAvatar(
                       backgroundColor: statusColor,
                       child: Text(
-                        studentName.isNotEmpty ? studentName[0].toUpperCase() : 'S',
+                        studentName.isNotEmpty
+                            ? studentName[0].toUpperCase()
+                            : 'S',
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -1346,5 +1598,4 @@ class _DashboardScreenState extends State<DashboardScreen> {
       },
     );
   }
-
 }

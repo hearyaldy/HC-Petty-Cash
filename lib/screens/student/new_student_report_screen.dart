@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/student_timesheet.dart';
+import '../../utils/responsive_helper.dart';
 
 class NewStudentReportScreen extends StatefulWidget {
   const NewStudentReportScreen({super.key});
@@ -169,9 +170,9 @@ class _NewStudentReportScreenState extends State<NewStudentReportScreen> {
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
+      body: ResponsiveContainer(
+        child: SingleChildScrollView(
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Header Card
@@ -413,6 +414,7 @@ class _NewStudentReportScreenState extends State<NewStudentReportScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

@@ -5,6 +5,7 @@ import '../../models/user.dart';
 import '../../models/enums.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/constants.dart';
+import '../../utils/responsive_helper.dart';
 
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
@@ -67,9 +68,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       backgroundColor: Colors.grey[50],
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _users.isEmpty
-          ? _buildEmptyState()
-          : _buildUserList(),
+          : ResponsiveContainer(
+              child: _users.isEmpty
+                  ? _buildEmptyState()
+                  : _buildUserList(),
+            ),
       floatingActionButton: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -214,7 +217,6 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
   Widget _buildUserList() {
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
       itemCount: _users.length,
       itemBuilder: (context, index) {
         final user = _users[index];
@@ -383,7 +385,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                           ],
                         ),
                         child: Text(
-                          user.role.userRoleDisplayName,
+                          UserRole.values.firstWhere(
+                            (e) => e.name == user.role.trim().toLowerCase(),
+                            orElse: () => UserRole.requester,
+                          ).displayName,
                           style: const TextStyle(
                             fontSize: 12,
                             color: Colors.white,

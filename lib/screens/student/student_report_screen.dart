@@ -8,6 +8,7 @@ import 'package:printing/printing.dart';
 import 'package:excel/excel.dart' as excel_package;
 import '../../models/student_timesheet.dart';
 import '../../providers/auth_provider.dart';
+import '../../utils/responsive_helper.dart';
 
 class StudentReportScreen extends StatefulWidget {
   const StudentReportScreen({super.key});
@@ -901,7 +902,6 @@ class _StudentReportScreenState extends State<StudentReportScreen>
         }
 
         return ListView.builder(
-          padding: const EdgeInsets.all(16),
           itemCount: reports.length,
           itemBuilder: (context, index) {
             final data = reports[index].data() as Map<String, dynamic>;
@@ -1145,12 +1145,14 @@ class _StudentReportScreenState extends State<StudentReportScreen>
           ? const Center(child: CircularProgressIndicator())
           : _studentProfile == null
           ? _buildNoProfileState()
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildCurrentMonthView(),
-                _buildHistoryView(),
-              ],
+          : ResponsiveContainer(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildCurrentMonthView(),
+                  _buildHistoryView(),
+                ],
+              ),
             ),
       floatingActionButton: _studentProfile != null
           ? Container(
@@ -1323,7 +1325,6 @@ class _StudentReportScreenState extends State<StudentReportScreen>
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
       itemCount: monthTimesheets.length,
       itemBuilder: (context, index) {
         final timesheet = monthTimesheets[index];
