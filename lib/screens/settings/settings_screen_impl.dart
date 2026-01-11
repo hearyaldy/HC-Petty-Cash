@@ -5,6 +5,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../models/app_settings.dart';
 import '../../services/settings_service.dart';
+import '../../utils/responsive_helper.dart';
 import '../../widgets/enhanced_category_management_dialog.dart';
 import '../../widgets/paid_to_management_dialog.dart';
 
@@ -93,9 +94,14 @@ class _SettingsScreenImplState extends State<SettingsScreenImpl> {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
+      body: Center(
+        child: Container(
+          constraints: BoxConstraints(
+            maxWidth: ResponsiveHelper.getMaxContentWidth(context),
+          ),
+          child: ListView(
+            padding: ResponsiveHelper.getScreenPadding(context),
+            children: [
           // User Profile Section
           _buildProfileCard(
             currentUser?.name ?? 'User',
@@ -324,7 +330,9 @@ class _SettingsScreenImplState extends State<SettingsScreenImpl> {
           // Logout Button
           _buildLogoutCard(),
           const SizedBox(height: 20),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }
