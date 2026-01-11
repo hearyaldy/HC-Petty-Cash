@@ -194,4 +194,18 @@ class FirebaseAuthService {
 
   // Get current Firebase user
   firebase_auth.User? get firebaseUser => _auth.currentUser;
+
+  // Fetch user by ID from Firestore
+  Future<User?> getUserById(String userId) async {
+    try {
+      final doc = await _firestore.collection('users').doc(userId).get();
+      if (doc.exists) {
+        return User.fromFirestore(doc);
+      }
+      return null;
+    } catch (e) {
+      AppLogger.severe('Error fetching user by ID: $e');
+      return null;
+    }
+  }
 }

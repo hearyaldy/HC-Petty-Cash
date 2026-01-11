@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../utils/responsive_helper.dart';
-import 'responsive_navigation.dart';
 
 /// Main layout wrapper that provides responsive navigation structure
 class ResponsiveLayout extends StatelessWidget {

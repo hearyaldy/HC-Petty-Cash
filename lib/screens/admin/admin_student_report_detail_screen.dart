@@ -11,6 +11,7 @@ import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
 
 enum TimesheetSortOption { dateNewest, dateOldest, hoursHighest, hoursLowest }
+
 enum ViewMode { card, table }
 
 extension TimesheetSortOptionExtension on TimesheetSortOption {
@@ -177,7 +178,7 @@ class _AdminStudentReportDetailScreenState
       context: context,
       builder: (context) => AlertDialog(
         title: Text('${action == "approve" ? "Approve" : "Reject"} Report'),
-        content: Text('Are you sure you want to ${action} this report?'),
+        content: Text('Are you sure you want to $action this report?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -211,7 +212,9 @@ class _AdminStudentReportDetailScreenState
             const Text('Mark as Paid'),
           ],
         ),
-        content: const Text('Are you sure you want to mark this report as paid?'),
+        content: const Text(
+          'Are you sure you want to mark this report as paid?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -241,11 +244,11 @@ class _AdminStudentReportDetailScreenState
           .collection('student_monthly_reports')
           .doc(widget.reportId)
           .update({
-        'status': 'paid',
-        'paidAt': DateTime.now(),
-        'paidBy': user?.name ?? 'Unknown',
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+            'status': 'paid',
+            'paidAt': DateTime.now(),
+            'paidBy': user?.name ?? 'Unknown',
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
 
       // Reload to get updated data
       await _loadReportDetails();
@@ -357,10 +360,14 @@ class _AdminStudentReportDetailScreenState
             ],
           ),
           IconButton(
-            icon: Icon(_viewMode == ViewMode.table ? Icons.view_list : Icons.view_module),
+            icon: Icon(
+              _viewMode == ViewMode.table ? Icons.view_list : Icons.view_module,
+            ),
             onPressed: () {
               setState(() {
-                _viewMode = _viewMode == ViewMode.table ? ViewMode.card : ViewMode.table;
+                _viewMode = _viewMode == ViewMode.table
+                    ? ViewMode.card
+                    : ViewMode.table;
               });
             },
             tooltip: _viewMode == ViewMode.table ? 'Card View' : 'Table View',
@@ -418,13 +425,13 @@ class _AdminStudentReportDetailScreenState
               child: _timesheets.isEmpty
                   ? _buildEmptyState()
                   : _viewMode == ViewMode.table
-                      ? _buildTableView()
-                      : ListView.builder(
-                          itemCount: _timesheets.length,
-                          itemBuilder: (context, index) {
-                            return _buildTimesheetCard(_timesheets[index]);
-                          },
-                        ),
+                  ? _buildTableView()
+                  : ListView.builder(
+                      itemCount: _timesheets.length,
+                      itemBuilder: (context, index) {
+                        return _buildTimesheetCard(_timesheets[index]);
+                      },
+                    ),
             ),
           ],
         ),
@@ -603,7 +610,11 @@ class _AdminStudentReportDetailScreenState
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Row(
                       children: [
-                        const Icon(Icons.check_circle, color: Colors.white70, size: 16),
+                        const Icon(
+                          Icons.check_circle,
+                          color: Colors.white70,
+                          size: 16,
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           'Approved by: ${_reportData!['approvedBy']}',
@@ -620,7 +631,11 @@ class _AdminStudentReportDetailScreenState
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Row(
                       children: [
-                        const Icon(Icons.payment, color: Colors.white70, size: 16),
+                        const Icon(
+                          Icons.payment,
+                          color: Colors.white70,
+                          size: 16,
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           'Paid by: ${_reportData!['paidBy']}',
@@ -872,13 +887,16 @@ class _AdminStudentReportDetailScreenState
             Container(
               decoration: BoxDecoration(
                 color: Colors.grey[100],
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                border: Border(
-                  bottom: BorderSide(color: Colors.grey.shade200),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(12),
                 ),
+                border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
               ),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 child: Row(
                   children: [
                     Expanded(
@@ -975,7 +993,10 @@ class _AdminStudentReportDetailScreenState
                     ),
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                     child: Row(
                       children: [
                         Expanded(
@@ -1009,7 +1030,10 @@ class _AdminStudentReportDetailScreenState
                         Expanded(
                           flex: 1,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: statusColor.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(8),
@@ -1041,7 +1065,10 @@ class _AdminStudentReportDetailScreenState
     final pdf = pw.Document();
 
     final timesheetCount = _timesheets.length;
-    final totalHours = _timesheets.fold<double>(0.0, (sum, ts) => sum + ts.totalHours);
+    final totalHours = _timesheets.fold<double>(
+      0.0,
+      (sum, ts) => sum + ts.totalHours,
+    );
     final hourlyRate = (_reportData?['hourlyRate'] ?? 0.0).toDouble();
     final totalAmount = totalHours * hourlyRate;
     final studentName = _reportData?['studentName'] ?? 'Unknown';
@@ -1077,7 +1104,10 @@ class _AdminStudentReportDetailScreenState
                       children: [
                         pw.Text(
                           'Student: $studentName',
-                          style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
+                          style: pw.TextStyle(
+                            fontSize: 12,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
                         ),
                         pw.SizedBox(height: 4),
                         pw.Text(
@@ -1092,7 +1122,10 @@ class _AdminStudentReportDetailScreenState
               pw.SizedBox(height: 20),
               pw.Text(
                 'Summary',
-                style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+                style: pw.TextStyle(
+                  fontSize: 14,
+                  fontWeight: pw.FontWeight.bold,
+                ),
               ),
               pw.SizedBox(height: 10),
               pw.Table(
@@ -1130,7 +1163,9 @@ class _AdminStudentReportDetailScreenState
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text('THB ${hourlyRate.toStringAsFixed(2)}/h'),
+                        child: pw.Text(
+                          'THB ${hourlyRate.toStringAsFixed(2)}/h',
+                        ),
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(8),
@@ -1143,7 +1178,10 @@ class _AdminStudentReportDetailScreenState
               pw.SizedBox(height: 20),
               pw.Text(
                 'Detailed Timesheet Entries',
-                style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+                style: pw.TextStyle(
+                  fontSize: 14,
+                  fontWeight: pw.FontWeight.bold,
+                ),
               ),
               pw.SizedBox(height: 10),
               pw.Table(
@@ -1161,27 +1199,45 @@ class _AdminStudentReportDetailScreenState
                     children: [
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text('Date', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                        child: pw.Text(
+                          'Date',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text('Start Time', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                        child: pw.Text(
+                          'Start Time',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text('End Time', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                        child: pw.Text(
+                          'End Time',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text('Hours', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                        child: pw.Text(
+                          'Hours',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text('Amount', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                        child: pw.Text(
+                          'Amount',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text('Status', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                        child: pw.Text(
+                          'Status',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
                       ),
                     ],
                   ),
@@ -1190,23 +1246,33 @@ class _AdminStudentReportDetailScreenState
                       children: [
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(8),
-                          child: pw.Text(DateFormat('dd/MM/yyyy').format(ts.date)),
+                          child: pw.Text(
+                            DateFormat('dd/MM/yyyy').format(ts.date),
+                          ),
                         ),
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(8),
-                          child: pw.Text(DateFormat('HH:mm').format(ts.startTime)),
+                          child: pw.Text(
+                            DateFormat('HH:mm').format(ts.startTime),
+                          ),
                         ),
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(8),
-                          child: pw.Text(DateFormat('HH:mm').format(ts.endTime)),
+                          child: pw.Text(
+                            DateFormat('HH:mm').format(ts.endTime),
+                          ),
                         ),
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(8),
-                          child: pw.Text('${ts.totalHours.toStringAsFixed(2)} h'),
+                          child: pw.Text(
+                            '${ts.totalHours.toStringAsFixed(2)} h',
+                          ),
                         ),
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(8),
-                          child: pw.Text('THB ${ts.totalAmount.toStringAsFixed(2)}'),
+                          child: pw.Text(
+                            'THB ${ts.totalAmount.toStringAsFixed(2)}',
+                          ),
                         ),
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(8),
@@ -1228,7 +1294,10 @@ class _AdminStudentReportDetailScreenState
                     children: [
                       pw.Text(
                         'Student Signature',
-                        style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+                        style: pw.TextStyle(
+                          fontSize: 10,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
                       ),
                       pw.SizedBox(height: 30),
                       pw.Container(
@@ -1256,7 +1325,10 @@ class _AdminStudentReportDetailScreenState
                       children: [
                         pw.Text(
                           'Approved By',
-                          style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+                          style: pw.TextStyle(
+                            fontSize: 10,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
                         ),
                         pw.SizedBox(height: 30),
                         pw.Container(
@@ -1290,7 +1362,10 @@ class _AdminStudentReportDetailScreenState
                       children: [
                         pw.Text(
                           'Payment Confirmed By',
-                          style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+                          style: pw.TextStyle(
+                            fontSize: 10,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
                         ),
                         pw.SizedBox(height: 30),
                         pw.Container(
@@ -1325,94 +1400,314 @@ class _AdminStudentReportDetailScreenState
 
   Future<void> _generateExcel() async {
     final excel = excel_package.Excel.createExcel();
-    final sheet = excel['Student_Labour_Report_${widget.monthDisplay.replaceAll(' ', '_')}'];
+    final sheet =
+        excel['Student_Labour_Report_${widget.monthDisplay.replaceAll(' ', '_')}'];
 
     var rowIndex = 0;
 
     // Header
-    sheet.cell(excel_package.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIndex)).value =
-        excel_package.TextCellValue('Student Labour Report - ${widget.monthDisplay}');
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 0,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'Student Labour Report - ${widget.monthDisplay}',
+    );
     rowIndex++;
     rowIndex++; // Empty row
 
     // Report Info
     final studentName = _reportData?['studentName'] ?? 'Unknown';
-    sheet.cell(excel_package.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIndex)).value =
-        excel_package.TextCellValue('Student:');
-    sheet.cell(excel_package.CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: rowIndex)).value =
-        excel_package.TextCellValue(studentName);
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 0,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'Student:',
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 1,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      studentName,
+    );
     rowIndex++;
 
-    sheet.cell(excel_package.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIndex)).value =
-        excel_package.TextCellValue('Report Period:');
-    sheet.cell(excel_package.CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: rowIndex)).value =
-        excel_package.TextCellValue(widget.monthDisplay);
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 0,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'Report Period:',
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 1,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      widget.monthDisplay,
+    );
     rowIndex++;
     rowIndex++; // Empty row
 
     // Summary
     final timesheetCount = _timesheets.length;
-    final totalHours = _timesheets.fold<double>(0.0, (sum, ts) => sum + ts.totalHours);
+    final totalHours = _timesheets.fold<double>(
+      0.0,
+      (sum, ts) => sum + ts.totalHours,
+    );
     final hourlyRate = (_reportData?['hourlyRate'] ?? 0.0).toDouble();
     final totalAmount = totalHours * hourlyRate;
 
-    sheet.cell(excel_package.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIndex)).value =
-        excel_package.TextCellValue('SUMMARY');
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 0,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'SUMMARY',
+    );
     rowIndex++;
 
-    sheet.cell(excel_package.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIndex)).value =
-        excel_package.TextCellValue('Entries');
-    sheet.cell(excel_package.CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: rowIndex)).value =
-        excel_package.TextCellValue('Total Hours');
-    sheet.cell(excel_package.CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: rowIndex)).value =
-        excel_package.TextCellValue('Hourly Rate');
-    sheet.cell(excel_package.CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: rowIndex)).value =
-        excel_package.TextCellValue('Total Amount');
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 0,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'Entries',
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 1,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'Total Hours',
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 2,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'Hourly Rate',
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 3,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'Total Amount',
+    );
     rowIndex++;
 
-    sheet.cell(excel_package.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIndex)).value =
-        excel_package.IntCellValue(timesheetCount);
-    sheet.cell(excel_package.CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: rowIndex)).value =
-        excel_package.TextCellValue(totalHours.toStringAsFixed(2));
-    sheet.cell(excel_package.CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: rowIndex)).value =
-        excel_package.TextCellValue('THB ${hourlyRate.toStringAsFixed(2)}/h');
-    sheet.cell(excel_package.CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: rowIndex)).value =
-        excel_package.TextCellValue('THB ${totalAmount.toStringAsFixed(2)}');
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 0,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.IntCellValue(
+      timesheetCount,
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 1,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      totalHours.toStringAsFixed(2),
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 2,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'THB ${hourlyRate.toStringAsFixed(2)}/h',
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 3,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'THB ${totalAmount.toStringAsFixed(2)}',
+    );
     rowIndex++;
     rowIndex++; // Empty row
 
     // Detailed entries
-    sheet.cell(excel_package.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIndex)).value =
-        excel_package.TextCellValue('DETAILED TIMESHEET ENTRIES');
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 0,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'DETAILED TIMESHEET ENTRIES',
+    );
     rowIndex++;
 
-    sheet.cell(excel_package.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIndex)).value =
-        excel_package.TextCellValue('Date');
-    sheet.cell(excel_package.CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: rowIndex)).value =
-        excel_package.TextCellValue('Start Time');
-    sheet.cell(excel_package.CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: rowIndex)).value =
-        excel_package.TextCellValue('End Time');
-    sheet.cell(excel_package.CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: rowIndex)).value =
-        excel_package.TextCellValue('Hours');
-    sheet.cell(excel_package.CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: rowIndex)).value =
-        excel_package.TextCellValue('Amount');
-    sheet.cell(excel_package.CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: rowIndex)).value =
-        excel_package.TextCellValue('Status');
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 0,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'Date',
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 1,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'Start Time',
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 2,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'End Time',
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 3,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'Hours',
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 4,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'Amount',
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 5,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'Status',
+    );
     rowIndex++;
 
     for (final ts in _timesheets) {
-      sheet.cell(excel_package.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIndex)).value =
-          excel_package.TextCellValue(DateFormat('dd/MM/yyyy').format(ts.date));
-      sheet.cell(excel_package.CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: rowIndex)).value =
-          excel_package.TextCellValue(DateFormat('HH:mm').format(ts.startTime));
-      sheet.cell(excel_package.CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: rowIndex)).value =
-          excel_package.TextCellValue(DateFormat('HH:mm').format(ts.endTime));
-      sheet.cell(excel_package.CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: rowIndex)).value =
-          excel_package.TextCellValue(ts.totalHours.toStringAsFixed(2));
-      sheet.cell(excel_package.CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: rowIndex)).value =
-          excel_package.TextCellValue(ts.totalAmount.toStringAsFixed(2));
-      sheet.cell(excel_package.CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: rowIndex)).value =
-          excel_package.TextCellValue(ts.status);
+      sheet
+          .cell(
+            excel_package.CellIndex.indexByColumnRow(
+              columnIndex: 0,
+              rowIndex: rowIndex,
+            ),
+          )
+          .value = excel_package.TextCellValue(
+        DateFormat('dd/MM/yyyy').format(ts.date),
+      );
+      sheet
+          .cell(
+            excel_package.CellIndex.indexByColumnRow(
+              columnIndex: 1,
+              rowIndex: rowIndex,
+            ),
+          )
+          .value = excel_package.TextCellValue(
+        DateFormat('HH:mm').format(ts.startTime),
+      );
+      sheet
+          .cell(
+            excel_package.CellIndex.indexByColumnRow(
+              columnIndex: 2,
+              rowIndex: rowIndex,
+            ),
+          )
+          .value = excel_package.TextCellValue(
+        DateFormat('HH:mm').format(ts.endTime),
+      );
+      sheet
+          .cell(
+            excel_package.CellIndex.indexByColumnRow(
+              columnIndex: 3,
+              rowIndex: rowIndex,
+            ),
+          )
+          .value = excel_package.TextCellValue(
+        ts.totalHours.toStringAsFixed(2),
+      );
+      sheet
+          .cell(
+            excel_package.CellIndex.indexByColumnRow(
+              columnIndex: 4,
+              rowIndex: rowIndex,
+            ),
+          )
+          .value = excel_package.TextCellValue(
+        ts.totalAmount.toStringAsFixed(2),
+      );
+      sheet
+          .cell(
+            excel_package.CellIndex.indexByColumnRow(
+              columnIndex: 5,
+              rowIndex: rowIndex,
+            ),
+          )
+          .value = excel_package.TextCellValue(
+        ts.status,
+      );
       rowIndex++;
     }
 
@@ -1427,7 +1722,11 @@ class _AdminStudentReportDetailScreenState
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.file_download, size: 64, color: Colors.green),
+                  const Icon(
+                    Icons.file_download,
+                    size: 64,
+                    color: Colors.green,
+                  ),
                   const SizedBox(height: 16),
                   const Text('Excel file generated successfully!'),
                   const SizedBox(height: 16),

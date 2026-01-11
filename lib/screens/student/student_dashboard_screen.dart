@@ -94,10 +94,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
 
       _monthlyReports = reportsQuery.docs.map((doc) {
         final data = doc.data();
-        return {
-          'id': doc.id,
-          ...data,
-        };
+        return {'id': doc.id, ...data};
       }).toList();
 
       _pendingReports = _monthlyReports
@@ -517,10 +514,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
           children: [
             const Text(
               'Monthly Reports',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             TextButton(
               onPressed: () => context.go('/student-report'),
@@ -539,7 +533,11 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
             child: Center(
               child: Column(
                 children: [
-                  Icon(Icons.article_outlined, size: 48, color: Colors.grey.shade300),
+                  Icon(
+                    Icons.article_outlined,
+                    size: 48,
+                    color: Colors.grey.shade300,
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     'No monthly reports yet',
@@ -566,7 +564,10 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
             try {
               final parts = month.split('-');
               if (parts.length == 2) {
-                final monthDate = DateTime(int.parse(parts[0]), int.parse(parts[1]));
+                final monthDate = DateTime(
+                  int.parse(parts[0]),
+                  int.parse(parts[1]),
+                );
                 monthDisplay = DateFormat('MMMM yyyy').format(monthDate);
               }
             } catch (e) {
@@ -627,7 +628,11 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                         color: Colors.orange.shade50,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Icon(Icons.article, color: Colors.orange.shade600, size: 20),
+                      child: Icon(
+                        Icons.article,
+                        color: Colors.orange.shade600,
+                        size: 20,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -652,7 +657,10 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: statusColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(10),
@@ -675,7 +683,11 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                     ),
                     const SizedBox(width: 8),
                     PopupMenuButton<String>(
-                      icon: Icon(Icons.more_vert, size: 18, color: Colors.grey.shade600),
+                      icon: Icon(
+                        Icons.more_vert,
+                        size: 18,
+                        color: Colors.grey.shade600,
+                      ),
                       onSelected: (value) {
                         if (value == 'edit') {
                           _editMonthlyReport(report);
@@ -700,7 +712,10 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                             children: [
                               Icon(Icons.delete, size: 18, color: Colors.red),
                               SizedBox(width: 8),
-                              Text('Delete', style: TextStyle(color: Colors.red)),
+                              Text(
+                                'Delete',
+                                style: TextStyle(color: Colors.red),
+                              ),
                             ],
                           ),
                         ),
@@ -710,7 +725,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                 ),
               ),
             );
-          }).toList(),
+          }),
       ],
     );
   }
@@ -847,9 +862,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    timesheet.date != null
-                        ? dateFormat.format(timesheet.date)
-                        : 'N/A',
+                    dateFormat.format(timesheet.date),
                     style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 16,
@@ -892,7 +905,10 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                         ),
                         Text(
                           '฿${timesheet.totalAmount.toStringAsFixed(2)}',
-                          style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -915,12 +931,19 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                       ],
                     ),
                     PopupMenuButton<String>(
-                      icon: Icon(Icons.more_vert, size: 18, color: Colors.grey.shade600),
+                      icon: Icon(
+                        Icons.more_vert,
+                        size: 18,
+                        color: Colors.grey.shade600,
+                      ),
                       onSelected: (value) {
                         if (value == 'edit') {
                           _editTimesheet(timesheet);
                         } else if (value == 'delete') {
-                          _deleteTimesheet(timesheet.id, dateFormat.format(timesheet.date));
+                          _deleteTimesheet(
+                            timesheet.id,
+                            dateFormat.format(timesheet.date),
+                          );
                         }
                       },
                       itemBuilder: (context) => [
@@ -940,7 +963,10 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                             children: [
                               Icon(Icons.delete, size: 18, color: Colors.red),
                               SizedBox(width: 8),
-                              Text('Delete', style: TextStyle(color: Colors.red)),
+                              Text(
+                                'Delete',
+                                style: TextStyle(color: Colors.red),
+                              ),
                             ],
                           ),
                         ),
@@ -956,12 +982,17 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
     );
   }
 
-  Future<void> _deleteMonthlyReport(String reportId, String monthDisplay) async {
+  Future<void> _deleteMonthlyReport(
+    String reportId,
+    String monthDisplay,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Report'),
-        content: Text('Are you sure you want to delete the report for $monthDisplay?'),
+        content: Text(
+          'Are you sure you want to delete the report for $monthDisplay?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -991,9 +1022,9 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error deleting report: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error deleting report: $e')));
         }
       }
     }
@@ -1017,7 +1048,9 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Time Entry'),
-        content: Text('Are you sure you want to delete the time entry for $date?'),
+        content: Text(
+          'Are you sure you want to delete the time entry for $date?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -1102,10 +1135,7 @@ class _EditTimesheetDialog extends StatefulWidget {
   final StudentTimesheet timesheet;
   final VoidCallback onSaved;
 
-  const _EditTimesheetDialog({
-    required this.timesheet,
-    required this.onSaved,
-  });
+  const _EditTimesheetDialog({required this.timesheet, required this.onSaved});
 
   @override
   State<_EditTimesheetDialog> createState() => _EditTimesheetDialogState();
@@ -1124,7 +1154,9 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
     _selectedDate = widget.timesheet.date;
     _startTime = TimeOfDay.fromDateTime(widget.timesheet.startTime);
     _endTime = TimeOfDay.fromDateTime(widget.timesheet.endTime);
-    _notesController = TextEditingController(text: widget.timesheet.notes ?? '');
+    _notesController = TextEditingController(
+      text: widget.timesheet.notes ?? '',
+    );
   }
 
   @override
@@ -1185,14 +1217,14 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
           .collection('student_timesheets')
           .doc(widget.timesheet.id)
           .update({
-        'date': Timestamp.fromDate(_selectedDate),
-        'startTime': Timestamp.fromDate(startDateTime),
-        'endTime': Timestamp.fromDate(endDateTime),
-        'totalHours': hours,
-        'totalAmount': totalAmount,
-        'notes': _notesController.text.trim(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+            'date': Timestamp.fromDate(_selectedDate),
+            'startTime': Timestamp.fromDate(startDateTime),
+            'endTime': Timestamp.fromDate(endDateTime),
+            'totalHours': hours,
+            'totalAmount': totalAmount,
+            'notes': _notesController.text.trim(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
 
       if (mounted) {
         Navigator.of(context).pop();
@@ -1316,13 +1348,11 @@ class _EditMonthlyReportDialog extends StatefulWidget {
   final Map<String, dynamic> report;
   final VoidCallback onSaved;
 
-  const _EditMonthlyReportDialog({
-    required this.report,
-    required this.onSaved,
-  });
+  const _EditMonthlyReportDialog({required this.report, required this.onSaved});
 
   @override
-  State<_EditMonthlyReportDialog> createState() => _EditMonthlyReportDialogState();
+  State<_EditMonthlyReportDialog> createState() =>
+      _EditMonthlyReportDialogState();
 }
 
 class _EditMonthlyReportDialogState extends State<_EditMonthlyReportDialog> {
@@ -1333,8 +1363,12 @@ class _EditMonthlyReportDialogState extends State<_EditMonthlyReportDialog> {
   @override
   void initState() {
     super.initState();
-    _monthController = TextEditingController(text: widget.report['month'] ?? '');
-    _statusController = TextEditingController(text: widget.report['status'] ?? 'draft');
+    _monthController = TextEditingController(
+      text: widget.report['month'] ?? '',
+    );
+    _statusController = TextEditingController(
+      text: widget.report['status'] ?? 'draft',
+    );
   }
 
   @override
@@ -1366,7 +1400,9 @@ class _EditMonthlyReportDialogState extends State<_EditMonthlyReportDialog> {
       if (!monthRegex.hasMatch(month)) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Month must be in format YYYY-MM (e.g., 2024-01)')),
+            const SnackBar(
+              content: Text('Month must be in format YYYY-MM (e.g., 2024-01)'),
+            ),
           );
         }
         setState(() => _isSaving = false);
@@ -1378,10 +1414,10 @@ class _EditMonthlyReportDialogState extends State<_EditMonthlyReportDialog> {
           .collection('student_monthly_reports')
           .doc(widget.report['id'])
           .update({
-        'month': month,
-        'status': status,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+            'month': month,
+            'status': status,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
 
       if (mounted) {
         Navigator.of(context).pop();
@@ -1422,7 +1458,7 @@ class _EditMonthlyReportDialogState extends State<_EditMonthlyReportDialog> {
 
             // Status dropdown
             DropdownButtonFormField<String>(
-              value: _statusController.text,
+              initialValue: _statusController.text,
               decoration: const InputDecoration(
                 labelText: 'Status',
                 border: OutlineInputBorder(),

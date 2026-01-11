@@ -87,9 +87,7 @@ class _AdminScreenState extends State<AdminScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : ResponsiveContainer(
-              child: _buildUsersList(),
-            ),
+          : ResponsiveContainer(child: _buildUsersList()),
     );
   }
 
@@ -127,10 +125,12 @@ class _AdminScreenState extends State<AdminScreen> {
                 const SizedBox(height: 4),
                 Chip(
                   label: Text(
-                    UserRole.values.firstWhere(
-                      (e) => e.name == user.role.trim().toLowerCase(),
-                      orElse: () => UserRole.requester,
-                    ).displayName,
+                    UserRole.values
+                        .firstWhere(
+                          (e) => e.name == user.role.trim().toLowerCase(),
+                          orElse: () => UserRole.requester,
+                        )
+                        .displayName,
                     style: const TextStyle(color: Colors.white, fontSize: 12),
                   ),
                   backgroundColor: _getRoleColor(user.role.toUserRole()),
@@ -317,7 +317,7 @@ class _AdminScreenState extends State<AdminScreen> {
                       ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<UserRole>(
-                        value: selectedRole,
+                        initialValue: selectedRole,
                         decoration: const InputDecoration(
                           labelText: 'Role',
                           border: OutlineInputBorder(),
@@ -486,7 +486,7 @@ class _AdminScreenState extends State<AdminScreen> {
                       ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<UserRole>(
-                        value: selectedRole,
+                        initialValue: selectedRole,
                         decoration: const InputDecoration(
                           labelText: 'Role',
                           border: OutlineInputBorder(),

@@ -273,48 +273,46 @@ class _StudentMonthlyReportDetailScreenState
                       ),
                     ],
                   ),
-                  ..._timesheets
-                      .map(
-                        (ts) => pw.TableRow(
-                          children: [
-                            pw.Padding(
-                              padding: pw.EdgeInsets.all(8),
-                              child: pw.Text(
-                                DateFormat('dd/MM/yyyy').format(ts.date),
-                              ),
-                            ),
-                            pw.Padding(
-                              padding: pw.EdgeInsets.all(8),
-                              child: pw.Text(
-                                DateFormat('HH:mm').format(ts.startTime),
-                              ),
-                            ),
-                            pw.Padding(
-                              padding: pw.EdgeInsets.all(8),
-                              child: pw.Text(
-                                DateFormat('HH:mm').format(ts.endTime),
-                              ),
-                            ),
-                            pw.Padding(
-                              padding: pw.EdgeInsets.all(8),
-                              child: pw.Text(
-                                '${ts.totalHours.toStringAsFixed(2)} h',
-                              ),
-                            ),
-                            pw.Padding(
-                              padding: pw.EdgeInsets.all(8),
-                              child: pw.Text(
-                                '฿${ts.totalAmount.toStringAsFixed(2)}',
-                              ),
-                            ),
-                            pw.Padding(
-                              padding: pw.EdgeInsets.all(8),
-                              child: pw.Text(ts.status),
-                            ),
-                          ],
+                  ..._timesheets.map(
+                    (ts) => pw.TableRow(
+                      children: [
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text(
+                            DateFormat('dd/MM/yyyy').format(ts.date),
+                          ),
                         ),
-                      )
-                      .toList(),
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text(
+                            DateFormat('HH:mm').format(ts.startTime),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text(
+                            DateFormat('HH:mm').format(ts.endTime),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text(
+                            '${ts.totalHours.toStringAsFixed(2)} h',
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text(
+                            '฿${ts.totalAmount.toStringAsFixed(2)}',
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text(ts.status),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -822,7 +820,7 @@ class _StudentMonthlyReportDetailScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-          // Report Header
+            // Report Header
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -860,444 +858,454 @@ class _StudentMonthlyReportDetailScreenState
 
             const SizedBox(height: 16),
 
-          // Summary Cards
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    children: [
-                      Icon(Icons.event_note, color: Colors.orange.shade700),
-                      const SizedBox(height: 8),
-                      Text(
-                        '$timesheetCount',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.orange.shade800,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Entries',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.orange.shade700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    children: [
-                      Icon(Icons.access_time, color: Colors.blue.shade700),
-                      const SizedBox(height: 8),
-                      Text(
-                        '${totalHours.toStringAsFixed(2)}',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue.shade800,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Hours',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.blue.shade700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    children: [
-                      Icon(Icons.attach_money, color: Colors.green.shade700),
-                      const SizedBox(height: 8),
-                      Text(
-                        '฿${totalAmount.toStringAsFixed(2)}',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green.shade800,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Total',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.green.shade700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 24),
-
-          // Status
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: _getStatusColor(_reportData?['status']).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: _getStatusColor(_reportData?['status']).withOpacity(0.3),
-              ),
-            ),
-            child: Row(
+            // Summary Cards
+            Row(
               children: [
-                Icon(
-                  _getStatusIcon(_reportData?['status']),
-                  color: _getStatusColor(_reportData?['status']),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Status: ${_reportData?['status']?.toUpperCase() ?? 'UNKNOWN'}',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: _getStatusColor(_reportData?['status']),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // Detailed Table View
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[50],
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(12),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    border: Border(
-                      bottom: BorderSide(color: Colors.grey.shade200),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Detailed Timesheet Entries',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        '${_timesheets.length} entries',
-                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Table Header
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    border: Border(
-                      bottom: BorderSide(color: Colors.grey.shade200),
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    child: Row(
+                    child: Column(
                       children: [
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            'Date',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey[700],
-                            ),
+                        Icon(Icons.event_note, color: Colors.orange.shade700),
+                        const SizedBox(height: 8),
+                        Text(
+                          '$timesheetCount',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange.shade800,
                           ),
                         ),
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            'Time Range',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey[700],
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          flex: 1,
-                          child: Text(
-                            'Hours',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey[700],
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          flex: 1,
-                          child: Text(
-                            'Amount',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey[700],
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          flex: 1,
-                          child: Text(
-                            'Status',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey[700],
-                            ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Entries',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.orange.shade700,
                           ),
                         ),
                       ],
                     ),
                   ),
                 ),
-
-                // Table Rows
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: NeverScrollableScrollPhysics(),
-                  itemCount: _timesheets.length,
-                  itemBuilder: (context, index) {
-                    final ts = _timesheets[index];
-                    return Container(
-                      decoration: BoxDecoration(
-                        border: Border(
-                          bottom: BorderSide(
-                            color: index == _timesheets.length - 1
-                                ? Colors.transparent
-                                : Colors.grey.shade200,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(Icons.access_time, color: Colors.blue.shade700),
+                        const SizedBox(height: 8),
+                        Text(
+                          totalHours.toStringAsFixed(2),
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue.shade800,
                           ),
                         ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
+                        const SizedBox(height: 4),
+                        Text(
+                          'Hours',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.blue.shade700,
+                          ),
                         ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: Text(
-                                DateFormat('dd/MM/yyyy').format(ts.date),
-                                style: TextStyle(fontSize: 14),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 2,
-                              child: Text(
-                                '${DateFormat('HH:mm').format(ts.startTime)} - ${DateFormat('HH:mm').format(ts.endTime)}',
-                                style: TextStyle(fontSize: 14),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 1,
-                              child: Text(
-                                '${ts.totalHours.toStringAsFixed(2)} h',
-                                style: TextStyle(fontSize: 14),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 1,
-                              child: Text(
-                                '฿${ts.totalAmount.toStringAsFixed(2)}',
-                                style: TextStyle(fontSize: 14),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 1,
-                              child: Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _getStatusColor(
-                                    ts.status,
-                                  ).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  ts.status.toUpperCase(),
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: _getStatusColor(ts.status),
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                          ],
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(Icons.attach_money, color: Colors.green.shade700),
+                        const SizedBox(height: 8),
+                        Text(
+                          '฿${totalAmount.toStringAsFixed(2)}',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade800,
+                          ),
                         ),
-                      ),
-                    );
-                  },
+                        const SizedBox(height: 4),
+                        Text(
+                          'Total',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.green.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
-          ),
 
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
 
-          // Submit Button (only show for draft status)
-          if ((_reportData?['status'] ?? 'draft') == 'draft' && _timesheets.isNotEmpty)
+            // Status
             Container(
-              width: double.infinity,
-              height: 56,
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.green.shade500, Colors.green.shade700],
+                color: _getStatusColor(_reportData?['status']).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: _getStatusColor(
+                    _reportData?['status'],
+                  ).withOpacity(0.3),
                 ),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.green.shade200,
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _getStatusIcon(_reportData?['status']),
+                    color: _getStatusColor(_reportData?['status']),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Status: ${_reportData?['status']?.toUpperCase() ?? 'UNKNOWN'}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: _getStatusColor(_reportData?['status']),
+                    ),
                   ),
                 ],
               ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: _submitReport,
-                  borderRadius: BorderRadius.circular(12),
-                  child: const Center(
+            ),
+
+            const SizedBox(height: 24),
+
+            // Detailed Table View
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(12),
+                      ),
+                      border: Border(
+                        bottom: BorderSide(color: Colors.grey.shade200),
+                      ),
+                    ),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Icon(Icons.send, color: Colors.white),
-                        SizedBox(width: 12),
                         Text(
-                          'Submit Report for Approval',
+                          'Detailed Timesheet Entries',
                           style: TextStyle(
-                            color: Colors.white,
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+                        Text(
+                          '${_timesheets.length} entries',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
                       ],
+                    ),
+                  ),
+
+                  // Table Header
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      border: Border(
+                        bottom: BorderSide(color: Colors.grey.shade200),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              'Date',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              'Time Range',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 1,
+                            child: Text(
+                              'Hours',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 1,
+                            child: Text(
+                              'Amount',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 1,
+                            child: Text(
+                              'Status',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Table Rows
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: NeverScrollableScrollPhysics(),
+                    itemCount: _timesheets.length,
+                    itemBuilder: (context, index) {
+                      final ts = _timesheets[index];
+                      return Container(
+                        decoration: BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(
+                              color: index == _timesheets.length - 1
+                                  ? Colors.transparent
+                                  : Colors.grey.shade200,
+                            ),
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  DateFormat('dd/MM/yyyy').format(ts.date),
+                                  style: TextStyle(fontSize: 14),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  '${DateFormat('HH:mm').format(ts.startTime)} - ${DateFormat('HH:mm').format(ts.endTime)}',
+                                  style: TextStyle(fontSize: 14),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 1,
+                                child: Text(
+                                  '${ts.totalHours.toStringAsFixed(2)} h',
+                                  style: TextStyle(fontSize: 14),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 1,
+                                child: Text(
+                                  '฿${ts.totalAmount.toStringAsFixed(2)}',
+                                  style: TextStyle(fontSize: 14),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 1,
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: _getStatusColor(
+                                      ts.status,
+                                    ).withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    ts.status.toUpperCase(),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: _getStatusColor(ts.status),
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Submit Button (only show for draft status)
+            if ((_reportData?['status'] ?? 'draft') == 'draft' &&
+                _timesheets.isNotEmpty)
+              Container(
+                width: double.infinity,
+                height: 56,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.green.shade500, Colors.green.shade700],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.green.shade200,
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: _submitReport,
+                    borderRadius: BorderRadius.circular(12),
+                    child: const Center(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.send, color: Colors.white),
+                          SizedBox(width: 12),
+                          Text(
+                            'Submit Report for Approval',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
 
-          // Info message for draft reports
-          if ((_reportData?['status'] ?? 'draft') == 'draft' && _timesheets.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.orange.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.orange.shade200),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline, color: Colors.orange.shade700),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Add at least one time entry before submitting your report',
-                      style: TextStyle(
-                        color: Colors.orange.shade900,
-                        fontSize: 14,
+            // Info message for draft reports
+            if ((_reportData?['status'] ?? 'draft') == 'draft' &&
+                _timesheets.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.orange.shade700),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Add at least one time entry before submitting your report',
+                        style: TextStyle(
+                          color: Colors.orange.shade900,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
 
-          // Status message for submitted reports
-          if ((_reportData?['status'] ?? 'draft') != 'draft')
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.blue.shade200),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.check_circle_outline, color: Colors.blue.shade700),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'This report has been submitted and cannot be edited',
-                      style: TextStyle(
-                        color: Colors.blue.shade900,
-                        fontSize: 14,
+            // Status message for submitted reports
+            if ((_reportData?['status'] ?? 'draft') != 'draft')
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.check_circle_outline,
+                      color: Colors.blue.shade700,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'This report has been submitted and cannot be edited',
+                        style: TextStyle(
+                          color: Colors.blue.shade900,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
 
-          const SizedBox(height: 24),
-        ],
+            const SizedBox(height: 24),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Color _getStatusColor(String? status) {
     switch (status) {
@@ -1657,7 +1665,11 @@ class _StudentMonthlyReportDetailScreenState
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline, color: Colors.orange.shade700, size: 20),
+                  Icon(
+                    Icons.info_outline,
+                    color: Colors.orange.shade700,
+                    size: 20,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -1701,10 +1713,10 @@ class _StudentMonthlyReportDetailScreenState
           .collection('student_monthly_reports')
           .doc(widget.reportId)
           .update({
-        'status': 'submitted',
-        'submittedAt': DateTime.now(),
-        'submittedBy': user?.name ?? 'Unknown',
-      });
+            'status': 'submitted',
+            'submittedAt': DateTime.now(),
+            'submittedBy': user?.name ?? 'Unknown',
+          });
 
       // Update all associated timesheets to submitted status
       final timesheetQuery = await FirebaseFirestore.instance

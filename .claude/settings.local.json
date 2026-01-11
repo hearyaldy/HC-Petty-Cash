@@ -3,7 +3,10 @@
     "allow": [
       "Bash(flutter pub get:*)",
       "Bash(flutter devices:*)",
-      "Bash(flutter run:*)"
+      "Bash(flutter run:*)",
+      "Bash(flutter clean:*)",
+      "Bash(flutter analyze:*)",
+      "Bash(git add:*)"
     ]
   }
 }

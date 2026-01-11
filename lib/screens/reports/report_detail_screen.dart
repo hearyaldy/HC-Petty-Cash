@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -6,6 +7,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'dart:io' show Platform;
 import '../../providers/auth_provider.dart';
 import '../../providers/report_provider.dart';
 import '../../providers/project_report_provider.dart';
@@ -19,6 +21,7 @@ import '../../services/voucher_export_service.dart';
 import '../../widgets/voucher_preview_dialog.dart';
 import '../../widgets/edit_petty_cash_report_dialog.dart';
 import '../../widgets/paid_to_field.dart';
+import '../../widgets/support_document_upload_dialog.dart';
 import '../../services/settings_service.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
@@ -827,7 +830,44 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 8),
-                  _buildTransactionStatusChip(transaction.statusEnum),
+                  Row(
+                    children: [
+                      _buildTransactionStatusChip(transaction.statusEnum),
+                      if (transaction.supportDocumentUrl != null) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.green.shade200),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.attach_file,
+                                size: 12,
+                                color: Colors.green.shade700,
+                              ),
+                              const SizedBox(width: 2),
+                              Text(
+                                'Doc',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.green.shade700,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -842,9 +882,14 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+                Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  alignment: WrapAlignment.end,
                   children: [
+                    // Support Document Button
+                    _buildSupportDocumentButton(transaction),
+                    // Voucher Button
                     OutlinedButton.icon(
                       onPressed: () => _exportVoucher(transaction),
                       icon: const Icon(Icons.receipt_long, size: 16),
@@ -871,9 +916,49 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                           await _showEditTransactionDialog(transaction);
                         } else if (value == 'delete') {
                           await _showDeleteTransactionConfirmation(transaction);
+                        } else if (value == 'viewDocument') {
+                          _showSupportDocumentPreview(transaction);
+                        } else if (value == 'uploadDocument') {
+                          _showSupportDocumentUploadDialog(transaction);
                         }
                       },
                       itemBuilder: (context) => [
+                        if (transaction.supportDocumentUrl != null)
+                          const PopupMenuItem(
+                            value: 'viewDocument',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.visibility,
+                                  size: 18,
+                                  color: Colors.green,
+                                ),
+                                SizedBox(width: 8),
+                                Text('View Document'),
+                              ],
+                            ),
+                          ),
+                        PopupMenuItem(
+                          value: 'uploadDocument',
+                          child: Row(
+                            children: [
+                              Icon(
+                                transaction.supportDocumentUrl != null
+                                    ? Icons.edit_document
+                                    : Icons.upload_file,
+                                size: 18,
+                                color: Colors.orange,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                transaction.supportDocumentUrl != null
+                                    ? 'Change Document'
+                                    : 'Upload Document',
+                              ),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuDivider(),
                         const PopupMenuItem(
                           value: 'edit',
                           child: Row(
@@ -905,6 +990,129 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSupportDocumentButton(Transaction transaction) {
+    final bool isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+    final hasDocument = transaction.supportDocumentUrl != null;
+
+    return PopupMenuButton<String>(
+      onSelected: (value) {
+        if (value == 'view') {
+          _showSupportDocumentPreview(transaction);
+        } else if (value == 'upload') {
+          _showSupportDocumentUploadDialog(transaction);
+        } else if (value == 'camera') {
+          _showSupportDocumentUploadDialog(transaction, fromCamera: true);
+        }
+      },
+      offset: const Offset(0, 40),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: hasDocument ? Colors.green.shade300 : Colors.orange.shade300,
+          ),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              hasDocument ? Icons.attach_file : Icons.add_photo_alternate,
+              size: 16,
+              color: hasDocument
+                  ? Colors.green.shade700
+                  : Colors.orange.shade700,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              hasDocument ? 'Doc' : 'Add Doc',
+              style: TextStyle(
+                fontSize: 12,
+                color: hasDocument
+                    ? Colors.green.shade700
+                    : Colors.orange.shade700,
+              ),
+            ),
+          ],
+        ),
+      ),
+      itemBuilder: (context) => [
+        if (hasDocument)
+          const PopupMenuItem(
+            value: 'view',
+            child: Row(
+              children: [
+                Icon(Icons.visibility, size: 18, color: Colors.blue),
+                SizedBox(width: 8),
+                Text('View Document'),
+              ],
+            ),
+          ),
+        const PopupMenuItem(
+          value: 'upload',
+          child: Row(
+            children: [
+              Icon(Icons.photo_library, size: 18, color: Colors.purple),
+              SizedBox(width: 8),
+              Text('Upload from Gallery'),
+            ],
+          ),
+        ),
+        if (isMobile)
+          const PopupMenuItem(
+            value: 'camera',
+            child: Row(
+              children: [
+                Icon(Icons.camera_alt, size: 18, color: Colors.teal),
+                SizedBox(width: 8),
+                Text('Take Photo'),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _showSupportDocumentPreview(Transaction transaction) {
+    if (transaction.supportDocumentUrl == null) return;
+
+    showDialog(
+      context: context,
+      builder: (context) =>
+          SupportDocumentPreview(documentUrl: transaction.supportDocumentUrl!),
+    );
+  }
+
+  void _showSupportDocumentUploadDialog(
+    Transaction transaction, {
+    bool fromCamera = false,
+  }) {
+    showDialog(
+      context: context,
+      builder: (context) => SupportDocumentUploadDialog(
+        transactionId: transaction.id,
+        existingDocumentUrls: transaction.supportDocumentUrls,
+        onDocumentsUploaded: (urls) async {
+          try {
+            await context.read<TransactionProvider>().updateSupportDocuments(
+              transaction.id,
+              urls,
+            );
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Error updating documents: $e'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          }
+        },
       ),
     );
   }
@@ -1213,7 +1421,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                         const SizedBox(height: 16),
                         // Project selection dropdown
                         DropdownButtonFormField<String?>(
-                          value: selectedProjectId,
+                          initialValue: selectedProjectId,
                           decoration: const InputDecoration(
                             labelText: 'Project (Optional)',
                             border: OutlineInputBorder(),
@@ -1239,7 +1447,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                         ),
                         const SizedBox(height: 16),
                         DropdownButtonFormField<String>(
-                          value: selectedCategory,
+                          initialValue: selectedCategory,
                           decoration: const InputDecoration(
                             labelText: 'Category',
                             border: OutlineInputBorder(),
@@ -1294,7 +1502,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                         ),
                         const SizedBox(height: 16),
                         DropdownButtonFormField<PaymentMethod>(
-                          value: selectedPaymentMethod,
+                          initialValue: selectedPaymentMethod,
                           decoration: const InputDecoration(
                             labelText: 'Payment Method',
                             border: OutlineInputBorder(),
@@ -1515,9 +1723,13 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   Future<void> _exportVoucher(Transaction transaction) async {
     try {
       final reportProvider = context.read<ReportProvider>();
+      final authProvider = context.read<AuthProvider>();
       final report = reportProvider.reports.firstWhere(
         (r) => r.id == transaction.reportId,
       );
+
+      // Fetch requestor user
+      final requestor = await authProvider.getUserById(transaction.requestorId);
 
       // Show preview bottom sheet
       final shouldExport = await showModalBottomSheet<bool>(
@@ -1527,6 +1739,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         builder: (context) => VoucherPreviewDialog(
           transaction: transaction,
           report: report,
+          requestor: requestor,
           onPrint: () => _printVoucher(transaction, report),
         ),
       );
@@ -1667,7 +1880,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<ExpenseCategory>(
-                        value: selectedCategory,
+                        initialValue: selectedCategory,
                         decoration: const InputDecoration(
                           labelText: 'Category',
                           border: OutlineInputBorder(),
@@ -1688,7 +1901,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<PaymentMethod>(
-                        value: selectedPaymentMethod,
+                        initialValue: selectedPaymentMethod,
                         decoration: const InputDecoration(
                           labelText: 'Payment Method',
                           border: OutlineInputBorder(),

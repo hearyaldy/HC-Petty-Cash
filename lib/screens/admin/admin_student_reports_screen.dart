@@ -9,7 +9,8 @@ class AdminStudentReportsScreen extends StatefulWidget {
   const AdminStudentReportsScreen({super.key});
 
   @override
-  State<AdminStudentReportsScreen> createState() => _AdminStudentReportsScreenState();
+  State<AdminStudentReportsScreen> createState() =>
+      _AdminStudentReportsScreenState();
 }
 
 class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
@@ -18,7 +19,13 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
   List<Map<String, dynamic>> _students = [];
   bool _isLoadingStudents = true;
 
-  final List<String> _statusOptions = ['all', 'draft', 'submitted', 'approved', 'rejected'];
+  final List<String> _statusOptions = [
+    'all',
+    'draft',
+    'submitted',
+    'approved',
+    'rejected',
+  ];
 
   @override
   void initState() {
@@ -36,10 +43,7 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
 
       _students = studentsQuery.docs.map((doc) {
         final data = doc.data();
-        return {
-          'id': doc.id,
-          'name': data['studentName'] ?? 'Unknown',
-        };
+        return {'id': doc.id, 'name': data['studentName'] ?? 'Unknown'};
       }).toList();
 
       setState(() => _isLoadingStudents = false);
@@ -137,10 +141,7 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
         children: [
           const Text(
             'Filter Reports',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
           Row(
@@ -149,18 +150,26 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
                 child: _isLoadingStudents
                     ? const Center(child: CircularProgressIndicator())
                     : DropdownButtonFormField<String>(
-                        value: _selectedStudentId,
+                        initialValue: _selectedStudentId,
                         decoration: const InputDecoration(
                           labelText: 'Student',
                           border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
                         ),
                         items: [
-                          const DropdownMenuItem(value: null, child: Text('All Students')),
-                          ..._students.map((student) => DropdownMenuItem(
-                                value: student['id'],
-                                child: Text(student['name']),
-                              )),
+                          const DropdownMenuItem(
+                            value: null,
+                            child: Text('All Students'),
+                          ),
+                          ..._students.map(
+                            (student) => DropdownMenuItem(
+                              value: student['id'],
+                              child: Text(student['name']),
+                            ),
+                          ),
                         ],
                         onChanged: (value) {
                           setState(() {
@@ -172,18 +181,26 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: _selectedStatus,
+                  initialValue: _selectedStatus,
                   decoration: const InputDecoration(
                     labelText: 'Status',
                     border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                   ),
                   items: [
-                    const DropdownMenuItem(value: null, child: Text('All Status')),
-                    ..._statusOptions.map((status) => DropdownMenuItem(
-                          value: status == 'all' ? null : status,
-                          child: Text(status.toUpperCase()),
-                        )),
+                    const DropdownMenuItem(
+                      value: null,
+                      child: Text('All Status'),
+                    ),
+                    ..._statusOptions.map(
+                      (status) => DropdownMenuItem(
+                        value: status == 'all' ? null : status,
+                        child: Text(status.toUpperCase()),
+                      ),
+                    ),
                   ],
                   onChanged: (value) {
                     setState(() {
@@ -247,7 +264,9 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         onTap: () {
-          context.push('/admin/student-reports/$reportId?month=$month&monthDisplay=${Uri.encodeComponent(monthDisplay)}');
+          context.push(
+            '/admin/student-reports/$reportId?month=$month&monthDisplay=${Uri.encodeComponent(monthDisplay)}',
+          );
         },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
@@ -262,13 +281,18 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
                     height: 50,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Colors.orange.shade400, Colors.orange.shade600],
+                        colors: [
+                          Colors.orange.shade400,
+                          Colors.orange.shade600,
+                        ],
                       ),
                       shape: BoxShape.circle,
                     ),
                     child: Center(
                       child: Text(
-                        studentName.isNotEmpty ? studentName[0].toUpperCase() : 'S',
+                        studentName.isNotEmpty
+                            ? studentName[0].toUpperCase()
+                            : 'S',
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -292,7 +316,11 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            Icon(Icons.calendar_today, size: 14, color: Colors.grey[600]),
+                            Icon(
+                              Icons.calendar_today,
+                              size: 14,
+                              color: Colors.grey[600],
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               monthDisplay,
@@ -307,7 +335,10 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: statusColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
@@ -350,7 +381,8 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
                   _buildStatItem(
                     icon: Icons.attach_money,
                     label: 'Amount',
-                    value: '${AppConstants.currencySymbol}${totalAmount.toStringAsFixed(2)}',
+                    value:
+                        '${AppConstants.currencySymbol}${totalAmount.toStringAsFixed(2)}',
                     color: Colors.orange,
                   ),
                 ],
@@ -374,18 +406,9 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
         const SizedBox(height: 4),
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
-          ),
-        ),
+        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
       ],
     );
   }
@@ -408,10 +431,7 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
           const SizedBox(height: 8),
           Text(
             'Try adjusting your filters',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[500],
-            ),
+            style: TextStyle(fontSize: 14, color: Colors.grey[500]),
           ),
         ],
       ),

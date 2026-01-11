@@ -5,6 +5,8 @@ import '../models/petty_cash_report.dart';
 import '../models/user.dart';
 import '../models/enums.dart';
 import '../utils/constants.dart';
+import '../services/voucher_export_service.dart';
+import 'support_document_upload_dialog.dart';
 
 class VoucherPreviewDialog extends StatelessWidget {
   final Transaction transaction;
@@ -55,9 +57,41 @@ class VoucherPreviewDialog extends StatelessWidget {
                   'Voucher Preview',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.of(context).pop(),
+                Row(
+                  children: [
+                    // View Support Document Button
+                    if (transaction.supportDocumentUrls.isNotEmpty)
+                      TextButton.icon(
+                        onPressed: () => _showSupportDocument(context),
+                        icon: Icon(
+                          Icons.attach_file,
+                          size: 18,
+                          color: Colors.green.shade700,
+                        ),
+                        label: Text(
+                          'View Docs (${transaction.supportDocumentUrls.length})',
+                          style: TextStyle(color: Colors.green.shade700),
+                        ),
+                      ),
+                    // Print Support Document Button
+                    if (transaction.supportDocumentUrls.isNotEmpty)
+                      TextButton.icon(
+                        onPressed: () => _printSupportDocument(context),
+                        icon: Icon(
+                          Icons.print,
+                          size: 18,
+                          color: Colors.blue.shade700,
+                        ),
+                        label: Text(
+                          'Print Doc',
+                          style: TextStyle(color: Colors.blue.shade700),
+                        ),
+                      ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -103,6 +137,12 @@ class VoucherPreviewDialog extends StatelessWidget {
                     // Amount Section
                     _buildAmountSection(currencyFormat),
                     const SizedBox(height: 16),
+
+                    // Support Document Indicator
+                    if (transaction.supportDocumentUrls.isNotEmpty)
+                      _buildSupportDocumentIndicator(context),
+                    if (transaction.supportDocumentUrls.isNotEmpty)
+                      const SizedBox(height: 16),
 
                     // Signature Section
                     _buildSignatureSection(),
@@ -151,6 +191,72 @@ class VoucherPreviewDialog extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showSupportDocument(BuildContext context) {
+    if (transaction.supportDocumentUrls.isEmpty) return;
+
+    // Show gallery dialog with all support documents
+    showDialog(
+      context: context,
+      builder: (context) => SupportDocumentGallery(
+        documentUrls: transaction.supportDocumentUrls,
+        transactionReceiptNo: transaction.receiptNo,
+      ),
+    );
+  }
+
+  Future<void> _printSupportDocument(BuildContext context) async {
+    if (transaction.supportDocumentUrls.isEmpty) return;
+
+    // Show selection dialog for choosing which documents to print
+    showDialog(
+      context: context,
+      builder: (context) => SupportDocumentSelectionDialog(
+        documentUrls: transaction.supportDocumentUrls,
+        transactionReceiptNo: transaction.receiptNo,
+        description: transaction.description,
+        amount: transaction.amount,
+      ),
+    );
+  }
+
+  Widget _buildSupportDocumentIndicator(BuildContext context) {
+    return InkWell(
+      onTap: () => _showSupportDocument(context),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.green.shade50,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.green.shade200),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.attach_file, size: 18, color: Colors.green.shade700),
+            const SizedBox(width: 8),
+            Text(
+              'Support Document Attached',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.green.shade700,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '(Tap to view)',
+              style: TextStyle(
+                fontSize: 10,
+                color: Colors.green.shade600,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -239,7 +345,7 @@ class VoucherPreviewDialog extends StatelessWidget {
               const SizedBox(width: 20),
               Expanded(
                 flex: 2,
-                child: _buildInfoRow('Department:', report.department),
+                child: _buildInfoRow('Report Name:', report.department),
               ),
             ],
           ),
@@ -389,6 +495,9 @@ class VoucherPreviewDialog extends StatelessWidget {
   }
 
   Widget _buildSignatureSection() {
+    // Check if it's a bank transfer
+    final isBankTransfer = transaction.paymentMethod == PaymentMethod.bankTransfer.name;
+
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey.shade400),
@@ -398,15 +507,15 @@ class VoucherPreviewDialog extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _buildSignatureBox('Requested By:', 'Name'),
-          _buildSignatureBox('Approved By:', ''),
+          _buildSignatureBox('Requested By:', 'Name', isBankTransfer),
+          _buildSignatureBox('Approved By:', '', false),
           _buildActionNumberBox(),
         ],
       ),
     );
   }
 
-  Widget _buildSignatureBox(String title, String subtitle) {
+  Widget _buildSignatureBox(String title, String subtitle, bool showTR) {
     return SizedBox(
       width: 100,
       child: Column(
@@ -416,7 +525,15 @@ class VoucherPreviewDialog extends StatelessWidget {
             title,
             style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 20),
+          if (showTR) ...[
+            const SizedBox(height: 4),
+            const Text(
+              'T/R',
+              style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+          ] else
+            const SizedBox(height: 20),
           Container(
             decoration: const BoxDecoration(
               border: Border(bottom: BorderSide(color: Colors.black)),

@@ -21,8 +21,8 @@ class _StudentReportScreenState extends State<StudentReportScreen>
     with SingleTickerProviderStateMixin {
   StudentProfile? _studentProfile;
   List<StudentTimesheet> _timesheets = [];
-  Map<String, List<StudentTimesheet>> _timesheetsByMonth = {};
-  List<String> _availableMonths = [];
+  final Map<String, List<StudentTimesheet>> _timesheetsByMonth = {};
+  final List<String> _availableMonths = [];
   String? _selectedMonth;
   bool _isLoading = true;
   late TabController _tabController;
@@ -128,12 +128,12 @@ class _StudentReportScreenState extends State<StudentReportScreen>
 
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(
-          content: Text('Error loading data: $e'),
-          duration: const Duration(seconds: 10),
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading data: $e'),
+            duration: const Duration(seconds: 10),
+          ),
+        );
       }
     }
   }
@@ -516,7 +516,8 @@ class _StudentReportScreenState extends State<StudentReportScreen>
   }
 
   void _submitTimesheetReport() async {
-    if (_selectedMonth == null || _timesheetsByMonth[_selectedMonth]?.isEmpty == true) {
+    if (_selectedMonth == null ||
+        _timesheetsByMonth[_selectedMonth]?.isEmpty == true) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('No timesheets to submit for this month'),
@@ -530,11 +531,15 @@ class _StudentReportScreenState extends State<StudentReportScreen>
     final monthDisplay = _getMonthDisplay(_selectedMonth!);
 
     // Check if any are draft status
-    final draftTimesheets = monthTimesheets.where((t) => t.status == 'draft').toList();
+    final draftTimesheets = monthTimesheets
+        .where((t) => t.status == 'draft')
+        .toList();
     if (draftTimesheets.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('All timesheets for $monthDisplay have already been submitted'),
+          content: Text(
+            'All timesheets for $monthDisplay have already been submitted',
+          ),
           backgroundColor: Colors.orange,
         ),
       );
@@ -798,8 +803,12 @@ class _StudentReportScreenState extends State<StudentReportScreen>
               underline: const SizedBox(),
               items: _availableMonths.map((monthKey) {
                 final monthTimesheets = _timesheetsByMonth[monthKey]!;
-                final draftCount = monthTimesheets.where((t) => t.status == 'draft').length;
-                final submittedCount = monthTimesheets.where((t) => t.status == 'submitted').length;
+                final draftCount = monthTimesheets
+                    .where((t) => t.status == 'draft')
+                    .length;
+                final submittedCount = monthTimesheets
+                    .where((t) => t.status == 'submitted')
+                    .length;
 
                 return DropdownMenuItem(
                   value: monthKey,
@@ -814,7 +823,10 @@ class _StudentReportScreenState extends State<StudentReportScreen>
                         children: [
                           if (draftCount > 0)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.orange.shade100,
                                 borderRadius: BorderRadius.circular(10),
@@ -831,7 +843,10 @@ class _StudentReportScreenState extends State<StudentReportScreen>
                           if (submittedCount > 0) ...[
                             const SizedBox(width: 4),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.green.shade100,
                                 borderRadius: BorderRadius.circular(10),
@@ -944,11 +959,14 @@ class _StudentReportScreenState extends State<StudentReportScreen>
                 borderRadius: BorderRadius.circular(12),
                 onTap: () {
                   // Navigate to the detailed report screen
-                  context.go('/student-monthly-report-detail', extra: {
-                    'reportId': reports[index].id,
-                    'month': data['month'] ?? '',
-                    'monthDisplay': monthDisplay,
-                  });
+                  context.go(
+                    '/student-monthly-report-detail',
+                    extra: {
+                      'reportId': reports[index].id,
+                      'month': data['month'] ?? '',
+                      'monthDisplay': monthDisplay,
+                    },
+                  );
                 },
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -964,11 +982,18 @@ class _StudentReportScreenState extends State<StudentReportScreen>
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
-                                    colors: [Colors.orange.shade400, Colors.orange.shade600],
+                                    colors: [
+                                      Colors.orange.shade400,
+                                      Colors.orange.shade600,
+                                    ],
                                   ),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                child: const Icon(Icons.calendar_month, color: Colors.white, size: 20),
+                                child: const Icon(
+                                  Icons.calendar_month,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
                               ),
                               const SizedBox(width: 12),
                               Column(
@@ -994,7 +1019,10 @@ class _StudentReportScreenState extends State<StudentReportScreen>
                             ],
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
                               color: statusColor.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(20),
@@ -1020,9 +1048,21 @@ class _StudentReportScreenState extends State<StudentReportScreen>
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
-                          _buildStatItem(Icons.event_note, '$timesheetCount', 'Entries'),
-                          _buildStatItem(Icons.access_time, '${totalHours.toStringAsFixed(1)}h', 'Hours'),
-                          _buildStatItem(Icons.attach_money, '฿${totalAmount.toStringAsFixed(2)}', 'Amount'),
+                          _buildStatItem(
+                            Icons.event_note,
+                            '$timesheetCount',
+                            'Entries',
+                          ),
+                          _buildStatItem(
+                            Icons.access_time,
+                            '${totalHours.toStringAsFixed(1)}h',
+                            'Hours',
+                          ),
+                          _buildStatItem(
+                            Icons.attach_money,
+                            '฿${totalAmount.toStringAsFixed(2)}',
+                            'Amount',
+                          ),
                         ],
                       ),
                     ],
@@ -1045,20 +1085,14 @@ class _StudentReportScreenState extends State<StudentReportScreen>
             const SizedBox(width: 4),
             Text(
               value,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ],
         ),
         const SizedBox(height: 4),
         Text(
           label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade600,
-          ),
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
         ),
       ],
     );
@@ -1082,7 +1116,10 @@ class _StudentReportScreenState extends State<StudentReportScreen>
           // Submit Report Button (only show on Current Month tab)
           if (_selectedTabIndex == 0 &&
               _selectedMonth != null &&
-              _timesheetsByMonth[_selectedMonth]?.any((t) => t.status == 'draft') == true)
+              _timesheetsByMonth[_selectedMonth]?.any(
+                    (t) => t.status == 'draft',
+                  ) ==
+                  true)
             IconButton(
               icon: const Icon(Icons.send),
               tooltip: 'Submit Monthly Report',
@@ -1129,14 +1166,8 @@ class _StudentReportScreenState extends State<StudentReportScreen>
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
           tabs: const [
-            Tab(
-              icon: Icon(Icons.access_time),
-              text: 'Current Month',
-            ),
-            Tab(
-              icon: Icon(Icons.history),
-              text: 'History',
-            ),
+            Tab(icon: Icon(Icons.access_time), text: 'Current Month'),
+            Tab(icon: Icon(Icons.history), text: 'History'),
           ],
         ),
       ),
@@ -1148,10 +1179,7 @@ class _StudentReportScreenState extends State<StudentReportScreen>
           : ResponsiveContainer(
               child: TabBarView(
                 controller: _tabController,
-                children: [
-                  _buildCurrentMonthView(),
-                  _buildHistoryView(),
-                ],
+                children: [_buildCurrentMonthView(), _buildHistoryView()],
               ),
             ),
       floatingActionButton: _studentProfile != null

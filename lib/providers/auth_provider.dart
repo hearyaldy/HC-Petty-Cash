@@ -126,4 +126,9 @@ class AuthProvider extends ChangeNotifier {
         currentUser?.roleEnum == UserRole.manager ||
         currentUser?.roleEnum == UserRole.finance;
   }
+
+  // Fetch user by ID
+  Future<User?> getUserById(String userId) async {
+    return await _authService.getUserById(userId);
+  }
 }

@@ -353,6 +353,64 @@ class TransactionProvider extends ChangeNotifier {
         .toList();
   }
 
+  /// Update the support document URL for a transaction (deprecated)
+  Future<void> updateSupportDocument(
+    String transactionId,
+    String? supportDocumentUrl,
+  ) async {
+    // Convert to list and call the new method
+    await updateSupportDocuments(
+      transactionId,
+      supportDocumentUrl != null ? [supportDocumentUrl] : [],
+    );
+  }
+
+  /// Update the support document URLs for a transaction
+  Future<void> updateSupportDocuments(
+    String transactionId,
+    List<String> supportDocumentUrls,
+  ) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      AppLogger.info('Updating support documents for transaction: $transactionId');
+      AppLogger.info('New document URLs count: ${supportDocumentUrls.length}');
+      AppLogger.info('URLs: $supportDocumentUrls');
+
+      final transaction = await _firestoreService.getTransaction(transactionId);
+      if (transaction != null) {
+        AppLogger.info('Current document URLs in transaction: ${transaction.supportDocumentUrls.length}');
+
+        final updated = transaction.copyWith(
+          supportDocumentUrls: supportDocumentUrls,
+          supportDocumentUrl: supportDocumentUrls.isNotEmpty ? supportDocumentUrls.first : null,
+          updatedAt: DateTime.now(),
+        );
+
+        AppLogger.info('Updating transaction in Firestore...');
+        await _firestoreService.updateTransaction(updated);
+        AppLogger.info('Transaction updated successfully');
+
+        AppLogger.info('Reloading transactions for report: ${transaction.reportId}');
+        await loadTransactionsByReportId(transaction.reportId);
+        AppLogger.info('Transactions reloaded successfully');
+      } else {
+        AppLogger.warning('Transaction not found: $transactionId');
+      }
+
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _errorMessage = 'Failed to update support documents: ${e.toString()}';
+      AppLogger.severe('Error updating support documents: $e');
+      _isLoading = false;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
   // Update financial summary for a report after transaction changes
   Future<void> _updateReportFinancialSummary(String reportId) async {
     try {

@@ -5,7 +5,8 @@ import 'approval_record.dart';
 class Transaction {
   final String id;
   final String reportId;
-  final String? projectId; // Optional project ID for linking to Project/Production reports
+  final String?
+  projectId; // Optional project ID for linking to Project/Production reports
   final DateTime date;
   final String receiptNo;
   final String description;
@@ -17,6 +18,8 @@ class Transaction {
   final String status; // Store as string: 'draft', 'pendingApproval', etc.
   final String? paidTo;
   final List<String> attachmentUrls; // Firebase Storage URLs
+  final String? supportDocumentUrl; // Support document image URL (deprecated, use supportDocumentUrls)
+  final List<String> supportDocumentUrls; // Multiple support document URLs
   final List<Map<String, dynamic>> approvalHistory;
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -36,27 +39,30 @@ class Transaction {
     required this.status,
     this.paidTo,
     List<String>? attachmentUrls,
+    this.supportDocumentUrl,
+    List<String>? supportDocumentUrls,
     List<Map<String, dynamic>>? approvalHistory,
     required this.createdAt,
     this.updatedAt,
-  })  : attachmentUrls = attachmentUrls ?? [],
-        approvalHistory = approvalHistory ?? [];
+  }) : attachmentUrls = attachmentUrls ?? [],
+       supportDocumentUrls = supportDocumentUrls ?? (supportDocumentUrl != null ? [supportDocumentUrl] : []),
+       approvalHistory = approvalHistory ?? [];
 
   // Get enum values from strings
   ExpenseCategory get categoryEnum => ExpenseCategory.values.firstWhere(
-        (e) => e.name == category,
-        orElse: () => ExpenseCategory.other,
-      );
+    (e) => e.name == category,
+    orElse: () => ExpenseCategory.other,
+  );
 
   PaymentMethod get paymentMethodEnum => PaymentMethod.values.firstWhere(
-        (e) => e.name == paymentMethod,
-        orElse: () => PaymentMethod.cash,
-      );
+    (e) => e.name == paymentMethod,
+    orElse: () => PaymentMethod.cash,
+  );
 
   TransactionStatus get statusEnum => TransactionStatus.values.firstWhere(
-        (e) => e.name == status,
-        orElse: () => TransactionStatus.draft,
-      );
+    (e) => e.name == status,
+    orElse: () => TransactionStatus.draft,
+  );
 
   // Get approval records from JSON
   List<ApprovalRecord> get approvalRecords =>
@@ -79,6 +85,8 @@ class Transaction {
       'status': status,
       'paidTo': paidTo,
       'attachmentUrls': attachmentUrls,
+      'supportDocumentUrl': supportDocumentUrl,
+      'supportDocumentUrls': supportDocumentUrls,
       'approvalHistory': approvalHistory.map((record) {
         return {
           'approverId': record['approverId'],
@@ -86,21 +94,24 @@ class Transaction {
           'timestamp': record['timestamp'] is DateTime
               ? firestore.Timestamp.fromDate(record['timestamp'] as DateTime)
               : record['timestamp'] is String
-                  ? firestore.Timestamp.fromDate(
-                      DateTime.parse(record['timestamp'] as String))
-                  : record['timestamp'],
+              ? firestore.Timestamp.fromDate(
+                  DateTime.parse(record['timestamp'] as String),
+                )
+              : record['timestamp'],
           'action': record['action'],
           'comments': record['comments'],
         };
       }).toList(),
       'createdAt': firestore.Timestamp.fromDate(createdAt),
-      'updatedAt':
-          updatedAt != null ? firestore.Timestamp.fromDate(updatedAt!) : null,
+      'updatedAt': updatedAt != null
+          ? firestore.Timestamp.fromDate(updatedAt!)
+          : null,
     };
   }
 
   factory Transaction.fromFirestore(
-      firestore.DocumentSnapshot<Map<String, dynamic>> doc) {
+    firestore.DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
     final data = doc.data()!;
     return Transaction(
       id: doc.id,
@@ -118,15 +129,21 @@ class Transaction {
       paidTo: data['paidTo'] as String?,
       attachmentUrls:
           (data['attachmentUrls'] as List<dynamic>?)?.cast<String>() ?? [],
-      approvalHistory: (data['approvalHistory'] as List<dynamic>?)
-              ?.map((e) => {
-                    'approverId': e['approverId'],
-                    'approverName': e['approverName'],
-                    'timestamp':
-                        (e['timestamp'] as firestore.Timestamp).toDate(),
-                    'action': e['action'],
-                    'comments': e['comments'],
-                  })
+      supportDocumentUrl: data['supportDocumentUrl'] as String?,
+      supportDocumentUrls:
+          (data['supportDocumentUrls'] as List<dynamic>?)?.cast<String>() ??
+          (data['supportDocumentUrl'] != null ? [data['supportDocumentUrl'] as String] : []),
+      approvalHistory:
+          (data['approvalHistory'] as List<dynamic>?)
+              ?.map(
+                (e) => {
+                  'approverId': e['approverId'],
+                  'approverName': e['approverName'],
+                  'timestamp': (e['timestamp'] as firestore.Timestamp).toDate(),
+                  'action': e['action'],
+                  'comments': e['comments'],
+                },
+              )
               .toList() ??
           [],
       createdAt: (data['createdAt'] as firestore.Timestamp).toDate(),
@@ -152,6 +169,7 @@ class Transaction {
       'approverId': approverId,
       'status': status,
       'attachmentUrls': attachmentUrls,
+      'supportDocumentUrl': supportDocumentUrl,
       'approvalHistory': approvalHistory,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
@@ -176,11 +194,12 @@ class Transaction {
       paidTo: json['paidTo'] as String?,
       attachmentUrls:
           (json['attachmentUrls'] as List?)?.cast<String>() ??
-              (json['attachments'] as List?)?.cast<String>() ??
-              [],
+          (json['attachments'] as List?)?.cast<String>() ??
+          [],
+      supportDocumentUrl: json['supportDocumentUrl'] as String?,
       approvalHistory:
           (json['approvalHistory'] as List?)?.cast<Map<String, dynamic>>() ??
-              [],
+          [],
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: json['updatedAt'] != null
           ? DateTime.parse(json['updatedAt'] as String)
@@ -202,6 +221,8 @@ class Transaction {
     String? status,
     String? paidTo,
     List<String>? attachmentUrls,
+    String? supportDocumentUrl,
+    List<String>? supportDocumentUrls,
     List<Map<String, dynamic>>? approvalHistory,
     DateTime? updatedAt,
   }) {
@@ -220,6 +241,8 @@ class Transaction {
       status: status ?? this.status,
       paidTo: paidTo ?? this.paidTo,
       attachmentUrls: attachmentUrls ?? this.attachmentUrls,
+      supportDocumentUrl: supportDocumentUrl ?? this.supportDocumentUrl,
+      supportDocumentUrls: supportDocumentUrls ?? this.supportDocumentUrls,
       approvalHistory: approvalHistory ?? this.approvalHistory,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

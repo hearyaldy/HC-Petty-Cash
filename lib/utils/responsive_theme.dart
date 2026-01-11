@@ -114,7 +114,7 @@ class ResponsiveTheme {
 
       // Chip Theme
       chipTheme: ChipThemeData(
-        backgroundColor: colorScheme.surfaceVariant,
+        backgroundColor: colorScheme.surfaceContainerHighest,
         selectedColor: colorScheme.primaryContainer,
         labelStyle: _getTextTheme(context, colorScheme).bodyMedium,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

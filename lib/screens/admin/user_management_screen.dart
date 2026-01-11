@@ -69,9 +69,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : ResponsiveContainer(
-              child: _users.isEmpty
-                  ? _buildEmptyState()
-                  : _buildUserList(),
+              child: _users.isEmpty ? _buildEmptyState() : _buildUserList(),
             ),
       floatingActionButton: Container(
         decoration: BoxDecoration(
@@ -247,206 +245,205 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
   Widget _buildUserCard(User user, {double? hourlyRate}) {
     return Container(
-          margin: const EdgeInsets.only(bottom: 16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.1),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: _getRoleGradientColors(user.role),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: _getRoleGradientColors(user.role),
+                ),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: _getRoleColor(user.role).withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Text(
+                  user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    user.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
                     ),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: _getRoleColor(user.role).withOpacity(0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.email_outlined,
+                        size: 14,
+                        color: Colors.grey[600],
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          user.email,
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 14,
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                  child: Center(
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.business_outlined,
+                        size: 14,
+                        color: Colors.grey[600],
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        user.department,
+                        style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                      ),
+                    ],
+                  ),
+                  if (user.role == 'studentWorker' && hourlyRate != null) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.attach_money,
+                          size: 14,
+                          color: Colors.orange.shade600,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Hourly Rate: ${AppConstants.currencySymbol}${hourlyRate.toStringAsFixed(2)}/h',
+                          style: TextStyle(
+                            color: Colors.orange.shade700,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: _getRoleGradientColors(user.role),
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _getRoleColor(user.role).withOpacity(0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
                     child: Text(
-                      user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
+                      UserRole.values
+                          .firstWhere(
+                            (e) => e.name == user.role.trim().toLowerCase(),
+                            orElse: () => UserRole.requester,
+                          )
+                          .displayName,
                       style: const TextStyle(
+                        fontSize: 12,
                         color: Colors.white,
-                        fontSize: 24,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                ],
+              ),
+            ),
+            PopupMenuButton<String>(
+              onSelected: (value) {
+                if (value == 'edit') {
+                  _showEditUserDialog(user);
+                } else if (value == 'delete') {
+                  _confirmDeleteUser(user);
+                } else if (value == 'rate') {
+                  _showEditRateDialog(user, hourlyRate ?? 0.0);
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
                     children: [
-                      Text(
-                        user.name,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.email_outlined,
-                            size: 14,
-                            color: Colors.grey[600],
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              user.email,
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.business_outlined,
-                            size: 14,
-                            color: Colors.grey[600],
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            user.department,
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (user.role == 'studentWorker' && hourlyRate != null) ...[
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.attach_money,
-                              size: 14,
-                              color: Colors.orange.shade600,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Hourly Rate: ${AppConstants.currencySymbol}${hourlyRate.toStringAsFixed(2)}/h',
-                              style: TextStyle(
-                                color: Colors.orange.shade700,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: _getRoleGradientColors(user.role),
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: _getRoleColor(user.role).withOpacity(0.3),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          UserRole.values.firstWhere(
-                            (e) => e.name == user.role.trim().toLowerCase(),
-                            orElse: () => UserRole.requester,
-                          ).displayName,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
+                      Icon(Icons.edit, color: Colors.blue.shade600),
+                      const SizedBox(width: 8),
+                      const Text('Edit'),
                     ],
                   ),
                 ),
-                PopupMenuButton<String>(
-                  onSelected: (value) {
-                    if (value == 'edit') {
-                      _showEditUserDialog(user);
-                    } else if (value == 'delete') {
-                      _confirmDeleteUser(user);
-                    } else if (value == 'rate') {
-                      _showEditRateDialog(user, hourlyRate ?? 0.0);
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(Icons.edit, color: Colors.blue.shade600),
-                          const SizedBox(width: 8),
-                          const Text('Edit'),
-                        ],
-                      ),
+                if (user.role == 'studentWorker')
+                  PopupMenuItem(
+                    value: 'rate',
+                    child: Row(
+                      children: [
+                        Icon(Icons.attach_money, color: Colors.orange.shade600),
+                        const SizedBox(width: 8),
+                        const Text('Manage Rate'),
+                      ],
                     ),
-                    if (user.role == 'studentWorker')
-                      PopupMenuItem(
-                        value: 'rate',
-                        child: Row(
-                          children: [
-                            Icon(Icons.attach_money, color: Colors.orange.shade600),
-                            const SizedBox(width: 8),
-                            const Text('Manage Rate'),
-                          ],
-                        ),
-                      ),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(Icons.delete, color: Colors.red),
-                          SizedBox(width: 8),
-                          Text('Delete', style: TextStyle(color: Colors.red)),
-                        ],
-                      ),
-                    ),
-                  ],
+                  ),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('Delete', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
                 ),
               ],
             ),
-          ),
-        );
+          ],
+        ),
+      ),
+    );
   }
 
   List<Color> _getRoleGradientColors(String role) {
@@ -547,7 +544,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: selectedRole,
+                    initialValue: selectedRole,
                     decoration: const InputDecoration(
                       labelText: 'Role',
                       border: OutlineInputBorder(),
@@ -671,7 +668,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: selectedRole,
+                    initialValue: selectedRole,
                     decoration: const InputDecoration(
                       labelText: 'Role',
                       border: OutlineInputBorder(),
@@ -854,7 +851,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   }
 
   void _showEditRateDialog(User user, double currentRate) {
-    final rateController = TextEditingController(text: currentRate.toStringAsFixed(2));
+    final rateController = TextEditingController(
+      text: currentRate.toStringAsFixed(2),
+    );
     final formKey = GlobalKey<FormState>();
 
     showDialog(
@@ -889,7 +888,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   border: const OutlineInputBorder(),
                   hintText: 'Enter hourly rate',
                 ),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter hourly rate';
@@ -934,9 +935,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           .collection('student_profiles')
           .doc(userId)
           .update({
-        'hourlyRate': newRate,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+            'hourlyRate': newRate,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

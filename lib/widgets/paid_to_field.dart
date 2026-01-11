@@ -174,7 +174,7 @@ class _PaidToFieldDialogState extends State<PaidToFieldDialog> {
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<PaidToType>(
-                value: _selectedType,
+                initialValue: _selectedType,
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   contentPadding: EdgeInsets.symmetric(
@@ -203,7 +203,9 @@ class _PaidToFieldDialogState extends State<PaidToFieldDialog> {
                 const SizedBox(height: 8),
                 if (_customStaff.isNotEmpty) ...[
                   DropdownButtonFormField<String>(
-                    value: _selectedStaff.isNotEmpty ? _selectedStaff : null,
+                    initialValue: _selectedStaff.isNotEmpty
+                        ? _selectedStaff
+                        : null,
                     decoration: const InputDecoration(
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.person),
@@ -249,7 +251,7 @@ class _PaidToFieldDialogState extends State<PaidToFieldDialog> {
                 const SizedBox(height: 8),
                 if (_customStudentWorkers.isNotEmpty) ...[
                   DropdownButtonFormField<String>(
-                    value: _selectedStudentWorker.isNotEmpty
+                    initialValue: _selectedStudentWorker.isNotEmpty
                         ? _selectedStudentWorker
                         : null,
                     decoration: const InputDecoration(
@@ -296,7 +298,7 @@ class _PaidToFieldDialogState extends State<PaidToFieldDialog> {
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: _selectedVendor,
+                  initialValue: _selectedVendor,
                   decoration: const InputDecoration(
                     border: OutlineInputBorder(),
                     contentPadding: EdgeInsets.symmetric(

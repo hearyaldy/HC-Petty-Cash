@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/constants.dart';
+import '../../utils/responsive_helper.dart';
 import '../../widgets/category_management_dialog.dart';
 import '../../widgets/paid_to_management_dialog.dart';
 
@@ -40,13 +41,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
       body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildPageHeader(),
-              const SizedBox(height: 24),
+        child: Center(
+          child: Container(
+            constraints: BoxConstraints(
+              maxWidth: ResponsiveHelper.getMaxContentWidth(context),
+            ),
+            padding: ResponsiveHelper.getScreenPadding(context),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildPageHeader(),
+                const SizedBox(height: 24),
 
               // User Profile Section
               _buildSectionHeader('User Profile'),
@@ -251,7 +256,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onTap: () => _showLogoutDialog(),
               ),
               const SizedBox(height: 20),
-            ],
+              ],
+            ),
           ),
         ),
       ),
