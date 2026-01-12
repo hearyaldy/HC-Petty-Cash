@@ -71,8 +71,13 @@ extension TransactionSortOptionExtension on TransactionSortOption {
 
 class ReportDetailScreen extends StatefulWidget {
   final String reportId;
+  final bool autoLaunchAddTransaction;
 
-  const ReportDetailScreen({super.key, required this.reportId});
+  const ReportDetailScreen({
+    super.key,
+    required this.reportId,
+    this.autoLaunchAddTransaction = false,
+  });
 
   @override
   State<ReportDetailScreen> createState() => _ReportDetailScreenState();
@@ -81,11 +86,13 @@ class ReportDetailScreen extends StatefulWidget {
 class _ReportDetailScreenState extends State<ReportDetailScreen> {
   TransactionSortOption _sortOption = TransactionSortOption.receiptNoAsc;
   List<CustomCategory> _enabledCustomCategories = [];
+  bool _pendingAutoAddTransaction = false;
 
   @override
   void initState() {
     super.initState();
     _loadCustomCategories();
+    _pendingAutoAddTransaction = widget.autoLaunchAddTransaction;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<TransactionProvider>().loadTransactions();
       context.read<ProjectReportProvider>().loadProjectReports();
@@ -111,6 +118,17 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       (r) => r.id == widget.reportId,
       orElse: () => throw Exception('Report not found'),
     );
+
+    if (_pendingAutoAddTransaction) {
+      _pendingAutoAddTransaction = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        // Only open if report is not closed
+        if (report.statusEnum != ReportStatus.closed) {
+          _showAddTransactionDialog(report);
+        }
+      });
+    }
 
     final transactions = transactionProvider.transactions
         .where((t) => t.reportId == report.id)

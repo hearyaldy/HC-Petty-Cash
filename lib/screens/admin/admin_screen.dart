@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/report_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../models/user.dart';
 import '../../models/enums.dart';
@@ -69,6 +70,11 @@ class _AdminScreenState extends State<AdminScreen> {
         title: const Text('User Management'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.playlist_add),
+            onPressed: _showAddTransactionQuickAction,
+            tooltip: 'Quick Add Transaction',
+          ),
+          IconButton(
             icon: const Icon(Icons.attach_money),
             onPressed: () => context.push('/admin/payment-rates'),
             tooltip: 'Student Payment Rates',
@@ -89,6 +95,70 @@ class _AdminScreenState extends State<AdminScreen> {
           ? const Center(child: CircularProgressIndicator())
           : ResponsiveContainer(child: _buildUsersList()),
     );
+  }
+
+  Future<void> _showAddTransactionQuickAction() async {
+    final reportProvider = context.read<ReportProvider>();
+    if (reportProvider.reports.isEmpty) {
+      await reportProvider.loadReports();
+      if (!mounted) return;
+    }
+
+    final openReports = reportProvider.reports
+        .where((r) => r.statusEnum != ReportStatus.closed)
+        .toList();
+
+    if (openReports.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No open reports available.')),
+      );
+      return;
+    }
+
+    final selectedId = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Transaction to Report'),
+        content: SizedBox(
+          width: 420,
+          child: ListView.separated(
+            shrinkWrap: true,
+            itemCount: openReports.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final report = openReports[index];
+              return ListTile(
+                leading: const Icon(Icons.receipt_long),
+                title: Text(report.reportNumber),
+                subtitle: Text(report.department),
+                trailing: Chip(
+                  label: Text(report.statusEnum.displayName),
+                  backgroundColor: Colors.blue.shade50,
+                  labelStyle: const TextStyle(fontSize: 11),
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                ),
+                onTap: () => Navigator.of(context).pop(report.id),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+
+    if (selectedId != null && mounted) {
+      context.push(
+        '/reports/$selectedId',
+        extra: {'action': 'addTransaction'},
+      );
+    }
   }
 
   Widget _buildUsersList() {

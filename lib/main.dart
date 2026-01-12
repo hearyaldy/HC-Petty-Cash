@@ -167,7 +167,12 @@ class MyApp extends StatelessWidget {
           path: '/reports/:id',
           builder: (context, state) {
             final id = state.pathParameters['id']!;
-            return ReportDetailScreen(reportId: id);
+            final autoAdd =
+                state.extra is Map && (state.extra as Map)['action'] == 'addTransaction';
+            return ReportDetailScreen(
+              reportId: id,
+              autoLaunchAddTransaction: autoAdd == true,
+            );
           },
         ),
         GoRoute(
