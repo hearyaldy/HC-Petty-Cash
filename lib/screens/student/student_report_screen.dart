@@ -10,6 +10,36 @@ import '../../models/student_timesheet.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/responsive_helper.dart';
 
+enum TimesheetSortOption { dateNewest, dateOldest, hoursHighest, hoursLowest }
+
+enum ViewMode { card, table }
+
+extension TimesheetSortOptionExtension on TimesheetSortOption {
+  String get displayName {
+    switch (this) {
+      case TimesheetSortOption.dateNewest:
+        return 'Date (Newest First)';
+      case TimesheetSortOption.dateOldest:
+        return 'Date (Oldest First)';
+      case TimesheetSortOption.hoursHighest:
+        return 'Hours (Highest First)';
+      case TimesheetSortOption.hoursLowest:
+        return 'Hours (Lowest First)';
+    }
+  }
+
+  IconData get icon {
+    switch (this) {
+      case TimesheetSortOption.dateNewest:
+      case TimesheetSortOption.dateOldest:
+        return Icons.calendar_today;
+      case TimesheetSortOption.hoursHighest:
+      case TimesheetSortOption.hoursLowest:
+        return Icons.timelapse;
+    }
+  }
+}
+
 class StudentReportScreen extends StatefulWidget {
   const StudentReportScreen({super.key});
 
@@ -27,6 +57,8 @@ class _StudentReportScreenState extends State<StudentReportScreen>
   bool _isLoading = true;
   late TabController _tabController;
   int _selectedTabIndex = 0; // 0 = Current Month, 1 = History
+  ViewMode _viewMode = ViewMode.card;
+  TimesheetSortOption _sortOption = TimesheetSortOption.dateNewest;
 
   @override
   void initState() {
