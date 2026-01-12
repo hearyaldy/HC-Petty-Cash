@@ -13,6 +13,7 @@ import '../../providers/report_provider.dart';
 import '../../providers/project_report_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../models/petty_cash_report.dart';
+import '../../models/app_settings.dart';
 import '../../models/transaction.dart';
 import '../../models/enums.dart';
 import '../../services/excel_export_service.dart';
@@ -79,13 +80,24 @@ class ReportDetailScreen extends StatefulWidget {
 
 class _ReportDetailScreenState extends State<ReportDetailScreen> {
   TransactionSortOption _sortOption = TransactionSortOption.receiptNoAsc;
+  List<CustomCategory> _enabledCustomCategories = [];
 
   @override
   void initState() {
     super.initState();
+    _loadCustomCategories();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<TransactionProvider>().loadTransactions();
       context.read<ProjectReportProvider>().loadProjectReports();
+    });
+  }
+
+  Future<void> _loadCustomCategories() async {
+    final settingsService = SettingsService();
+    final categories = await settingsService.getCustomCategories();
+    if (!mounted) return;
+    setState(() {
+      _enabledCustomCategories = categories.where((c) => c.enabled).toList();
     });
   }
 
@@ -762,6 +774,188 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     Transaction transaction,
     AuthProvider authProvider,
   ) {
+    final isMobile = ResponsiveHelper.isMobile(context);
+
+    final amountText = Text(
+      '${AppConstants.currencySymbol}${transaction.amount.toStringAsFixed(2)}',
+      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+    );
+
+    final actions = Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      alignment: WrapAlignment.end,
+      children: [
+        _buildSupportDocumentButton(transaction),
+        OutlinedButton.icon(
+          onPressed: () => _exportVoucher(transaction),
+          icon: const Icon(Icons.receipt_long, size: 16),
+          label: const Text('Voucher', style: TextStyle(fontSize: 12)),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            side: BorderSide(color: Colors.blue.shade300),
+            foregroundColor: Colors.blue.shade700,
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ),
+        PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert, size: 20),
+          padding: EdgeInsets.zero,
+          onSelected: (value) async {
+            if (value == 'edit') {
+              await _showEditTransactionDialog(transaction);
+            } else if (value == 'delete') {
+              await _showDeleteTransactionConfirmation(transaction);
+            } else if (value == 'viewDocument') {
+              _showSupportDocumentPreview(transaction);
+            } else if (value == 'uploadDocument') {
+              _showSupportDocumentUploadDialog(transaction);
+            }
+          },
+          itemBuilder: (context) => [
+            if (transaction.supportDocumentUrl != null)
+              const PopupMenuItem(
+                value: 'viewDocument',
+                child: Row(
+                  children: [
+                    Icon(Icons.visibility, size: 18, color: Colors.green),
+                    SizedBox(width: 8),
+                    Text('View Document'),
+                  ],
+                ),
+              ),
+            PopupMenuItem(
+              value: 'uploadDocument',
+              child: Row(
+                children: [
+                  Icon(
+                    transaction.supportDocumentUrl != null
+                        ? Icons.edit_document
+                        : Icons.upload_file,
+                    size: 18,
+                    color: Colors.orange,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    transaction.supportDocumentUrl != null
+                        ? 'Change Document'
+                        : 'Upload Document',
+                  ),
+                ],
+              ),
+            ),
+            const PopupMenuDivider(),
+            const PopupMenuItem(
+              value: 'edit',
+              child: Row(
+                children: [
+                  Icon(Icons.edit, size: 18),
+                  SizedBox(width: 8),
+                  Text('Edit'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'delete',
+              child: Row(
+                children: [
+                  Icon(Icons.delete, size: 18, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text('Delete', style: TextStyle(color: Colors.red)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+
+    final leadingIcon = Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _getTransactionStatusColor(transaction.statusEnum),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Icon(_getTransactionIconFor(transaction), color: Colors.white),
+    );
+
+    final details = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          transaction.description,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                transaction.categoryDisplayName,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.blue.shade700,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '• ${DateFormat('MMM d, y').format(transaction.date)}',
+              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Receipt: ${transaction.receiptNo} • ${transaction.paymentMethodEnum.displayName}',
+          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            _buildTransactionStatusChip(transaction.statusEnum),
+            if (transaction.supportDocumentUrl != null) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green.shade200),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.attach_file,
+                      size: 12,
+                      color: Colors.green.shade700,
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      'Doc',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.green.shade700,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
@@ -771,225 +965,35 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: _getTransactionStatusColor(transaction.statusEnum),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                _getTransactionIcon(transaction.categoryEnum),
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
+        child: isMobile
+            ? Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    transaction.description,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          transaction.categoryEnum.displayName,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.blue.shade700,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
+                      leadingIcon,
+                      const SizedBox(width: 12),
+                      Expanded(child: details),
                       const SizedBox(width: 8),
-                      Text(
-                        '• ${DateFormat('MMM d, y').format(transaction.date)}',
-                        style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-                      ),
+                      amountText,
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Receipt: ${transaction.receiptNo} • ${transaction.paymentMethodEnum.displayName}',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      _buildTransactionStatusChip(transaction.statusEnum),
-                      if (transaction.supportDocumentUrl != null) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.green.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.green.shade200),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.attach_file,
-                                size: 12,
-                                color: Colors.green.shade700,
-                              ),
-                              const SizedBox(width: 2),
-                              Text(
-                                'Doc',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.green.shade700,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ],
+                  const SizedBox(height: 12),
+                  Align(alignment: Alignment.centerRight, child: actions),
+                ],
+              )
+            : Row(
+                children: [
+                  leadingIcon,
+                  const SizedBox(width: 16),
+                  Expanded(child: details),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [amountText, const SizedBox(height: 12), actions],
                   ),
                 ],
               ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  '${AppConstants.currencySymbol}${transaction.amount.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 4,
-                  runSpacing: 4,
-                  alignment: WrapAlignment.end,
-                  children: [
-                    // Support Document Button
-                    _buildSupportDocumentButton(transaction),
-                    // Voucher Button
-                    OutlinedButton.icon(
-                      onPressed: () => _exportVoucher(transaction),
-                      icon: const Icon(Icons.receipt_long, size: 16),
-                      label: const Text(
-                        'Voucher',
-                        style: TextStyle(fontSize: 12),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        side: BorderSide(color: Colors.blue.shade300),
-                        foregroundColor: Colors.blue.shade700,
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                    ),
-                    PopupMenuButton<String>(
-                      icon: const Icon(Icons.more_vert, size: 20),
-                      padding: EdgeInsets.zero,
-                      onSelected: (value) async {
-                        if (value == 'edit') {
-                          await _showEditTransactionDialog(transaction);
-                        } else if (value == 'delete') {
-                          await _showDeleteTransactionConfirmation(transaction);
-                        } else if (value == 'viewDocument') {
-                          _showSupportDocumentPreview(transaction);
-                        } else if (value == 'uploadDocument') {
-                          _showSupportDocumentUploadDialog(transaction);
-                        }
-                      },
-                      itemBuilder: (context) => [
-                        if (transaction.supportDocumentUrl != null)
-                          const PopupMenuItem(
-                            value: 'viewDocument',
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.visibility,
-                                  size: 18,
-                                  color: Colors.green,
-                                ),
-                                SizedBox(width: 8),
-                                Text('View Document'),
-                              ],
-                            ),
-                          ),
-                        PopupMenuItem(
-                          value: 'uploadDocument',
-                          child: Row(
-                            children: [
-                              Icon(
-                                transaction.supportDocumentUrl != null
-                                    ? Icons.edit_document
-                                    : Icons.upload_file,
-                                size: 18,
-                                color: Colors.orange,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                transaction.supportDocumentUrl != null
-                                    ? 'Change Document'
-                                    : 'Upload Document',
-                              ),
-                            ],
-                          ),
-                        ),
-                        const PopupMenuDivider(),
-                        const PopupMenuItem(
-                          value: 'edit',
-                          child: Row(
-                            children: [
-                              Icon(Icons.edit, size: 18),
-                              SizedBox(width: 8),
-                              Text('Edit'),
-                            ],
-                          ),
-                        ),
-                        const PopupMenuItem(
-                          value: 'delete',
-                          child: Row(
-                            children: [
-                              Icon(Icons.delete, size: 18, color: Colors.red),
-                              SizedBox(width: 8),
-                              Text(
-                                'Delete',
-                                style: TextStyle(color: Colors.red),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -1190,6 +1194,37 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     }
   }
 
+  IconData _getTransactionIconFor(Transaction transaction) {
+    final hasCustom =
+        transaction.customCategory != null &&
+        transaction.customCategory!.isNotEmpty;
+
+    if (hasCustom) {
+      final custom = _enabledCustomCategories.firstWhere(
+        (c) => c.name == transaction.customCategory,
+        orElse: () => CustomCategory(
+          // Fallback to avoid crashes if cache misses
+          id: 'fallback',
+          name: transaction.customCategory!,
+          iconCodePoint: Icons.category.codePoint.toString(),
+          createdAt: DateTime.now(),
+        ),
+      );
+
+      try {
+        return IconData(
+          int.parse(custom.iconCodePoint),
+          fontFamily: 'MaterialIcons',
+        );
+      } catch (_) {
+        // If parsing fails, fall back to generic icon
+        return Icons.category;
+      }
+    }
+
+    return _getTransactionIcon(transaction.categoryEnum);
+  }
+
   IconData _getCategoryIcon(ExpenseCategory category) {
     switch (category) {
       case ExpenseCategory.office:
@@ -1247,7 +1282,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     // Load custom categories
     final settingsService = SettingsService();
     final customCategories = await settingsService.getCustomCategories();
-    final enabledCustomCategories = customCategories
+    var enabledCustomCategories = customCategories
         .where((c) => c.enabled)
         .toList();
 
@@ -1491,9 +1526,46 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                 ),
                               );
                             }),
+                            // Add new category option
+                            DropdownMenuItem(
+                              value: '_add_new_category',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.add_circle_outline,
+                                    size: 20,
+                                    color: Colors.green,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Add New Category...',
+                                    style: TextStyle(
+                                      color: Colors.green,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ],
-                          onChanged: (value) {
-                            if (value != null) {
+                          onChanged: (value) async {
+                            if (value == '_add_new_category') {
+                              // Show add category dialog
+                              final newCategory = await _showAddCategoryDialog(
+                                context,
+                              );
+                              if (newCategory != null) {
+                                // Reload custom categories
+                                final updatedCategories = await settingsService
+                                    .getCustomCategories();
+                                setState(() {
+                                  enabledCustomCategories = updatedCategories
+                                      .where((c) => c.enabled)
+                                      .toList();
+                                  selectedCategory = 'custom_${newCategory.id}';
+                                });
+                              }
+                            } else if (value != null) {
                               setState(() {
                                 selectedCategory = value;
                               });
@@ -1540,8 +1612,19 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                       .read<AuthProvider>();
 
                                   final ExpenseCategory categoryEnum;
+                                  String? customCategoryName;
+
                                   if (selectedCategory.startsWith('custom_')) {
-                                    // For custom categories, use 'other' as default
+                                    // For custom categories, extract the custom category name
+                                    final customCategoryId = selectedCategory
+                                        .substring(
+                                          7,
+                                        ); // Remove 'custom_' prefix
+                                    final customCategory =
+                                        enabledCustomCategories.firstWhere(
+                                          (c) => c.id == customCategoryId,
+                                        );
+                                    customCategoryName = customCategory.name;
                                     categoryEnum = ExpenseCategory.other;
                                   } else {
                                     // For standard categories, find the corresponding enum value
@@ -1560,6 +1643,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                     receiptNo: receiptNoController.text,
                                     description: descriptionController.text,
                                     category: categoryEnum,
+                                    customCategory: customCategoryName,
                                     amount: double.parse(amountController.text),
                                     paymentMethod: selectedPaymentMethod,
                                     requestorId: authProvider.currentUser!.id,
@@ -1805,7 +1889,22 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       text: transaction.paidTo ?? '',
     );
     DateTime selectedDate = transaction.date;
-    ExpenseCategory selectedCategory = transaction.categoryEnum;
+    final settingsService = SettingsService();
+    final customCategories = await settingsService.getCustomCategories();
+    List<CustomCategory> enabledCustomCategories = customCategories
+        .where((c) => c.enabled)
+        .toList();
+
+    String selectedCategory = transaction.categoryEnum.name;
+    if (transaction.customCategory != null &&
+        transaction.customCategory!.isNotEmpty) {
+      final matchingCustom = enabledCustomCategories
+          .where((c) => c.name == transaction.customCategory)
+          .toList();
+      if (matchingCustom.isNotEmpty) {
+        selectedCategory = 'custom_${matchingCustom.first.id}';
+      }
+    }
     PaymentMethod selectedPaymentMethod = transaction.paymentMethodEnum;
 
     await showDialog(
@@ -1879,23 +1978,80 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      DropdownButtonFormField<ExpenseCategory>(
+                      DropdownButtonFormField<String>(
                         value: selectedCategory,
                         decoration: const InputDecoration(
                           labelText: 'Category',
                           border: OutlineInputBorder(),
                         ),
-                        items: ExpenseCategory.values
-                            .map(
-                              (cat) => DropdownMenuItem(
-                                value: cat,
-                                child: Text(cat.displayName),
+                        items: [
+                          ...ExpenseCategory.values.map(
+                            (cat) => DropdownMenuItem(
+                              value: cat.name,
+                              child: Text(cat.displayName),
+                            ),
+                          ),
+                          ...enabledCustomCategories.map(
+                            (category) => DropdownMenuItem(
+                              value: 'custom_${category.id}',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    IconData(
+                                      int.parse(category.iconCodePoint),
+                                      fontFamily: 'MaterialIcons',
+                                    ),
+                                    size: 20,
+                                    color: Colors.purple,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(category.name),
+                                ],
                               ),
-                            )
-                            .toList(),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setState(() => selectedCategory = value);
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: '_add_new_category',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.add_circle_outline,
+                                  size: 20,
+                                  color: Colors.green,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Add New Category...',
+                                  style: TextStyle(
+                                    color: Colors.green,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        onChanged: (value) async {
+                          if (value == '_add_new_category') {
+                            final newCategory = await _showAddCategoryDialog(
+                              context,
+                            );
+                            if (newCategory != null) {
+                              final updatedCategories = await settingsService
+                                  .getCustomCategories();
+                              setState(() {
+                                enabledCustomCategories = updatedCategories
+                                    .where((c) => c.enabled)
+                                    .toList();
+                                selectedCategory = 'custom_${newCategory.id}';
+                              });
+                              _loadCustomCategories();
+                              _loadCustomCategories();
+                            }
+                          } else if (value != null) {
+                            setState(() {
+                              selectedCategory = value;
+                            });
                           }
                         },
                       ),
@@ -1947,11 +2103,35 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
               final transactionProvider = context.read<TransactionProvider>();
 
+              final ExpenseCategory categoryEnum;
+              String? customCategoryName;
+
+              if (selectedCategory.startsWith('custom_')) {
+                final customCategoryId = selectedCategory.substring(7);
+                final customCategory = enabledCustomCategories.firstWhere(
+                  (c) => c.id == customCategoryId,
+                  orElse: () => CustomCategory(
+                    id: customCategoryId,
+                    name: transaction.customCategory ?? 'Custom',
+                    iconCodePoint: Icons.category.codePoint.toString(),
+                    createdAt: DateTime.now(),
+                  ),
+                );
+                customCategoryName = customCategory.name;
+                categoryEnum = ExpenseCategory.other;
+              } else {
+                categoryEnum = ExpenseCategory.values.firstWhere(
+                  (e) => e.name == selectedCategory,
+                  orElse: () => ExpenseCategory.other,
+                );
+              }
+
               final updatedTransaction = transaction.copyWith(
                 date: selectedDate,
                 receiptNo: receiptNoController.text,
                 description: descriptionController.text,
-                category: selectedCategory.name,
+                category: categoryEnum.name,
+                customCategory: customCategoryName,
                 amount: double.parse(amountController.text),
                 paymentMethod: selectedPaymentMethod.name,
                 paidTo: paidToController.text.isEmpty
@@ -2179,6 +2359,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   ),
                   // Data rows
                   ...transactions.map((transaction) {
+                    final categoryName = transaction.categoryDisplayName;
                     return pw.TableRow(
                       children: [
                         pw.Padding(
@@ -2205,7 +2386,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(4),
                           child: pw.Text(
-                            transaction.categoryEnum.displayName,
+                            categoryName,
                             style: pw.TextStyle(font: ttf, fontSize: 8),
                           ),
                         ),
@@ -2574,5 +2755,191 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     }
 
     return number.toString(); // Fallback for very large numbers
+  }
+
+  Future<CustomCategory?> _showAddCategoryDialog(BuildContext context) async {
+    final nameController = TextEditingController();
+    final descriptionController = TextEditingController();
+    IconData selectedIcon = Icons.category;
+
+    final List<IconData> availableIcons = [
+      Icons.category,
+      Icons.shopping_bag,
+      Icons.restaurant,
+      Icons.local_gas_station,
+      Icons.home_repair_service,
+      Icons.build,
+      Icons.electrical_services,
+      Icons.plumbing,
+      Icons.local_shipping,
+      Icons.phone,
+      Icons.computer,
+      Icons.print,
+      Icons.attach_file,
+      Icons.event,
+      Icons.celebration,
+      Icons.card_giftcard,
+      Icons.medical_services,
+      Icons.school,
+      Icons.sports,
+      Icons.fitness_center,
+    ];
+
+    return await showDialog<CustomCategory>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.add_circle, color: Colors.green),
+              const SizedBox(width: 12),
+              const Text('Add New Category'),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Category Name *',
+                    hintText: 'e.g., Marketing, Equipment',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.label),
+                  ),
+                  textCapitalization: TextCapitalization.words,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Description (Optional)',
+                    hintText: 'Brief description of this category',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.description),
+                  ),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Select Icon',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  height: 200,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: GridView.builder(
+                    padding: const EdgeInsets.all(8),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 5,
+                          mainAxisSpacing: 8,
+                          crossAxisSpacing: 8,
+                        ),
+                    itemCount: availableIcons.length,
+                    itemBuilder: (context, index) {
+                      final icon = availableIcons[index];
+                      final isSelected = icon == selectedIcon;
+                      return InkWell(
+                        onTap: () {
+                          setState(() {
+                            selectedIcon = icon;
+                          });
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? Colors.purple.shade100
+                                : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isSelected
+                                  ? Colors.purple
+                                  : Colors.grey.shade300,
+                              width: isSelected ? 2 : 1,
+                            ),
+                          ),
+                          child: Icon(
+                            icon,
+                            color: isSelected
+                                ? Colors.purple
+                                : Colors.grey.shade700,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (nameController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please enter a category name'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
+                try {
+                  final settingsService = SettingsService();
+                  final newCategory = CustomCategory(
+                    id: DateTime.now().millisecondsSinceEpoch.toString(),
+                    name: nameController.text.trim(),
+                    description: descriptionController.text.trim(),
+                    iconCodePoint: selectedIcon.codePoint.toString(),
+                    enabled: true,
+                    createdAt: DateTime.now(),
+                  );
+
+                  await settingsService.addCustomCategory(newCategory);
+
+                  if (context.mounted) {
+                    Navigator.of(context).pop(newCategory);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Category "${newCategory.name}" added successfully!',
+                        ),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error adding category: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Add Category'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

@@ -14,6 +14,7 @@ class StudentTimesheet {
   final double hourlyRate;
   final double totalAmount;
   final String status; // 'draft', 'submitted', 'approved', 'rejected', 'paid'
+  final String task; // Task/work done description (required)
   final String? notes;
   final DateTime createdAt;
   final DateTime? approvedAt;
@@ -35,6 +36,7 @@ class StudentTimesheet {
     required this.hourlyRate,
     required this.totalAmount,
     this.status = 'draft',
+    required this.task,
     this.notes,
     required this.createdAt,
     this.approvedAt,
@@ -58,6 +60,7 @@ class StudentTimesheet {
       'hourlyRate': hourlyRate,
       'totalAmount': totalAmount,
       'status': status,
+      'task': task,
       'notes': notes,
       'createdAt': Timestamp.fromDate(createdAt),
       'approvedAt': approvedAt != null ? Timestamp.fromDate(approvedAt!) : null,
@@ -83,6 +86,7 @@ class StudentTimesheet {
       hourlyRate: (data['hourlyRate'] ?? 0.0).toDouble(),
       totalAmount: (data['totalAmount'] ?? 0.0).toDouble(),
       status: data['status'] ?? 'draft',
+      task: data['task'] ?? '',
       notes: data['notes'],
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       approvedAt: data['approvedAt'] != null
@@ -108,6 +112,7 @@ class StudentTimesheet {
     double? hourlyRate,
     double? totalAmount,
     String? status,
+    String? task,
     String? notes,
     DateTime? createdAt,
     DateTime? approvedAt,
@@ -129,6 +134,7 @@ class StudentTimesheet {
       hourlyRate: hourlyRate ?? this.hourlyRate,
       totalAmount: totalAmount ?? this.totalAmount,
       status: status ?? this.status,
+      task: task ?? this.task,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
       approvedAt: approvedAt ?? this.approvedAt,

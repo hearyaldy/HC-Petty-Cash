@@ -52,7 +52,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
     if (_selectedCategory != null && _selectedCategory != 'All') {
       filtered = filtered
           .where(
-            (t) => t.category.expenseCategoryDisplayName == _selectedCategory,
+            (t) => t.categoryDisplayName == _selectedCategory,
           )
           .toList();
     }
@@ -95,7 +95,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
   Map<String, double> _getCategorySummary(List<Transaction> transactions) {
     final summary = <String, double>{};
     for (var transaction in transactions) {
-      final category = transaction.category.expenseCategoryDisplayName;
+      final category = transaction.categoryDisplayName;
       summary[category] = (summary[category] ?? 0) + transaction.amount;
     }
     return summary;
@@ -817,7 +817,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                         ),
                       ),
                       DataCell(
-                        Text(transaction.category.expenseCategoryDisplayName),
+                        Text(transaction.categoryDisplayName),
                       ),
                       DataCell(
                         Text(
@@ -1256,7 +1256,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(4),
                         child: pw.Text(
-                          transaction.category.expenseCategoryDisplayName,
+                          transaction.categoryDisplayName,
                           style: const pw.TextStyle(fontSize: 7),
                         ),
                       ),

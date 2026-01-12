@@ -11,6 +11,7 @@ class Transaction {
   final String receiptNo;
   final String description;
   final String category; // Store as string: 'office', 'travel', etc.
+  final String? customCategory; // Store custom category name if applicable
   final double amount;
   final String paymentMethod; // Store as string: 'cash', 'card', etc.
   final String requestorId;
@@ -32,6 +33,7 @@ class Transaction {
     required this.receiptNo,
     required this.description,
     required this.category,
+    this.customCategory,
     required this.amount,
     required this.paymentMethod,
     required this.requestorId,
@@ -64,6 +66,14 @@ class Transaction {
     orElse: () => TransactionStatus.draft,
   );
 
+  // Get category display name (custom category if available, otherwise enum display name)
+  String get categoryDisplayName {
+    if (customCategory != null && customCategory!.isNotEmpty) {
+      return customCategory!;
+    }
+    return categoryEnum.displayName;
+  }
+
   // Get approval records from JSON
   List<ApprovalRecord> get approvalRecords =>
       approvalHistory.map((e) => ApprovalRecord.fromJson(e)).toList();
@@ -78,6 +88,7 @@ class Transaction {
       'receiptNo': receiptNo,
       'description': description,
       'category': category,
+      'customCategory': customCategory,
       'amount': amount,
       'paymentMethod': paymentMethod,
       'requestorId': requestorId,
@@ -121,6 +132,7 @@ class Transaction {
       receiptNo: data['receiptNo'] as String,
       description: data['description'] as String,
       category: data['category'] as String,
+      customCategory: data['customCategory'] as String?,
       amount: (data['amount'] as num).toDouble(),
       paymentMethod: data['paymentMethod'] as String,
       requestorId: data['requestorId'] as String,
@@ -215,6 +227,7 @@ class Transaction {
     String? receiptNo,
     String? description,
     String? category,
+    String? customCategory,
     double? amount,
     String? paymentMethod,
     String? approverId,
@@ -234,6 +247,7 @@ class Transaction {
       receiptNo: receiptNo ?? this.receiptNo,
       description: description ?? this.description,
       category: category ?? this.category,
+      customCategory: customCategory ?? this.customCategory,
       amount: amount ?? this.amount,
       paymentMethod: paymentMethod ?? this.paymentMethod,
       requestorId: requestorId,

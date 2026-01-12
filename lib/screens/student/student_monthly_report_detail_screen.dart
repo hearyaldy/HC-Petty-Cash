@@ -222,9 +222,10 @@ class _StudentMonthlyReportDetailScreenState
                   0: pw.FlexColumnWidth(1),
                   1: pw.FlexColumnWidth(1),
                   2: pw.FlexColumnWidth(1),
-                  3: pw.FlexColumnWidth(1),
+                  3: pw.FlexColumnWidth(2),
                   4: pw.FlexColumnWidth(1),
                   5: pw.FlexColumnWidth(1),
+                  6: pw.FlexColumnWidth(1),
                 },
                 children: [
                   pw.TableRow(
@@ -247,6 +248,13 @@ class _StudentMonthlyReportDetailScreenState
                         padding: pw.EdgeInsets.all(8),
                         child: pw.Text(
                           'End Time',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text(
+                          'Task',
                           style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                         ),
                       ),
@@ -292,6 +300,13 @@ class _StudentMonthlyReportDetailScreenState
                           padding: pw.EdgeInsets.all(8),
                           child: pw.Text(
                             DateFormat('HH:mm').format(ts.endTime),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text(
+                            ts.task,
+                            style: pw.TextStyle(fontSize: 10),
                           ),
                         ),
                         pw.Padding(
@@ -617,7 +632,7 @@ class _StudentMonthlyReportDetailScreenState
           ),
         )
         .value = excel_package.TextCellValue(
-      'Hours',
+      'Task',
     );
     sheet
         .cell(
@@ -627,12 +642,22 @@ class _StudentMonthlyReportDetailScreenState
           ),
         )
         .value = excel_package.TextCellValue(
-      'Amount',
+      'Hours',
     );
     sheet
         .cell(
           excel_package.CellIndex.indexByColumnRow(
             columnIndex: 5,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'Amount',
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 6,
             rowIndex: rowIndex,
           ),
         )
@@ -680,7 +705,7 @@ class _StudentMonthlyReportDetailScreenState
             ),
           )
           .value = excel_package.TextCellValue(
-        ts.totalHours.toStringAsFixed(2),
+        ts.task,
       );
       sheet
           .cell(
@@ -690,12 +715,22 @@ class _StudentMonthlyReportDetailScreenState
             ),
           )
           .value = excel_package.TextCellValue(
-        ts.totalAmount.toStringAsFixed(2),
+        ts.totalHours.toStringAsFixed(2),
       );
       sheet
           .cell(
             excel_package.CellIndex.indexByColumnRow(
               columnIndex: 5,
+              rowIndex: rowIndex,
+            ),
+          )
+          .value = excel_package.TextCellValue(
+        ts.totalAmount.toStringAsFixed(2),
+      );
+      sheet
+          .cell(
+            excel_package.CellIndex.indexByColumnRow(
+              columnIndex: 6,
               rowIndex: rowIndex,
             ),
           )
@@ -1323,6 +1358,45 @@ class _StudentMonthlyReportDetailScreenState
                                     ),
                                     const SizedBox(height: 8),
 
+                                    // Task Description
+                                    if (ts.task.isNotEmpty) ...[
+                                      Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Icon(
+                                            Icons.task_alt,
+                                            size: 16,
+                                            color: Colors.grey[600],
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  'Task:',
+                                                  style: TextStyle(
+                                                    fontSize: 13,
+                                                    color: Colors.grey[600],
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  ts.task,
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                    ],
+
                                     // Hours and Amount Row
                                     Row(
                                       mainAxisAlignment:
@@ -1421,6 +1495,16 @@ class _StudentMonthlyReportDetailScreenState
                                       ),
                                     ),
                                     Expanded(
+                                      flex: 3,
+                                      child: Text(
+                                        'Task',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.grey[700],
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
                                       flex: 1,
                                       child: Text(
                                         'Hours',
@@ -1493,6 +1577,15 @@ class _StudentMonthlyReportDetailScreenState
                                           child: Text(
                                             '${DateFormat('HH:mm').format(ts.startTime)} - ${DateFormat('HH:mm').format(ts.endTime)}',
                                             style: TextStyle(fontSize: 14),
+                                          ),
+                                        ),
+                                        Expanded(
+                                          flex: 3,
+                                          child: Text(
+                                            ts.task,
+                                            style: TextStyle(fontSize: 14),
+                                            overflow: TextOverflow.ellipsis,
+                                            maxLines: 2,
                                           ),
                                         ),
                                         Expanded(
@@ -1734,6 +1827,7 @@ class _StudentMonthlyReportDetailScreenState
     DateTime? selectedDate;
     TimeOfDay? startTime;
     TimeOfDay? endTime;
+    final taskController = TextEditingController();
     final notesController = TextEditingController();
 
     await showDialog(
@@ -1884,6 +1978,29 @@ class _StudentMonthlyReportDetailScreenState
                   ),
                   const SizedBox(height: 16),
 
+                  // Task Description (Required)
+                  Text(
+                    'Task Description *',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: taskController,
+                    decoration: InputDecoration(
+                      labelText: 'Task *',
+                      hintText: 'Describe the work or task completed',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      errorText: null,
+                    ),
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 16),
+
                   // Notes
                   TextField(
                     controller: notesController,
@@ -1908,7 +2025,8 @@ class _StudentMonthlyReportDetailScreenState
                 onPressed: () async {
                   if (selectedDate == null ||
                       startTime == null ||
-                      endTime == null) {
+                      endTime == null ||
+                      taskController.text.trim().isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('Please fill in all required fields'),
@@ -1966,6 +2084,7 @@ class _StudentMonthlyReportDetailScreenState
                     hourlyRate: hourlyRate,
                     totalAmount: hours * hourlyRate,
                     status: 'draft',
+                    task: taskController.text.trim(),
                     notes: notesController.text.isNotEmpty
                         ? notesController.text
                         : null,

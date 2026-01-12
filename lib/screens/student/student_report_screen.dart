@@ -198,6 +198,7 @@ class _StudentReportScreenState extends State<StudentReportScreen>
     DateTime selectedDate = DateTime.now();
     TimeOfDay startTime = const TimeOfDay(hour: 9, minute: 0);
     TimeOfDay endTime = const TimeOfDay(hour: 17, minute: 0);
+    final taskController = TextEditingController();
     final notesController = TextEditingController();
 
     showDialog(
@@ -399,12 +400,32 @@ class _StudentReportScreenState extends State<StudentReportScreen>
                     ),
                   ),
                   const SizedBox(height: 16),
+                  // Task Description (Required)
+                  TextFormField(
+                    controller: taskController,
+                    decoration: InputDecoration(
+                      labelText: 'Task *',
+                      hintText: 'Describe the work or task completed',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      prefixIcon: const Icon(Icons.task_alt),
+                    ),
+                    maxLines: 2,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Task description is required';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
                   // Notes
                   TextFormField(
                     controller: notesController,
                     decoration: InputDecoration(
                       labelText: 'Notes (Optional)',
-                      hintText: 'Describe your work...',
+                      hintText: 'Add any additional notes...',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -438,6 +459,7 @@ class _StudentReportScreenState extends State<StudentReportScreen>
                         selectedDate,
                         startTime,
                         endTime,
+                        taskController.text.trim(),
                         notesController.text.trim(),
                       );
                     }
@@ -472,6 +494,7 @@ class _StudentReportScreenState extends State<StudentReportScreen>
     DateTime date,
     TimeOfDay startTime,
     TimeOfDay endTime,
+    String task,
     String notes,
   ) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -509,6 +532,7 @@ class _StudentReportScreenState extends State<StudentReportScreen>
         hourlyRate: hourlyRate,
         totalAmount: totalHours * hourlyRate,
         status: 'submitted',
+        task: task,
         notes: notes.isNotEmpty ? notes : null,
         createdAt: DateTime.now(),
       );
@@ -922,6 +946,7 @@ class _StudentReportScreenState extends State<StudentReportScreen>
                     children: const [
                       Expanded(flex: 2, child: Text('Date', style: TextStyle(fontWeight: FontWeight.bold))),
                       Expanded(flex: 2, child: Text('Time', style: TextStyle(fontWeight: FontWeight.bold))),
+                      Expanded(flex: 3, child: Text('Task', style: TextStyle(fontWeight: FontWeight.bold))),
                       Expanded(flex: 1, child: Text('Hours', style: TextStyle(fontWeight: FontWeight.bold))),
                       Expanded(flex: 1, child: Text('Amount', style: TextStyle(fontWeight: FontWeight.bold))),
                       Expanded(flex: 1, child: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
@@ -984,6 +1009,14 @@ class _StudentReportScreenState extends State<StudentReportScreen>
           Expanded(
             flex: 2,
             child: Text('${timeFormat.format(timesheet.startTime)} - ${timeFormat.format(timesheet.endTime)}'),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(
+              timesheet.task,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
+            ),
           ),
           Expanded(
             flex: 1,
@@ -1852,6 +1885,46 @@ class _StudentReportScreenState extends State<StudentReportScreen>
                 ),
               ],
             ),
+            if (timesheet.task.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange[50],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.task_alt, size: 16, color: Colors.orange[700]),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Task',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            timesheet.task,
+                            style: TextStyle(
+                              color: Colors.grey[900],
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             if (timesheet.notes != null) ...[
               const SizedBox(height: 12),
               Container(

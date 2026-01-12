@@ -1313,6 +1313,7 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
   late DateTime _selectedDate;
   late TimeOfDay _startTime;
   late TimeOfDay _endTime;
+  late TextEditingController _taskController;
   late TextEditingController _notesController;
   bool _isSaving = false;
 
@@ -1322,6 +1323,9 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
     _selectedDate = widget.timesheet.date;
     _startTime = TimeOfDay.fromDateTime(widget.timesheet.startTime);
     _endTime = TimeOfDay.fromDateTime(widget.timesheet.endTime);
+    _taskController = TextEditingController(
+      text: widget.timesheet.task,
+    );
     _notesController = TextEditingController(
       text: widget.timesheet.notes ?? '',
     );
@@ -1329,11 +1333,23 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
 
   @override
   void dispose() {
+    _taskController.dispose();
     _notesController.dispose();
     super.dispose();
   }
 
   Future<void> _saveChanges() async {
+    // Validate task field
+    if (_taskController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Task description is required'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isSaving = true);
 
     try {
@@ -1390,6 +1406,7 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
             'endTime': Timestamp.fromDate(endDateTime),
             'totalHours': hours,
             'totalAmount': totalAmount,
+            'task': _taskController.text.trim(),
             'notes': _notesController.text.trim(),
             'updatedAt': FieldValue.serverTimestamp(),
           });
@@ -1477,6 +1494,19 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
               title: const Text('End Time'),
               subtitle: Text(_endTime.format(context)),
               onTap: () => _selectTime(false),
+            ),
+            const SizedBox(height: 16),
+
+            // Task field (Required)
+            TextField(
+              controller: _taskController,
+              decoration: const InputDecoration(
+                labelText: 'Task *',
+                hintText: 'Describe the work or task completed',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.task_alt),
+              ),
+              maxLines: 2,
             ),
             const SizedBox(height: 16),
 

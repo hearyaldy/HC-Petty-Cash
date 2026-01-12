@@ -942,6 +942,40 @@ class _AdminStudentReportDetailScreenState
                 ),
               ],
             ),
+            if (timesheet.task.isNotEmpty) ...[
+              const Divider(height: 20),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.task_alt, size: 16, color: Colors.orange[700]),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Task',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          timesheet.task,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[900],
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
             if (timesheet.notes != null && timesheet.notes!.isNotEmpty) ...[
               const Divider(height: 20),
               Row(
@@ -1057,6 +1091,16 @@ class _AdminStudentReportDetailScreenState
                       ),
                     ),
                     Expanded(
+                      flex: 3,
+                      child: Text(
+                        'Task',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                    ),
+                    Expanded(
                       flex: 1,
                       child: Text(
                         'Hours',
@@ -1148,6 +1192,15 @@ class _AdminStudentReportDetailScreenState
                           child: Text(
                             '${timeFormat.format(ts.startTime)} - ${timeFormat.format(ts.endTime)}',
                             style: const TextStyle(fontSize: 14),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 3,
+                          child: Text(
+                            ts.task,
+                            style: const TextStyle(fontSize: 14),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 2,
                           ),
                         ),
                         Expanded(
@@ -1327,9 +1380,10 @@ class _AdminStudentReportDetailScreenState
                   0: pw.FlexColumnWidth(1),
                   1: pw.FlexColumnWidth(1),
                   2: pw.FlexColumnWidth(1),
-                  3: pw.FlexColumnWidth(1),
+                  3: pw.FlexColumnWidth(2),
                   4: pw.FlexColumnWidth(1),
                   5: pw.FlexColumnWidth(1),
+                  6: pw.FlexColumnWidth(1),
                 },
                 children: [
                   pw.TableRow(
@@ -1352,6 +1406,13 @@ class _AdminStudentReportDetailScreenState
                         padding: const pw.EdgeInsets.all(8),
                         child: pw.Text(
                           'End Time',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(8),
+                        child: pw.Text(
+                          'Task',
                           style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                         ),
                       ),
@@ -1397,6 +1458,13 @@ class _AdminStudentReportDetailScreenState
                           padding: const pw.EdgeInsets.all(8),
                           child: pw.Text(
                             DateFormat('HH:mm').format(ts.endTime),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(8),
+                          child: pw.Text(
+                            ts.task,
+                            style: const pw.TextStyle(fontSize: 10),
                           ),
                         ),
                         pw.Padding(
@@ -1760,7 +1828,7 @@ class _AdminStudentReportDetailScreenState
           ),
         )
         .value = excel_package.TextCellValue(
-      'Hours',
+      'Task',
     );
     sheet
         .cell(
@@ -1770,12 +1838,22 @@ class _AdminStudentReportDetailScreenState
           ),
         )
         .value = excel_package.TextCellValue(
-      'Amount',
+      'Hours',
     );
     sheet
         .cell(
           excel_package.CellIndex.indexByColumnRow(
             columnIndex: 5,
+            rowIndex: rowIndex,
+          ),
+        )
+        .value = excel_package.TextCellValue(
+      'Amount',
+    );
+    sheet
+        .cell(
+          excel_package.CellIndex.indexByColumnRow(
+            columnIndex: 6,
             rowIndex: rowIndex,
           ),
         )
@@ -1823,7 +1901,7 @@ class _AdminStudentReportDetailScreenState
             ),
           )
           .value = excel_package.TextCellValue(
-        ts.totalHours.toStringAsFixed(2),
+        ts.task,
       );
       sheet
           .cell(
@@ -1833,12 +1911,22 @@ class _AdminStudentReportDetailScreenState
             ),
           )
           .value = excel_package.TextCellValue(
-        ts.totalAmount.toStringAsFixed(2),
+        ts.totalHours.toStringAsFixed(2),
       );
       sheet
           .cell(
             excel_package.CellIndex.indexByColumnRow(
               columnIndex: 5,
+              rowIndex: rowIndex,
+            ),
+          )
+          .value = excel_package.TextCellValue(
+        ts.totalAmount.toStringAsFixed(2),
+      );
+      sheet
+          .cell(
+            excel_package.CellIndex.indexByColumnRow(
+              columnIndex: 6,
               rowIndex: rowIndex,
             ),
           )
