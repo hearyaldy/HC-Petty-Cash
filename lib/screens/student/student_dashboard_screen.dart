@@ -112,6 +112,174 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
     }
   }
 
+  Future<void> _showReportSelectionDialog() async {
+    // Filter only draft reports (can add time entries)
+    final draftReports = _monthlyReports
+        .where((report) => (report['status'] ?? 'draft') == 'draft')
+        .toList();
+
+    if (draftReports.isEmpty) {
+      // No draft reports, prompt to create one
+      if (!mounted) return;
+
+      final shouldCreate = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.orange.shade600),
+              const SizedBox(width: 12),
+              const Text('No Draft Reports'),
+            ],
+          ),
+          content: const Text(
+            'You need to create a monthly report first before logging hours. Would you like to create one now?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange.shade600,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Create Report'),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldCreate == true && mounted) {
+        context.push('/student-report/new');
+      }
+      return;
+    }
+
+    // Show report selection dialog
+    if (!mounted) return;
+
+    final selectedReport = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.orange.shade400, Colors.orange.shade600],
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.add_circle, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 12),
+            const Text('Select Report'),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Choose which report to add your time entry to:',
+                style: TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 16),
+              ...draftReports.map((report) {
+                final monthDisplay = report['monthDisplay'] ?? 'Unknown';
+                final totalHours = (report['totalHours'] ?? 0.0).toDouble();
+                final entryCount = report['timesheetCount'] ?? 0;
+
+                return InkWell(
+                  onTap: () => Navigator.of(context).pop(report),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.orange.shade200),
+                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.orange.shade50,
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Colors.orange.shade400, Colors.orange.shade600],
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.calendar_month,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                monthDisplay,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '$entryCount entries • ${totalHours.toStringAsFixed(1)}h',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.arrow_forward_ios,
+                          size: 16,
+                          color: Colors.grey[400],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+
+    if (selectedReport != null && mounted) {
+      // Navigate to the report detail page
+      context.push(
+        '/student-monthly-report-detail',
+        extra: {
+          'reportId': selectedReport['id'],
+          'month': selectedReport['month'],
+          'monthDisplay': selectedReport['monthDisplay'],
+        },
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -442,7 +610,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
               child: _buildModernActionButton('Log Hours', Icons.add_circle, [
                 Colors.orange.shade400,
                 Colors.orange.shade600,
-              ], () => context.go('/student-report')),
+              ], _showReportSelectionDialog),
             ),
             const SizedBox(width: 12),
             Expanded(
