@@ -810,9 +810,9 @@ class _StudentReportScreenState extends State<StudentReportScreen>
   }
 
   Widget _buildCurrentMonthView() {
-    final monthTimesheets = _selectedMonth != null
-        ? (_timesheetsByMonth[_selectedMonth] ?? [])
-        : [];
+    final List<StudentTimesheet> monthTimesheets = _selectedMonth != null
+        ? (_timesheetsByMonth[_selectedMonth] ?? <StudentTimesheet>[])
+        : <StudentTimesheet>[];
 
     return Column(
       children: [
