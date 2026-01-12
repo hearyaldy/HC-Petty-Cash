@@ -1069,7 +1069,8 @@ class _StudentMonthlyReportDetailScreenState
                                   children: [
                                     // Date and Status Row
                                     Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
                                         Row(
                                           children: [
@@ -1080,7 +1081,9 @@ class _StudentMonthlyReportDetailScreenState
                                             ),
                                             const SizedBox(width: 8),
                                             Text(
-                                              DateFormat('dd MMM yyyy').format(ts.date),
+                                              DateFormat(
+                                                'dd MMM yyyy',
+                                              ).format(ts.date),
                                               style: TextStyle(
                                                 fontSize: 15,
                                                 fontWeight: FontWeight.bold,
@@ -1094,8 +1097,12 @@ class _StudentMonthlyReportDetailScreenState
                                             vertical: 6,
                                           ),
                                           decoration: BoxDecoration(
-                                            color: _getStatusColor(ts.status).withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(20),
+                                            color: _getStatusColor(
+                                              ts.status,
+                                            ).withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(
+                                              20,
+                                            ),
                                           ),
                                           child: Text(
                                             ts.status.toUpperCase(),
@@ -1109,7 +1116,10 @@ class _StudentMonthlyReportDetailScreenState
                                       ],
                                     ),
                                     const SizedBox(height: 12),
-                                    Divider(height: 1, color: Colors.grey.shade200),
+                                    Divider(
+                                      height: 1,
+                                      color: Colors.grey.shade200,
+                                    ),
                                     const SizedBox(height: 12),
 
                                     // Time Range
@@ -1142,7 +1152,8 @@ class _StudentMonthlyReportDetailScreenState
 
                                     // Hours and Amount Row
                                     Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
                                         Row(
                                           children: [
@@ -1204,7 +1215,9 @@ class _StudentMonthlyReportDetailScreenState
                               decoration: BoxDecoration(
                                 color: Colors.grey[100],
                                 border: Border(
-                                  bottom: BorderSide(color: Colors.grey.shade200),
+                                  bottom: BorderSide(
+                                    color: Colors.grey.shade200,
+                                  ),
                                 ),
                               ),
                               child: Padding(
@@ -1296,7 +1309,9 @@ class _StudentMonthlyReportDetailScreenState
                                         Expanded(
                                           flex: 2,
                                           child: Text(
-                                            DateFormat('dd/MM/yyyy').format(ts.date),
+                                            DateFormat(
+                                              'dd/MM/yyyy',
+                                            ).format(ts.date),
                                             style: TextStyle(fontSize: 14),
                                           ),
                                         ),
@@ -1332,14 +1347,17 @@ class _StudentMonthlyReportDetailScreenState
                                               color: _getStatusColor(
                                                 ts.status,
                                               ).withOpacity(0.1),
-                                              borderRadius: BorderRadius.circular(8),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
                                             ),
                                             child: Text(
                                               ts.status.toUpperCase(),
                                               style: TextStyle(
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.bold,
-                                                color: _getStatusColor(ts.status),
+                                                color: _getStatusColor(
+                                                  ts.status,
+                                                ),
                                               ),
                                               textAlign: TextAlign.center,
                                             ),
