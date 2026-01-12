@@ -99,6 +99,8 @@ class _NewStudentReportScreenState extends State<NewStudentReportScreen> {
         studentId: user.id,
         studentName: user.name,
         studentEmail: user.email,
+        studentNumber: profile.studentNumber,
+        department: '', // Department can be added later if needed from user collection
         month: month,
         monthDisplay: monthDisplay,
         timesheetCount: 0,

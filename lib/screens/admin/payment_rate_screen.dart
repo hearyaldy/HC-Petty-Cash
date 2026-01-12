@@ -195,18 +195,66 @@ class _PaymentRateScreenState extends State<PaymentRateScreen> {
 
   Future<void> _updateHourlyRate(String userId, double rate) async {
     try {
+      // Update student profile
       await FirebaseFirestore.instance
           .collection('student_profiles')
           .doc(userId)
           .update({'hourlyRate': rate});
 
+      // Update all draft monthly reports for this student
+      final draftReportsQuery = await FirebaseFirestore.instance
+          .collection('student_monthly_reports')
+          .where('studentId', isEqualTo: userId)
+          .where('status', isEqualTo: 'draft')
+          .get();
+
+      // Use batch to update all draft reports
+      final batch = FirebaseFirestore.instance.batch();
+      for (final doc in draftReportsQuery.docs) {
+        final reportData = doc.data();
+        final totalHours = reportData['totalHours'] ?? 0.0;
+        final newTotalAmount = totalHours * rate;
+
+        batch.update(doc.reference, {
+          'hourlyRate': rate,
+          'totalAmount': newTotalAmount,
+        });
+      }
+      await batch.commit();
+
+      // Update all draft timesheets for this student
+      final draftTimesheetsQuery = await FirebaseFirestore.instance
+          .collection('student_timesheets')
+          .where('studentId', isEqualTo: userId)
+          .where('status', isEqualTo: 'draft')
+          .get();
+
+      // Use batch to update all draft timesheets
+      final timesheetBatch = FirebaseFirestore.instance.batch();
+      for (final doc in draftTimesheetsQuery.docs) {
+        final timesheetData = doc.data();
+        final totalHours = timesheetData['totalHours'] ?? 0.0;
+        final newTotalAmount = totalHours * rate;
+
+        timesheetBatch.update(doc.reference, {
+          'hourlyRate': rate,
+          'totalAmount': newTotalAmount,
+        });
+      }
+      await timesheetBatch.commit();
+
       await _loadStudentProfiles();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Hourly rate updated successfully'),
+          SnackBar(
+            content: Text(
+              'Hourly rate updated successfully\n'
+              '${draftReportsQuery.docs.length} draft reports and '
+              '${draftTimesheetsQuery.docs.length} draft timesheets updated',
+            ),
             backgroundColor: Colors.green,
+            duration: const Duration(seconds: 4),
           ),
         );
       }

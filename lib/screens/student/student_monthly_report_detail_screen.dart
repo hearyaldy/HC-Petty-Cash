@@ -820,43 +820,216 @@ class _StudentMonthlyReportDetailScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Report Header
+            // Report Header - Extended with Student Information
             Container(
-              padding: const EdgeInsets.all(16),
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [Colors.orange.shade400, Colors.orange.shade600],
                 ),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.orange.shade200,
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Student Labour Report',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  // Title Row with Status Badge
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.description,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'Student Labour Report',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.calendar_month,
+                                  color: Colors.white70,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Period: ${widget.monthDisplay}',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Status Badge
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _getStatusIcon(_reportData?['status']),
+                              color: _getStatusColor(_reportData?['status']),
+                              size: 18,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              _reportData?['status']?.toUpperCase() ?? 'DRAFT',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: _getStatusColor(_reportData?['status']),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Period: ${widget.monthDisplay}',
-                    style: TextStyle(color: Colors.white70, fontSize: 14),
+
+                  const SizedBox(height: 20),
+
+                  // Divider
+                  Container(
+                    height: 1,
+                    color: Colors.white.withOpacity(0.3),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Student: ${_reportData?['studentName'] ?? ''}',
-                    style: TextStyle(color: Colors.white70, fontSize: 14),
+
+                  const SizedBox(height: 20),
+
+                  // Student Information Grid
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Student Information',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Row 1: Name and Student Number
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildInfoRow(
+                              Icons.person,
+                              'Student Name',
+                              _reportData?['studentName'] ?? 'N/A',
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildInfoRow(
+                              Icons.badge,
+                              'Student Number',
+                              _reportData?['studentNumber'] ?? 'N/A',
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Row 2: Email and Department
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildInfoRow(
+                              Icons.email,
+                              'Email',
+                              _reportData?['studentEmail'] ?? 'N/A',
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildInfoRow(
+                              Icons.business,
+                              'Department',
+                              _reportData?['department'] ?? 'N/A',
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Row 3: Report ID and Hourly Rate
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildInfoRow(
+                              Icons.fingerprint,
+                              'Report ID',
+                              widget.reportId.substring(0, 8) + '...',
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildInfoRow(
+                              Icons.attach_money,
+                              'Hourly Rate',
+                              '฿${hourlyRate.toStringAsFixed(2)}/hr',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
 
             // Summary Cards
             Row(
@@ -1485,6 +1658,45 @@ class _StudentMonthlyReportDetailScreenState
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          color: Colors.white70,
+          size: 18,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

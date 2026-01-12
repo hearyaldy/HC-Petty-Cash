@@ -472,8 +472,9 @@ class _AdminStudentReportDetailScreenState
     }
 
     return Container(
+      width: double.infinity,
       margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -492,6 +493,7 @@ class _AdminStudentReportDetailScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header Row with avatar, name and status
           Row(
             children: [
               Container(
@@ -518,6 +520,15 @@ class _AdminStudentReportDetailScreenState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
+                      'Student Labour Report',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
                       studentName,
                       style: const TextStyle(
                         color: Colors.white,
@@ -526,12 +537,23 @@ class _AdminStudentReportDetailScreenState
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      widget.monthDisplay,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
-                        fontSize: 16,
-                      ),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.calendar_month,
+                          color: Colors.white70,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          widget.monthDisplay,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -563,7 +585,83 @@ class _AdminStudentReportDetailScreenState
               ),
             ],
           ),
-          const Divider(height: 32, color: Colors.white24),
+
+          const SizedBox(height: 20),
+
+          // Divider
+          Container(
+            height: 1,
+            color: Colors.white.withOpacity(0.3),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Student Information Section
+          Text(
+            'Student Information',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Row 1: Student Number and Email
+          Row(
+            children: [
+              Expanded(
+                child: _buildInfoRowAdmin(
+                  Icons.badge,
+                  'Student Number',
+                  _reportData!['studentNumber'] ?? 'N/A',
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildInfoRowAdmin(
+                  Icons.email,
+                  'Email',
+                  _reportData!['studentEmail'] ?? 'N/A',
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // Row 2: Department and Report ID
+          Row(
+            children: [
+              Expanded(
+                child: _buildInfoRowAdmin(
+                  Icons.business,
+                  'Department',
+                  _reportData!['department'] ?? 'N/A',
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildInfoRowAdmin(
+                  Icons.fingerprint,
+                  'Report ID',
+                  widget.reportId.substring(0, 8) + '...',
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+
+          // Divider
+          Container(
+            height: 1,
+            color: Colors.white.withOpacity(0.3),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Summary Stats
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -573,7 +671,7 @@ class _AdminStudentReportDetailScreenState
               ),
               _buildSummaryItem(
                 'Hourly Rate',
-                '${AppConstants.currencySymbol}${hourlyRate.toStringAsFixed(2)}',
+                '${AppConstants.currencySymbol}${hourlyRate.toStringAsFixed(2)}/hr',
               ),
               _buildSummaryItem(
                 'Total Amount',
@@ -652,6 +750,45 @@ class _AdminStudentReportDetailScreenState
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildInfoRowAdmin(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          color: Colors.white70,
+          size: 18,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

@@ -214,6 +214,8 @@ class StudentMonthlyReport {
   final String studentId;
   final String studentName;
   final String studentEmail;
+  final String studentNumber;
+  final String department;
   final String month; // Format: "YYYY-MM"
   final String monthDisplay; // Format: "January 2026"
   final int timesheetCount;
@@ -235,6 +237,8 @@ class StudentMonthlyReport {
     required this.studentId,
     required this.studentName,
     required this.studentEmail,
+    this.studentNumber = '',
+    this.department = '',
     required this.month,
     required this.monthDisplay,
     required this.timesheetCount,
@@ -258,6 +262,8 @@ class StudentMonthlyReport {
       'studentId': studentId,
       'studentName': studentName,
       'studentEmail': studentEmail,
+      'studentNumber': studentNumber,
+      'department': department,
       'month': month,
       'monthDisplay': monthDisplay,
       'timesheetCount': timesheetCount,
@@ -283,6 +289,8 @@ class StudentMonthlyReport {
       studentId: data['studentId'] ?? '',
       studentName: data['studentName'] ?? '',
       studentEmail: data['studentEmail'] ?? '',
+      studentNumber: data['studentNumber'] ?? '',
+      department: data['department'] ?? '',
       month: data['month'] ?? '',
       monthDisplay: data['monthDisplay'] ?? '',
       timesheetCount: data['timesheetCount'] ?? 0,

@@ -1233,9 +1233,12 @@ class _StudentReportScreenState extends State<StudentReportScreen>
   }
 
   Widget _buildProfileCard() {
-    final currencyFormat = NumberFormat.currency(symbol: '\$');
+    final currencyFormat = NumberFormat.currency(symbol: '฿');
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final user = authProvider.currentUser;
 
     return Container(
+      width: double.infinity,
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -1246,16 +1249,18 @@ class _StudentReportScreenState extends State<StudentReportScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.orange.withOpacity(0.3),
-            blurRadius: 8,
+            color: Colors.orange.shade200,
+            blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Title Row
             Row(
               children: [
                 Container(
@@ -1276,18 +1281,20 @@ class _StudentReportScreenState extends State<StudentReportScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _studentProfile!.studentNumber,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                        'Student Labour Worker',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
+                      const SizedBox(height: 4),
                       Text(
-                        '${_studentProfile!.course} - ${_studentProfile!.yearLevel}',
+                        user?.name ?? 'Student',
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 14,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ],
@@ -1295,34 +1302,141 @@ class _StudentReportScreenState extends State<StudentReportScreen>
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+
+            const SizedBox(height: 20),
+
+            // Divider
             Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Hourly Rate:',
-                    style: TextStyle(color: Colors.white, fontSize: 16),
+              height: 1,
+              color: Colors.white.withOpacity(0.3),
+            ),
+
+            const SizedBox(height: 20),
+
+            // Student Information Grid
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Student Information',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
                   ),
-                  Text(
-                    currencyFormat.format(_studentProfile!.hourlyRate),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                ),
+                const SizedBox(height: 16),
+
+                // Row 1: Student Number and Email
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildInfoRowForReport(
+                        Icons.badge,
+                        'Student Number',
+                        _studentProfile!.studentNumber,
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildInfoRowForReport(
+                        Icons.email,
+                        'Email',
+                        user?.email ?? 'N/A',
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                // Row 2: Course and Year Level
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildInfoRowForReport(
+                        Icons.book,
+                        'Course',
+                        _studentProfile!.course,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildInfoRowForReport(
+                        Icons.school,
+                        'Year Level',
+                        _studentProfile!.yearLevel,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                // Row 3: Phone and Hourly Rate
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildInfoRowForReport(
+                        Icons.phone,
+                        'Phone Number',
+                        _studentProfile!.phoneNumber,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildInfoRowForReport(
+                        Icons.attach_money,
+                        'Hourly Rate',
+                        currencyFormat.format(_studentProfile!.hourlyRate) + '/hr',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildInfoRowForReport(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          color: Colors.white70,
+          size: 18,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
