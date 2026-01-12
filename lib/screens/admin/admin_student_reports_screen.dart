@@ -150,7 +150,7 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
                 child: _isLoadingStudents
                     ? const Center(child: CircularProgressIndicator())
                     : DropdownButtonFormField<String>(
-                        initialValue: _selectedStudentId,
+                        value: _selectedStudentId,
                         decoration: const InputDecoration(
                           labelText: 'Student',
                           border: OutlineInputBorder(),
@@ -181,7 +181,7 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  initialValue: _selectedStatus,
+                  value: _selectedStatus,
                   decoration: const InputDecoration(
                     labelText: 'Status',
                     border: OutlineInputBorder(),

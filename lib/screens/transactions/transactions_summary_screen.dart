@@ -625,7 +625,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        initialValue: _selectedCategory,
+                        value: _selectedCategory,
                         decoration: const InputDecoration(
                           labelText: 'Category',
                           border: OutlineInputBorder(),
@@ -649,7 +649,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        initialValue: _selectedPaymentMethod,
+                        value: _selectedPaymentMethod,
                         decoration: const InputDecoration(
                           labelText: 'Payment Method',
                           border: OutlineInputBorder(),
@@ -673,7 +673,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        initialValue: _selectedStatus,
+                        value: _selectedStatus,
                         decoration: const InputDecoration(
                           labelText: 'Status',
                           border: OutlineInputBorder(),

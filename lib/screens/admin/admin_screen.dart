@@ -317,7 +317,7 @@ class _AdminScreenState extends State<AdminScreen> {
                       ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<UserRole>(
-                        initialValue: selectedRole,
+                        value: selectedRole,
                         decoration: const InputDecoration(
                           labelText: 'Role',
                           border: OutlineInputBorder(),
@@ -486,7 +486,7 @@ class _AdminScreenState extends State<AdminScreen> {
                       ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<UserRole>(
-                        initialValue: selectedRole,
+                        value: selectedRole,
                         decoration: const InputDecoration(
                           labelText: 'Role',
                           border: OutlineInputBorder(),

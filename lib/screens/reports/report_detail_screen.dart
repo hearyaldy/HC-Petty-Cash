@@ -1421,7 +1421,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                         const SizedBox(height: 16),
                         // Project selection dropdown
                         DropdownButtonFormField<String?>(
-                          initialValue: selectedProjectId,
+                          value: selectedProjectId,
                           decoration: const InputDecoration(
                             labelText: 'Project (Optional)',
                             border: OutlineInputBorder(),
@@ -1447,7 +1447,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                         ),
                         const SizedBox(height: 16),
                         DropdownButtonFormField<String>(
-                          initialValue: selectedCategory,
+                          value: selectedCategory,
                           decoration: const InputDecoration(
                             labelText: 'Category',
                             border: OutlineInputBorder(),
@@ -1502,7 +1502,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                         ),
                         const SizedBox(height: 16),
                         DropdownButtonFormField<PaymentMethod>(
-                          initialValue: selectedPaymentMethod,
+                          value: selectedPaymentMethod,
                           decoration: const InputDecoration(
                             labelText: 'Payment Method',
                             border: OutlineInputBorder(),
@@ -1880,7 +1880,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<ExpenseCategory>(
-                        initialValue: selectedCategory,
+                        value: selectedCategory,
                         decoration: const InputDecoration(
                           labelText: 'Category',
                           border: OutlineInputBorder(),
@@ -1901,7 +1901,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<PaymentMethod>(
-                        initialValue: selectedPaymentMethod,
+                        value: selectedPaymentMethod,
                         decoration: const InputDecoration(
                           labelText: 'Payment Method',
                           border: OutlineInputBorder(),

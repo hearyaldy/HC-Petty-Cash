@@ -270,7 +270,7 @@ class _StudentOnboardingScreenState extends State<StudentOnboardingScreen> {
                           const SizedBox(height: 16),
                           // Year Level
                           DropdownButtonFormField<String>(
-                            initialValue: _selectedYearLevel,
+                            value: _selectedYearLevel,
                             decoration: InputDecoration(
                               labelText: 'Year Level *',
                               border: OutlineInputBorder(

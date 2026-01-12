@@ -1458,7 +1458,7 @@ class _EditMonthlyReportDialogState extends State<_EditMonthlyReportDialog> {
 
             // Status dropdown
             DropdownButtonFormField<String>(
-              initialValue: _statusController.text,
+              value: _statusController.text,
               decoration: const InputDecoration(
                 labelText: 'Status',
                 border: OutlineInputBorder(),
