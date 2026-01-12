@@ -111,6 +111,29 @@ class _StudentReportScreenState extends State<StudentReportScreen>
     } else if (_availableMonths.isNotEmpty) {
       _selectedMonth = _availableMonths.first;
     }
+
+    // Sort timesheets in each month
+    _sortTimesheets();
+  }
+
+  void _sortTimesheets() {
+    for (var monthKey in _timesheetsByMonth.keys) {
+      final timesheets = _timesheetsByMonth[monthKey]!;
+      switch (_sortOption) {
+        case TimesheetSortOption.dateNewest:
+          timesheets.sort((a, b) => b.date.compareTo(a.date));
+          break;
+        case TimesheetSortOption.dateOldest:
+          timesheets.sort((a, b) => a.date.compareTo(b.date));
+          break;
+        case TimesheetSortOption.hoursHighest:
+          timesheets.sort((a, b) => b.totalHours.compareTo(a.totalHours));
+          break;
+        case TimesheetSortOption.hoursLowest:
+          timesheets.sort((a, b) => a.totalHours.compareTo(b.totalHours));
+          break;
+      }
+    }
   }
 
   Future<void> _loadData() async {
@@ -787,12 +810,210 @@ class _StudentReportScreenState extends State<StudentReportScreen>
   }
 
   Widget _buildCurrentMonthView() {
+    final monthTimesheets = _selectedMonth != null
+        ? (_timesheetsByMonth[_selectedMonth] ?? [])
+        : [];
+
     return Column(
       children: [
         _buildProfileCard(),
         _buildMonthSelector(),
-        Expanded(child: _buildTimesheetList()),
+        const SizedBox(height: 8),
+        // Time entries header with count and sort info
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Time Entries (${monthTimesheets.length})',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                'Sorted by: ${_sortOption.displayName.split('(')[1].replaceAll(')', '')}',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: monthTimesheets.isEmpty
+              ? _buildEmptyState()
+              : _viewMode == ViewMode.table
+                  ? _buildTableView(monthTimesheets)
+                  : _buildCardListView(monthTimesheets),
+        ),
       ],
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.access_time, size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text(
+            'No timesheets yet',
+            style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Tap "Log Hours" to add your first entry',
+            style: TextStyle(color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCardListView(List<StudentTimesheet> timesheets) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: timesheets.length,
+      itemBuilder: (context, index) {
+        return _buildTimesheetCard(timesheets[index]);
+      },
+    );
+  }
+
+  Widget _buildTableView(List<StudentTimesheet> timesheets) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 600;
+
+        if (isMobile) {
+          // On mobile, use card view even in "table mode" but more compact
+          return _buildCardListView(timesheets);
+        }
+
+        // Desktop table view
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                // Table Header
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(12),
+                    ),
+                  ),
+                  child: Row(
+                    children: const [
+                      Expanded(flex: 2, child: Text('Date', style: TextStyle(fontWeight: FontWeight.bold))),
+                      Expanded(flex: 2, child: Text('Time', style: TextStyle(fontWeight: FontWeight.bold))),
+                      Expanded(flex: 1, child: Text('Hours', style: TextStyle(fontWeight: FontWeight.bold))),
+                      Expanded(flex: 1, child: Text('Amount', style: TextStyle(fontWeight: FontWeight.bold))),
+                      Expanded(flex: 1, child: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
+                    ],
+                  ),
+                ),
+                // Table Rows
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: timesheets.length,
+                  itemBuilder: (context, index) {
+                    final timesheet = timesheets[index];
+                    return _buildTableRow(timesheet, index == timesheets.length - 1);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTableRow(StudentTimesheet timesheet, bool isLast) {
+    final dateFormat = DateFormat('MMM dd, yyyy');
+    final timeFormat = DateFormat('HH:mm');
+    final currencyFormat = NumberFormat.currency(symbol: '฿');
+
+    Color statusColor;
+    switch (timesheet.status) {
+      case 'approved':
+        statusColor = Colors.green;
+        break;
+      case 'rejected':
+        statusColor = Colors.red;
+        break;
+      case 'paid':
+        statusColor = Colors.blue;
+        break;
+      default:
+        statusColor = Colors.orange;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: isLast ? Colors.transparent : Colors.grey.shade200,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: Text(dateFormat.format(timesheet.date)),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text('${timeFormat.format(timesheet.startTime)} - ${timeFormat.format(timesheet.endTime)}'),
+          ),
+          Expanded(
+            flex: 1,
+            child: Text('${timesheet.totalHours.toStringAsFixed(2)}h'),
+          ),
+          Expanded(
+            flex: 1,
+            child: Text(currencyFormat.format(timesheet.totalAmount)),
+          ),
+          Expanded(
+            flex: 1,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: statusColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                timesheet.status.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: statusColor,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1157,6 +1378,47 @@ class _StudentReportScreenState extends State<StudentReportScreen>
               tooltip: 'Submit Monthly Report',
               onPressed: _submitTimesheetReport,
             ),
+          // View Mode Toggle (only show on Current Month tab)
+          if (_selectedTabIndex == 0)
+            IconButton(
+              icon: Icon(
+                _viewMode == ViewMode.table ? Icons.view_list : Icons.view_module,
+              ),
+              onPressed: () {
+                setState(() {
+                  _viewMode = _viewMode == ViewMode.table
+                      ? ViewMode.card
+                      : ViewMode.table;
+                });
+              },
+              tooltip: _viewMode == ViewMode.table ? 'Card View' : 'Table View',
+            ),
+          // Sort Menu (only show on Current Month tab)
+          if (_selectedTabIndex == 0)
+            PopupMenuButton<TimesheetSortOption>(
+              icon: const Icon(Icons.sort),
+              tooltip: 'Sort',
+              onSelected: (option) {
+                setState(() {
+                  _sortOption = option;
+                  _sortTimesheets();
+                });
+              },
+              itemBuilder: (context) => TimesheetSortOption.values
+                  .map(
+                    (option) => PopupMenuItem(
+                      value: option,
+                      child: Row(
+                        children: [
+                          Icon(option.icon, size: 20),
+                          const SizedBox(width: 12),
+                          Text(option.displayName),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
           // Settings/Profile Menu
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
@@ -1472,45 +1734,10 @@ class _StudentReportScreenState extends State<StudentReportScreen>
     );
   }
 
-  Widget _buildTimesheetList() {
-    final monthTimesheets = _selectedMonth != null
-        ? (_timesheetsByMonth[_selectedMonth] ?? [])
-        : [];
-
-    if (monthTimesheets.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.access_time, size: 64, color: Colors.grey[400]),
-            const SizedBox(height: 16),
-            Text(
-              'No timesheets yet',
-              style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Tap "Log Hours" to add your first entry',
-              style: TextStyle(color: Colors.grey),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return ListView.builder(
-      itemCount: monthTimesheets.length,
-      itemBuilder: (context, index) {
-        final timesheet = monthTimesheets[index];
-        return _buildTimesheetCard(timesheet);
-      },
-    );
-  }
-
   Widget _buildTimesheetCard(StudentTimesheet timesheet) {
     final dateFormat = DateFormat('MMM dd, yyyy');
     final timeFormat = DateFormat('HH:mm');
-    final currencyFormat = NumberFormat.currency(symbol: '\$');
+    final currencyFormat = NumberFormat.currency(symbol: '฿');
 
     Color statusColor;
     IconData statusIcon;
