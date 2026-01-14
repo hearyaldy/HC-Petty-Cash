@@ -466,6 +466,7 @@ class _TravelingReportDetailScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text('Traveling Report'),
         flexibleSpace: Container(
@@ -586,15 +587,20 @@ class _TravelingReportDetailScreenState
   }
 
   Widget _buildReportContent(TravelingReport report) {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          _buildReportHeader(report),
-          _buildTravelingDetails(report),
-          _buildMileageSection(report),
-          _buildPerDiemSection(report),
-          _buildSummarySection(report),
-        ],
+    return Center(
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 1200),
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              _buildReportHeader(report),
+              _buildTravelingDetails(report),
+              _buildMileageSection(report),
+              _buildPerDiemSection(report),
+              _buildSummarySection(report),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -602,15 +608,443 @@ class _TravelingReportDetailScreenState
   Widget _buildReportHeader(TravelingReport report) {
     final dateFormat = DateFormat('MMM dd, yyyy');
     final statusColor = _getStatusColor(report.status);
+    IconData statusIcon;
+
+    switch (report.status) {
+      case 'approved':
+        statusIcon = Icons.check_circle;
+        break;
+      case 'rejected':
+        statusIcon = Icons.cancel;
+        break;
+      case 'submitted':
+        statusIcon = Icons.pending;
+        break;
+      default:
+        statusIcon = Icons.edit_document;
+    }
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.orange.shade400, Colors.orange.shade600],
+        ),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 4,
+            color: Colors.orange.shade200,
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Center(
+                  child: Icon(
+                    Icons.flight_takeoff,
+                    color: Colors.white,
+                    size: 32,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      report.reportNumber,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      dateFormat.format(report.reportDate),
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(statusIcon, size: 16, color: statusColor),
+                    const SizedBox(width: 6),
+                    Text(
+                      report.status.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: statusColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.person, color: Colors.white, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Reporter',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.8),
+                              fontSize: 12,
+                            ),
+                          ),
+                          Text(
+                            report.reporterName,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    const Icon(Icons.business, color: Colors.white, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Department',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.8),
+                              fontSize: 12,
+                            ),
+                          ),
+                          Text(
+                            report.department,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (report.supportDocumentUrls.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => _showSupportDocument(report),
+                  icon: const Icon(Icons.attach_file, size: 16),
+                  label: Text('View Docs (${report.supportDocumentUrls.length})'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Colors.white),
+                  ),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => _printSupportDocument(report),
+                  icon: const Icon(Icons.print, size: 16),
+                  label: const Text('Print Docs'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => _showSupportDocumentUploadDialog(report),
+              icon: const Icon(Icons.upload_file, size: 18),
+              label: const Text('Upload Support Documents'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.orange.shade700,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTravelingDetails(TravelingReport report) {
+    final dateTimeFormat = DateFormat('MMM dd, yyyy HH:mm');
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.orange.shade600, size: 24),
+              const SizedBox(width: 8),
+              const Text(
+                'Traveling Details',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const Divider(height: 24),
+          _buildDetailRow(Icons.flag, 'Purpose', report.purpose),
+          const SizedBox(height: 12),
+          _buildDetailRow(Icons.location_on, 'Place', report.placeName),
+          const SizedBox(height: 12),
+          _buildDetailRow(
+            Icons.flight_takeoff,
+            'Departure',
+            dateTimeFormat.format(report.departureTime),
+          ),
+          const SizedBox(height: 12),
+          _buildDetailRow(
+            Icons.flight_land,
+            'Destination',
+            dateTimeFormat.format(report.destinationTime),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildDetailRow(
+                  Icons.people,
+                  'Total Members',
+                  report.totalMembers.toString(),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildDetailRow(
+                  Icons.public,
+                  'Travel Type',
+                  report.travelLocationEnum.displayName,
+                ),
+              ),
+            ],
+          ),
+          if (report.notes?.isNotEmpty == true) ...[
+            const SizedBox(height: 12),
+            _buildDetailRow(Icons.note, 'Notes', report.notes!),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: Colors.grey.shade600),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMileageSection(TravelingReport report) {
+    final currencyFormat = NumberFormat('#,##0.00', 'en_US');
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.directions_car, color: Colors.blue.shade600, size: 24),
+              const SizedBox(width: 8),
+              const Text(
+                'Mileage',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const Divider(height: 24),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Table(
+              border: TableBorder.symmetric(
+                inside: BorderSide(color: Colors.grey.shade200),
+              ),
+              children: [
+                TableRow(
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(8),
+                    ),
+                  ),
+                  children: [
+                    _buildTableCell('Start', isHeader: true),
+                    _buildTableCell('End', isHeader: true),
+                    _buildTableCell('Total KM', isHeader: true),
+                    _buildTableCell('Amount', isHeader: true),
+                  ],
+                ),
+                TableRow(
+                  children: [
+                    _buildTableCell(
+                      '${currencyFormat.format(report.mileageStart)} KM',
+                    ),
+                    _buildTableCell(
+                      '${currencyFormat.format(report.mileageEnd)} KM',
+                    ),
+                    _buildTableCell(
+                      '${currencyFormat.format(report.totalKM)} KM',
+                    ),
+                    _buildTableCell(
+                      '฿${currencyFormat.format(report.mileageAmount)}',
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, size: 16, color: Colors.blue.shade700),
+                const SizedBox(width: 8),
+                Text(
+                  'Rate: 5฿ per kilometer',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.blue.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPerDiemSection(TravelingReport report) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.1),
+            blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
@@ -621,224 +1055,28 @@ class _TravelingReportDetailScreenState
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      report.reportNumber,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      dateFormat.format(report.reportDate),
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: statusColor),
-                ),
-                child: Text(
-                  report.status.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: statusColor,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              // View Support Documents Button
-              if (report.supportDocumentUrls.isNotEmpty)
-                TextButton.icon(
-                  onPressed: () => _showSupportDocument(report),
-                  icon: Icon(
-                    Icons.attach_file,
-                    size: 18,
-                    color: Colors.green.shade700,
-                  ),
-                  label: Text(
-                    'View Docs (${report.supportDocumentUrls.length})',
-                    style: TextStyle(color: Colors.green.shade700),
-                  ),
-                ),
-              // Print Support Documents Button
-              if (report.supportDocumentUrls.isNotEmpty)
-                TextButton.icon(
-                  onPressed: () => _printSupportDocument(report),
-                  icon: Icon(
-                    Icons.print,
-                    size: 18,
-                    color: Colors.blue.shade700,
-                  ),
-                  label: Text(
-                    'Print Docs',
-                    style: TextStyle(color: Colors.blue.shade700),
-                  ),
-                ),
-              const Spacer(),
-              ElevatedButton.icon(
-                onPressed: () => _showSupportDocumentUploadDialog(report),
-                icon: const Icon(Icons.upload_file),
-                label: const Text('Support Documents'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green.shade50,
-                  foregroundColor: Colors.green.shade700,
-                ),
-              ),
-            ],
-          ),
-          const Divider(height: 24),
-          _buildInfoRow('Reporter:', report.reporterName),
-          _buildInfoRow('Department:', report.department),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTravelingDetails(TravelingReport report) {
-    final dateTimeFormat = DateFormat('MMM dd, yyyy HH:mm');
-
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Traveling Details',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const Divider(height: 24),
-          _buildInfoRow('Purpose:', report.purpose),
-          _buildInfoRow('Place:', report.placeName),
-          _buildInfoRow(
-            'Departure:',
-            dateTimeFormat.format(report.departureTime),
-          ),
-          _buildInfoRow(
-            'Destination:',
-            dateTimeFormat.format(report.destinationTime),
-          ),
-          _buildInfoRow('Total Members:', report.totalMembers.toString()),
-          _buildInfoRow('Travel Type:', report.travelLocationEnum.displayName),
-          if (report.notes?.isNotEmpty == true)
-            Column(
-              children: [
-                const SizedBox(height: 8),
-                _buildInfoRow('Notes:', report.notes!),
-              ],
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMileageSection(TravelingReport report) {
-    final currencyFormat = NumberFormat('#,##0.00', 'en_US');
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Mileage',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const Divider(height: 24),
-          Table(
-            border: TableBorder.all(color: Colors.grey.shade300),
-            children: [
-              TableRow(
-                decoration: BoxDecoration(color: Colors.grey.shade100),
+              Row(
                 children: [
-                  _buildTableCell('Start', isHeader: true),
-                  _buildTableCell('End', isHeader: true),
-                  _buildTableCell('Total KM', isHeader: true),
-                  _buildTableCell('Amount (5฿/KM)', isHeader: true),
-                ],
-              ),
-              TableRow(
-                children: [
-                  _buildTableCell(
-                    '${currencyFormat.format(report.mileageStart)} KM',
-                  ),
-                  _buildTableCell(
-                    '${currencyFormat.format(report.mileageEnd)} KM',
-                  ),
-                  _buildTableCell(
-                    '${currencyFormat.format(report.totalKM)} KM',
-                  ),
-                  _buildTableCell(
-                    '฿${currencyFormat.format(report.mileageAmount)}',
+                  Icon(Icons.restaurant, color: Colors.green.shade600, size: 24),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Per Diem Entries',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ],
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPerDiemSection(TravelingReport report) {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Per Diem Entries',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               if (report.status == 'draft')
                 ElevatedButton.icon(
                   onPressed: () => _addPerDiemEntry(report),
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('Add Entry'),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
+                    backgroundColor: Colors.green.shade600,
                     foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                   ),
                 ),
             ],
@@ -848,7 +1086,12 @@ class _TravelingReportDetailScreenState
             stream: _firestoreService.perDiemEntriesByReportStream(report.id),
             builder: (context, snapshot) {
               if (!snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32),
+                    child: CircularProgressIndicator(),
+                  ),
+                );
               }
 
               final entries = snapshot.data!;
@@ -860,14 +1103,25 @@ class _TravelingReportDetailScreenState
                     child: Column(
                       children: [
                         Icon(
-                          Icons.restaurant,
-                          size: 48,
-                          color: Colors.grey.shade400,
+                          Icons.restaurant_menu,
+                          size: 64,
+                          color: Colors.grey.shade300,
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 12),
                         Text(
                           'No per diem entries yet',
-                          style: TextStyle(color: Colors.grey.shade600),
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Click "Add" to create your first entry',
+                          style: TextStyle(
+                            color: Colors.grey.shade500,
+                            fontSize: 13,
+                          ),
                         ),
                       ],
                     ),
@@ -879,7 +1133,10 @@ class _TravelingReportDetailScreenState
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: entries.length,
-                separatorBuilder: (context, index) => const Divider(),
+                separatorBuilder: (context, index) => Divider(
+                  color: Colors.grey.shade200,
+                  height: 1,
+                ),
                 itemBuilder: (context, index) {
                   return _buildPerDiemEntryCard(report, entries[index]);
                 },
@@ -898,87 +1155,138 @@ class _TravelingReportDetailScreenState
     final dateFormat = DateFormat('EEE, MMM dd, yyyy');
     final currencyFormat = NumberFormat('#,##0.00', 'en_US');
 
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(dateFormat.format(entry.date)),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      child: Row(
         children: [
-          const SizedBox(height: 4),
-          Row(
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  dateFormat.format(entry.date),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    if (entry.hasBreakfast)
+                      _buildMealChip('B', 'Breakfast', Colors.amber.shade700),
+                    if (entry.hasLunch)
+                      _buildMealChip('L', 'Lunch', Colors.orange.shade700),
+                    if (entry.hasSupper)
+                      _buildMealChip('S', 'Supper', Colors.deepOrange.shade700),
+                    if (entry.hasIncidentMeal)
+                      _buildMealChip('I', 'Incident', Colors.purple.shade700),
+                  ],
+                ),
+                if (entry.notes.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.note,
+                          size: 14,
+                          color: Colors.grey.shade600,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            entry.notes,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              if (entry.hasBreakfast)
-                Chip(
-                  label: const Text('B', style: TextStyle(fontSize: 10)),
-                  padding: EdgeInsets.zero,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
                 ),
-              if (entry.hasLunch) ...[
-                const SizedBox(width: 4),
-                Chip(
-                  label: const Text('L', style: TextStyle(fontSize: 10)),
-                  padding: EdgeInsets.zero,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green.shade200),
                 ),
-              ],
-              if (entry.hasSupper) ...[
-                const SizedBox(width: 4),
-                Chip(
-                  label: const Text('S', style: TextStyle(fontSize: 10)),
-                  padding: EdgeInsets.zero,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                child: Text(
+                  '฿${currencyFormat.format(entry.dailyTotalAllMembers)}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Colors.green.shade700,
+                  ),
                 ),
-              ],
-              if (entry.hasIncidentMeal) ...[
-                const SizedBox(width: 4),
-                Chip(
-                  label: const Text('I', style: TextStyle(fontSize: 10)),
-                  padding: EdgeInsets.zero,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-              ],
-              const SizedBox(width: 8),
-              Text(
-                '${entry.mealsCount} meal${entry.mealsCount > 1 ? 's' : ''}',
               ),
+              if (report.status == 'draft') ...[
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.edit, size: 18, color: Colors.blue.shade600),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      onPressed: () => _editPerDiemEntry(report, entry),
+                      tooltip: 'Edit',
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.delete, size: 18, color: Colors.red.shade600),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      onPressed: () => _deletePerDiemEntry(report, entry),
+                      tooltip: 'Delete',
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
-          if (entry.notes.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              entry.notes,
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-            ),
-          ],
         ],
       ),
-      trailing: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(
-            '฿${currencyFormat.format(entry.dailyTotalAllMembers)}',
-            style: const TextStyle(fontWeight: FontWeight.bold),
+    );
+  }
+
+  Widget _buildMealChip(String label, String tooltip, Color color) {
+    return Tooltip(
+      message: tooltip,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: color,
           ),
-          if (report.status == 'draft')
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.edit, size: 18),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  onPressed: () => _editPerDiemEntry(report, entry),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete, size: 18),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  onPressed: () => _deletePerDiemEntry(report, entry),
-                ),
-              ],
-            ),
-        ],
+        ),
       ),
     );
   }
@@ -988,78 +1296,162 @@ class _TravelingReportDetailScreenState
 
     return Container(
       margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.orange.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.orange.shade200, width: 2),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.orange.shade400, Colors.orange.shade600],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.shade200,
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Summary',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const Divider(height: 24),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Mileage Total:'),
-              Text(
-                '฿${currencyFormat.format(report.mileageAmount)}',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.summarize,
+                  color: Colors.white,
+                  size: 24,
+                ),
               ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Per Diem Total (${report.perDiemDays} days):'),
-              Text(
-                '฿${currencyFormat.format(report.perDiemTotal)}',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          const Divider(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
+              const SizedBox(width: 12),
               const Text(
-                'GRAND TOTAL:',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              Text(
-                '฿${currencyFormat.format(report.grandTotal)}',
-                style: const TextStyle(
+                'Summary',
+                style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: Colors.orange,
+                  color: Colors.white,
                 ),
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: const TextStyle(fontWeight: FontWeight.w500),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.directions_car,
+                          color: Colors.white.withValues(alpha: 0.9),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Mileage Total:',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      '฿${currencyFormat.format(report.mileageAmount)}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.restaurant,
+                          color: Colors.white.withValues(alpha: 0.9),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Per Diem (${report.perDiemDays} days):',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      '฿${currencyFormat.format(report.perDiemTotal)}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-          Expanded(child: Text(value)),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.account_balance_wallet,
+                      color: Colors.orange.shade700,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'GRAND TOTAL:',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.orange.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  '฿${currencyFormat.format(report.grandTotal)}',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.orange.shade700,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

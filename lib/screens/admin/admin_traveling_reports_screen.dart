@@ -93,13 +93,19 @@ class _AdminTravelingReportsScreenState
                   return _buildEmptyState();
                 }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: reports.length,
-                  itemBuilder: (context, index) {
-                    final report = reports[index];
-                    return _buildReportCard(report);
-                  },
+                return Center(
+                  child: Container(
+                    constraints: const BoxConstraints(maxWidth: 1200),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.only(top: 16, bottom: 16),
+                      itemCount: reports.length,
+                      itemBuilder: (context, index) {
+                        final report = reports[index];
+                        return _buildReportCard(report);
+                      },
+                    ),
+                  ),
                 );
               },
             ),
@@ -116,41 +122,52 @@ class _AdminTravelingReportsScreenState
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: DropdownButtonFormField<String>(
-              value: _selectedStatus,
-              decoration: const InputDecoration(
-                labelText: 'Status',
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
+      child: Center(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 1200),
+          child: Row(
+            children: [
+              Icon(Icons.filter_list, color: Colors.grey.shade600, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  value: _selectedStatus,
+                  decoration: InputDecoration(
+                    labelText: 'Filter by Status',
+                    border: const OutlineInputBorder(),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    prefixIcon: Icon(
+                      Icons.label,
+                      color: Colors.orange.shade600,
+                    ),
+                  ),
+                  items: _statusOptions.map((status) {
+                    return DropdownMenuItem(
+                      value: status,
+                      child: Text(
+                        status == 'all' ? 'All Statuses' : status.toUpperCase(),
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedStatus = value;
+                    });
+                  },
                 ),
               ),
-              items: _statusOptions.map((status) {
-                return DropdownMenuItem(
-                  value: status,
-                  child: Text(
-                    status == 'all' ? 'All Statuses' : status.toUpperCase(),
-                  ),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  _selectedStatus = value;
-                });
-              },
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -176,191 +193,257 @@ class _AdminTravelingReportsScreenState
     final currencyFormat = NumberFormat('#,##0.00', 'en_US');
     final statusColor = _getStatusColor(report.status);
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
-      child: InkWell(
-        onTap: () {
-          context.push('/admin/traveling-reports/${report.id}');
-        },
-        borderRadius: BorderRadius.circular(4),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          report.reportNumber,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
+    IconData statusIcon;
+    switch (report.status) {
+      case 'approved':
+        statusIcon = Icons.check_circle;
+        break;
+      case 'rejected':
+        statusIcon = Icons.cancel;
+        break;
+      case 'submitted':
+        statusIcon = Icons.pending;
+        break;
+      default:
+        statusIcon = Icons.edit_document;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            context.push('/admin/traveling-reports/${report.id}');
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Colors.orange.shade400,
+                            Colors.orange.shade600,
+                          ],
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          dateFormat.format(report.reportDate),
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey.shade600,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.flight_takeoff,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            report.reportNumber,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
+                          const SizedBox(height: 2),
+                          Text(
+                            dateFormat.format(report.reportDate),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: statusColor),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(statusIcon, size: 14, color: statusColor),
+                          const SizedBox(width: 4),
+                          Text(
+                            report.status.toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: statusColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    children: [
+                      _buildInfoRow(Icons.person, report.reporterName),
+                      const SizedBox(height: 8),
+                      _buildInfoRow(Icons.location_on, report.placeName),
+                      const SizedBox(height: 8),
+                      _buildInfoRow(Icons.flag, report.purpose),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildInfoRow(
+                              Icons.business,
+                              report.department,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _buildInfoRow(
+                              Icons.people,
+                              '${report.totalMembers} member${report.totalMembers > 1 ? 's' : ''}',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.orange.shade50,
+                        Colors.orange.shade100.withValues(alpha: 0.5),
                       ],
                     ),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange.shade200),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: statusColor),
-                    ),
-                    child: Text(
-                      report.status.toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: statusColor,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const Divider(height: 24),
-              Row(
-                children: [
-                  Icon(Icons.person, size: 16, color: Colors.grey.shade600),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      report.reporterName,
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(Icons.place, size: 16, color: Colors.grey.shade600),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      report.placeName,
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(
-                    Icons.description,
-                    size: 16,
-                    color: Colors.grey.shade600,
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      report.purpose,
-                      style: const TextStyle(fontSize: 14),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(Icons.business, size: 16, color: Colors.grey.shade600),
-                  const SizedBox(width: 4),
-                  Text(report.department, style: const TextStyle(fontSize: 14)),
-                  const SizedBox(width: 16),
-                  Icon(Icons.people, size: 16, color: Colors.grey.shade600),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${report.totalMembers} member${report.totalMembers > 1 ? 's' : ''}',
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                ],
-              ),
-              const Divider(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
+                      _buildAmountColumn(
                         'Mileage',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                      Text(
                         '฿${currencyFormat.format(report.mileageAmount)}',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        Icons.directions_car,
+                        Colors.blue.shade600,
                       ),
-                    ],
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
+                      Container(
+                        width: 1,
+                        height: 40,
+                        color: Colors.orange.shade200,
+                      ),
+                      _buildAmountColumn(
                         'Per Diem',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                      Text(
                         '฿${currencyFormat.format(report.perDiemTotal)}',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        Icons.restaurant,
+                        Colors.green.shade600,
                       ),
-                    ],
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
+                      Container(
+                        width: 1,
+                        height: 40,
+                        color: Colors.orange.shade200,
+                      ),
+                      _buildAmountColumn(
                         'Total',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                      Text(
                         '฿${currencyFormat.format(report.grandTotal)}',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.orange,
-                        ),
+                        Icons.account_balance_wallet,
+                        Colors.orange.shade700,
                       ),
                     ],
                   ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: Colors.grey.shade600),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(fontSize: 13),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAmountColumn(
+    String label,
+    String amount,
+    IconData icon,
+    Color color,
+  ) {
+    return Expanded(
+      child: Column(
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            amount,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ],
       ),
     );
   }

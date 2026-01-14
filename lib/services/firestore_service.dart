@@ -23,7 +23,8 @@ class FirestoreService {
       _firestore.collection('transactions');
   CollectionReference<Map<String, dynamic>> get _travelingReportsCollection =>
       _firestore.collection('traveling_reports');
-  CollectionReference<Map<String, dynamic>> get _travelingPerDiemEntriesCollection =>
+  CollectionReference<Map<String, dynamic>>
+  get _travelingPerDiemEntriesCollection =>
       _firestore.collection('traveling_per_diem_entries');
 
   // ===== USER OPERATIONS =====
@@ -599,7 +600,8 @@ class FirestoreService {
   }
 
   Future<List<TravelingReport>> getTravelingReportsByReporter(
-      String reporterId) async {
+    String reporterId,
+  ) async {
     try {
       final snapshot = await _travelingReportsCollection
           .where('reporterId', isEqualTo: reporterId)
@@ -615,7 +617,8 @@ class FirestoreService {
   }
 
   Future<List<TravelingReport>> getTravelingReportsByStatus(
-      String status) async {
+    String status,
+  ) async {
     try {
       final snapshot = await _travelingReportsCollection
           .where('status', isEqualTo: status)
@@ -631,7 +634,8 @@ class FirestoreService {
   }
 
   Future<List<TravelingReport>> getTravelingReportsByDepartment(
-      String department) async {
+    String department,
+  ) async {
     try {
       final snapshot = await _travelingReportsCollection
           .where('department', isEqualTo: department)
@@ -650,20 +654,25 @@ class FirestoreService {
     return _travelingReportsCollection
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => TravelingReport.fromFirestore(doc))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => TravelingReport.fromFirestore(doc))
+              .toList(),
+        );
   }
 
   Stream<List<TravelingReport>> travelingReportsByReporterStream(
-      String reporterId) {
+    String reporterId,
+  ) {
     return _travelingReportsCollection
         .where('reporterId', isEqualTo: reporterId)
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => TravelingReport.fromFirestore(doc))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => TravelingReport.fromFirestore(doc))
+              .toList(),
+        );
   }
 
   Future<void> saveTravelingReport(TravelingReport report) async {
@@ -722,7 +731,9 @@ class FirestoreService {
   }
 
   Future<void> approveTravelingReport(
-      String reportId, String approverName) async {
+    String reportId,
+    String approverName,
+  ) async {
     try {
       await _travelingReportsCollection.doc(reportId).update({
         'status': 'approved',
@@ -737,7 +748,9 @@ class FirestoreService {
   }
 
   Future<void> rejectTravelingReport(
-      String reportId, String rejectionReason) async {
+    String reportId,
+    String rejectionReason,
+  ) async {
     try {
       await _travelingReportsCollection.doc(reportId).update({
         'status': 'rejected',
@@ -750,10 +763,28 @@ class FirestoreService {
     }
   }
 
+  Future<void> revertTravelingReportToDraft(String reportId) async {
+    try {
+      await _travelingReportsCollection.doc(reportId).update({
+        'status': 'draft',
+        'submittedAt': null,
+        'submittedBy': null,
+        'approvedAt': null,
+        'approvedBy': null,
+        'rejectionReason': null,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      AppLogger.severe('Error reverting traveling report to draft: $e');
+      rethrow;
+    }
+  }
+
   // ===== TRAVELING PER DIEM ENTRY OPERATIONS =====
 
   Future<TravelingPerDiemEntry?> getTravelingPerDiemEntry(
-      String entryId) async {
+    String entryId,
+  ) async {
     try {
       final doc = await _travelingPerDiemEntriesCollection.doc(entryId).get();
       return doc.exists ? TravelingPerDiemEntry.fromFirestore(doc) : null;
@@ -764,7 +795,8 @@ class FirestoreService {
   }
 
   Future<List<TravelingPerDiemEntry>> getPerDiemEntriesByReport(
-      String reportId) async {
+    String reportId,
+  ) async {
     try {
       final snapshot = await _travelingPerDiemEntriesCollection
           .where('reportId', isEqualTo: reportId)
@@ -780,14 +812,17 @@ class FirestoreService {
   }
 
   Stream<List<TravelingPerDiemEntry>> perDiemEntriesByReportStream(
-      String reportId) {
+    String reportId,
+  ) {
     return _travelingPerDiemEntriesCollection
         .where('reportId', isEqualTo: reportId)
         .orderBy('date', descending: false)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => TravelingPerDiemEntry.fromFirestore(doc))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => TravelingPerDiemEntry.fromFirestore(doc))
+              .toList(),
+        );
   }
 
   Future<void> saveTravelingPerDiemEntry(TravelingPerDiemEntry entry) async {
@@ -836,7 +871,9 @@ class FirestoreService {
     try {
       final entries = await getPerDiemEntriesByReport(reportId);
       final perDiemTotal = entries.fold<double>(
-          0.0, (total, entry) => total + entry.dailyTotalAllMembers);
+        0.0,
+        (total, entry) => total + entry.dailyTotalAllMembers,
+      );
       final perDiemDays = entries.length;
 
       await _travelingReportsCollection.doc(reportId).update({

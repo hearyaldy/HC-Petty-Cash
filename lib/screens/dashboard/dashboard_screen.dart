@@ -8,8 +8,11 @@ import '../../providers/report_provider.dart';
 import '../../providers/project_report_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../models/enums.dart';
+import '../../models/traveling_report.dart';
+import '../../services/firestore_service.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
+import '../../widgets/edit_traveling_report_dialog.dart';
 
 class _StatData {
   final String title;
@@ -113,47 +116,61 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return sum + reportTotal;
     });
 
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: _buildResponsiveAppBar(context, user),
-      body: ResponsiveBuilder(
-        mobile: _buildMobileLayout(
-          context,
-          allReports,
-          myReports,
-          draftReports,
-          pendingApprovals,
-          pettyCashReceived,
-          pettyCashUsed,
-          projectBudgetTotal,
-          projectExpensesTotal,
-          authProvider,
-        ),
-        tablet: _buildTabletLayout(
-          context,
-          allReports,
-          myReports,
-          draftReports,
-          pendingApprovals,
-          pettyCashReceived,
-          pettyCashUsed,
-          projectBudgetTotal,
-          projectExpensesTotal,
-          authProvider,
-        ),
-        desktop: _buildDesktopLayout(
-          context,
-          allReports,
-          myReports,
-          draftReports,
-          pendingApprovals,
-          pettyCashReceived,
-          pettyCashUsed,
-          projectBudgetTotal,
-          projectExpensesTotal,
-          authProvider,
-        ),
-      ),
+    return StreamBuilder<List<TravelingReport>>(
+      stream: FirestoreService().travelingReportsStream(),
+      builder: (context, travelingSnapshot) {
+        final allTravelingReports = travelingSnapshot.data ?? [];
+        // Filter pending reports, excluding admin's own reports
+        final pendingTravelingReports = allTravelingReports
+            .where((r) => r.status == 'submitted' && r.reporterId != user?.id)
+            .toList();
+
+        return Scaffold(
+          backgroundColor: Colors.grey[50],
+          appBar: _buildResponsiveAppBar(context, user),
+          body: ResponsiveBuilder(
+            mobile: _buildMobileLayout(
+              context,
+              allReports,
+              myReports,
+              draftReports,
+              pendingApprovals,
+              pettyCashReceived,
+              pettyCashUsed,
+              projectBudgetTotal,
+              projectExpensesTotal,
+              authProvider,
+              pendingTravelingReports,
+            ),
+            tablet: _buildTabletLayout(
+              context,
+              allReports,
+              myReports,
+              draftReports,
+              pendingApprovals,
+              pettyCashReceived,
+              pettyCashUsed,
+              projectBudgetTotal,
+              projectExpensesTotal,
+              authProvider,
+              pendingTravelingReports,
+            ),
+            desktop: _buildDesktopLayout(
+              context,
+              allReports,
+              myReports,
+              draftReports,
+              pendingApprovals,
+              pettyCashReceived,
+              pettyCashUsed,
+              projectBudgetTotal,
+              projectExpensesTotal,
+              authProvider,
+              pendingTravelingReports,
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -220,6 +237,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     double projectBudgetTotal,
     double projectExpensesTotal,
     dynamic authProvider,
+    List<TravelingReport> pendingTravelingReports,
   ) {
     return SingleChildScrollView(
       child: ResponsiveContainer(
@@ -234,6 +252,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               myReports.length,
               draftReports.length,
               pendingApprovals.length,
+              pendingTravelingReports.length,
               authProvider.canApprove(),
             ),
             SizedBox(height: ResponsiveHelper.getSpacing(context)),
@@ -253,6 +272,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             if (authProvider.canApprove()) ...[
               SizedBox(height: ResponsiveHelper.getSpacing(context)),
               _buildPendingApprovals(context, pendingApprovals),
+              if (pendingTravelingReports.isNotEmpty) ...[
+                SizedBox(height: ResponsiveHelper.getSpacing(context)),
+                _buildPendingTravelingReports(context, pendingTravelingReports),
+              ],
             ],
             if (authProvider.canManageUsers()) ...[
               SizedBox(height: ResponsiveHelper.getSpacing(context)),
@@ -275,6 +298,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     double projectBudgetTotal,
     double projectExpensesTotal,
     dynamic authProvider,
+    List<TravelingReport> pendingTravelingReports,
   ) {
     return SingleChildScrollView(
       child: ResponsiveContainer(
@@ -296,6 +320,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         myReports.length,
                         draftReports.length,
                         pendingApprovals.length,
+                        pendingTravelingReports.length,
                         authProvider.canApprove(),
                       ),
                       SizedBox(height: ResponsiveHelper.getSpacing(context)),
@@ -323,6 +348,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             if (authProvider.canApprove()) ...[
               SizedBox(height: ResponsiveHelper.getSpacing(context)),
               _buildPendingApprovals(context, pendingApprovals),
+              if (pendingTravelingReports.isNotEmpty) ...[
+                SizedBox(height: ResponsiveHelper.getSpacing(context)),
+                _buildPendingTravelingReports(context, pendingTravelingReports),
+              ],
             ],
             if (authProvider.canManageUsers()) ...[
               SizedBox(height: ResponsiveHelper.getSpacing(context)),
@@ -345,6 +374,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     double projectBudgetTotal,
     double projectExpensesTotal,
     dynamic authProvider,
+    List<TravelingReport> pendingTravelingReports,
   ) {
     return SingleChildScrollView(
       child: ResponsiveContainer(
@@ -365,6 +395,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     myReports.length,
                     draftReports.length,
                     pendingApprovals.length,
+                    pendingTravelingReports.length,
                     authProvider.canApprove(),
                   ),
                 ),
@@ -396,6 +427,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             if (authProvider.canApprove()) ...[
               SizedBox(height: ResponsiveHelper.getSpacing(context)),
               _buildPendingApprovals(context, pendingApprovals),
+              if (pendingTravelingReports.isNotEmpty) ...[
+                SizedBox(height: ResponsiveHelper.getSpacing(context)),
+                _buildPendingTravelingReports(context, pendingTravelingReports),
+              ],
             ],
             if (authProvider.canManageUsers()) ...[
               SizedBox(height: ResponsiveHelper.getSpacing(context)),
@@ -477,6 +512,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     int myReports,
     int draftReports,
     int pendingApprovals,
+    int pendingTravelingReports,
     bool canApprove,
   ) {
     final stats = [
@@ -508,6 +544,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
           icon: Icons.pending_actions,
           gradient: [Colors.red.shade400, Colors.red.shade600],
           lightColor: Colors.red.shade50,
+        ),
+      if (canApprove && pendingTravelingReports > 0)
+        _StatData(
+          title: 'Traveling Reports',
+          value: pendingTravelingReports.toString(),
+          icon: Icons.flight_takeoff,
+          gradient: [Colors.purple.shade400, Colors.purple.shade600],
+          lightColor: Colors.purple.shade50,
         ),
     ];
 
@@ -1567,6 +1611,831 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  Widget _buildPendingTravelingReports(
+    BuildContext context,
+    List<TravelingReport> reports,
+  ) {
+    final currencyFormat = NumberFormat('#,##0.00', 'en_US');
+    final dateFormat = DateFormat('MMM dd, yyyy');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.purple.shade50, Colors.purple.shade100],
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.purple,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.flight_takeoff,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Pending Traveling Reports',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.purple.shade900,
+                    ),
+                  ),
+                ],
+              ),
+              TextButton.icon(
+                onPressed: () => context.go('/admin/traveling-reports'),
+                icon: const Icon(Icons.arrow_forward),
+                label: const Text('View All'),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (reports.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(48),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Center(
+              child: Column(
+                children: [
+                  Icon(Icons.check_circle, size: 64, color: Colors.grey.shade300),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No pending traveling reports',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        if (reports.isNotEmpty)
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: reports.length > 5 ? 5 : reports.length,
+            itemBuilder: (context, index) {
+              final report = reports[index];
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: Colors.orange,
+                    child: const Icon(
+                      Icons.flight_takeoff,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  title: Text(
+                    report.reportNumber,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${report.reporterName} • ${dateFormat.format(report.reportDate)}',
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        report.purpose,
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '฿${currencyFormat.format(report.grandTotal)}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Text(
+                            report.placeName,
+                            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                      PopupMenuButton<String>(
+                        icon: const Icon(Icons.more_vert),
+                        onSelected: (String choice) {
+                          if (choice == 'view') {
+                            context.push('/admin/traveling-reports/${report.id}');
+                          } else if (choice == 'edit') {
+                            _editTravelingReport(context, report);
+                          } else if (choice == 'changeStatus') {
+                            _changeTravelingReportStatus(context, report);
+                          } else if (choice == 'approve') {
+                            _approveTravelingReport(context, report);
+                          } else if (choice == 'reject') {
+                            _rejectTravelingReport(context, report);
+                          } else if (choice == 'delete') {
+                            _deleteTravelingReport(context, report);
+                          }
+                        },
+                        itemBuilder: (BuildContext context) => [
+                          const PopupMenuItem<String>(
+                            value: 'view',
+                            child: Row(
+                              children: [
+                                Icon(Icons.visibility, size: 20),
+                                SizedBox(width: 8),
+                                Text('View Details'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem<String>(
+                            value: 'edit',
+                            child: Row(
+                              children: [
+                                Icon(Icons.edit, size: 20, color: Colors.blue),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Edit Report',
+                                  style: TextStyle(color: Colors.blue),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem<String>(
+                            value: 'changeStatus',
+                            child: Row(
+                              children: [
+                                Icon(Icons.swap_horiz, size: 20, color: Colors.purple),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Change Status',
+                                  style: TextStyle(color: Colors.purple),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem<String>(
+                            value: 'approve',
+                            child: Row(
+                              children: [
+                                Icon(Icons.check_circle, size: 20, color: Colors.green),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Approve',
+                                  style: TextStyle(color: Colors.green),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem<String>(
+                            value: 'reject',
+                            child: Row(
+                              children: [
+                                Icon(Icons.cancel, size: 20, color: Colors.orange),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Reject',
+                                  style: TextStyle(color: Colors.orange),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem<String>(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete, size: 20, color: Colors.red),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Delete',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  onTap: () => context.push('/admin/traveling-reports/${report.id}'),
+                ),
+              );
+            },
+          ),
+      ],
+    );
+  }
+
+  void _approveTravelingReport(BuildContext context, TravelingReport report) {
+    final authProvider = context.read<AuthProvider>();
+    final user = authProvider.currentUser;
+
+    if (user == null) return;
+
+    showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Approve Traveling Report'),
+        content: Text(
+          'Are you sure you want to approve report ${report.reportNumber} from ${report.reporterName}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              try {
+                await FirestoreService().approveTravelingReport(
+                  report.id,
+                  user.name,
+                );
+                if (context.mounted) {
+                  Navigator.of(context).pop(true);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Report approved successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  Navigator.of(context).pop(false);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error approving report: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.green),
+            child: const Text('Approve'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _rejectTravelingReport(BuildContext context, TravelingReport report) {
+    final authProvider = context.read<AuthProvider>();
+    final user = authProvider.currentUser;
+
+    if (user == null) return;
+
+    final reasonController = TextEditingController();
+
+    showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reject Traveling Report'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Reject report ${report.reportNumber} from ${report.reporterName}?',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: reasonController,
+              decoration: const InputDecoration(
+                labelText: 'Rejection Reason',
+                border: OutlineInputBorder(),
+                hintText: 'Please provide a reason...',
+              ),
+              maxLines: 3,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              if (reasonController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please provide a rejection reason'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+                return;
+              }
+
+              try {
+                await FirestoreService().rejectTravelingReport(
+                  report.id,
+                  reasonController.text.trim(),
+                );
+                if (context.mounted) {
+                  Navigator.of(context).pop(true);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Report rejected'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  Navigator.of(context).pop(false);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error rejecting report: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Reject'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _deleteTravelingReport(BuildContext context, TravelingReport report) {
+    showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Traveling Report'),
+        content: Text(
+          'Are you sure you want to delete report ${report.reportNumber} from ${report.reporterName}? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              try {
+                await FirestoreService().deleteTravelingReport(report.id);
+
+                if (context.mounted) {
+                  Navigator.of(context).pop(true);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Traveling report deleted successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  Navigator.of(context).pop(false);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error deleting report: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _editTravelingReport(
+    BuildContext context,
+    TravelingReport report,
+  ) async {
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => EditTravelingReportDialog(
+        report: report,
+        reporterId: report.reporterId,
+        reporterName: report.reporterName,
+      ),
+    );
+
+    if (result != null && context.mounted) {
+      try {
+        final updatedReport = report.copyWith(
+          department: result['department'] as String,
+          reportDate: result['reportDate'] as DateTime,
+          purpose: result['purpose'] as String,
+          placeName: result['placeName'] as String,
+          departureTime: result['departureTime'] as DateTime,
+          destinationTime: result['destinationTime'] as DateTime,
+          totalMembers: result['totalMembers'] as int,
+          travelLocation: result['travelLocation'] as String,
+          mileageStart: result['mileageStart'] as double,
+          mileageEnd: result['mileageEnd'] as double,
+          notes: result['notes'] as String,
+        );
+
+        await FirestoreService().saveTravelingReport(updatedReport);
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Traveling report updated successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error updating report: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _changeTravelingReportStatus(
+    BuildContext context,
+    TravelingReport report,
+  ) async {
+    final authProvider = context.read<AuthProvider>();
+    final user = authProvider.currentUser;
+
+    if (user == null) return;
+
+    String? selectedStatus = report.status;
+    final reasonController = TextEditingController();
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Change Report Status'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Report: ${report.reportNumber}',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                value: selectedStatus,
+                decoration: const InputDecoration(
+                  labelText: 'Status',
+                  border: OutlineInputBorder(),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'draft', child: Text('DRAFT')),
+                  DropdownMenuItem(value: 'submitted', child: Text('SUBMITTED')),
+                  DropdownMenuItem(value: 'approved', child: Text('APPROVED')),
+                  DropdownMenuItem(value: 'rejected', child: Text('REJECTED')),
+                  DropdownMenuItem(value: 'closed', child: Text('CLOSED')),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    selectedStatus = value;
+                  });
+                },
+              ),
+              if (selectedStatus == 'rejected') ...[
+                const SizedBox(height: 16),
+                TextField(
+                  controller: reasonController,
+                  decoration: const InputDecoration(
+                    labelText: 'Rejection Reason',
+                    border: OutlineInputBorder(),
+                    hintText: 'Required for rejected status...',
+                  ),
+                  maxLines: 3,
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                if (selectedStatus == 'rejected' &&
+                    reasonController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please provide a rejection reason'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                  return;
+                }
+                Navigator.of(context).pop(true);
+              },
+              child: const Text('Update'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result == true && selectedStatus != null && context.mounted) {
+      try {
+        final updates = <String, dynamic>{
+          'status': selectedStatus,
+        };
+
+        if (selectedStatus == 'approved') {
+          updates['approvedAt'] = FieldValue.serverTimestamp();
+          updates['approvedBy'] = user.name;
+          updates['rejectionReason'] = null;
+        } else if (selectedStatus == 'rejected') {
+          updates['rejectedAt'] = FieldValue.serverTimestamp();
+          updates['rejectedBy'] = user.name;
+          updates['rejectionReason'] = reasonController.text.trim();
+          updates['approvedAt'] = null;
+          updates['approvedBy'] = null;
+        } else if (selectedStatus == 'submitted') {
+          updates['submittedAt'] = FieldValue.serverTimestamp();
+          updates['submittedBy'] = user.name;
+        }
+
+        await FirebaseFirestore.instance
+            .collection('traveling_reports')
+            .doc(report.id)
+            .update(updates);
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Status updated to ${selectedStatus!.toUpperCase()}'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error updating status: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  void _approveStudentReport(
+    BuildContext context,
+    String reportId,
+    String studentName,
+    String monthDisplay,
+  ) {
+    final authProvider = context.read<AuthProvider>();
+    final user = authProvider.currentUser;
+
+    if (user == null) return;
+
+    showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Approve Student Report'),
+        content: Text(
+          'Approve report for $studentName ($monthDisplay)?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              try {
+                await FirebaseFirestore.instance
+                    .collection('student_monthly_reports')
+                    .doc(reportId)
+                    .update({
+                  'status': 'approved',
+                  'approvedAt': FieldValue.serverTimestamp(),
+                  'approvedBy': user.name,
+                });
+
+                if (context.mounted) {
+                  Navigator.of(context).pop(true);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Student report approved successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  Navigator.of(context).pop(false);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error approving report: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.green),
+            child: const Text('Approve'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _rejectStudentReport(
+    BuildContext context,
+    String reportId,
+    String studentName,
+    String monthDisplay,
+  ) {
+    final authProvider = context.read<AuthProvider>();
+    final user = authProvider.currentUser;
+
+    if (user == null) return;
+
+    final reasonController = TextEditingController();
+
+    showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reject Student Report'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Reject report for $studentName ($monthDisplay)?',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: reasonController,
+              decoration: const InputDecoration(
+                labelText: 'Rejection Reason',
+                border: OutlineInputBorder(),
+                hintText: 'Please provide a reason...',
+              ),
+              maxLines: 3,
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              if (reasonController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please provide a rejection reason'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+                return;
+              }
+
+              try {
+                await FirebaseFirestore.instance
+                    .collection('student_monthly_reports')
+                    .doc(reportId)
+                    .update({
+                  'status': 'rejected',
+                  'rejectedAt': FieldValue.serverTimestamp(),
+                  'rejectedBy': user.name,
+                  'rejectionReason': reasonController.text.trim(),
+                });
+
+                if (context.mounted) {
+                  Navigator.of(context).pop(true);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Student report rejected'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  Navigator.of(context).pop(false);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error rejecting report: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.orange),
+            child: const Text('Reject'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _deleteStudentReport(
+    BuildContext context,
+    String reportId,
+    String studentName,
+    String monthDisplay,
+  ) {
+    showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Student Report'),
+        content: Text(
+          'Are you sure you want to delete the report for $studentName ($monthDisplay)? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              try {
+                await FirebaseFirestore.instance
+                    .collection('student_monthly_reports')
+                    .doc(reportId)
+                    .delete();
+
+                if (context.mounted) {
+                  Navigator.of(context).pop(true);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Student report deleted successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  Navigator.of(context).pop(false);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error deleting report: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Color _getStatusColor(ReportStatus status) {
     switch (status) {
       case ReportStatus.draft:
@@ -1770,12 +2639,101 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     subtitle: Text(
                       '$monthDisplay • ${status.toUpperCase()} • ${totalHours.toStringAsFixed(1)}h',
                     ),
-                    trailing: Text(
-                      currencyFormat.format(totalAmount),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          currencyFormat.format(totalAmount),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        PopupMenuButton<String>(
+                          icon: const Icon(Icons.more_vert),
+                          onSelected: (String choice) {
+                            if (choice == 'view') {
+                              context.push(
+                                '/admin/student-reports/${reportDoc.id}?month=$month&monthDisplay=${Uri.encodeComponent(monthDisplay)}',
+                              );
+                            } else if (choice == 'approve') {
+                              _approveStudentReport(
+                                context,
+                                reportDoc.id,
+                                studentName,
+                                monthDisplay,
+                              );
+                            } else if (choice == 'reject') {
+                              _rejectStudentReport(
+                                context,
+                                reportDoc.id,
+                                studentName,
+                                monthDisplay,
+                              );
+                            } else if (choice == 'delete') {
+                              _deleteStudentReport(
+                                context,
+                                reportDoc.id,
+                                studentName,
+                                monthDisplay,
+                              );
+                            }
+                          },
+                          itemBuilder: (BuildContext context) => [
+                            const PopupMenuItem<String>(
+                              value: 'view',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.visibility, size: 20),
+                                  SizedBox(width: 8),
+                                  Text('View Details'),
+                                ],
+                              ),
+                            ),
+                            if (status == 'submitted')
+                              const PopupMenuItem<String>(
+                                value: 'approve',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.check_circle, size: 20, color: Colors.green),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Approve',
+                                      style: TextStyle(color: Colors.green),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            if (status == 'submitted')
+                              const PopupMenuItem<String>(
+                                value: 'reject',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.cancel, size: 20, color: Colors.orange),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Reject',
+                                      style: TextStyle(color: Colors.orange),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            const PopupMenuItem<String>(
+                              value: 'delete',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.delete, size: 20, color: Colors.red),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Delete',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                     onTap: () => context.push(
                       '/admin/student-reports/${reportDoc.id}?month=$month&monthDisplay=${Uri.encodeComponent(monthDisplay)}',
