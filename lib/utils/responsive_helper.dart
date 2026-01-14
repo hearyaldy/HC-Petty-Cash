@@ -31,14 +31,14 @@ class ResponsiveHelper {
     } else if (isTablet(context)) {
       // Add extra horizontal padding for web on tablets too
       final basePadding = EdgeInsets.symmetric(
-        horizontal: kIsWeb ? 40 : 24, // Extra horizontal padding for web
+        horizontal: kIsWeb ? 64 : 24, // Extra horizontal padding for web
         vertical: 24,
       );
       return basePadding;
     } else {
       // For desktop/web, add more horizontal padding especially for web browsers
       final basePadding = EdgeInsets.symmetric(
-        horizontal: kIsWeb ? 48 : 32, // Extra horizontal padding for web
+        horizontal: kIsWeb ? 80 : 32, // Extra horizontal padding for web
         vertical: 24,
       );
       return basePadding;

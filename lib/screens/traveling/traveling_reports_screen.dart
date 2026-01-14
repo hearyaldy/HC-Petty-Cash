@@ -175,11 +175,14 @@ class _TravelingReportsScreenState extends State<TravelingReportsScreen> {
 
     if (user == null) return;
 
-    // Only allow deletion of user's own draft reports
-    if (report.reporterId != user.id || report.status != 'draft') {
+    // Only allow deletion of user's own draft or submitted reports
+    if (report.reporterId != user.id ||
+        (!['draft', 'submitted'].contains(report.status))) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('You can only delete your own draft reports'),
+          content: Text(
+            'You can only delete your own draft or submitted reports',
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -632,6 +635,8 @@ class _TravelingReportsScreenState extends State<TravelingReportsScreen> {
                         foregroundColor: Colors.orange.shade700,
                       ),
                     ),
+                  ],
+                  if (['draft', 'submitted'].contains(report.status)) ...[
                     const SizedBox(width: 8),
                     TextButton.icon(
                       onPressed: () => _deleteReport(report),

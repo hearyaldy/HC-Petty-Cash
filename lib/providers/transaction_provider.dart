@@ -272,7 +272,6 @@ class TransactionProvider extends ChangeNotifier {
         );
 
         await _firestoreService.updateTransaction(updated);
-        await loadTransactionsByReportId(transaction.reportId);
         // Update financial summary for the report
         await _updateReportFinancialSummary(transaction.reportId);
         // Update project report if transaction is linked to a project
@@ -324,7 +323,6 @@ class TransactionProvider extends ChangeNotifier {
         );
 
         await _firestoreService.updateTransaction(updated);
-        await loadTransactionsByReportId(transaction.reportId);
         // Update financial summary for the report
         await _updateReportFinancialSummary(transaction.reportId);
         // Update project report if transaction is linked to a project
@@ -377,17 +375,23 @@ class TransactionProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      AppLogger.info('Updating support documents for transaction: $transactionId');
+      AppLogger.info(
+        'Updating support documents for transaction: $transactionId',
+      );
       AppLogger.info('New document URLs count: ${supportDocumentUrls.length}');
       AppLogger.info('URLs: $supportDocumentUrls');
 
       final transaction = await _firestoreService.getTransaction(transactionId);
       if (transaction != null) {
-        AppLogger.info('Current document URLs in transaction: ${transaction.supportDocumentUrls.length}');
+        AppLogger.info(
+          'Current document URLs in transaction: ${transaction.supportDocumentUrls.length}',
+        );
 
         final updated = transaction.copyWith(
           supportDocumentUrls: supportDocumentUrls,
-          supportDocumentUrl: supportDocumentUrls.isNotEmpty ? supportDocumentUrls.first : null,
+          supportDocumentUrl: supportDocumentUrls.isNotEmpty
+              ? supportDocumentUrls.first
+              : null,
           updatedAt: DateTime.now(),
         );
 
@@ -395,7 +399,9 @@ class TransactionProvider extends ChangeNotifier {
         await _firestoreService.updateTransaction(updated);
         AppLogger.info('Transaction updated successfully');
 
-        AppLogger.info('Reloading transactions for report: ${transaction.reportId}');
+        AppLogger.info(
+          'Reloading transactions for report: ${transaction.reportId}',
+        );
         await loadTransactionsByReportId(transaction.reportId);
         AppLogger.info('Transactions reloaded successfully');
       } else {

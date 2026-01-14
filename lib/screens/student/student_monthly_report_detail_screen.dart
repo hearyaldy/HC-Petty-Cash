@@ -790,13 +790,25 @@ class _StudentMonthlyReportDetailScreenState
           PopupMenuButton<String>(
             icon: Icon(Icons.print),
             onSelected: (value) {
-              if (value == 'pdf') {
+              if (value == 'print') {
+                _generatePdf();
+              } else if (value == 'pdf') {
                 _generatePdf();
               } else if (value == 'excel') {
                 _generateExcel();
               }
             },
             itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'print',
+                child: Row(
+                  children: [
+                    Icon(Icons.print, color: Colors.blue),
+                    SizedBox(width: 8),
+                    Text('Print Report'),
+                  ],
+                ),
+              ),
               PopupMenuItem(
                 value: 'pdf',
                 child: Row(
