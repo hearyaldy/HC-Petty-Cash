@@ -3,45 +3,18 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
-import 'package:excel/excel.dart' as excel_package;
 import '../../models/student_timesheet.dart';
 import '../../providers/auth_provider.dart';
-import '../../utils/responsive_helper.dart';
-
-enum TimesheetSortOption { dateNewest, dateOldest, hoursHighest, hoursLowest }
-
-enum ViewMode { card, table }
-
-extension TimesheetSortOptionExtension on TimesheetSortOption {
-  String get displayName {
-    switch (this) {
-      case TimesheetSortOption.dateNewest:
-        return 'Date (Newest First)';
-      case TimesheetSortOption.dateOldest:
-        return 'Date (Oldest First)';
-      case TimesheetSortOption.hoursHighest:
-        return 'Hours (Highest First)';
-      case TimesheetSortOption.hoursLowest:
-        return 'Hours (Lowest First)';
-    }
-  }
-
-  IconData get icon {
-    switch (this) {
-      case TimesheetSortOption.dateNewest:
-      case TimesheetSortOption.dateOldest:
-        return Icons.calendar_today;
-      case TimesheetSortOption.hoursHighest:
-      case TimesheetSortOption.hoursLowest:
-        return Icons.timelapse;
-    }
-  }
-}
 
 class StudentReportScreen extends StatefulWidget {
-  const StudentReportScreen({super.key});
+  final String? initialMonth;
+  final String? initialMonthDisplay;
+
+  const StudentReportScreen({
+    super.key,
+    this.initialMonth,
+    this.initialMonthDisplay,
+  });
 
   @override
   State<StudentReportScreen> createState() => _StudentReportScreenState();
@@ -57,8 +30,6 @@ class _StudentReportScreenState extends State<StudentReportScreen>
   bool _isLoading = true;
   late TabController _tabController;
   int _selectedTabIndex = 0; // 0 = Current Month, 1 = History
-  ViewMode _viewMode = ViewMode.card;
-  TimesheetSortOption _sortOption = TimesheetSortOption.dateNewest;
 
   @override
   void initState() {
@@ -104,34 +75,16 @@ class _StudentReportScreenState extends State<StudentReportScreen>
     // Sort months in descending order (most recent first)
     _availableMonths.sort((a, b) => b.compareTo(a));
 
-    // Set selected month to current month if available
-    final currentMonth = _getMonthKey(DateTime.now());
-    if (_availableMonths.contains(currentMonth)) {
-      _selectedMonth = currentMonth;
-    } else if (_availableMonths.isNotEmpty) {
-      _selectedMonth = _availableMonths.first;
-    }
-
-    // Sort timesheets in each month
-    _sortTimesheets();
-  }
-
-  void _sortTimesheets() {
-    for (var monthKey in _timesheetsByMonth.keys) {
-      final timesheets = _timesheetsByMonth[monthKey]!;
-      switch (_sortOption) {
-        case TimesheetSortOption.dateNewest:
-          timesheets.sort((a, b) => b.date.compareTo(a.date));
-          break;
-        case TimesheetSortOption.dateOldest:
-          timesheets.sort((a, b) => a.date.compareTo(b.date));
-          break;
-        case TimesheetSortOption.hoursHighest:
-          timesheets.sort((a, b) => b.totalHours.compareTo(a.totalHours));
-          break;
-        case TimesheetSortOption.hoursLowest:
-          timesheets.sort((a, b) => a.totalHours.compareTo(b.totalHours));
-          break;
+    // Set selected month based on initialMonth parameter or current month
+    if (widget.initialMonth != null && _availableMonths.contains(widget.initialMonth)) {
+      _selectedMonth = widget.initialMonth;
+    } else {
+      // Fallback to current month if available
+      final currentMonth = _getMonthKey(DateTime.now());
+      if (_availableMonths.contains(currentMonth)) {
+        _selectedMonth = currentMonth;
+      } else if (_availableMonths.isNotEmpty) {
+        _selectedMonth = _availableMonths.first;
       }
     }
   }
@@ -198,7 +151,6 @@ class _StudentReportScreenState extends State<StudentReportScreen>
     DateTime selectedDate = DateTime.now();
     TimeOfDay startTime = const TimeOfDay(hour: 9, minute: 0);
     TimeOfDay endTime = const TimeOfDay(hour: 17, minute: 0);
-    final taskController = TextEditingController();
     final notesController = TextEditingController();
 
     showDialog(
@@ -400,32 +352,12 @@ class _StudentReportScreenState extends State<StudentReportScreen>
                     ),
                   ),
                   const SizedBox(height: 16),
-                  // Task Description (Required)
-                  TextFormField(
-                    controller: taskController,
-                    decoration: InputDecoration(
-                      labelText: 'Task *',
-                      hintText: 'Describe the work or task completed',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      prefixIcon: const Icon(Icons.task_alt),
-                    ),
-                    maxLines: 2,
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Task description is required';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
                   // Notes
                   TextFormField(
                     controller: notesController,
                     decoration: InputDecoration(
                       labelText: 'Notes (Optional)',
-                      hintText: 'Add any additional notes...',
+                      hintText: 'Describe your work...',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -459,7 +391,6 @@ class _StudentReportScreenState extends State<StudentReportScreen>
                         selectedDate,
                         startTime,
                         endTime,
-                        taskController.text.trim(),
                         notesController.text.trim(),
                       );
                     }
@@ -494,7 +425,6 @@ class _StudentReportScreenState extends State<StudentReportScreen>
     DateTime date,
     TimeOfDay startTime,
     TimeOfDay endTime,
-    String task,
     String notes,
   ) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -532,7 +462,7 @@ class _StudentReportScreenState extends State<StudentReportScreen>
         hourlyRate: hourlyRate,
         totalAmount: totalHours * hourlyRate,
         status: 'submitted',
-        task: task,
+        task: notes.isNotEmpty ? notes : '',
         notes: notes.isNotEmpty ? notes : null,
         createdAt: DateTime.now(),
       );
@@ -834,219 +764,12 @@ class _StudentReportScreenState extends State<StudentReportScreen>
   }
 
   Widget _buildCurrentMonthView() {
-    final List<StudentTimesheet> monthTimesheets = _selectedMonth != null
-        ? (_timesheetsByMonth[_selectedMonth] ?? <StudentTimesheet>[])
-        : <StudentTimesheet>[];
-
     return Column(
       children: [
         _buildProfileCard(),
         _buildMonthSelector(),
-        const SizedBox(height: 8),
-        // Time entries header with count and sort info
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Time Entries (${monthTimesheets.length})',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Text(
-                'Sorted by: ${_sortOption.displayName.split('(')[1].replaceAll(')', '')}',
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        Expanded(
-          child: monthTimesheets.isEmpty
-              ? _buildEmptyState()
-              : _viewMode == ViewMode.table
-                  ? _buildTableView(monthTimesheets)
-                  : _buildCardListView(monthTimesheets),
-        ),
+        Expanded(child: _buildTimesheetList()),
       ],
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.access_time, size: 64, color: Colors.grey[400]),
-          const SizedBox(height: 16),
-          Text(
-            'No timesheets yet',
-            style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Tap "Log Hours" to add your first entry',
-            style: TextStyle(color: Colors.grey),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCardListView(List<StudentTimesheet> timesheets) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: timesheets.length,
-      itemBuilder: (context, index) {
-        return _buildTimesheetCard(timesheets[index]);
-      },
-    );
-  }
-
-  Widget _buildTableView(List<StudentTimesheet> timesheets) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isMobile = constraints.maxWidth < 600;
-
-        if (isMobile) {
-          // On mobile, use card view even in "table mode" but more compact
-          return _buildCardListView(timesheets);
-        }
-
-        // Desktop table view
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                // Table Header
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade50,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(12),
-                    ),
-                  ),
-                  child: Row(
-                    children: const [
-                      Expanded(flex: 2, child: Text('Date', style: TextStyle(fontWeight: FontWeight.bold))),
-                      Expanded(flex: 2, child: Text('Time', style: TextStyle(fontWeight: FontWeight.bold))),
-                      Expanded(flex: 3, child: Text('Task', style: TextStyle(fontWeight: FontWeight.bold))),
-                      Expanded(flex: 1, child: Text('Hours', style: TextStyle(fontWeight: FontWeight.bold))),
-                      Expanded(flex: 1, child: Text('Amount', style: TextStyle(fontWeight: FontWeight.bold))),
-                      Expanded(flex: 1, child: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
-                    ],
-                  ),
-                ),
-                // Table Rows
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: timesheets.length,
-                  itemBuilder: (context, index) {
-                    final timesheet = timesheets[index];
-                    return _buildTableRow(timesheet, index == timesheets.length - 1);
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildTableRow(StudentTimesheet timesheet, bool isLast) {
-    final dateFormat = DateFormat('MMM dd, yyyy');
-    final timeFormat = DateFormat('HH:mm');
-    final currencyFormat = NumberFormat.currency(symbol: '฿');
-
-    Color statusColor;
-    switch (timesheet.status) {
-      case 'approved':
-        statusColor = Colors.green;
-        break;
-      case 'rejected':
-        statusColor = Colors.red;
-        break;
-      case 'paid':
-        statusColor = Colors.blue;
-        break;
-      default:
-        statusColor = Colors.orange;
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: isLast ? Colors.transparent : Colors.grey.shade200,
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 2,
-            child: Text(dateFormat.format(timesheet.date)),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text('${timeFormat.format(timesheet.startTime)} - ${timeFormat.format(timesheet.endTime)}'),
-          ),
-          Expanded(
-            flex: 3,
-            child: Text(
-              timesheet.task,
-              overflow: TextOverflow.ellipsis,
-              maxLines: 2,
-            ),
-          ),
-          Expanded(
-            flex: 1,
-            child: Text('${timesheet.totalHours.toStringAsFixed(2)}h'),
-          ),
-          Expanded(
-            flex: 1,
-            child: Text(currencyFormat.format(timesheet.totalAmount)),
-          ),
-          Expanded(
-            flex: 1,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                timesheet.status.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: statusColor,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -1203,6 +926,7 @@ class _StudentReportScreenState extends State<StudentReportScreen>
         }
 
         return ListView.builder(
+          padding: const EdgeInsets.all(16),
           itemCount: reports.length,
           itemBuilder: (context, index) {
             final data = reports[index].data() as Map<String, dynamic>;
@@ -1411,47 +1135,6 @@ class _StudentReportScreenState extends State<StudentReportScreen>
               tooltip: 'Submit Monthly Report',
               onPressed: _submitTimesheetReport,
             ),
-          // View Mode Toggle (only show on Current Month tab)
-          if (_selectedTabIndex == 0)
-            IconButton(
-              icon: Icon(
-                _viewMode == ViewMode.table ? Icons.view_list : Icons.view_module,
-              ),
-              onPressed: () {
-                setState(() {
-                  _viewMode = _viewMode == ViewMode.table
-                      ? ViewMode.card
-                      : ViewMode.table;
-                });
-              },
-              tooltip: _viewMode == ViewMode.table ? 'Card View' : 'Table View',
-            ),
-          // Sort Menu (only show on Current Month tab)
-          if (_selectedTabIndex == 0)
-            PopupMenuButton<TimesheetSortOption>(
-              icon: const Icon(Icons.sort),
-              tooltip: 'Sort',
-              onSelected: (option) {
-                setState(() {
-                  _sortOption = option;
-                  _sortTimesheets();
-                });
-              },
-              itemBuilder: (context) => TimesheetSortOption.values
-                  .map(
-                    (option) => PopupMenuItem(
-                      value: option,
-                      child: Row(
-                        children: [
-                          Icon(option.icon, size: 20),
-                          const SizedBox(width: 12),
-                          Text(option.displayName),
-                        ],
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
           // Settings/Profile Menu
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
@@ -1503,11 +1186,9 @@ class _StudentReportScreenState extends State<StudentReportScreen>
           ? const Center(child: CircularProgressIndicator())
           : _studentProfile == null
           ? _buildNoProfileState()
-          : ResponsiveContainer(
-              child: TabBarView(
-                controller: _tabController,
-                children: [_buildCurrentMonthView(), _buildHistoryView()],
-              ),
+          : TabBarView(
+              controller: _tabController,
+              children: [_buildCurrentMonthView(), _buildHistoryView()],
             ),
       floatingActionButton: _studentProfile != null
           ? Container(
@@ -1560,12 +1241,9 @@ class _StudentReportScreenState extends State<StudentReportScreen>
   }
 
   Widget _buildProfileCard() {
-    final currencyFormat = NumberFormat.currency(symbol: '฿');
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final user = authProvider.currentUser;
+    final currencyFormat = NumberFormat.currency(symbol: '\$');
 
     return Container(
-      width: double.infinity,
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -1576,18 +1254,16 @@ class _StudentReportScreenState extends State<StudentReportScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.orange.shade200,
-            blurRadius: 12,
+            color: Colors.orange.withOpacity(0.3),
+            blurRadius: 8,
             offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(20),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Title Row
             Row(
               children: [
                 Container(
@@ -1608,20 +1284,18 @@ class _StudentReportScreenState extends State<StudentReportScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Student Labour Worker',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        user?.name ?? 'Student',
+                        _studentProfile!.studentNumber,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 22,
+                          fontSize: 20,
                           fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        '${_studentProfile!.course} - ${_studentProfile!.yearLevel}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
                         ),
                       ),
                     ],
@@ -1629,98 +1303,30 @@ class _StudentReportScreenState extends State<StudentReportScreen>
                 ),
               ],
             ),
-
-            const SizedBox(height: 20),
-
-            // Divider
+            const SizedBox(height: 16),
             Container(
-              height: 1,
-              color: Colors.white.withOpacity(0.3),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Student Information Grid
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Student Information',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Hourly Rate:',
+                    style: TextStyle(color: Colors.white, fontSize: 16),
                   ),
-                ),
-                const SizedBox(height: 16),
-
-                // Row 1: Student Number and Email
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildInfoRowForReport(
-                        Icons.badge,
-                        'Student Number',
-                        _studentProfile!.studentNumber,
-                      ),
+                  Text(
+                    currencyFormat.format(_studentProfile!.hourlyRate),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _buildInfoRowForReport(
-                        Icons.email,
-                        'Email',
-                        user?.email ?? 'N/A',
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 16),
-
-                // Row 2: Course and Year Level
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildInfoRowForReport(
-                        Icons.book,
-                        'Course',
-                        _studentProfile!.course,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _buildInfoRowForReport(
-                        Icons.school,
-                        'Year Level',
-                        _studentProfile!.yearLevel,
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 16),
-
-                // Row 3: Phone and Hourly Rate
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildInfoRowForReport(
-                        Icons.phone,
-                        'Phone Number',
-                        _studentProfile!.phoneNumber,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _buildInfoRowForReport(
-                        Icons.attach_money,
-                        'Hourly Rate',
-                        currencyFormat.format(_studentProfile!.hourlyRate) + '/hr',
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -1728,49 +1334,46 @@ class _StudentReportScreenState extends State<StudentReportScreen>
     );
   }
 
-  Widget _buildInfoRowForReport(IconData icon, String label, String value) {
-    return Row(
-      children: [
-        Icon(
-          icon,
-          color: Colors.white70,
-          size: 18,
+  Widget _buildTimesheetList() {
+    final monthTimesheets = _selectedMonth != null
+        ? (_timesheetsByMonth[_selectedMonth] ?? [])
+        : [];
+
+    if (monthTimesheets.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.access_time, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'No timesheets yet',
+              style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Tap "Log Hours" to add your first entry',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ],
         ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                value,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
-              ),
-            ],
-          ),
-        ),
-      ],
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: monthTimesheets.length,
+      itemBuilder: (context, index) {
+        final timesheet = monthTimesheets[index];
+        return _buildTimesheetCard(timesheet);
+      },
     );
   }
 
   Widget _buildTimesheetCard(StudentTimesheet timesheet) {
     final dateFormat = DateFormat('MMM dd, yyyy');
     final timeFormat = DateFormat('HH:mm');
-    final currencyFormat = NumberFormat.currency(symbol: '฿');
+    final currencyFormat = NumberFormat.currency(symbol: '\$');
 
     Color statusColor;
     IconData statusIcon;
@@ -1885,46 +1488,6 @@ class _StudentReportScreenState extends State<StudentReportScreen>
                 ),
               ],
             ),
-            if (timesheet.task.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.orange[50],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.task_alt, size: 16, color: Colors.orange[700]),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Task',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey[600],
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            timesheet.task,
-                            style: TextStyle(
-                              color: Colors.grey[900],
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
             if (timesheet.notes != null) ...[
               const SizedBox(height: 12),
               Container(

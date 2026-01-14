@@ -177,5 +177,61 @@ service cloud.firestore {
         resource.data.studentId == request.auth.uid || isAdmin()
       );
     }
+
+    // Traveling Reports Collection
+    match /traveling_reports/{reportId} {
+      // Anyone authenticated can read
+      allow read: if isAuthenticated();
+
+      // Users can create their own reports
+      allow create: if isAuthenticated()
+        && request.resource.data.reporterId == request.auth.uid;
+
+      // Users can update their own draft reports
+      // Owner can submit their own report
+      // Admin can approve/reject submitted reports
+      allow update: if isAuthenticated() && (
+        // Owner can update draft reports
+        (resource.data.reporterId == request.auth.uid
+         && resource.data.status == 'draft')
+        // Or owner can submit their own report
+        || (resource.data.reporterId == request.auth.uid
+            && resource.data.status == 'draft'
+            && request.resource.data.status == 'submitted')
+        // Or admin can approve/reject submitted reports
+        || (isAdmin()
+            && resource.data.status == 'submitted'
+            && request.resource.data.status in ['approved', 'rejected'])
+      );
+
+      // Users can delete their own draft reports
+      allow delete: if isAuthenticated()
+        && resource.data.reporterId == request.auth.uid
+        && resource.data.status == 'draft';
+    }
+
+    // Traveling Per Diem Entries Collection
+    match /traveling_per_diem_entries/{entryId} {
+      // Anyone authenticated can read
+      allow read: if isAuthenticated();
+
+      // Users can create entries for their own draft reports
+      allow create: if isAuthenticated()
+        && exists(/databases/$(database)/documents/traveling_reports/$(request.resource.data.reportId))
+        && get(/databases/$(database)/documents/traveling_reports/$(request.resource.data.reportId)).data.reporterId == request.auth.uid
+        && get(/databases/$(database)/documents/traveling_reports/$(request.resource.data.reportId)).data.status == 'draft';
+
+      // Users can update entries for their own draft reports
+      allow update: if isAuthenticated()
+        && exists(/databases/$(database)/documents/traveling_reports/$(resource.data.reportId))
+        && get(/databases/$(database)/documents/traveling_reports/$(resource.data.reportId)).data.reporterId == request.auth.uid
+        && get(/databases/$(database)/documents/traveling_reports/$(resource.data.reportId)).data.status == 'draft';
+
+      // Users can delete entries from their own draft reports
+      allow delete: if isAuthenticated()
+        && exists(/databases/$(database)/documents/traveling_reports/$(resource.data.reportId))
+        && get(/databases/$(database)/documents/traveling_reports/$(resource.data.reportId)).data.reporterId == request.auth.uid
+        && get(/databases/$(database)/documents/traveling_reports/$(resource.data.reportId)).data.status == 'draft';
+    }
   }
 }

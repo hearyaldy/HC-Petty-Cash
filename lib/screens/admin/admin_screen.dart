@@ -80,6 +80,11 @@ class _AdminScreenState extends State<AdminScreen> {
             tooltip: 'Student Payment Rates',
           ),
           IconButton(
+            icon: const Icon(Icons.flight_takeoff),
+            onPressed: () => context.push('/admin/traveling-reports'),
+            tooltip: 'Traveling Reports',
+          ),
+          IconButton(
             icon: const Icon(Icons.home_outlined),
             onPressed: () => context.go('/dashboard'),
             tooltip: 'Home',
@@ -154,10 +159,7 @@ class _AdminScreenState extends State<AdminScreen> {
     );
 
     if (selectedId != null && mounted) {
-      context.push(
-        '/reports/$selectedId',
-        extra: {'action': 'addTransaction'},
-      );
+      context.push('/reports/$selectedId', extra: {'action': 'addTransaction'});
     }
   }
 

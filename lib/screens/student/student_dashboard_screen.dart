@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/student_timesheet.dart';
-import '../../utils/responsive_helper.dart';
 
 class _StatData {
   final String title;
@@ -112,58 +111,96 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
     }
   }
 
-  Future<void> _showReportSelectionDialog() async {
-    // Filter only draft reports (can add time entries)
-    final draftReports = _monthlyReports
-        .where((report) => (report['status'] ?? 'draft') == 'draft')
-        .toList();
-
-    if (draftReports.isEmpty) {
-      // No draft reports, prompt to create one
-      if (!mounted) return;
-
-      final shouldCreate = await showDialog<bool>(
+  void _showReportSelectionDialog(BuildContext context) {
+    if (_monthlyReports.isEmpty) {
+      // Show message to create a report first
+      showDialog(
         context: context,
-        builder: (context) => AlertDialog(
+        builder: (dialogContext) => AlertDialog(
           title: Row(
             children: [
-              Icon(Icons.info_outline, color: Colors.orange.shade600),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.orange.shade400, Colors.orange.shade600],
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.access_time,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
               const SizedBox(width: 12),
-              const Text('No Draft Reports'),
+              const Text('No Reports Available'),
             ],
           ),
-          content: const Text(
-            'You need to create a monthly report first before logging hours. Would you like to create one now?',
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'You need to create a monthly report before you can log hours.',
+                style: TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: Colors.orange.shade700,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Tap "Create New Report" to get started',
+                        style: TextStyle(
+                          color: Colors.orange.shade900,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(true),
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                context.go('/student-report/new');
+              },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange.shade600,
+                backgroundColor: Colors.orange,
                 foregroundColor: Colors.white,
               ),
-              child: const Text('Create Report'),
+              child: const Text('Create New Report'),
             ),
           ],
         ),
       );
-
-      if (shouldCreate == true && mounted) {
-        context.push('/student-report/new');
-      }
       return;
     }
 
-    // Show report selection dialog
-    if (!mounted) return;
-
-    final selectedReport = await showDialog<Map<String, dynamic>>(
+    showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: Row(
           children: [
             Container(
@@ -174,110 +211,96 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                 ),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.add_circle, color: Colors.white, size: 20),
+              child: const Icon(
+                Icons.access_time,
+                color: Colors.white,
+                size: 20,
+              ),
             ),
             const SizedBox(width: 12),
-            const Text('Select Report'),
+            const Text('Log Hours'),
           ],
         ),
         content: SizedBox(
-          width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Choose which report to add your time entry to:',
-                style: TextStyle(fontSize: 14),
-              ),
-              const SizedBox(height: 16),
-              ...draftReports.map((report) {
-                final monthDisplay = report['monthDisplay'] ?? 'Unknown';
-                final totalHours = (report['totalHours'] ?? 0.0).toDouble();
-                final entryCount = report['timesheetCount'] ?? 0;
+          width: 400,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Select a report to log your hours to:',
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                ),
+                const SizedBox(height: 16),
+                ..._monthlyReports.map((report) {
+                  final status = report['status'] ?? 'draft';
+                  final statusColor = status == 'approved'
+                      ? Colors.green
+                      : status == 'submitted'
+                      ? Colors.orange
+                      : status == 'paid'
+                      ? Colors.blue
+                      : Colors.grey;
 
-                return InkWell(
-                  onTap: () => Navigator.of(context).pop(report),
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.orange.shade200),
-                      borderRadius: BorderRadius.circular(12),
-                      color: Colors.orange.shade50,
+                  return ListTile(
+                    dense: true,
+                    leading: Icon(
+                      Icons.calendar_month,
+                      color: Colors.orange.shade600,
                     ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [Colors.orange.shade400, Colors.orange.shade600],
-                            ),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.calendar_month,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                monthDisplay,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '$entryCount entries • ${totalHours.toStringAsFixed(1)}h',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Icon(
-                          Icons.arrow_forward_ios,
-                          size: 16,
-                          color: Colors.grey[400],
-                        ),
-                      ],
+                    title: Text(
+                      report['monthDisplay'] ?? '',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
-                  ),
-                );
-              }).toList(),
-            ],
+                    subtitle: Text(
+                      '${report['timesheetCount'] ?? 0} timesheets • ${(report['totalHours'] ?? 0.0).toStringAsFixed(1)} hrs',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: statusColor),
+                      ),
+                      child: Text(
+                        status.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: statusColor,
+                        ),
+                      ),
+                    ),
+                    onTap: () {
+                      Navigator.pop(dialogContext);
+                      context.push(
+                        '/student-monthly-report-detail',
+                        extra: {
+                          'reportId': report['id'],
+                          'month': report['month'],
+                          'monthDisplay': report['monthDisplay'],
+                        },
+                      );
+                    },
+                  );
+                }),
+              ],
+            ),
           ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
         ],
       ),
     );
-
-    if (selectedReport != null && mounted) {
-      // Navigate to the report detail page
-      context.push(
-        '/student-monthly-report-detail',
-        extra: {
-          'reportId': selectedReport['id'],
-          'month': selectedReport['month'],
-          'monthDisplay': selectedReport['monthDisplay'],
-        },
-      );
-    }
   }
 
   @override
@@ -344,25 +367,24 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
       backgroundColor: Colors.grey[50],
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : ResponsiveContainer(
-              child: RefreshIndicator(
-                onRefresh: _loadDashboardData,
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildWelcomeCard(),
-                      const SizedBox(height: 16),
-                      _buildStatsGrid(),
-                      const SizedBox(height: 24),
-                      _buildQuickActions(),
-                      const SizedBox(height: 24),
-                      _buildMonthlyReports(),
-                      const SizedBox(height: 24),
-                      _buildRecentTimesheets(),
-                    ],
-                  ),
+          : RefreshIndicator(
+              onRefresh: _loadDashboardData,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildWelcomeCard(),
+                    const SizedBox(height: 16),
+                    _buildStatsGrid(),
+                    const SizedBox(height: 24),
+                    _buildQuickActions(),
+                    const SizedBox(height: 24),
+                    _buildMonthlyReports(),
+                    const SizedBox(height: 24),
+                    _buildRecentTimesheets(),
+                  ],
                 ),
               ),
             ),
@@ -607,10 +629,12 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
         Row(
           children: [
             Expanded(
-              child: _buildModernActionButton('Log Hours', Icons.add_circle, [
-                Colors.orange.shade400,
-                Colors.orange.shade600,
-              ], _showReportSelectionDialog),
+              child: _buildModernActionButton(
+                'Log Hours',
+                Icons.add_circle,
+                [Colors.orange.shade400, Colors.orange.shade600],
+                () => _showReportSelectionDialog(context),
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -1030,7 +1054,9 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    dateFormat.format(timesheet.date),
+                    timesheet.date != null
+                        ? dateFormat.format(timesheet.date)
+                        : 'N/A',
                     style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 16,
@@ -1313,7 +1339,6 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
   late DateTime _selectedDate;
   late TimeOfDay _startTime;
   late TimeOfDay _endTime;
-  late TextEditingController _taskController;
   late TextEditingController _notesController;
   bool _isSaving = false;
 
@@ -1323,9 +1348,6 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
     _selectedDate = widget.timesheet.date;
     _startTime = TimeOfDay.fromDateTime(widget.timesheet.startTime);
     _endTime = TimeOfDay.fromDateTime(widget.timesheet.endTime);
-    _taskController = TextEditingController(
-      text: widget.timesheet.task,
-    );
     _notesController = TextEditingController(
       text: widget.timesheet.notes ?? '',
     );
@@ -1333,23 +1355,11 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
 
   @override
   void dispose() {
-    _taskController.dispose();
     _notesController.dispose();
     super.dispose();
   }
 
   Future<void> _saveChanges() async {
-    // Validate task field
-    if (_taskController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Task description is required'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
     setState(() => _isSaving = true);
 
     try {
@@ -1406,7 +1416,6 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
             'endTime': Timestamp.fromDate(endDateTime),
             'totalHours': hours,
             'totalAmount': totalAmount,
-            'task': _taskController.text.trim(),
             'notes': _notesController.text.trim(),
             'updatedAt': FieldValue.serverTimestamp(),
           });
@@ -1494,19 +1503,6 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
               title: const Text('End Time'),
               subtitle: Text(_endTime.format(context)),
               onTap: () => _selectTime(false),
-            ),
-            const SizedBox(height: 16),
-
-            // Task field (Required)
-            TextField(
-              controller: _taskController,
-              decoration: const InputDecoration(
-                labelText: 'Task *',
-                hintText: 'Describe the work or task completed',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.task_alt),
-              ),
-              maxLines: 2,
             ),
             const SizedBox(height: 16),
 

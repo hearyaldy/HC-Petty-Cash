@@ -32,6 +32,10 @@ import 'screens/student/student_registration_screen.dart';
 import 'screens/student/student_dashboard_screen.dart';
 import 'screens/student/student_monthly_report_detail_screen.dart';
 import 'screens/student/new_student_report_screen.dart';
+import 'screens/traveling/traveling_reports_screen.dart';
+import 'screens/traveling/traveling_report_detail_screen.dart';
+import 'screens/admin/admin_traveling_reports_screen.dart';
+import 'screens/admin/admin_traveling_report_detail_screen.dart';
 import 'utils/constants.dart';
 import 'utils/logger.dart';
 import 'utils/responsive_theme.dart';
@@ -168,7 +172,8 @@ class MyApp extends StatelessWidget {
           builder: (context, state) {
             final id = state.pathParameters['id']!;
             final autoAdd =
-                state.extra is Map && (state.extra as Map)['action'] == 'addTransaction';
+                state.extra is Map &&
+                (state.extra as Map)['action'] == 'addTransaction';
             return ReportDetailScreen(
               reportId: id,
               autoLaunchAddTransaction: autoAdd == true,
@@ -179,7 +184,13 @@ class MyApp extends StatelessWidget {
           path: '/project-reports/:id',
           builder: (context, state) {
             final id = state.pathParameters['id']!;
-            return ProjectReportDetailScreen(reportId: id);
+            final autoAdd =
+                state.extra is Map &&
+                (state.extra as Map)['action'] == 'addTransaction';
+            return ProjectReportDetailScreen(
+              reportId: id,
+              autoLaunchAddTransaction: autoAdd == true,
+            );
           },
         ),
         GoRoute(
@@ -260,7 +271,14 @@ class MyApp extends StatelessWidget {
         ),
         GoRoute(
           path: '/student-report',
-          builder: (context, state) => const StudentReportScreen(),
+          builder: (context, state) {
+            final month = state.uri.queryParameters['month'];
+            final monthDisplay = state.uri.queryParameters['monthDisplay'];
+            return StudentReportScreen(
+              initialMonth: month,
+              initialMonthDisplay: monthDisplay,
+            );
+          },
         ),
         GoRoute(
           path: '/student-report/new',
@@ -275,6 +293,29 @@ class MyApp extends StatelessWidget {
               month: extra['month'] as String,
               monthDisplay: extra['monthDisplay'] as String,
             );
+          },
+        ),
+        // Traveling Reports Routes
+        GoRoute(
+          path: '/traveling-reports',
+          builder: (context, state) => const TravelingReportsScreen(),
+        ),
+        GoRoute(
+          path: '/traveling-reports/:reportId',
+          builder: (context, state) {
+            final reportId = state.pathParameters['reportId']!;
+            return TravelingReportDetailScreen(reportId: reportId);
+          },
+        ),
+        GoRoute(
+          path: '/admin/traveling-reports',
+          builder: (context, state) => const AdminTravelingReportsScreen(),
+        ),
+        GoRoute(
+          path: '/admin/traveling-reports/:reportId',
+          builder: (context, state) {
+            final reportId = state.pathParameters['reportId']!;
+            return AdminTravelingReportDetailScreen(reportId: reportId);
           },
         ),
       ],

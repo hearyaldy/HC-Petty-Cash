@@ -339,7 +339,7 @@ class ResponsiveDropdown<T> extends StatelessWidget {
         ),
         SizedBox(height: ResponsiveHelper.isMobile(context) ? 6 : 8),
         DropdownButtonFormField<T>(
-          initialValue: value,
+          value: value,
           items: items,
           onChanged: enabled ? onChanged : null,
           validator: validator,

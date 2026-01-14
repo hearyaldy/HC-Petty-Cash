@@ -18,8 +18,13 @@ import '../../widgets/edit_project_report_dialog.dart';
 
 class ProjectReportDetailScreen extends StatefulWidget {
   final String reportId;
+  final bool autoLaunchAddTransaction;
 
-  const ProjectReportDetailScreen({super.key, required this.reportId});
+  const ProjectReportDetailScreen({
+    super.key,
+    required this.reportId,
+    this.autoLaunchAddTransaction = false,
+  });
 
   @override
   State<ProjectReportDetailScreen> createState() =>
@@ -27,9 +32,12 @@ class ProjectReportDetailScreen extends StatefulWidget {
 }
 
 class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
+  bool _pendingAutoAddTransaction = false;
+
   @override
   void initState() {
     super.initState();
+    _pendingAutoAddTransaction = widget.autoLaunchAddTransaction;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<TransactionProvider>().loadTransactions();
       context.read<ProjectReportProvider>().loadProjectReports();
@@ -46,6 +54,18 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
       (r) => r.id == widget.reportId,
       orElse: () => throw Exception('Project report not found'),
     );
+
+    // Auto-launch add transaction dialog if requested
+    if (_pendingAutoAddTransaction) {
+      _pendingAutoAddTransaction = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        // Only open if report is not closed
+        if (report.statusEnum != ReportStatus.closed) {
+          _showAddTransactionDialog(report);
+        }
+      });
+    }
 
     final transactions = transactionProvider.transactions
         .where((t) => t.projectId == report.id)
@@ -73,6 +93,12 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
             onPressed: () => context.go('/dashboard'),
             tooltip: 'Home',
           ),
+          if (report.statusEnum != ReportStatus.closed)
+            IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: () => _showAddTransactionDialog(report),
+              tooltip: 'Add Transaction',
+            ),
           PopupMenuButton<String>(
             onSelected: (value) async {
               if (value == 'edit') {
@@ -615,20 +641,38 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
                   ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
               ),
-              if (transactions.isNotEmpty)
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.purple.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: IconButton(
-                    onPressed: () => _printTransactionsTable(
-                      transactions.cast<Transaction>(),
+              Row(
+                children: [
+                  if (transactions.isNotEmpty)
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.purple.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: IconButton(
+                        onPressed: () => _printTransactionsTable(
+                          transactions.cast<Transaction>(),
+                        ),
+                        icon: Icon(Icons.print, color: Colors.purple.shade700),
+                        tooltip: 'Print Transactions',
+                      ),
                     ),
-                    icon: Icon(Icons.print, color: Colors.purple.shade700),
-                    tooltip: 'Print Transactions',
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: () => _showAddTransactionDialog(
+                      context.read<ProjectReportProvider>().projectReports.firstWhere(
+                        (r) => r.id == widget.reportId,
+                      ),
+                    ),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add Transaction'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.purple,
+                      foregroundColor: Colors.white,
+                    ),
                   ),
-                ),
+                ],
+              ),
             ],
           ),
           const SizedBox(height: 24),
@@ -843,6 +887,71 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
         );
       }
     }
+  }
+
+  Future<void> _showAddTransactionDialog(ProjectReport report) async {
+    // Show dialog explaining that transactions for project reports
+    // should be added through petty cash reports
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Add Transaction to Project'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'To add a transaction to this project report:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            const Text('1. Navigate to a Petty Cash Report'),
+            const SizedBox(height: 8),
+            const Text('2. Click "Add Transaction"'),
+            const SizedBox(height: 8),
+            const Text('3. Select this project in the "Link to Project" dropdown'),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.blue.shade700, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Project: ${report.projectName}',
+                      style: TextStyle(
+                        color: Colors.blue.shade900,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('OK'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              context.go('/reports');
+            },
+            child: const Text('Go to Reports'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _printTransactionsTable(List<Transaction> transactions) async {

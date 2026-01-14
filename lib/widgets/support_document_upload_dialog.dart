@@ -6,12 +6,11 @@ import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/firebase_storage_service.dart';
 import '../services/image_compression_service.dart';
 import '../services/voucher_export_service.dart';
 import '../utils/logger.dart';
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html show window;
 
 /// Dialog for uploading support documents with image compression
 class SupportDocumentUploadDialog extends StatefulWidget {
@@ -37,8 +36,21 @@ class _SupportDocumentUploadDialogState
   final ImagePicker _imagePicker = ImagePicker();
   bool _isUploading = false;
   List<String> _uploadedUrls = [];
+  final Map<String, String> _urlToFileName =
+      {}; // Track file names for each URL
   String? _errorMessage;
   double _uploadProgress = 0;
+
+  bool _isImageFile(String? fileName) {
+    if (fileName == null) return false;
+    final ext = fileName.toLowerCase().split('.').last;
+    return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].contains(ext);
+  }
+
+  String _getFileExtension(String? fileName) {
+    if (fileName == null) return '';
+    return fileName.toLowerCase().split('.').last;
+  }
 
   @override
   void initState() {
@@ -85,9 +97,18 @@ class _SupportDocumentUploadDialogState
       String? fileName;
 
       if (kIsWeb) {
-        // Web platform - use file picker
+        // Web platform - use file picker for images and documents
         final result = await FilePicker.platform.pickFiles(
-          type: FileType.image,
+          type: FileType.custom,
+          allowedExtensions: [
+            'jpg',
+            'jpeg',
+            'png',
+            'gif',
+            'pdf',
+            'doc',
+            'docx',
+          ],
           allowMultiple: false,
           withData: true,
         );
@@ -101,58 +122,87 @@ class _SupportDocumentUploadDialogState
         imageBytes = file.bytes;
         fileName = file.name;
       } else {
-        // Mobile platform - use image_picker
-        XFile? pickedFile;
-
+        // Mobile platform
         if (fromCamera) {
-          pickedFile = await _imagePicker.pickImage(
+          // Camera only supports images
+          final pickedFile = await _imagePicker.pickImage(
             source: ImageSource.camera,
             maxWidth: 1200,
             maxHeight: 1200,
             imageQuality: 85,
           );
+
+          if (pickedFile == null) {
+            setState(() => _isUploading = false);
+            return;
+          }
+
+          imageBytes = await pickedFile.readAsBytes();
+          fileName = pickedFile.name;
         } else {
-          pickedFile = await _imagePicker.pickImage(
-            source: ImageSource.gallery,
-            maxWidth: 1200,
-            maxHeight: 1200,
-            imageQuality: 85,
+          // Gallery - use file picker to support both images and documents
+          final result = await FilePicker.platform.pickFiles(
+            type: FileType.custom,
+            allowedExtensions: [
+              'jpg',
+              'jpeg',
+              'png',
+              'gif',
+              'pdf',
+              'doc',
+              'docx',
+            ],
+            allowMultiple: false,
+            withData: true,
           );
-        }
 
-        if (pickedFile == null) {
-          setState(() => _isUploading = false);
-          return;
-        }
+          if (result == null || result.files.isEmpty) {
+            setState(() => _isUploading = false);
+            return;
+          }
 
-        imageBytes = await pickedFile.readAsBytes();
-        fileName = pickedFile.name;
+          final file = result.files.first;
+          imageBytes = file.bytes;
+          fileName = file.name;
+        }
       }
 
       print('File picked: $fileName');
       print('File size: ${imageBytes?.length ?? 0} bytes');
       setState(() => _uploadProgress = 0.2);
 
-      // Compress image
-      print('Compressing image...');
-      final compressedBytes = await ImageCompressionService.compressImageBytes(
-        imageBytes!,
-      );
-      print('Compressed size: ${compressedBytes.length} bytes');
+      // Check if file is an image
+      final isImage = _isImageFile(fileName);
+      print('File is image: $isImage');
+
+      Uint8List finalBytes;
+      if (isImage) {
+        // Compress image
+        print('Compressing image...');
+        finalBytes = await ImageCompressionService.compressImageBytes(
+          imageBytes!,
+        );
+        print('Compressed size: ${finalBytes.length} bytes');
+      } else {
+        // For non-image files (PDF, DOC, etc.), use original bytes
+        print('Skipping compression for non-image file');
+        finalBytes = imageBytes!;
+      }
       setState(() => _uploadProgress = 0.5);
 
       // Upload to Firebase Storage
       print('Starting upload to Firebase Storage...');
       final downloadUrl = await _storageService.uploadSupportDocument(
         transactionId: widget.transactionId,
-        bytes: compressedBytes,
-        fileName: fileName!,
+        bytes: finalBytes,
+        fileName: fileName,
       );
       print('Upload successful! URL: $downloadUrl');
 
       setState(() {
         _uploadProgress = 1.0;
         _uploadedUrls.add(downloadUrl);
+        _urlToFileName[downloadUrl] = fileName ?? 'document';
         _isUploading = false;
       });
 
@@ -387,29 +437,114 @@ class _SupportDocumentUploadDialogState
                           children: [
                             Builder(
                               builder: (context) {
-                                // For web, try to use Image.network directly to avoid CORS issues
+                                final fileName = _urlToFileName[url] ?? '';
+                                final isImage = _isImageFile(fileName);
+                                final ext = _getFileExtension(
+                                  fileName,
+                                ).toUpperCase();
+
+                                // If not an image, show document icon
+                                if (!isImage) {
+                                  return Container(
+                                    color: Colors.grey.shade100,
+                                    child: Center(
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            ext == 'PDF'
+                                                ? Icons.picture_as_pdf
+                                                : Icons.description,
+                                            size: 48,
+                                            color: ext == 'PDF'
+                                                ? Colors.red.shade700
+                                                : Colors.blue.shade700,
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            ext,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.grey.shade700,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                            ),
+                                            child: Text(
+                                              fileName,
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                color: Colors.grey.shade600,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          TextButton.icon(
+                                            onPressed: () async {
+                                              final uri = Uri.parse(url);
+                                              if (await canLaunchUrl(uri)) {
+                                                await launchUrl(
+                                                  uri,
+                                                  mode: LaunchMode
+                                                      .externalApplication,
+                                                );
+                                              }
+                                            },
+                                            icon: const Icon(
+                                              Icons.open_in_new,
+                                              size: 14,
+                                            ),
+                                            label: const Text(
+                                              'Open',
+                                              style: TextStyle(fontSize: 10),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }
+
+                                // For images, show the image
                                 if (kIsWeb) {
                                   return Image.network(
                                     url,
                                     fit: BoxFit.contain,
-                                    loadingBuilder: (context, child, loadingProgress) {
-                                      if (loadingProgress == null) return child;
-                                      return Center(
-                                        child: CircularProgressIndicator(
-                                          value: loadingProgress.expectedTotalBytes != null
-                                              ? loadingProgress.cumulativeBytesLoaded /
-                                                    loadingProgress.expectedTotalBytes!
-                                              : null,
-                                        ),
-                                      );
-                                    },
+                                    loadingBuilder:
+                                        (context, child, loadingProgress) {
+                                          if (loadingProgress == null) {
+                                            return child;
+                                          }
+                                          return Center(
+                                            child: CircularProgressIndicator(
+                                              value:
+                                                  loadingProgress
+                                                          .expectedTotalBytes !=
+                                                      null
+                                                  ? loadingProgress
+                                                            .cumulativeBytesLoaded /
+                                                        loadingProgress
+                                                            .expectedTotalBytes!
+                                                  : null,
+                                            ),
+                                          );
+                                        },
                                     errorBuilder: (context, error, stackTrace) {
                                       print('Image load error: $error');
                                       print('URL: $url');
                                       print('Stack trace: $stackTrace');
                                       return Center(
                                         child: Column(
-                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
                                           children: [
                                             Icon(
                                               Icons.broken_image,
@@ -426,12 +561,20 @@ class _SupportDocumentUploadDialogState
                                             ),
                                             const SizedBox(height: 4),
                                             TextButton(
-                                              onPressed: () {
-                                                if (kIsWeb) {
-                                                  html.window.open(url, '_blank');
+                                              onPressed: () async {
+                                                final uri = Uri.parse(url);
+                                                if (await canLaunchUrl(uri)) {
+                                                  await launchUrl(
+                                                    uri,
+                                                    mode: LaunchMode
+                                                        .externalApplication,
+                                                  );
                                                 }
                                               },
-                                              child: const Text('Open', style: TextStyle(fontSize: 10)),
+                                              child: const Text(
+                                                'Open',
+                                                style: TextStyle(fontSize: 10),
+                                              ),
                                             ),
                                           ],
                                         ),
@@ -443,60 +586,96 @@ class _SupportDocumentUploadDialogState
                                   return FutureBuilder<Uint8List?>(
                                     future: _getImageDataGrid(url),
                                     builder: (context, snapshot) {
-                                      if (snapshot.connectionState == ConnectionState.waiting) {
-                                        return const Center(child: CircularProgressIndicator());
+                                      if (snapshot.connectionState ==
+                                          ConnectionState.waiting) {
+                                        return const Center(
+                                          child: CircularProgressIndicator(),
+                                        );
                                       }
 
-                                      if (snapshot.hasError || snapshot.data == null) {
+                                      if (snapshot.hasError ||
+                                          snapshot.data == null) {
                                         // If Firebase Storage fails, fall back to network image
                                         return Image.network(
                                           url,
                                           fit: BoxFit.contain,
                                           loadingBuilder: (context, child, loadingProgress) {
-                                            if (loadingProgress == null) return child;
+                                            if (loadingProgress == null) {
+                                              return child;
+                                            }
                                             return Center(
                                               child: CircularProgressIndicator(
-                                                value: loadingProgress.expectedTotalBytes != null
-                                                    ? loadingProgress.cumulativeBytesLoaded /
-                                                          loadingProgress.expectedTotalBytes!
+                                                value:
+                                                    loadingProgress
+                                                            .expectedTotalBytes !=
+                                                        null
+                                                    ? loadingProgress
+                                                              .cumulativeBytesLoaded /
+                                                          loadingProgress
+                                                              .expectedTotalBytes!
                                                     : null,
                                               ),
                                             );
                                           },
-                                          errorBuilder: (context, error, stackTrace) {
-                                            print('Image load error: $error');
-                                            print('URL: $url');
-                                            print('Stack trace: $stackTrace');
-                                            return Center(
-                                              child: Column(
-                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                children: [
-                                                  Icon(
-                                                    Icons.broken_image,
-                                                    size: 32,
-                                                    color: Colors.grey.shade400,
+                                          errorBuilder:
+                                              (context, error, stackTrace) {
+                                                print(
+                                                  'Image load error: $error',
+                                                );
+                                                print('URL: $url');
+                                                print(
+                                                  'Stack trace: $stackTrace',
+                                                );
+                                                return Center(
+                                                  child: Column(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .center,
+                                                    children: [
+                                                      Icon(
+                                                        Icons.broken_image,
+                                                        size: 32,
+                                                        color: Colors
+                                                            .grey
+                                                            .shade400,
+                                                      ),
+                                                      const SizedBox(height: 4),
+                                                      Text(
+                                                        'Could not load',
+                                                        style: TextStyle(
+                                                          color: Colors
+                                                              .grey
+                                                              .shade600,
+                                                          fontSize: 10,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 4),
+                                                      TextButton(
+                                                        onPressed: () async {
+                                                          final uri = Uri.parse(
+                                                            url,
+                                                          );
+                                                          if (await canLaunchUrl(
+                                                            uri,
+                                                          )) {
+                                                            await launchUrl(
+                                                              uri,
+                                                              mode: LaunchMode
+                                                                  .externalApplication,
+                                                            );
+                                                          }
+                                                        },
+                                                        child: const Text(
+                                                          'Open',
+                                                          style: TextStyle(
+                                                            fontSize: 10,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ),
-                                                  const SizedBox(height: 4),
-                                                  Text(
-                                                    'Could not load',
-                                                    style: TextStyle(
-                                                      color: Colors.grey.shade600,
-                                                      fontSize: 10,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 4),
-                                                  TextButton(
-                                                    onPressed: () {
-                                                      if (kIsWeb) {
-                                                        html.window.open(url, '_blank');
-                                                      }
-                                                    },
-                                                    child: const Text('Open', style: TextStyle(fontSize: 10)),
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-                                          },
+                                                );
+                                              },
                                         );
                                       }
 
@@ -509,7 +688,8 @@ class _SupportDocumentUploadDialogState
                                           print('Stack trace: $stackTrace');
                                           return Center(
                                             child: Column(
-                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
                                               children: [
                                                 Icon(
                                                   Icons.broken_image,
@@ -526,12 +706,24 @@ class _SupportDocumentUploadDialogState
                                                 ),
                                                 const SizedBox(height: 4),
                                                 TextButton(
-                                                  onPressed: () {
-                                                    if (kIsWeb) {
-                                                      html.window.open(url, '_blank');
+                                                  onPressed: () async {
+                                                    final uri = Uri.parse(url);
+                                                    if (await canLaunchUrl(
+                                                      uri,
+                                                    )) {
+                                                      await launchUrl(
+                                                        uri,
+                                                        mode: LaunchMode
+                                                            .externalApplication,
+                                                      );
                                                     }
                                                   },
-                                                  child: const Text('Open', style: TextStyle(fontSize: 10)),
+                                                  child: const Text(
+                                                    'Open',
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                    ),
+                                                  ),
                                                 ),
                                               ],
                                             ),
@@ -661,7 +853,7 @@ class _SupportDocumentUploadDialogState
               LinearProgressIndicator(value: _uploadProgress),
               const SizedBox(height: 8),
               Text(
-                _uploadProgress < 0.5 ? 'Compressing image...' : 'Uploading...',
+                _uploadProgress < 0.5 ? 'Processing file...' : 'Uploading...',
                 style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
                 textAlign: TextAlign.center,
               ),
@@ -674,8 +866,8 @@ class _SupportDocumentUploadDialogState
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _isUploading ? null : _pickFromGallery,
-                    icon: const Icon(Icons.photo_library),
-                    label: const Text('Gallery'),
+                    icon: const Icon(Icons.upload_file),
+                    label: Text(isMobile ? 'Files' : 'Choose File'),
                   ),
                 ),
                 if (isMobile) ...[
@@ -692,7 +884,7 @@ class _SupportDocumentUploadDialogState
             ),
             const SizedBox(height: 8),
             Text(
-              'Images will be automatically compressed to save space',
+              'Supports: Images (JPG, PNG, GIF), Documents (PDF, DOC, DOCX)\nImages will be automatically compressed',
               style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
               textAlign: TextAlign.center,
             ),
@@ -725,18 +917,34 @@ class SupportDocumentSelectionDialog extends StatefulWidget {
   });
 
   @override
-  State<SupportDocumentSelectionDialog> createState() => _SupportDocumentSelectionDialogState();
+  State<SupportDocumentSelectionDialog> createState() =>
+      _SupportDocumentSelectionDialogState();
 }
 
-class _SupportDocumentSelectionDialogState extends State<SupportDocumentSelectionDialog> {
+class _SupportDocumentSelectionDialogState
+    extends State<SupportDocumentSelectionDialog> {
   late Set<int> selectedIndices;
   bool isPrinting = false;
+
+  bool _isImageFile(String url) {
+    final ext = url.toLowerCase().split('.').last.split('?').first;
+    return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].contains(ext);
+  }
+
+  String _getFileExtension(String url) {
+    return url.toLowerCase().split('.').last.split('?').first.toUpperCase();
+  }
 
   @override
   void initState() {
     super.initState();
-    // Select all by default
-    selectedIndices = Set.from(List.generate(widget.documentUrls.length, (i) => i));
+    // Select all images by default (only images can be printed in grid)
+    selectedIndices = {};
+    for (int i = 0; i < widget.documentUrls.length; i++) {
+      if (_isImageFile(widget.documentUrls[i])) {
+        selectedIndices.add(i);
+      }
+    }
   }
 
   Future<void> _getImageData(String originalUrl) async {
@@ -759,7 +967,9 @@ class _SupportDocumentSelectionDialogState extends State<SupportDocumentSelectio
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: Colors.blue.shade50,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(4),
+                ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -769,11 +979,17 @@ class _SupportDocumentSelectionDialogState extends State<SupportDocumentSelectio
                     children: [
                       const Text(
                         'Select Documents to Print',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       Text(
                         'Voucher: ${widget.transactionReceiptNo}',
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
                       ),
                     ],
                   ),
@@ -791,12 +1007,19 @@ class _SupportDocumentSelectionDialogState extends State<SupportDocumentSelectio
               color: Colors.amber.shade50,
               child: Row(
                 children: [
-                  Icon(Icons.info_outline, color: Colors.amber.shade900, size: 20),
+                  Icon(
+                    Icons.info_outline,
+                    color: Colors.amber.shade900,
+                    size: 20,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Up to 4 images will be printed per page to save paper',
-                      style: TextStyle(fontSize: 12, color: Colors.amber.shade900),
+                      'Only images can be printed in grid format (up to 4 per page). Documents (PDF, DOC) should be printed separately.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.amber.shade900,
+                      ),
                     ),
                   ),
                 ],
@@ -816,23 +1039,30 @@ class _SupportDocumentSelectionDialogState extends State<SupportDocumentSelectio
                   Row(
                     children: [
                       TextButton.icon(
-                        onPressed: isPrinting ? null : () {
-                          setState(() {
-                            selectedIndices = Set.from(
-                              List.generate(widget.documentUrls.length, (i) => i),
-                            );
-                          });
-                        },
+                        onPressed: isPrinting
+                            ? null
+                            : () {
+                                setState(() {
+                                  selectedIndices = Set.from(
+                                    List.generate(
+                                      widget.documentUrls.length,
+                                      (i) => i,
+                                    ),
+                                  );
+                                });
+                              },
                         icon: const Icon(Icons.select_all, size: 16),
                         label: const Text('Select All'),
                       ),
                       const SizedBox(width: 8),
                       TextButton.icon(
-                        onPressed: isPrinting ? null : () {
-                          setState(() {
-                            selectedIndices.clear();
-                          });
-                        },
+                        onPressed: isPrinting
+                            ? null
+                            : () {
+                                setState(() {
+                                  selectedIndices.clear();
+                                });
+                              },
                         icon: const Icon(Icons.clear, size: 16),
                         label: const Text('Clear All'),
                       ),
@@ -856,59 +1086,121 @@ class _SupportDocumentSelectionDialogState extends State<SupportDocumentSelectio
                 ),
                 itemCount: widget.documentUrls.length,
                 itemBuilder: (context, index) {
+                  final url = widget.documentUrls[index];
+                  final isImage = _isImageFile(url);
+                  final ext = _getFileExtension(url);
                   final isSelected = selectedIndices.contains(index);
+                  final canSelect =
+                      isImage; // Only images can be selected for printing
+
                   return GestureDetector(
-                    onTap: isPrinting ? null : () {
-                      setState(() {
-                        if (isSelected) {
-                          selectedIndices.remove(index);
-                        } else {
-                          selectedIndices.add(index);
-                        }
-                      });
-                    },
+                    onTap: isPrinting || !canSelect
+                        ? null
+                        : () {
+                            setState(() {
+                              if (isSelected) {
+                                selectedIndices.remove(index);
+                              } else {
+                                selectedIndices.add(index);
+                              }
+                            });
+                          },
                     child: Container(
                       decoration: BoxDecoration(
                         border: Border.all(
-                          color: isSelected ? Colors.blue.shade700 : Colors.grey.shade300,
+                          color: isSelected
+                              ? Colors.blue.shade700
+                              : (canSelect
+                                    ? Colors.grey.shade300
+                                    : Colors.grey.shade400),
                           width: isSelected ? 3 : 1,
                         ),
                         borderRadius: BorderRadius.circular(8),
+                        color: canSelect ? null : Colors.grey.shade100,
                       ),
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
                           ClipRRect(
                             borderRadius: BorderRadius.circular(6),
-                            child: kIsWeb
-                                ? Image.network(
-                                    widget.documentUrls[index],
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return Container(
-                                        color: Colors.grey.shade200,
-                                        child: Icon(Icons.image, color: Colors.grey.shade400),
-                                      );
-                                    },
-                                  )
-                                : FutureBuilder<Uint8List?>(
-                                    future: FirebaseStorageService()
-                                        .downloadImageData(widget.documentUrls[index]),
-                                    builder: (context, snapshot) {
-                                      if (snapshot.hasData && snapshot.data != null) {
-                                        return Image.memory(
-                                          snapshot.data!,
+                            child: isImage
+                                ? (kIsWeb
+                                      ? Image.network(
+                                          url,
                                           fit: BoxFit.cover,
-                                        );
-                                      }
-                                      if (snapshot.connectionState == ConnectionState.waiting) {
-                                        return const Center(child: CircularProgressIndicator());
-                                      }
-                                      return Container(
-                                        color: Colors.grey.shade200,
-                                        child: Icon(Icons.image, color: Colors.grey.shade400),
-                                      );
-                                    },
+                                          errorBuilder:
+                                              (context, error, stackTrace) {
+                                                return Container(
+                                                  color: Colors.grey.shade200,
+                                                  child: Icon(
+                                                    Icons.image,
+                                                    color: Colors.grey.shade400,
+                                                  ),
+                                                );
+                                              },
+                                        )
+                                      : FutureBuilder<Uint8List?>(
+                                          future: FirebaseStorageService()
+                                              .downloadImageData(url),
+                                          builder: (context, snapshot) {
+                                            if (snapshot.hasData &&
+                                                snapshot.data != null) {
+                                              return Image.memory(
+                                                snapshot.data!,
+                                                fit: BoxFit.cover,
+                                              );
+                                            }
+                                            if (snapshot.connectionState ==
+                                                ConnectionState.waiting) {
+                                              return const Center(
+                                                child:
+                                                    CircularProgressIndicator(),
+                                              );
+                                            }
+                                            return Container(
+                                              color: Colors.grey.shade200,
+                                              child: Icon(
+                                                Icons.image,
+                                                color: Colors.grey.shade400,
+                                              ),
+                                            );
+                                          },
+                                        ))
+                                : Container(
+                                    color: Colors.grey.shade200,
+                                    child: Center(
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            ext == 'PDF'
+                                                ? Icons.picture_as_pdf
+                                                : Icons.description,
+                                            size: 36,
+                                            color: Colors.grey.shade600,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            ext,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.grey.shade600,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Print separately',
+                                            style: TextStyle(
+                                              fontSize: 9,
+                                              color: Colors.grey.shade500,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                           ),
                           // Selection overlay
@@ -925,7 +1217,11 @@ class _SupportDocumentSelectionDialogState extends State<SupportDocumentSelectio
                                     color: Colors.blue.shade700,
                                     shape: BoxShape.circle,
                                   ),
-                                  child: const Icon(Icons.check, color: Colors.white, size: 24),
+                                  child: const Icon(
+                                    Icons.check,
+                                    color: Colors.white,
+                                    size: 24,
+                                  ),
                                 ),
                               ),
                             ),
@@ -934,7 +1230,10 @@ class _SupportDocumentSelectionDialogState extends State<SupportDocumentSelectio
                             top: 4,
                             left: 4,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.black54,
                                 borderRadius: BorderRadius.circular(4),
@@ -976,7 +1275,9 @@ class _SupportDocumentSelectionDialogState extends State<SupportDocumentSelectio
                   Row(
                     children: [
                       TextButton(
-                        onPressed: isPrinting ? null : () => Navigator.pop(context),
+                        onPressed: isPrinting
+                            ? null
+                            : () => Navigator.pop(context),
                         child: const Text('Cancel'),
                       ),
                       const SizedBox(width: 8),
@@ -987,24 +1288,34 @@ class _SupportDocumentSelectionDialogState extends State<SupportDocumentSelectio
                                 setState(() => isPrinting = true);
 
                                 try {
-                                  final selectedUrls = selectedIndices
-                                      .map((i) => widget.documentUrls[i])
-                                      .toList()
-                                    ..sort((a, b) => selectedIndices.toList().indexOf(
-                                          widget.documentUrls.indexOf(a),
-                                        ).compareTo(
-                                          selectedIndices.toList().indexOf(
-                                            widget.documentUrls.indexOf(b),
-                                          ),
-                                        ));
+                                  final selectedUrls =
+                                      selectedIndices
+                                          .map((i) => widget.documentUrls[i])
+                                          .toList()
+                                        ..sort(
+                                          (a, b) => selectedIndices
+                                              .toList()
+                                              .indexOf(
+                                                widget.documentUrls.indexOf(a),
+                                              )
+                                              .compareTo(
+                                                selectedIndices
+                                                    .toList()
+                                                    .indexOf(
+                                                      widget.documentUrls
+                                                          .indexOf(b),
+                                                    ),
+                                              ),
+                                        );
 
                                   final voucherService = VoucherExportService();
-                                  await voucherService.printMultipleSupportDocumentsGrid(
-                                    selectedUrls,
-                                    widget.transactionReceiptNo,
-                                    widget.description,
-                                    widget.amount,
-                                  );
+                                  await voucherService
+                                      .printMultipleSupportDocumentsGrid(
+                                        selectedUrls,
+                                        widget.transactionReceiptNo,
+                                        widget.description,
+                                        widget.amount,
+                                      );
 
                                   if (context.mounted) {
                                     Navigator.pop(context);
@@ -1033,10 +1344,15 @@ class _SupportDocumentSelectionDialogState extends State<SupportDocumentSelectio
                             ? const SizedBox(
                                 width: 16,
                                 height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
                               )
                             : const Icon(Icons.print),
-                        label: Text(isPrinting ? 'Printing...' : 'Print Selected'),
+                        label: Text(
+                          isPrinting ? 'Printing...' : 'Print Selected',
+                        ),
                       ),
                     ],
                   ),
@@ -1070,6 +1386,15 @@ class SupportDocumentGallery extends StatefulWidget {
 class _SupportDocumentGalleryState extends State<SupportDocumentGallery> {
   late PageController _pageController;
   int _currentPage = 0;
+
+  bool _isImageFile(String url) {
+    final ext = url.toLowerCase().split('.').last.split('?').first;
+    return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].contains(ext);
+  }
+
+  String _getFileExtension(String url) {
+    return url.toLowerCase().split('.').last.split('?').first.toUpperCase();
+  }
 
   @override
   void initState() {
@@ -1130,18 +1455,27 @@ class _SupportDocumentGalleryState extends State<SupportDocumentGallery> {
                     children: [
                       const Text(
                         'Support Documents',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       Text(
                         'Voucher: ${widget.transactionReceiptNo}',
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
                       ),
                     ],
                   ),
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.blue.shade50,
                           borderRadius: BorderRadius.circular(12),
@@ -1158,7 +1492,8 @@ class _SupportDocumentGalleryState extends State<SupportDocumentGallery> {
                       ),
                       const SizedBox(width: 8),
                       IconButton(
-                        onPressed: widget.onClose ?? () => Navigator.pop(context),
+                        onPressed:
+                            widget.onClose ?? () => Navigator.pop(context),
                         icon: const Icon(Icons.close),
                       ),
                     ],
@@ -1179,6 +1514,68 @@ class _SupportDocumentGalleryState extends State<SupportDocumentGallery> {
                       });
                     },
                     itemBuilder: (context, index) {
+                      final url = widget.documentUrls[index];
+                      final isImage = _isImageFile(url);
+                      final ext = _getFileExtension(url);
+
+                      // If not an image, show document viewer with open button
+                      if (!isImage) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                ext == 'PDF'
+                                    ? Icons.picture_as_pdf
+                                    : Icons.description,
+                                size: 120,
+                                color: ext == 'PDF'
+                                    ? Colors.red.shade700
+                                    : Colors.blue.shade700,
+                              ),
+                              const SizedBox(height: 24),
+                              Text(
+                                '$ext Document',
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              const Text(
+                                'This document can\'t be previewed.\nClick below to open it.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              ElevatedButton.icon(
+                                onPressed: () async {
+                                  final uri = Uri.parse(url);
+                                  if (await canLaunchUrl(uri)) {
+                                    await launchUrl(
+                                      uri,
+                                      mode: LaunchMode.externalApplication,
+                                    );
+                                  }
+                                },
+                                icon: const Icon(Icons.open_in_new),
+                                label: const Text('Open Document'),
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 32,
+                                    vertical: 16,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+
+                      // For images, show with interactive viewer
                       return InteractiveViewer(
                         minScale: 0.5,
                         maxScale: 4.0,
@@ -1187,25 +1584,32 @@ class _SupportDocumentGalleryState extends State<SupportDocumentGallery> {
                             // For web, try to use Image.network directly to avoid CORS issues
                             if (kIsWeb) {
                               return Image.network(
-                                widget.documentUrls[index],
+                                url,
                                 fit: BoxFit.contain,
-                                loadingBuilder: (context, child, loadingProgress) {
-                                  if (loadingProgress == null) return child;
-                                  return Center(
-                                    child: CircularProgressIndicator(
-                                      value: loadingProgress.expectedTotalBytes != null
-                                          ? loadingProgress.cumulativeBytesLoaded /
-                                                loadingProgress.expectedTotalBytes!
-                                          : null,
-                                    ),
-                                  );
-                                },
+                                loadingBuilder:
+                                    (context, child, loadingProgress) {
+                                      if (loadingProgress == null) return child;
+                                      return Center(
+                                        child: CircularProgressIndicator(
+                                          value:
+                                              loadingProgress
+                                                      .expectedTotalBytes !=
+                                                  null
+                                              ? loadingProgress
+                                                        .cumulativeBytesLoaded /
+                                                    loadingProgress
+                                                        .expectedTotalBytes!
+                                              : null,
+                                        ),
+                                      );
+                                    },
                                 errorBuilder: (context, error, stackTrace) {
                                   print('Image load error: $error');
-                                  print('URL: ${widget.documentUrls[index]}');
+                                  print('URL: $url');
                                   return Center(
                                     child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         Icon(
                                           Icons.broken_image,
@@ -1215,15 +1619,19 @@ class _SupportDocumentGalleryState extends State<SupportDocumentGallery> {
                                         const SizedBox(height: 16),
                                         Text(
                                           'Could not load image',
-                                          style: TextStyle(color: Colors.grey.shade600),
+                                          style: TextStyle(
+                                            color: Colors.grey.shade600,
+                                          ),
                                         ),
                                         const SizedBox(height: 16),
                                         ElevatedButton.icon(
-                                          onPressed: () {
-                                            if (kIsWeb) {
-                                              html.window.open(
-                                                widget.documentUrls[index],
-                                                '_blank',
+                                          onPressed: () async {
+                                            final uri = Uri.parse(url);
+                                            if (await canLaunchUrl(uri)) {
+                                              await launchUrl(
+                                                uri,
+                                                mode: LaunchMode
+                                                    .externalApplication,
                                               );
                                             }
                                           },
@@ -1238,16 +1646,21 @@ class _SupportDocumentGalleryState extends State<SupportDocumentGallery> {
                             } else {
                               // For mobile, use the Firebase Storage approach
                               return FutureBuilder<Uint8List?>(
-                                future: _getImageData(widget.documentUrls[index]),
+                                future: _getImageData(url),
                                 builder: (context, snapshot) {
-                                  if (snapshot.connectionState == ConnectionState.waiting) {
-                                    return const Center(child: CircularProgressIndicator());
+                                  if (snapshot.connectionState ==
+                                      ConnectionState.waiting) {
+                                    return const Center(
+                                      child: CircularProgressIndicator(),
+                                    );
                                   }
 
-                                  if (snapshot.hasError || snapshot.data == null) {
+                                  if (snapshot.hasError ||
+                                      snapshot.data == null) {
                                     return Center(
                                       child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
                                         children: [
                                           Icon(
                                             Icons.broken_image,
@@ -1257,7 +1670,9 @@ class _SupportDocumentGalleryState extends State<SupportDocumentGallery> {
                                           const SizedBox(height: 16),
                                           Text(
                                             'Could not load image',
-                                            style: TextStyle(color: Colors.grey.shade600),
+                                            style: TextStyle(
+                                              color: Colors.grey.shade600,
+                                            ),
                                           ),
                                         ],
                                       ),
@@ -1370,20 +1785,24 @@ class _SupportDocumentGalleryState extends State<SupportDocumentGallery> {
                                     ? Image.network(
                                         widget.documentUrls[index],
                                         fit: BoxFit.cover,
-                                        errorBuilder: (context, error, stackTrace) {
-                                          return Container(
-                                            color: Colors.grey.shade200,
-                                            child: Icon(
-                                              Icons.image,
-                                              color: Colors.grey.shade400,
-                                            ),
-                                          );
-                                        },
+                                        errorBuilder:
+                                            (context, error, stackTrace) {
+                                              return Container(
+                                                color: Colors.grey.shade200,
+                                                child: Icon(
+                                                  Icons.image,
+                                                  color: Colors.grey.shade400,
+                                                ),
+                                              );
+                                            },
                                       )
                                     : FutureBuilder<Uint8List?>(
-                                        future: _getImageData(widget.documentUrls[index]),
+                                        future: _getImageData(
+                                          widget.documentUrls[index],
+                                        ),
                                         builder: (context, snapshot) {
-                                          if (snapshot.hasData && snapshot.data != null) {
+                                          if (snapshot.hasData &&
+                                              snapshot.data != null) {
                                             return Image.memory(
                                               snapshot.data!,
                                               fit: BoxFit.cover,
@@ -1590,11 +2009,12 @@ class _SupportDocumentPreviewState extends State<SupportDocumentPreview> {
                                 ),
                                 const SizedBox(height: 16),
                                 ElevatedButton.icon(
-                                  onPressed: () {
-                                    if (kIsWeb) {
-                                      html.window.open(
-                                        widget.documentUrl,
-                                        '_blank',
+                                  onPressed: () async {
+                                    final uri = Uri.parse(widget.documentUrl);
+                                    if (await canLaunchUrl(uri)) {
+                                      await launchUrl(
+                                        uri,
+                                        mode: LaunchMode.externalApplication,
                                       );
                                     }
                                   },
@@ -1611,8 +2031,11 @@ class _SupportDocumentPreviewState extends State<SupportDocumentPreview> {
                       return FutureBuilder<Uint8List?>(
                         future: _getImageDataPreview(widget.documentUrl),
                         builder: (context, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.waiting) {
-                            return const Center(child: CircularProgressIndicator());
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
                           }
 
                           if (snapshot.hasError || snapshot.data == null) {
@@ -1620,17 +2043,23 @@ class _SupportDocumentPreviewState extends State<SupportDocumentPreview> {
                             return Image.network(
                               widget.documentUrl,
                               fit: BoxFit.contain,
-                              loadingBuilder: (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return Center(
-                                  child: CircularProgressIndicator(
-                                    value: loadingProgress.expectedTotalBytes != null
-                                        ? loadingProgress.cumulativeBytesLoaded /
-                                              loadingProgress.expectedTotalBytes!
-                                        : null,
-                                  ),
-                                );
-                              },
+                              loadingBuilder:
+                                  (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return Center(
+                                      child: CircularProgressIndicator(
+                                        value:
+                                            loadingProgress
+                                                    .expectedTotalBytes !=
+                                                null
+                                            ? loadingProgress
+                                                      .cumulativeBytesLoaded /
+                                                  loadingProgress
+                                                      .expectedTotalBytes!
+                                            : null,
+                                      ),
+                                    );
+                                  },
                               errorBuilder: (context, error, stackTrace) {
                                 print('Preview image load error: $error');
                                 print('Stack trace: $stackTrace');
@@ -1646,7 +2075,9 @@ class _SupportDocumentPreviewState extends State<SupportDocumentPreview> {
                                       const SizedBox(height: 16),
                                       Text(
                                         'Could not load image',
-                                        style: TextStyle(color: Colors.grey.shade600),
+                                        style: TextStyle(
+                                          color: Colors.grey.shade600,
+                                        ),
                                       ),
                                       const SizedBox(height: 8),
                                       Text(
@@ -1658,11 +2089,14 @@ class _SupportDocumentPreviewState extends State<SupportDocumentPreview> {
                                       ),
                                       const SizedBox(height: 16),
                                       ElevatedButton.icon(
-                                        onPressed: () {
-                                          if (kIsWeb) {
-                                            html.window.open(
-                                              widget.documentUrl,
-                                              '_blank',
+                                        onPressed: () async {
+                                          if (await canLaunchUrl(
+                                            Uri.parse(widget.documentUrl),
+                                          )) {
+                                            await launchUrl(
+                                              Uri.parse(widget.documentUrl),
+                                              mode: LaunchMode
+                                                  .externalApplication,
                                             );
                                           }
                                         },
@@ -1694,7 +2128,9 @@ class _SupportDocumentPreviewState extends State<SupportDocumentPreview> {
                                     const SizedBox(height: 16),
                                     Text(
                                       'Could not load image',
-                                      style: TextStyle(color: Colors.grey.shade600),
+                                      style: TextStyle(
+                                        color: Colors.grey.shade600,
+                                      ),
                                     ),
                                     const SizedBox(height: 8),
                                     Text(
@@ -1706,11 +2142,14 @@ class _SupportDocumentPreviewState extends State<SupportDocumentPreview> {
                                     ),
                                     const SizedBox(height: 16),
                                     ElevatedButton.icon(
-                                      onPressed: () {
-                                        if (kIsWeb) {
-                                          html.window.open(
-                                            widget.documentUrl,
-                                            '_blank',
+                                      onPressed: () async {
+                                        if (await canLaunchUrl(
+                                          Uri.parse(widget.documentUrl),
+                                        )) {
+                                          await launchUrl(
+                                            Uri.parse(widget.documentUrl),
+                                            mode:
+                                                LaunchMode.externalApplication,
                                           );
                                         }
                                       },

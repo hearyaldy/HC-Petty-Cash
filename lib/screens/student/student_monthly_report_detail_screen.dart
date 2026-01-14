@@ -971,10 +971,7 @@ class _StudentMonthlyReportDetailScreenState
                   const SizedBox(height: 20),
 
                   // Divider
-                  Container(
-                    height: 1,
-                    color: Colors.white.withOpacity(0.3),
-                  ),
+                  Container(height: 1, color: Colors.white.withOpacity(0.3)),
 
                   const SizedBox(height: 20),
 
@@ -1045,7 +1042,7 @@ class _StudentMonthlyReportDetailScreenState
                             child: _buildInfoRow(
                               Icons.fingerprint,
                               'Report ID',
-                              widget.reportId.substring(0, 8) + '...',
+                              '${widget.reportId.substring(0, 8)}...',
                             ),
                           ),
                           const SizedBox(width: 16),
@@ -1361,7 +1358,8 @@ class _StudentMonthlyReportDetailScreenState
                                     // Task Description
                                     if (ts.task.isNotEmpty) ...[
                                       Row(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Icon(
                                             Icons.task_alt,
@@ -1371,7 +1369,8 @@ class _StudentMonthlyReportDetailScreenState
                                           const SizedBox(width: 8),
                                           Expanded(
                                             child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
                                                 Text(
                                                   'Task:',
@@ -1757,11 +1756,7 @@ class _StudentMonthlyReportDetailScreenState
   Widget _buildInfoRow(IconData icon, String label, String value) {
     return Row(
       children: [
-        Icon(
-          icon,
-          color: Colors.white70,
-          size: 18,
-        ),
+        Icon(icon, color: Colors.white70, size: 18),
         const SizedBox(width: 8),
         Expanded(
           child: Column(

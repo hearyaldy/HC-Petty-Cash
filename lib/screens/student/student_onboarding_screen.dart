@@ -26,6 +26,8 @@ class _StudentOnboardingScreenState extends State<StudentOnboardingScreen> {
   final _phoneNumberController = TextEditingController();
   final _courseController = TextEditingController();
   String _selectedYearLevel = '1st Year';
+  String? _selectedLanguage;
+  String? _selectedRole;
   bool _isSubmitting = false;
 
   final List<String> _yearLevels = [
@@ -34,6 +36,25 @@ class _StudentOnboardingScreenState extends State<StudentOnboardingScreen> {
     '3rd Year',
     '4th Year',
     'Graduate',
+  ];
+
+  final List<String> _languages = [
+    'Malay',
+    'Thai',
+    'Khmer',
+    'Chinese',
+    'English',
+    'Lao',
+    'Vietnamese',
+    'Other',
+  ];
+
+  final List<String> _roles = [
+    'Video Editor',
+    'Producer',
+    'Content Creator',
+    'Language Editor',
+    'Other',
   ];
 
   @override
@@ -56,6 +77,8 @@ class _StudentOnboardingScreenState extends State<StudentOnboardingScreen> {
         phoneNumber: _phoneNumberController.text.trim(),
         course: _courseController.text.trim(),
         yearLevel: _selectedYearLevel,
+        language: _selectedLanguage,
+        role: _selectedRole,
         hourlyRate: 0.0, // Will be set by admin
         onboardedAt: DateTime.now(),
       );
@@ -72,7 +95,7 @@ class _StudentOnboardingScreenState extends State<StudentOnboardingScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        context.go('/student-report');
+        context.go('/student-dashboard');
       }
     } catch (e) {
       if (mounted) {
@@ -286,6 +309,50 @@ class _StudentOnboardingScreenState extends State<StudentOnboardingScreen> {
                             }).toList(),
                             onChanged: (value) {
                               setState(() => _selectedYearLevel = value!);
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          // Language
+                          DropdownButtonFormField<String>(
+                            value: _selectedLanguage,
+                            decoration: InputDecoration(
+                              labelText: 'Language',
+                              hintText: 'Select your language',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              prefixIcon: const Icon(Icons.language),
+                            ),
+                            items: _languages.map((language) {
+                              return DropdownMenuItem(
+                                value: language,
+                                child: Text(language),
+                              );
+                            }).toList(),
+                            onChanged: (value) {
+                              setState(() => _selectedLanguage = value);
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          // Role
+                          DropdownButtonFormField<String>(
+                            value: _selectedRole,
+                            decoration: InputDecoration(
+                              labelText: 'Role',
+                              hintText: 'Select your role',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              prefixIcon: const Icon(Icons.work_outline),
+                            ),
+                            items: _roles.map((role) {
+                              return DropdownMenuItem(
+                                value: role,
+                                child: Text(role),
+                              );
+                            }).toList(),
+                            onChanged: (value) {
+                              setState(() => _selectedRole = value);
                             },
                           ),
                           const SizedBox(height: 32),

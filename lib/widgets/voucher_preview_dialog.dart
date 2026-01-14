@@ -5,7 +5,6 @@ import '../models/petty_cash_report.dart';
 import '../models/user.dart';
 import '../models/enums.dart';
 import '../utils/constants.dart';
-import '../services/voucher_export_service.dart';
 import 'support_document_upload_dialog.dart';
 
 class VoucherPreviewDialog extends StatelessWidget {
@@ -496,7 +495,8 @@ class VoucherPreviewDialog extends StatelessWidget {
 
   Widget _buildSignatureSection() {
     // Check if it's a bank transfer
-    final isBankTransfer = transaction.paymentMethod == PaymentMethod.bankTransfer.name;
+    final isBankTransfer =
+        transaction.paymentMethod == PaymentMethod.bankTransfer.name;
 
     return Container(
       decoration: BoxDecoration(

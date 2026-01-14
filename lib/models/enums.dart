@@ -201,3 +201,47 @@ extension PaymentMethodExtension on String {
     );
   }
 }
+
+enum TravelLocation {
+  local,
+  abroad;
+
+  String get displayName {
+    switch (this) {
+      case TravelLocation.local:
+        return 'Local';
+      case TravelLocation.abroad:
+        return 'Abroad';
+    }
+  }
+
+  double get perDiemRate {
+    switch (this) {
+      case TravelLocation.local:
+        return 125.0; // 125 Baht per meal for local travel
+      case TravelLocation.abroad:
+        return 250.0; // 250 Baht per meal for abroad travel
+    }
+  }
+}
+
+extension TravelLocationExtension on String {
+  String get travelLocationDisplayName {
+    final location = TravelLocation.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => TravelLocation.local,
+    );
+    return location.displayName;
+  }
+
+  TravelLocation toTravelLocation() {
+    return TravelLocation.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => TravelLocation.local,
+    );
+  }
+
+  double get perDiemRate {
+    return toTravelLocation().perDiemRate;
+  }
+}

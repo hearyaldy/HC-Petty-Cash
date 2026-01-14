@@ -5,6 +5,8 @@ import '../models/user.dart';
 import '../models/petty_cash_report.dart';
 import '../models/project_report.dart';
 import '../models/transaction.dart' as app;
+import '../models/traveling_report.dart';
+import '../models/traveling_per_diem_entry.dart';
 import '../utils/logger.dart';
 
 class FirestoreService {
@@ -19,6 +21,10 @@ class FirestoreService {
       _firestore.collection('project_reports');
   CollectionReference<Map<String, dynamic>> get _transactionsCollection =>
       _firestore.collection('transactions');
+  CollectionReference<Map<String, dynamic>> get _travelingReportsCollection =>
+      _firestore.collection('traveling_reports');
+  CollectionReference<Map<String, dynamic>> get _travelingPerDiemEntriesCollection =>
+      _firestore.collection('traveling_per_diem_entries');
 
   // ===== USER OPERATIONS =====
 
@@ -557,6 +563,289 @@ class FirestoreService {
       await batch.commit();
     } catch (e) {
       AppLogger.severe('Error batch updating project reports: $e');
+      rethrow;
+    }
+  }
+
+  // ===== TRAVELING REPORT OPERATIONS =====
+
+  String generateTravelingReportNumber() {
+    final now = DateTime.now();
+    final dateStr = DateFormat('yyyyMMdd').format(now);
+    final uuid = const Uuid().v4().substring(0, 3).toUpperCase();
+    return 'TR-$dateStr-$uuid';
+  }
+
+  Future<TravelingReport?> getTravelingReport(String reportId) async {
+    try {
+      final doc = await _travelingReportsCollection.doc(reportId).get();
+      return doc.exists ? TravelingReport.fromFirestore(doc) : null;
+    } catch (e) {
+      AppLogger.severe('Error getting traveling report: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<TravelingReport>> getAllTravelingReports() async {
+    try {
+      final snapshot = await _travelingReportsCollection.get();
+      return snapshot.docs
+          .map((doc) => TravelingReport.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      AppLogger.severe('Error getting all traveling reports: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<TravelingReport>> getTravelingReportsByReporter(
+      String reporterId) async {
+    try {
+      final snapshot = await _travelingReportsCollection
+          .where('reporterId', isEqualTo: reporterId)
+          .orderBy('createdAt', descending: true)
+          .get();
+      return snapshot.docs
+          .map((doc) => TravelingReport.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      AppLogger.severe('Error getting traveling reports by reporter: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<TravelingReport>> getTravelingReportsByStatus(
+      String status) async {
+    try {
+      final snapshot = await _travelingReportsCollection
+          .where('status', isEqualTo: status)
+          .orderBy('createdAt', descending: true)
+          .get();
+      return snapshot.docs
+          .map((doc) => TravelingReport.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      AppLogger.severe('Error getting traveling reports by status: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<TravelingReport>> getTravelingReportsByDepartment(
+      String department) async {
+    try {
+      final snapshot = await _travelingReportsCollection
+          .where('department', isEqualTo: department)
+          .orderBy('createdAt', descending: true)
+          .get();
+      return snapshot.docs
+          .map((doc) => TravelingReport.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      AppLogger.severe('Error getting traveling reports by department: $e');
+      rethrow;
+    }
+  }
+
+  Stream<List<TravelingReport>> travelingReportsStream() {
+    return _travelingReportsCollection
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => TravelingReport.fromFirestore(doc))
+            .toList());
+  }
+
+  Stream<List<TravelingReport>> travelingReportsByReporterStream(
+      String reporterId) {
+    return _travelingReportsCollection
+        .where('reporterId', isEqualTo: reporterId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => TravelingReport.fromFirestore(doc))
+            .toList());
+  }
+
+  Future<void> saveTravelingReport(TravelingReport report) async {
+    try {
+      await _travelingReportsCollection
+          .doc(report.id)
+          .set(report.toFirestore());
+    } catch (e) {
+      AppLogger.severe('Error saving traveling report: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateTravelingReport(TravelingReport report) async {
+    try {
+      await _travelingReportsCollection
+          .doc(report.id)
+          .update(report.toFirestore());
+    } catch (e) {
+      AppLogger.severe('Error updating traveling report: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteTravelingReport(String reportId) async {
+    try {
+      // Delete all per diem entries associated with this report
+      final entriesSnapshot = await _travelingPerDiemEntriesCollection
+          .where('reportId', isEqualTo: reportId)
+          .get();
+
+      final batch = _firestore.batch();
+      for (var doc in entriesSnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      batch.delete(_travelingReportsCollection.doc(reportId));
+      await batch.commit();
+    } catch (e) {
+      AppLogger.severe('Error deleting traveling report: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> submitTravelingReport(String reportId, String userId) async {
+    try {
+      await _travelingReportsCollection.doc(reportId).update({
+        'status': 'submitted',
+        'submittedAt': FieldValue.serverTimestamp(),
+        'submittedBy': userId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      AppLogger.severe('Error submitting traveling report: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> approveTravelingReport(
+      String reportId, String approverName) async {
+    try {
+      await _travelingReportsCollection.doc(reportId).update({
+        'status': 'approved',
+        'approvedAt': FieldValue.serverTimestamp(),
+        'approvedBy': approverName,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      AppLogger.severe('Error approving traveling report: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> rejectTravelingReport(
+      String reportId, String rejectionReason) async {
+    try {
+      await _travelingReportsCollection.doc(reportId).update({
+        'status': 'rejected',
+        'rejectionReason': rejectionReason,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      AppLogger.severe('Error rejecting traveling report: $e');
+      rethrow;
+    }
+  }
+
+  // ===== TRAVELING PER DIEM ENTRY OPERATIONS =====
+
+  Future<TravelingPerDiemEntry?> getTravelingPerDiemEntry(
+      String entryId) async {
+    try {
+      final doc = await _travelingPerDiemEntriesCollection.doc(entryId).get();
+      return doc.exists ? TravelingPerDiemEntry.fromFirestore(doc) : null;
+    } catch (e) {
+      AppLogger.severe('Error getting traveling per diem entry: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<TravelingPerDiemEntry>> getPerDiemEntriesByReport(
+      String reportId) async {
+    try {
+      final snapshot = await _travelingPerDiemEntriesCollection
+          .where('reportId', isEqualTo: reportId)
+          .orderBy('date', descending: false)
+          .get();
+      return snapshot.docs
+          .map((doc) => TravelingPerDiemEntry.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      AppLogger.severe('Error getting per diem entries by report: $e');
+      rethrow;
+    }
+  }
+
+  Stream<List<TravelingPerDiemEntry>> perDiemEntriesByReportStream(
+      String reportId) {
+    return _travelingPerDiemEntriesCollection
+        .where('reportId', isEqualTo: reportId)
+        .orderBy('date', descending: false)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => TravelingPerDiemEntry.fromFirestore(doc))
+            .toList());
+  }
+
+  Future<void> saveTravelingPerDiemEntry(TravelingPerDiemEntry entry) async {
+    try {
+      await _travelingPerDiemEntriesCollection
+          .doc(entry.id)
+          .set(entry.toFirestore());
+
+      // Recalculate report totals
+      await _recalculateTravelingReportTotals(entry.reportId);
+    } catch (e) {
+      AppLogger.severe('Error saving traveling per diem entry: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateTravelingPerDiemEntry(TravelingPerDiemEntry entry) async {
+    try {
+      await _travelingPerDiemEntriesCollection
+          .doc(entry.id)
+          .update(entry.toFirestore());
+
+      // Recalculate report totals
+      await _recalculateTravelingReportTotals(entry.reportId);
+    } catch (e) {
+      AppLogger.severe('Error updating traveling per diem entry: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteTravelingPerDiemEntry(String entryId) async {
+    try {
+      final entry = await getTravelingPerDiemEntry(entryId);
+      if (entry != null) {
+        await _travelingPerDiemEntriesCollection.doc(entryId).delete();
+        // Recalculate report totals
+        await _recalculateTravelingReportTotals(entry.reportId);
+      }
+    } catch (e) {
+      AppLogger.severe('Error deleting traveling per diem entry: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> _recalculateTravelingReportTotals(String reportId) async {
+    try {
+      final entries = await getPerDiemEntriesByReport(reportId);
+      final perDiemTotal = entries.fold<double>(
+          0.0, (total, entry) => total + entry.dailyTotalAllMembers);
+      final perDiemDays = entries.length;
+
+      await _travelingReportsCollection.doc(reportId).update({
+        'perDiemTotal': perDiemTotal,
+        'perDiemDays': perDiemDays,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      AppLogger.severe('Error recalculating traveling report totals: $e');
       rethrow;
     }
   }

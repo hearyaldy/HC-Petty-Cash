@@ -862,6 +862,185 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  void _showReportSelectionDialog(BuildContext context) {
+    final reportProvider = context.read<ReportProvider>();
+    final projectReportProvider = context.read<ProjectReportProvider>();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.pink.shade400, Colors.pink.shade600],
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.add_card, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 12),
+            const Text('Add Transaction'),
+          ],
+        ),
+        content: SizedBox(
+          width: 400,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+              const Text(
+                'Select a report to add the transaction to:',
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+              // Petty Cash Reports
+              if (reportProvider.reports.isNotEmpty) ...[
+                Text(
+                  'Petty Cash Reports',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue.shade700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ...reportProvider.reports.map((report) {
+                  final statusColor = report.status == 'approved'
+                      ? Colors.green
+                      : report.status == 'pending'
+                          ? Colors.orange
+                          : Colors.grey;
+
+                  return ListTile(
+                    dense: true,
+                    leading: Icon(Icons.account_balance_wallet, color: Colors.blue.shade600),
+                    title: Text(
+                      report.reportNumber,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(
+                      '${report.custodianName} - ${DateFormat('MMM dd, yyyy').format(report.periodStart)}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: statusColor),
+                      ),
+                      child: Text(
+                        report.status.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: statusColor,
+                        ),
+                      ),
+                    ),
+                    onTap: () {
+                      Navigator.pop(dialogContext);
+                      context.push('/reports/${report.id}', extra: {'action': 'addTransaction'});
+                    },
+                  );
+                }),
+                const SizedBox(height: 16),
+              ],
+              // Project Reports
+              if (projectReportProvider.projectReports.isNotEmpty) ...[
+                Text(
+                  'Project Reports',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.purple.shade700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ...projectReportProvider.projectReports.map((report) {
+                  final statusColor = report.status == 'active'
+                      ? Colors.green
+                      : report.status == 'completed'
+                          ? Colors.blue
+                          : Colors.grey;
+
+                  return ListTile(
+                    dense: true,
+                    leading: Icon(Icons.work, color: Colors.purple.shade600),
+                    title: Text(
+                      report.projectName,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(
+                      '${report.reportNumber} - Budget: ${NumberFormat.currency(symbol: '฿').format(report.budget)}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: statusColor),
+                      ),
+                      child: Text(
+                        report.status.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: statusColor,
+                        ),
+                      ),
+                    ),
+                    onTap: () {
+                      Navigator.pop(dialogContext);
+                      context.push('/project-reports/${report.id}', extra: {'action': 'addTransaction'});
+                    },
+                  );
+                }),
+              ],
+              if (reportProvider.reports.isEmpty &&
+                  projectReportProvider.projectReports.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Icon(Icons.inbox, size: 48, color: Colors.grey.shade400),
+                        const SizedBox(height: 12),
+                        Text(
+                          'No reports available',
+                          style: TextStyle(color: Colors.grey.shade600),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(dialogContext);
+                            context.go('/reports/new');
+                          },
+                          child: const Text('Create a report first'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildQuickActions(BuildContext context, AuthProvider authProvider) {
     final actions = [
       _ActionData(
@@ -869,6 +1048,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         icon: Icons.add_circle_outline,
         gradient: [Colors.deepPurple.shade400, Colors.deepPurple.shade600],
         onPressed: () => context.go('/reports/new'),
+      ),
+      _ActionData(
+        label: 'Add Transaction',
+        icon: Icons.add_card,
+        gradient: [Colors.pink.shade400, Colors.pink.shade600],
+        onPressed: () => _showReportSelectionDialog(context),
       ),
       _ActionData(
         label: 'View Reports',
@@ -881,6 +1066,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         icon: Icons.receipt_long,
         gradient: [Colors.teal.shade400, Colors.teal.shade600],
         onPressed: () => context.go('/transactions'),
+      ),
+      _ActionData(
+        label: 'Traveling Reports',
+        icon: Icons.flight_takeoff,
+        gradient: [Colors.indigo.shade400, Colors.indigo.shade600],
+        onPressed: () => context.go('/traveling-reports'),
       ),
       if (authProvider.canApprove())
         _ActionData(
