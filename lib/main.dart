@@ -99,12 +99,16 @@ class MyApp extends StatelessWidget {
       redirect: (context, state) async {
         final isLoggingIn = state.matchedLocation == '/';
         final isRegistering = state.matchedLocation == '/student-register';
+        final isOnboarding = state.matchedLocation.startsWith('/student-onboarding');
+        final isGoingToStudentDashboard = state.matchedLocation == '/student-dashboard';
         final user = authProvider.currentUser;
 
-        if (!authProvider.isAuthenticated && !isLoggingIn && !isRegistering) {
+        // Allow unauthenticated access to login, register, and onboarding
+        if (!authProvider.isAuthenticated && !isLoggingIn && !isRegistering && !isOnboarding) {
           return '/';
         }
 
+        // Redirect authenticated users from login/register pages
         if (authProvider.isAuthenticated && (isLoggingIn || isRegistering)) {
           // Check if student worker needs onboarding
           if (user?.role == 'studentWorker') {
@@ -120,6 +124,11 @@ class MyApp extends StatelessWidget {
             return '/student-dashboard';
           }
           return '/dashboard';
+        }
+
+        // If student is going to dashboard, let them through (no redirect)
+        if (user?.role == 'studentWorker' && isGoingToStudentDashboard) {
+          return null;
         }
 
         // Student workers can only access student routes

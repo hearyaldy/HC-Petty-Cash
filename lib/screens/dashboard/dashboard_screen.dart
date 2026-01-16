@@ -141,6 +141,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               projectExpensesTotal,
               authProvider,
               pendingTravelingReports,
+              allTravelingReports,
             ),
             tablet: _buildTabletLayout(
               context,
@@ -154,6 +155,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               projectExpensesTotal,
               authProvider,
               pendingTravelingReports,
+              allTravelingReports,
             ),
             desktop: _buildDesktopLayout(
               context,
@@ -167,6 +169,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               projectExpensesTotal,
               authProvider,
               pendingTravelingReports,
+              allTravelingReports,
             ),
           ),
         );
@@ -238,6 +241,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     double projectExpensesTotal,
     dynamic authProvider,
     List<TravelingReport> pendingTravelingReports,
+    List<TravelingReport> allTravelingReports,
   ) {
     return SingleChildScrollView(
       child: ResponsiveContainer(
@@ -271,6 +275,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _buildProjectReports(context),
             if (authProvider.canApprove()) ...[
               SizedBox(height: ResponsiveHelper.getSpacing(context)),
+              _buildMileageSummary(context, allTravelingReports),
+              SizedBox(height: ResponsiveHelper.getSpacing(context)),
               _buildPendingApprovals(context, pendingApprovals),
               if (pendingTravelingReports.isNotEmpty) ...[
                 SizedBox(height: ResponsiveHelper.getSpacing(context)),
@@ -299,6 +305,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     double projectExpensesTotal,
     dynamic authProvider,
     List<TravelingReport> pendingTravelingReports,
+    List<TravelingReport> allTravelingReports,
   ) {
     return SingleChildScrollView(
       child: ResponsiveContainer(
@@ -347,6 +354,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _buildProjectReports(context),
             if (authProvider.canApprove()) ...[
               SizedBox(height: ResponsiveHelper.getSpacing(context)),
+              _buildMileageSummary(context, allTravelingReports),
+              SizedBox(height: ResponsiveHelper.getSpacing(context)),
               _buildPendingApprovals(context, pendingApprovals),
               if (pendingTravelingReports.isNotEmpty) ...[
                 SizedBox(height: ResponsiveHelper.getSpacing(context)),
@@ -375,6 +384,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     double projectExpensesTotal,
     dynamic authProvider,
     List<TravelingReport> pendingTravelingReports,
+    List<TravelingReport> allTravelingReports,
   ) {
     return SingleChildScrollView(
       child: ResponsiveContainer(
@@ -425,6 +435,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
             if (authProvider.canApprove()) ...[
+              SizedBox(height: ResponsiveHelper.getSpacing(context)),
+              _buildMileageSummary(context, allTravelingReports),
               SizedBox(height: ResponsiveHelper.getSpacing(context)),
               _buildPendingApprovals(context, pendingApprovals),
               if (pendingTravelingReports.isNotEmpty) ...[
@@ -1377,12 +1389,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildProjectReports(BuildContext context) {
     final projectReportProvider = context.watch<ProjectReportProvider>();
     final authProvider = context.watch<AuthProvider>();
+    final transactionProvider = context.watch<TransactionProvider>();
     final user = authProvider.currentUser;
 
     final allProjectReports = projectReportProvider.projectReports;
+    final allTransactions = transactionProvider.transactions;
     final myProjectReports = user != null
         ? allProjectReports.where((r) => r.custodianId == user.id).toList()
         : [];
+
+    // Helper function to calculate actual expenses from transactions
+    double getProjectExpenses(String projectId) {
+      return allTransactions
+          .where((t) =>
+              t.projectId == projectId &&
+              (t.statusEnum == TransactionStatus.approved ||
+                  t.statusEnum == TransactionStatus.processed))
+          .fold<double>(0.0, (sum, t) => sum + t.amount);
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1492,7 +1516,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            '${AppConstants.currencySymbol}${report.totalExpenses.toStringAsFixed(2)}',
+                            '${AppConstants.currencySymbol}${getProjectExpenses(report.id).toStringAsFixed(2)}',
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 14,
@@ -1603,6 +1627,313 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
                   onTap: () => context.go('/approvals'),
+                ),
+              );
+            },
+          ),
+      ],
+    );
+  }
+
+  Widget _buildMileageSummary(
+    BuildContext context,
+    List<TravelingReport> reports,
+  ) {
+    final currencyFormat = NumberFormat('#,##0.00', 'en_US');
+    final dateFormat = DateFormat('MMM dd, yyyy');
+
+    // Use all reports (show all traveling reports)
+    final reportsWithMileage = List<TravelingReport>.from(reports);
+
+    // Calculate totals from all reports
+    final totalKM = reportsWithMileage.fold<double>(
+      0.0,
+      (total, report) => total + report.totalKM,
+    );
+    final totalMileageAmount = reportsWithMileage.fold<double>(
+      0.0,
+      (total, report) => total + report.mileageAmount,
+    );
+
+    // Sort by date (newest first)
+    reportsWithMileage.sort((a, b) => b.reportDate.compareTo(a.reportDate));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header with gradient
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.teal.shade50, Colors.teal.shade100],
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.teal,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.speed,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Mileage Summary',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.teal.shade900,
+                        ),
+                  ),
+                ],
+              ),
+              TextButton.icon(
+                onPressed: () => context.go('/admin/traveling-reports'),
+                icon: const Icon(Icons.arrow_forward),
+                label: const Text('View All'),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        // Summary cards
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.route, color: Colors.teal.shade400, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Total Distance',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${currencyFormat.format(totalKM)} KM',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.teal.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.payments, color: Colors.teal.shade400, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Total Mileage Cost',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${AppConstants.currencySymbol}${currencyFormat.format(totalMileageAmount)}',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.teal.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.receipt_long, color: Colors.teal.shade400, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Total Reports',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${reportsWithMileage.length}',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.teal.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        // Recent mileage reports list
+        if (reportsWithMileage.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(48),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Center(
+              child: Column(
+                children: [
+                  Icon(Icons.speed, size: 64, color: Colors.grey.shade300),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No traveling reports found',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Create a traveling report to see mileage data here',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        if (reportsWithMileage.isNotEmpty)
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: reportsWithMileage.length > 5 ? 5 : reportsWithMileage.length,
+            itemBuilder: (context, index) {
+              final report = reportsWithMileage[index];
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: Colors.teal,
+                    child: const Icon(
+                      Icons.directions_car,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  title: Text(
+                    report.reportNumber,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${report.reporterName} • ${dateFormat.format(report.reportDate)}',
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(Icons.route, size: 14, color: Colors.grey.shade600),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${report.totalKM.toStringAsFixed(1)} KM',
+                            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                          ),
+                          const SizedBox(width: 12),
+                          Icon(Icons.location_on, size: 14, color: Colors.grey.shade600),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              report.placeName,
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  trailing: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '${AppConstants.currencySymbol}${currencyFormat.format(report.mileageAmount)}',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: Colors.teal.shade700,
+                        ),
+                      ),
+                      Text(
+                        '@5/KM',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  onTap: () => context.push('/admin/traveling-reports/${report.id}'),
                 ),
               );
             },

@@ -5,7 +5,9 @@ import 'package:intl/intl.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/report_provider.dart';
 import '../../providers/project_report_provider.dart';
+import '../../providers/transaction_provider.dart';
 import '../../models/enums.dart';
+import '../../models/transaction.dart';
 import '../../models/petty_cash_report.dart';
 import '../../models/project_report.dart';
 import '../../utils/constants.dart';
@@ -28,6 +30,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
     final authProvider = context.watch<AuthProvider>();
     final reportProvider = context.watch<ReportProvider>();
     final projectReportProvider = context.watch<ProjectReportProvider>();
+    final transactionProvider = context.watch<TransactionProvider>();
     final user = authProvider.currentUser;
 
     // Combine both types of reports into a unified list
@@ -106,7 +109,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
               const SizedBox(height: 24),
               reports.isEmpty
                   ? _buildEmptyState()
-                  : _buildReportsList(reports),
+                  : _buildReportsList(reports, transactionProvider.transactions),
             ],
           ),
         ),
@@ -341,7 +344,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
     );
   }
 
-  Widget _buildReportsList(List<dynamic> reports) {
+  Widget _buildReportsList(List<dynamic> reports, List<Transaction> transactions) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -362,6 +365,22 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
         itemBuilder: (context, index) {
           final report = reports[index];
           final isPettyCash = report is PettyCashReport;
+
+          // Calculate actual expenses from transactions for project reports
+          double projectExpenses = 0;
+          double projectRemaining = 0;
+          if (!isPettyCash) {
+            final projectReport = report as ProjectReport;
+            final projectTransactions = transactions
+                .where((t) => t.projectId == projectReport.id)
+                .toList();
+            projectExpenses = projectTransactions
+                .where((t) =>
+                    t.statusEnum == TransactionStatus.approved ||
+                    t.statusEnum == TransactionStatus.processed)
+                .fold<double>(0.0, (sum, t) => sum + t.amount);
+            projectRemaining = projectReport.budget - projectExpenses;
+          }
 
           return Card(
             elevation: 0,
@@ -752,7 +771,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                             isPettyCash ? 'Disbursements' : 'Expenses',
                             isPettyCash
                                 ? report.totalDisbursements
-                                : (report as ProjectReport).totalExpenses,
+                                : projectExpenses,
                             Colors.red,
                           ),
                         ),
@@ -761,7 +780,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                             isPettyCash ? 'Balance' : 'Remaining',
                             isPettyCash
                                 ? report.closingBalance
-                                : (report as ProjectReport).remainingBudget,
+                                : projectRemaining,
                             Colors.green,
                           ),
                         ),
