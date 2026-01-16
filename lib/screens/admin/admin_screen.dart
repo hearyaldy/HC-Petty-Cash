@@ -80,6 +80,11 @@ class _AdminScreenState extends State<AdminScreen> {
             tooltip: 'Student Payment Rates',
           ),
           IconButton(
+            icon: const Icon(Icons.account_balance_wallet_outlined),
+            onPressed: () => context.push('/admin/income'),
+            tooltip: 'Income Reports',
+          ),
+          IconButton(
             icon: const Icon(Icons.flight_takeoff),
             onPressed: () => context.push('/admin/traveling-reports'),
             tooltip: 'Traveling Reports',

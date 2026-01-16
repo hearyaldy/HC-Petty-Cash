@@ -189,7 +189,7 @@ service cloud.firestore {
 
       // Users can update their own draft reports
       // Owner can submit their own report
-      // Admin can approve/reject submitted reports
+      // Admin can approve/reject/revert submitted reports
       allow update: if isAuthenticated() && (
         // Owner can update draft reports
         (resource.data.reporterId == request.auth.uid
@@ -198,16 +198,18 @@ service cloud.firestore {
         || (resource.data.reporterId == request.auth.uid
             && resource.data.status == 'draft'
             && request.resource.data.status == 'submitted')
-        // Or admin can approve/reject submitted reports
+        // Or admin can approve/reject/revert reports
         || (isAdmin()
-            && resource.data.status == 'submitted'
-            && request.resource.data.status in ['approved', 'rejected'])
+            && resource.data.status in ['submitted', 'approved', 'rejected']
+            && request.resource.data.status in ['approved', 'rejected', 'draft'])
       );
 
-      // Users can delete their own draft reports
-      allow delete: if isAuthenticated()
-        && resource.data.reporterId == request.auth.uid
-        && resource.data.status == 'draft';
+      // Users can delete their own draft reports, admin can delete any
+      allow delete: if isAuthenticated() && (
+        (resource.data.reporterId == request.auth.uid
+          && resource.data.status == 'draft')
+        || isAdmin()
+      );
     }
 
     // Traveling Per Diem Entries Collection
@@ -232,6 +234,60 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/traveling_reports/$(resource.data.reportId))
         && get(/databases/$(database)/documents/traveling_reports/$(resource.data.reportId)).data.reporterId == request.auth.uid
         && get(/databases/$(database)/documents/traveling_reports/$(resource.data.reportId)).data.status == 'draft';
+    }
+
+    // Income Reports collection
+    match /income_reports/{reportId} {
+      // Report owners and approvers can read; admins/managers/finance need list access
+      allow read: if isAuthenticated() && (
+        isOwner(resource.data.createdById) || canApprove()
+      );
+
+      // Authenticated user creates their own report
+      allow create: if isAuthenticated()
+        && request.resource.data.createdById == request.auth.uid;
+
+      // Owner can edit while draft or submit; approvers can transition submitted reports
+      allow update: if isAuthenticated() && (
+        (
+          resource.data.createdById == request.auth.uid
+          && resource.data.status == 'draft'
+        ) || (
+          canApprove()
+          && resource.data.status in ['submitted', 'underReview']
+        )
+      );
+
+      // Owner can delete draft; admins can delete any
+      allow delete: if isAuthenticated() && (
+        (resource.data.createdById == request.auth.uid
+          && resource.data.status == 'draft') || isAdmin()
+      );
+    }
+
+    // Income Entries collection
+    match /income_entries/{entryId} {
+      // All authenticated users can read entries
+      // (filtering is done at the application level based on report access)
+      allow read: if isAuthenticated();
+
+      // Create only if user owns the parent report and it is draft
+      allow create: if isAuthenticated()
+        && exists(/databases/$(database)/documents/income_reports/$(request.resource.data.reportId))
+        && get(/databases/$(database)/documents/income_reports/$(request.resource.data.reportId)).data.createdById == request.auth.uid
+        && get(/databases/$(database)/documents/income_reports/$(request.resource.data.reportId)).data.status == 'draft';
+
+      // Update only if user owns the parent report and it is draft
+      allow update: if isAuthenticated()
+        && exists(/databases/$(database)/documents/income_reports/$(resource.data.reportId))
+        && get(/databases/$(database)/documents/income_reports/$(resource.data.reportId)).data.createdById == request.auth.uid
+        && get(/databases/$(database)/documents/income_reports/$(resource.data.reportId)).data.status == 'draft';
+
+      // Delete only if user owns the parent report and it is draft
+      allow delete: if isAuthenticated()
+        && exists(/databases/$(database)/documents/income_reports/$(resource.data.reportId))
+        && get(/databases/$(database)/documents/income_reports/$(resource.data.reportId)).data.createdById == request.auth.uid
+        && get(/databases/$(database)/documents/income_reports/$(resource.data.reportId)).data.status == 'draft';
     }
   }
 }

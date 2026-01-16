@@ -36,6 +36,11 @@ import 'screens/traveling/traveling_reports_screen.dart';
 import 'screens/traveling/traveling_report_detail_screen.dart';
 import 'screens/admin/admin_traveling_reports_screen.dart';
 import 'screens/admin/admin_traveling_report_detail_screen.dart';
+import 'screens/admin/admin_income_reports_screen.dart';
+import 'screens/income/income_reports_screen.dart';
+import 'screens/income/new_income_report_screen.dart';
+import 'screens/income/income_report_detail_screen.dart';
+import 'providers/income_report_provider.dart';
 import 'utils/constants.dart';
 import 'utils/logger.dart';
 import 'utils/responsive_theme.dart';
@@ -77,6 +82,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ReportProvider()),
         ChangeNotifierProvider(create: (_) => ProjectReportProvider()),
         ChangeNotifierProvider(create: (_) => TransactionProvider()),
+        ChangeNotifierProvider(create: (_) => IncomeReportProvider()),
       ],
       child: Consumer2<AuthProvider, ThemeProvider>(
         builder: (context, authProvider, themeProvider, _) {
@@ -99,12 +105,18 @@ class MyApp extends StatelessWidget {
       redirect: (context, state) async {
         final isLoggingIn = state.matchedLocation == '/';
         final isRegistering = state.matchedLocation == '/student-register';
-        final isOnboarding = state.matchedLocation.startsWith('/student-onboarding');
-        final isGoingToStudentDashboard = state.matchedLocation == '/student-dashboard';
+        final isOnboarding = state.matchedLocation.startsWith(
+          '/student-onboarding',
+        );
+        final isGoingToStudentDashboard =
+            state.matchedLocation == '/student-dashboard';
         final user = authProvider.currentUser;
 
         // Allow unauthenticated access to login, register, and onboarding
-        if (!authProvider.isAuthenticated && !isLoggingIn && !isRegistering && !isOnboarding) {
+        if (!authProvider.isAuthenticated &&
+            !isLoggingIn &&
+            !isRegistering &&
+            !isOnboarding) {
           return '/';
         }
 
@@ -209,6 +221,22 @@ class MyApp extends StatelessWidget {
         GoRoute(
           path: '/transactions',
           builder: (context, state) => const TransactionsSummaryScreen(),
+        ),
+        // Income report routes
+        GoRoute(
+          path: '/income',
+          builder: (context, state) => const IncomeReportsScreen(),
+        ),
+        GoRoute(
+          path: '/income/new',
+          builder: (context, state) => const NewIncomeReportScreen(),
+        ),
+        GoRoute(
+          path: '/income/:reportId',
+          builder: (context, state) {
+            final reportId = state.pathParameters['reportId']!;
+            return IncomeReportDetailScreen(reportId: reportId);
+          },
         ),
         GoRoute(
           path: '/admin',
@@ -319,6 +347,17 @@ class MyApp extends StatelessWidget {
         GoRoute(
           path: '/admin/traveling-reports',
           builder: (context, state) => const AdminTravelingReportsScreen(),
+        ),
+        GoRoute(
+          path: '/admin/income',
+          builder: (context, state) => const AdminIncomeReportsScreen(),
+        ),
+        GoRoute(
+          path: '/admin/income/:reportId',
+          builder: (context, state) {
+            final reportId = state.pathParameters['reportId']!;
+            return IncomeReportDetailScreen(reportId: reportId);
+          },
         ),
         GoRoute(
           path: '/admin/traveling-reports/:reportId',

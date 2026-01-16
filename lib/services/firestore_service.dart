@@ -7,6 +7,7 @@ import '../models/project_report.dart';
 import '../models/transaction.dart' as app;
 import '../models/traveling_report.dart';
 import '../models/traveling_per_diem_entry.dart';
+import '../models/income_report.dart';
 import '../utils/logger.dart';
 
 class FirestoreService {
@@ -26,6 +27,10 @@ class FirestoreService {
   CollectionReference<Map<String, dynamic>>
   get _travelingPerDiemEntriesCollection =>
       _firestore.collection('traveling_per_diem_entries');
+  CollectionReference<Map<String, dynamic>> get _incomeReportsCollection =>
+      _firestore.collection('income_reports');
+  CollectionReference<Map<String, dynamic>> get _incomeEntriesCollection =>
+      _firestore.collection('income_entries');
 
   // ===== USER OPERATIONS =====
 
@@ -883,6 +888,297 @@ class FirestoreService {
       });
     } catch (e) {
       AppLogger.severe('Error recalculating traveling report totals: $e');
+      rethrow;
+    }
+  }
+
+  // ===== INCOME REPORT OPERATIONS =====
+
+  /// Generate unique income report number
+  Future<String> generateIncomeReportNumber() async {
+    final now = DateTime.now();
+    final dateStr = DateFormat('yyyyMMdd').format(now);
+    final prefix = 'IR-$dateStr';
+
+    // Get existing reports with same prefix
+    final snapshot = await _incomeReportsCollection
+        .where('reportNumber', isGreaterThanOrEqualTo: prefix)
+        .where('reportNumber', isLessThan: '$prefix\uf8ff')
+        .get();
+
+    final nextNum = snapshot.docs.length + 1;
+    return '$prefix-${nextNum.toString().padLeft(3, '0')}';
+  }
+
+  /// Create a new income report
+  Future<IncomeReport> createIncomeReport({
+    required String reportName,
+    required String department,
+    required String createdById,
+    required String createdByName,
+    required DateTime periodStart,
+    required DateTime periodEnd,
+    String? description,
+  }) async {
+    try {
+      final reportNumber = await generateIncomeReportNumber();
+      final docRef = _incomeReportsCollection.doc();
+
+      final report = IncomeReport(
+        id: docRef.id,
+        reportNumber: reportNumber,
+        reportName: reportName,
+        department: department,
+        createdById: createdById,
+        createdByName: createdByName,
+        periodStart: periodStart,
+        periodEnd: periodEnd,
+        totalIncome: 0,
+        status: 'draft',
+        description: description,
+        createdAt: DateTime.now(),
+      );
+
+      await docRef.set(report.toFirestore());
+      return report;
+    } catch (e) {
+      AppLogger.severe('Error creating income report: $e');
+      rethrow;
+    }
+  }
+
+  /// Get all income reports
+  Future<List<IncomeReport>> getAllIncomeReports() async {
+    try {
+      final snapshot = await _incomeReportsCollection
+          .orderBy('createdAt', descending: true)
+          .get();
+      return snapshot.docs
+          .map((doc) => IncomeReport.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      AppLogger.severe('Error getting all income reports: $e');
+      rethrow;
+    }
+  }
+
+  /// Get income reports by user
+  Future<List<IncomeReport>> getIncomeReportsByUser(String userId) async {
+    try {
+      final snapshot = await _incomeReportsCollection
+          .where('createdById', isEqualTo: userId)
+          .orderBy('createdAt', descending: true)
+          .get();
+      return snapshot.docs
+          .map((doc) => IncomeReport.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      AppLogger.severe('Error getting income reports by user: $e');
+      rethrow;
+    }
+  }
+
+  /// Get a single income report
+  Future<IncomeReport?> getIncomeReport(String reportId) async {
+    try {
+      final doc = await _incomeReportsCollection.doc(reportId).get();
+      return doc.exists ? IncomeReport.fromFirestore(doc) : null;
+    } catch (e) {
+      AppLogger.severe('Error getting income report: $e');
+      rethrow;
+    }
+  }
+
+  /// Update an income report
+  Future<void> updateIncomeReport(IncomeReport report) async {
+    try {
+      await _incomeReportsCollection.doc(report.id).update(report.toFirestore());
+    } catch (e) {
+      AppLogger.severe('Error updating income report: $e');
+      rethrow;
+    }
+  }
+
+  /// Delete an income report and its entries
+  Future<void> deleteIncomeReport(String reportId) async {
+    try {
+      // Delete all entries associated with the report
+      final entriesSnapshot = await _incomeEntriesCollection
+          .where('reportId', isEqualTo: reportId)
+          .get();
+
+      final batch = _firestore.batch();
+      for (final doc in entriesSnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      batch.delete(_incomeReportsCollection.doc(reportId));
+      await batch.commit();
+    } catch (e) {
+      AppLogger.severe('Error deleting income report: $e');
+      rethrow;
+    }
+  }
+
+  /// Submit an income report for approval
+  Future<void> submitIncomeReport(String reportId) async {
+    try {
+      await _incomeReportsCollection.doc(reportId).update({
+        'status': 'submitted',
+        'submittedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      AppLogger.severe('Error submitting income report: $e');
+      rethrow;
+    }
+  }
+
+  /// Approve an income report
+  Future<void> approveIncomeReport(String reportId, String approverName) async {
+    try {
+      await _incomeReportsCollection.doc(reportId).update({
+        'status': 'approved',
+        'approvedAt': FieldValue.serverTimestamp(),
+        'approvedBy': approverName,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      AppLogger.severe('Error approving income report: $e');
+      rethrow;
+    }
+  }
+
+  /// Close an income report
+  Future<void> closeIncomeReport(String reportId) async {
+    try {
+      await _incomeReportsCollection.doc(reportId).update({
+        'status': 'closed',
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      AppLogger.severe('Error closing income report: $e');
+      rethrow;
+    }
+  }
+
+  /// Stream income reports
+  Stream<List<IncomeReport>> incomeReportsStream() {
+    return _incomeReportsCollection
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => IncomeReport.fromFirestore(doc))
+              .toList(),
+        );
+  }
+
+  // ===== INCOME ENTRY OPERATIONS =====
+
+  /// Add an income entry to a report
+  Future<IncomeEntry> addIncomeEntry({
+    required String reportId,
+    required DateTime dateReceived,
+    required String category,
+    required String sourceName,
+    required String description,
+    required double amount,
+    required String paymentMethod,
+    String? referenceNumber,
+    List<String>? supportDocumentUrls,
+  }) async {
+    try {
+      final docRef = _incomeEntriesCollection.doc();
+
+      final entry = IncomeEntry(
+        id: docRef.id,
+        reportId: reportId,
+        dateReceived: dateReceived,
+        category: category,
+        sourceName: sourceName,
+        description: description,
+        amount: amount,
+        paymentMethod: paymentMethod,
+        referenceNumber: referenceNumber,
+        supportDocumentUrls: supportDocumentUrls,
+        createdAt: DateTime.now(),
+      );
+
+      await docRef.set(entry.toFirestore());
+      await _recalculateIncomeReportTotal(reportId);
+      return entry;
+    } catch (e) {
+      AppLogger.severe('Error adding income entry: $e');
+      rethrow;
+    }
+  }
+
+  /// Get all entries for a report
+  Future<List<IncomeEntry>> getIncomeEntriesByReport(String reportId) async {
+    try {
+      final snapshot = await _incomeEntriesCollection
+          .where('reportId', isEqualTo: reportId)
+          .orderBy('dateReceived', descending: true)
+          .get();
+      return snapshot.docs
+          .map((doc) => IncomeEntry.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      AppLogger.severe('Error getting income entries: $e');
+      rethrow;
+    }
+  }
+
+  /// Update an income entry
+  Future<void> updateIncomeEntry(IncomeEntry entry) async {
+    try {
+      await _incomeEntriesCollection.doc(entry.id).update(entry.toFirestore());
+      await _recalculateIncomeReportTotal(entry.reportId);
+    } catch (e) {
+      AppLogger.severe('Error updating income entry: $e');
+      rethrow;
+    }
+  }
+
+  /// Delete an income entry
+  Future<void> deleteIncomeEntry(String entryId, String reportId) async {
+    try {
+      await _incomeEntriesCollection.doc(entryId).delete();
+      await _recalculateIncomeReportTotal(reportId);
+    } catch (e) {
+      AppLogger.severe('Error deleting income entry: $e');
+      rethrow;
+    }
+  }
+
+  /// Stream income entries for a report
+  Stream<List<IncomeEntry>> incomeEntriesStream(String reportId) {
+    return _incomeEntriesCollection
+        .where('reportId', isEqualTo: reportId)
+        .orderBy('dateReceived', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => IncomeEntry.fromFirestore(doc))
+              .toList(),
+        );
+  }
+
+  /// Recalculate and update income report total
+  Future<void> _recalculateIncomeReportTotal(String reportId) async {
+    try {
+      final entries = await getIncomeEntriesByReport(reportId);
+      final totalIncome = entries.fold<double>(
+        0.0,
+        (total, entry) => total + entry.amount,
+      );
+
+      await _incomeReportsCollection.doc(reportId).update({
+        'totalIncome': totalIncome,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      AppLogger.severe('Error recalculating income report total: $e');
       rethrow;
     }
   }

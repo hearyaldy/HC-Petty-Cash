@@ -9,6 +9,7 @@ import '../../providers/project_report_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../models/enums.dart';
 import '../../models/traveling_report.dart';
+import '../../models/income_report.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
@@ -116,64 +117,263 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return sum + reportTotal;
     });
 
-    return StreamBuilder<List<TravelingReport>>(
-      stream: FirestoreService().travelingReportsStream(),
-      builder: (context, travelingSnapshot) {
-        final allTravelingReports = travelingSnapshot.data ?? [];
-        // Filter pending reports, excluding admin's own reports
-        final pendingTravelingReports = allTravelingReports
-            .where((r) => r.status == 'submitted' && r.reporterId != user?.id)
-            .toList();
+    return StreamBuilder<List<IncomeReport>>(
+      stream: FirestoreService().incomeReportsStream(),
+      builder: (context, incomeSnapshot) {
+        final incomeReports = incomeSnapshot.data ?? [];
+        final totalIncomeAmount = incomeReports.fold<double>(
+          0.0,
+          (sum, r) => sum + r.totalIncome,
+        );
+        final pendingIncomeReports = incomeReports
+            .where((r) => r.status == 'submitted')
+            .length;
 
-        return Scaffold(
-          backgroundColor: Colors.grey[50],
-          appBar: _buildResponsiveAppBar(context, user),
-          body: ResponsiveBuilder(
-            mobile: _buildMobileLayout(
-              context,
-              allReports,
-              myReports,
-              draftReports,
-              pendingApprovals,
-              pettyCashReceived,
-              pettyCashUsed,
-              projectBudgetTotal,
-              projectExpensesTotal,
-              authProvider,
-              pendingTravelingReports,
-              allTravelingReports,
-            ),
-            tablet: _buildTabletLayout(
-              context,
-              allReports,
-              myReports,
-              draftReports,
-              pendingApprovals,
-              pettyCashReceived,
-              pettyCashUsed,
-              projectBudgetTotal,
-              projectExpensesTotal,
-              authProvider,
-              pendingTravelingReports,
-              allTravelingReports,
-            ),
-            desktop: _buildDesktopLayout(
-              context,
-              allReports,
-              myReports,
-              draftReports,
-              pendingApprovals,
-              pettyCashReceived,
-              pettyCashUsed,
-              projectBudgetTotal,
-              projectExpensesTotal,
-              authProvider,
-              pendingTravelingReports,
-              allTravelingReports,
-            ),
-          ),
+        return StreamBuilder<List<TravelingReport>>(
+          stream: FirestoreService().travelingReportsStream(),
+          builder: (context, travelingSnapshot) {
+            final allTravelingReports = travelingSnapshot.data ?? [];
+            // Filter pending reports, excluding admin's own reports
+            final pendingTravelingReports = allTravelingReports
+                .where(
+                  (r) => r.status == 'submitted' && r.reporterId != user?.id,
+                )
+                .toList();
+
+            final totalMileageKm = allTravelingReports.fold<double>(
+              0.0,
+              (sum, r) => sum + r.totalKM,
+            );
+            final totalMileageAmount = allTravelingReports.fold<double>(
+              0.0,
+              (sum, r) => sum + r.mileageAmount,
+            );
+
+            return Scaffold(
+              backgroundColor: Colors.grey[50],
+              appBar: _buildResponsiveAppBar(context, user),
+              body: ResponsiveBuilder(
+                mobile: _buildMobileLayout(
+                  context,
+                  allReports,
+                  myReports,
+                  draftReports,
+                  pendingApprovals,
+                  pettyCashReceived,
+                  pettyCashUsed,
+                  projectBudgetTotal,
+                  projectExpensesTotal,
+                  authProvider,
+                  pendingTravelingReports,
+                  allTravelingReports,
+                  totalIncomeAmount,
+                  incomeReports.length,
+                  pendingIncomeReports,
+                  totalMileageKm,
+                  totalMileageAmount,
+                ),
+                tablet: _buildTabletLayout(
+                  context,
+                  allReports,
+                  myReports,
+                  draftReports,
+                  pendingApprovals,
+                  pettyCashReceived,
+                  pettyCashUsed,
+                  projectBudgetTotal,
+                  projectExpensesTotal,
+                  authProvider,
+                  pendingTravelingReports,
+                  allTravelingReports,
+                  totalIncomeAmount,
+                  incomeReports.length,
+                  pendingIncomeReports,
+                  totalMileageKm,
+                  totalMileageAmount,
+                ),
+                desktop: _buildDesktopLayout(
+                  context,
+                  allReports,
+                  myReports,
+                  draftReports,
+                  pendingApprovals,
+                  pettyCashReceived,
+                  pettyCashUsed,
+                  projectBudgetTotal,
+                  projectExpensesTotal,
+                  authProvider,
+                  pendingTravelingReports,
+                  allTravelingReports,
+                  totalIncomeAmount,
+                  incomeReports.length,
+                  pendingIncomeReports,
+                  totalMileageKm,
+                  totalMileageAmount,
+                ),
+              ),
+            );
+          },
         );
       },
+    );
+  }
+
+  Widget _buildIncomeMileageSummary(
+    BuildContext context,
+    double totalIncomeAmount,
+    int incomeReportCount,
+    int pendingIncomeReports,
+    double totalMileageKm,
+    double totalMileageAmount,
+  ) {
+    final currencyFormat = NumberFormat.currency(
+      symbol: '${AppConstants.currencySymbol} ',
+      decimalDigits: 2,
+    );
+    final numberFormat = NumberFormat('#,##0');
+
+    Widget buildTile({
+      required String title,
+      required String value,
+      required String subtitle,
+      required IconData icon,
+      required List<Color> gradient,
+    }) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          gradient: LinearGradient(
+            colors: gradient,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: gradient.last.withOpacity(0.2),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    value,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.ssid_chart, color: Colors.green.shade700, size: 24),
+            const SizedBox(width: 8),
+            Text(
+              'Income & Mileage',
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isMobile = constraints.maxWidth < 720;
+            final tiles = [
+              buildTile(
+                title: 'Total Income',
+                value: currencyFormat.format(totalIncomeAmount),
+                subtitle: '$incomeReportCount reports recorded',
+                icon: Icons.account_balance_wallet,
+                gradient: [Colors.green.shade400, Colors.green.shade700],
+              ),
+              buildTile(
+                title: 'Pending Income',
+                value: numberFormat.format(pendingIncomeReports),
+                subtitle: 'Awaiting approval',
+                icon: Icons.pending_actions,
+                gradient: [Colors.orange.shade400, Colors.orange.shade700],
+              ),
+              buildTile(
+                title: 'Mileage (KM)',
+                value: numberFormat.format(totalMileageKm.round()),
+                subtitle: 'Total distance logged',
+                icon: Icons.alt_route,
+                gradient: [Colors.blue.shade400, Colors.blue.shade700],
+              ),
+              buildTile(
+                title: 'Mileage Amount',
+                value: currencyFormat.format(totalMileageAmount),
+                subtitle: 'Calculated reimbursements',
+                icon: Icons.directions_car_filled,
+                gradient: [Colors.indigo.shade400, Colors.indigo.shade700],
+              ),
+            ];
+
+            if (isMobile) {
+              return Column(
+                children: [
+                  for (int i = 0; i < tiles.length; i++) ...[
+                    if (i > 0) const SizedBox(height: 8),
+                    tiles[i],
+                  ],
+                ],
+              );
+            }
+
+            return GridView.count(
+              crossAxisCount: constraints.maxWidth > 1100 ? 4 : 2,
+              shrinkWrap: true,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 2.0,
+              physics: const NeverScrollableScrollPhysics(),
+              children: tiles,
+            );
+          },
+        ),
+      ],
     );
   }
 
@@ -202,10 +402,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   Text(
                     user != null
-                        ? UserRole.values.firstWhere(
-                            (e) => e.name == user.role.trim().toLowerCase(),
-                            orElse: () => UserRole.requester,
-                          ).displayName
+                        ? UserRole.values
+                              .firstWhere(
+                                (e) => e.name == user.role.trim().toLowerCase(),
+                                orElse: () => UserRole.requester,
+                              )
+                              .displayName
                         : '',
                     style: const TextStyle(fontSize: 12),
                   ),
@@ -242,6 +444,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     dynamic authProvider,
     List<TravelingReport> pendingTravelingReports,
     List<TravelingReport> allTravelingReports,
+    double totalIncomeAmount,
+    int incomeReportCount,
+    int pendingIncomeReports,
+    double totalMileageKm,
+    double totalMileageAmount,
   ) {
     return SingleChildScrollView(
       child: ResponsiveContainer(
@@ -267,6 +474,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
               projectBudgetTotal,
               projectExpensesTotal,
             ),
+            if (authProvider.canManageUsers()) ...[
+              SizedBox(height: ResponsiveHelper.getSpacing(context)),
+              _buildIncomeMileageSummary(
+                context,
+                totalIncomeAmount,
+                incomeReportCount,
+                pendingIncomeReports,
+                totalMileageKm,
+                totalMileageAmount,
+              ),
+            ],
             SizedBox(height: ResponsiveHelper.getSpacing(context)),
             _buildQuickActions(context, authProvider),
             SizedBox(height: ResponsiveHelper.getSpacing(context)),
@@ -306,6 +524,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     dynamic authProvider,
     List<TravelingReport> pendingTravelingReports,
     List<TravelingReport> allTravelingReports,
+    double totalIncomeAmount,
+    int incomeReportCount,
+    int pendingIncomeReports,
+    double totalMileageKm,
+    double totalMileageAmount,
   ) {
     return SingleChildScrollView(
       child: ResponsiveContainer(
@@ -332,6 +555,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       SizedBox(height: ResponsiveHelper.getSpacing(context)),
                       _buildQuickActions(context, authProvider),
+                      if (authProvider.canManageUsers()) ...[
+                        SizedBox(height: ResponsiveHelper.getSpacing(context)),
+                        _buildIncomeMileageSummary(
+                          context,
+                          totalIncomeAmount,
+                          incomeReportCount,
+                          pendingIncomeReports,
+                          totalMileageKm,
+                          totalMileageAmount,
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -385,6 +619,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     dynamic authProvider,
     List<TravelingReport> pendingTravelingReports,
     List<TravelingReport> allTravelingReports,
+    double totalIncomeAmount,
+    int incomeReportCount,
+    int pendingIncomeReports,
+    double totalMileageKm,
+    double totalMileageAmount,
   ) {
     return SingleChildScrollView(
       child: ResponsiveContainer(
@@ -422,6 +661,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ],
             ),
+            if (authProvider.canManageUsers()) ...[
+              SizedBox(height: ResponsiveHelper.getSpacing(context)),
+              _buildIncomeMileageSummary(
+                context,
+                totalIncomeAmount,
+                incomeReportCount,
+                pendingIncomeReports,
+                totalMileageKm,
+                totalMileageAmount,
+              ),
+            ],
             SizedBox(height: ResponsiveHelper.getSpacing(context)),
             _buildQuickActions(context, authProvider),
             SizedBox(height: ResponsiveHelper.getSpacing(context)),
@@ -577,51 +827,56 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // Split the stats into rows based on the calculated cross axis count
     final rows = <List<_StatData>>[];
     for (int i = 0; i < stats.length; i += crossAxisCount) {
-      rows.add(stats.sublist(i,
-        i + crossAxisCount > stats.length ? stats.length : i + crossAxisCount));
+      rows.add(
+        stats.sublist(
+          i,
+          i + crossAxisCount > stats.length ? stats.length : i + crossAxisCount,
+        ),
+      );
     }
 
     return Column(
-      children: rows.map((row) =>
-        Padding(
-          padding: EdgeInsets.only(
-            bottom: ResponsiveHelper.getSpacing(
-              context,
-              mobile: 12,
-              tablet: 16,
-              desktop: 16,
-            ),
-          ),
-          child: Row(
-            children: row.asMap().entries.map((entry) {
-              int index = entry.key;
-              _StatData stat = entry.value;
-              return Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    right: index < row.length - 1
-                      ? ResponsiveHelper.getSpacing(
-                          context,
-                          mobile: 12,
-                          tablet: 16,
-                          desktop: 16,
-                        )
-                      : 0,
-                  ),
-                  child: _buildModernStatCard(context, stat),
+      children: rows
+          .map(
+            (row) => Padding(
+              padding: EdgeInsets.only(
+                bottom: ResponsiveHelper.getSpacing(
+                  context,
+                  mobile: 12,
+                  tablet: 16,
+                  desktop: 16,
                 ),
-              );
-            }).toList(),
-          ),
-        ),
-      ).toList(),
+              ),
+              child: Row(
+                children: row.asMap().entries.map((entry) {
+                  int index = entry.key;
+                  _StatData stat = entry.value;
+                  return Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        right: index < row.length - 1
+                            ? ResponsiveHelper.getSpacing(
+                                context,
+                                mobile: 12,
+                                tablet: 16,
+                                desktop: 16,
+                              )
+                            : 0,
+                      ),
+                      child: _buildModernStatCard(context, stat),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          )
+          .toList(),
     );
   }
 
   Widget _buildModernStatCard(BuildContext context, _StatData stat) {
     final borderRadius = ResponsiveHelper.getBorderRadius(context);
     final elevation = ResponsiveHelper.getCardElevation(context);
-    final textTheme = ResponsiveHelper.getResponsiveTextTheme(context);
 
     return Container(
       decoration: BoxDecoration(
@@ -948,141 +1203,160 @@ class _DashboardScreenState extends State<DashboardScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-              const Text(
-                'Select a report to add the transaction to:',
-                style: TextStyle(fontSize: 14, color: Colors.grey),
-              ),
-              const SizedBox(height: 16),
-              // Petty Cash Reports
-              if (reportProvider.reports.isNotEmpty) ...[
-                Text(
-                  'Petty Cash Reports',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue.shade700,
-                  ),
+                const Text(
+                  'Select a report to add the transaction to:',
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
                 ),
-                const SizedBox(height: 8),
-                ...reportProvider.reports.map((report) {
-                  final statusColor = report.status == 'approved'
-                      ? Colors.green
-                      : report.status == 'pending'
-                          ? Colors.orange
-                          : Colors.grey;
-
-                  return ListTile(
-                    dense: true,
-                    leading: Icon(Icons.account_balance_wallet, color: Colors.blue.shade600),
-                    title: Text(
-                      report.reportNumber,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Text(
-                      '${report.custodianName} - ${DateFormat('MMM dd, yyyy').format(report.periodStart)}',
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: statusColor),
-                      ),
-                      child: Text(
-                        report.status.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: statusColor,
-                        ),
-                      ),
-                    ),
-                    onTap: () {
-                      Navigator.pop(dialogContext);
-                      context.push('/reports/${report.id}', extra: {'action': 'addTransaction'});
-                    },
-                  );
-                }),
                 const SizedBox(height: 16),
-              ],
-              // Project Reports
-              if (projectReportProvider.projectReports.isNotEmpty) ...[
-                Text(
-                  'Project Reports',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.purple.shade700,
+                // Petty Cash Reports
+                if (reportProvider.reports.isNotEmpty) ...[
+                  Text(
+                    'Petty Cash Reports',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue.shade700,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                ...projectReportProvider.projectReports.map((report) {
-                  final statusColor = report.status == 'active'
-                      ? Colors.green
-                      : report.status == 'completed'
-                          ? Colors.blue
-                          : Colors.grey;
+                  const SizedBox(height: 8),
+                  ...reportProvider.reports.map((report) {
+                    final statusColor = report.status == 'approved'
+                        ? Colors.green
+                        : report.status == 'pending'
+                        ? Colors.orange
+                        : Colors.grey;
 
-                  return ListTile(
-                    dense: true,
-                    leading: Icon(Icons.work, color: Colors.purple.shade600),
-                    title: Text(
-                      report.projectName,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Text(
-                      '${report.reportNumber} - Budget: ${NumberFormat.currency(symbol: '฿').format(report.budget)}',
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: statusColor),
+                    return ListTile(
+                      dense: true,
+                      leading: Icon(
+                        Icons.account_balance_wallet,
+                        color: Colors.blue.shade600,
                       ),
-                      child: Text(
-                        report.status.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: statusColor,
+                      title: Text(
+                        report.reportNumber,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Text(
+                        '${report.custodianName} - ${DateFormat('MMM dd, yyyy').format(report.periodStart)}',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      trailing: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: statusColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: statusColor),
+                        ),
+                        child: Text(
+                          report.status.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: statusColor,
+                          ),
                         ),
                       ),
-                    ),
-                    onTap: () {
-                      Navigator.pop(dialogContext);
-                      context.push('/project-reports/${report.id}', extra: {'action': 'addTransaction'});
-                    },
-                  );
-                }),
-              ],
-              if (reportProvider.reports.isEmpty &&
-                  projectReportProvider.projectReports.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Center(
-                    child: Column(
-                      children: [
-                        Icon(Icons.inbox, size: 48, color: Colors.grey.shade400),
-                        const SizedBox(height: 12),
-                        Text(
-                          'No reports available',
-                          style: TextStyle(color: Colors.grey.shade600),
-                        ),
-                        const SizedBox(height: 8),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.pop(dialogContext);
-                            context.go('/reports/new');
-                          },
-                          child: const Text('Create a report first'),
-                        ),
-                      ],
+                      onTap: () {
+                        Navigator.pop(dialogContext);
+                        context.push(
+                          '/reports/${report.id}',
+                          extra: {'action': 'addTransaction'},
+                        );
+                      },
+                    );
+                  }),
+                  const SizedBox(height: 16),
+                ],
+                // Project Reports
+                if (projectReportProvider.projectReports.isNotEmpty) ...[
+                  Text(
+                    'Project Reports',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.purple.shade700,
                     ),
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  ...projectReportProvider.projectReports.map((report) {
+                    final statusColor = report.status == 'active'
+                        ? Colors.green
+                        : report.status == 'completed'
+                        ? Colors.blue
+                        : Colors.grey;
+
+                    return ListTile(
+                      dense: true,
+                      leading: Icon(Icons.work, color: Colors.purple.shade600),
+                      title: Text(
+                        report.projectName,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Text(
+                        '${report.reportNumber} - Budget: ${NumberFormat.currency(symbol: '฿').format(report.budget)}',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      trailing: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: statusColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: statusColor),
+                        ),
+                        child: Text(
+                          report.status.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: statusColor,
+                          ),
+                        ),
+                      ),
+                      onTap: () {
+                        Navigator.pop(dialogContext);
+                        context.push(
+                          '/project-reports/${report.id}',
+                          extra: {'action': 'addTransaction'},
+                        );
+                      },
+                    );
+                  }),
+                ],
+                if (reportProvider.reports.isEmpty &&
+                    projectReportProvider.projectReports.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.inbox,
+                            size: 48,
+                            color: Colors.grey.shade400,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'No reports available',
+                            style: TextStyle(color: Colors.grey.shade600),
+                          ),
+                          const SizedBox(height: 8),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(dialogContext);
+                              context.go('/reports/new');
+                            },
+                            child: const Text('Create a report first'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -1129,6 +1403,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         gradient: [Colors.indigo.shade400, Colors.indigo.shade600],
         onPressed: () => context.go('/traveling-reports'),
       ),
+      if (authProvider.canManageUsers())
+        _ActionData(
+          label: 'Income Reports',
+          icon: Icons.account_balance_wallet_outlined,
+          gradient: [Colors.green.shade400, Colors.green.shade600],
+          onPressed: () => context.go('/admin/income'),
+        ),
       if (authProvider.canApprove())
         _ActionData(
           label: 'Approvals',
@@ -1189,7 +1470,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildActionCard(BuildContext context, _ActionData action) {
     final borderRadius = ResponsiveHelper.getBorderRadius(context);
-    final textTheme = ResponsiveHelper.getResponsiveTextTheme(context);
 
     return InkWell(
       onTap: action.onPressed,
@@ -1401,10 +1681,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // Helper function to calculate actual expenses from transactions
     double getProjectExpenses(String projectId) {
       return allTransactions
-          .where((t) =>
-              t.projectId == projectId &&
-              (t.statusEnum == TransactionStatus.approved ||
-                  t.statusEnum == TransactionStatus.processed))
+          .where(
+            (t) =>
+                t.projectId == projectId &&
+                (t.statusEnum == TransactionStatus.approved ||
+                    t.statusEnum == TransactionStatus.processed),
+          )
           .fold<double>(0.0, (sum, t) => sum + t.amount);
     }
 
@@ -1691,9 +1973,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Text(
                     'Mileage Summary',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.teal.shade900,
-                        ),
+                      fontWeight: FontWeight.bold,
+                      color: Colors.teal.shade900,
+                    ),
                   ),
                 ],
               ),
@@ -1722,7 +2004,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.route, color: Colors.teal.shade400, size: 20),
+                        Icon(
+                          Icons.route,
+                          color: Colors.teal.shade400,
+                          size: 20,
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           'Total Distance',
@@ -1760,7 +2046,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.payments, color: Colors.teal.shade400, size: 20),
+                        Icon(
+                          Icons.payments,
+                          color: Colors.teal.shade400,
+                          size: 20,
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           'Total Mileage Cost',
@@ -1798,7 +2088,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.receipt_long, color: Colors.teal.shade400, size: 20),
+                        Icon(
+                          Icons.receipt_long,
+                          color: Colors.teal.shade400,
+                          size: 20,
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           'Total Reports',
@@ -1850,10 +2144,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 8),
                   Text(
                     'Create a traveling report to see mileage data here',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade500,
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
                   ),
                 ],
               ),
@@ -1863,7 +2154,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: reportsWithMileage.length > 5 ? 5 : reportsWithMileage.length,
+            itemCount: reportsWithMileage.length > 5
+                ? 5
+                : reportsWithMileage.length,
             itemBuilder: (context, index) {
               final report = reportsWithMileage[index];
               return Card(
@@ -1891,19 +2184,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          Icon(Icons.route, size: 14, color: Colors.grey.shade600),
+                          Icon(
+                            Icons.route,
+                            size: 14,
+                            color: Colors.grey.shade600,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             '${report.totalKM.toStringAsFixed(1)} KM',
-                            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
                           ),
                           const SizedBox(width: 12),
-                          Icon(Icons.location_on, size: 14, color: Colors.grey.shade600),
+                          Icon(
+                            Icons.location_on,
+                            size: 14,
+                            color: Colors.grey.shade600,
+                          ),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
                               report.placeName,
-                              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -1933,7 +2240,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ],
                   ),
-                  onTap: () => context.push('/admin/traveling-reports/${report.id}'),
+                  onTap: () =>
+                      context.push('/admin/traveling-reports/${report.id}'),
                 ),
               );
             },
@@ -2007,7 +2315,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Center(
               child: Column(
                 children: [
-                  Icon(Icons.check_circle, size: 64, color: Colors.grey.shade300),
+                  Icon(
+                    Icons.check_circle,
+                    size: 64,
+                    color: Colors.grey.shade300,
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     'No pending traveling reports',
@@ -2053,7 +2365,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(height: 4),
                       Text(
                         report.purpose,
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -2075,7 +2390,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           Text(
                             report.placeName,
-                            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey[600],
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -2085,7 +2403,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         icon: const Icon(Icons.more_vert),
                         onSelected: (String choice) {
                           if (choice == 'view') {
-                            context.push('/admin/traveling-reports/${report.id}');
+                            context.push(
+                              '/admin/traveling-reports/${report.id}',
+                            );
                           } else if (choice == 'edit') {
                             _editTravelingReport(context, report);
                           } else if (choice == 'changeStatus') {
@@ -2126,7 +2446,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             value: 'changeStatus',
                             child: Row(
                               children: [
-                                Icon(Icons.swap_horiz, size: 20, color: Colors.purple),
+                                Icon(
+                                  Icons.swap_horiz,
+                                  size: 20,
+                                  color: Colors.purple,
+                                ),
                                 SizedBox(width: 8),
                                 Text(
                                   'Change Status',
@@ -2139,7 +2463,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             value: 'approve',
                             child: Row(
                               children: [
-                                Icon(Icons.check_circle, size: 20, color: Colors.green),
+                                Icon(
+                                  Icons.check_circle,
+                                  size: 20,
+                                  color: Colors.green,
+                                ),
                                 SizedBox(width: 8),
                                 Text(
                                   'Approve',
@@ -2152,7 +2480,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             value: 'reject',
                             child: Row(
                               children: [
-                                Icon(Icons.cancel, size: 20, color: Colors.orange),
+                                Icon(
+                                  Icons.cancel,
+                                  size: 20,
+                                  color: Colors.orange,
+                                ),
                                 SizedBox(width: 8),
                                 Text(
                                   'Reject',
@@ -2178,7 +2510,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ],
                   ),
-                  onTap: () => context.push('/admin/traveling-reports/${report.id}'),
+                  onTap: () =>
+                      context.push('/admin/traveling-reports/${report.id}'),
                 ),
               );
             },
@@ -2456,7 +2789,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 items: const [
                   DropdownMenuItem(value: 'draft', child: Text('DRAFT')),
-                  DropdownMenuItem(value: 'submitted', child: Text('SUBMITTED')),
+                  DropdownMenuItem(
+                    value: 'submitted',
+                    child: Text('SUBMITTED'),
+                  ),
                   DropdownMenuItem(value: 'approved', child: Text('APPROVED')),
                   DropdownMenuItem(value: 'rejected', child: Text('REJECTED')),
                   DropdownMenuItem(value: 'closed', child: Text('CLOSED')),
@@ -2509,9 +2845,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     if (result == true && selectedStatus != null && context.mounted) {
       try {
-        final updates = <String, dynamic>{
-          'status': selectedStatus,
-        };
+        final updates = <String, dynamic>{'status': selectedStatus};
 
         if (selectedStatus == 'approved') {
           updates['approvedAt'] = FieldValue.serverTimestamp();
@@ -2536,7 +2870,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Status updated to ${selectedStatus!.toUpperCase()}'),
+              content: Text(
+                'Status updated to ${selectedStatus!.toUpperCase()}',
+              ),
               backgroundColor: Colors.green,
             ),
           );
@@ -2569,9 +2905,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Approve Student Report'),
-        content: Text(
-          'Approve report for $studentName ($monthDisplay)?',
-        ),
+        content: Text('Approve report for $studentName ($monthDisplay)?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -2584,10 +2918,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     .collection('student_monthly_reports')
                     .doc(reportId)
                     .update({
-                  'status': 'approved',
-                  'approvedAt': FieldValue.serverTimestamp(),
-                  'approvedBy': user.name,
-                });
+                      'status': 'approved',
+                      'approvedAt': FieldValue.serverTimestamp(),
+                      'approvedBy': user.name,
+                    });
 
                 if (context.mounted) {
                   Navigator.of(context).pop(true);
@@ -2639,9 +2973,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Reject report for $studentName ($monthDisplay)?',
-            ),
+            Text('Reject report for $studentName ($monthDisplay)?'),
             const SizedBox(height: 16),
             TextField(
               controller: reasonController,
@@ -2677,11 +3009,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     .collection('student_monthly_reports')
                     .doc(reportId)
                     .update({
-                  'status': 'rejected',
-                  'rejectedAt': FieldValue.serverTimestamp(),
-                  'rejectedBy': user.name,
-                  'rejectionReason': reasonController.text.trim(),
-                });
+                      'status': 'rejected',
+                      'rejectedAt': FieldValue.serverTimestamp(),
+                      'rejectedBy': user.name,
+                      'rejectionReason': reasonController.text.trim(),
+                    });
 
                 if (context.mounted) {
                   Navigator.of(context).pop(true);
@@ -3026,7 +3358,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 value: 'approve',
                                 child: Row(
                                   children: [
-                                    Icon(Icons.check_circle, size: 20, color: Colors.green),
+                                    Icon(
+                                      Icons.check_circle,
+                                      size: 20,
+                                      color: Colors.green,
+                                    ),
                                     SizedBox(width: 8),
                                     Text(
                                       'Approve',
@@ -3040,7 +3376,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 value: 'reject',
                                 child: Row(
                                   children: [
-                                    Icon(Icons.cancel, size: 20, color: Colors.orange),
+                                    Icon(
+                                      Icons.cancel,
+                                      size: 20,
+                                      color: Colors.orange,
+                                    ),
                                     SizedBox(width: 8),
                                     Text(
                                       'Reject',
@@ -3053,7 +3393,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               value: 'delete',
                               child: Row(
                                 children: [
-                                  Icon(Icons.delete, size: 20, color: Colors.red),
+                                  Icon(
+                                    Icons.delete,
+                                    size: 20,
+                                    color: Colors.red,
+                                  ),
                                   SizedBox(width: 8),
                                   Text(
                                     'Delete',

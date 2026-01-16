@@ -50,11 +50,29 @@ class _TravelingPerDiemEntryDialogState
   }
 
   Future<void> _selectDate(BuildContext context) async {
+    // Ensure firstDate is before or equal to lastDate
+    final firstDate = widget.report.departureTime;
+    var lastDate = widget.report.destinationTime;
+
+    // If destinationTime is before or equal to departureTime, extend to 30 days
+    if (lastDate.isBefore(firstDate) || lastDate.isAtSameMomentAs(firstDate)) {
+      lastDate = firstDate.add(const Duration(days: 30));
+    }
+
+    // Ensure initialDate is within range
+    var initialDate = _date;
+    if (initialDate.isBefore(firstDate)) {
+      initialDate = firstDate;
+    }
+    if (initialDate.isAfter(lastDate)) {
+      initialDate = lastDate;
+    }
+
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: _date,
-      firstDate: widget.report.departureTime,
-      lastDate: widget.report.destinationTime,
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
     );
     if (picked != null) {
       setState(() {
