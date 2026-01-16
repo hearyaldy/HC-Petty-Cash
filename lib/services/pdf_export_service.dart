@@ -24,61 +24,9 @@ class PdfExportService {
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(32),
+        header: (context) => _buildHeader(report),
+        footer: (context) => _buildFooter(context, report),
         build: (context) => [
-          // Header
-          pw.Container(
-            alignment: pw.Alignment.center,
-            child: pw.Column(
-              children: [
-                pw.Text(
-                  AppConstants.organizationName,
-                  style: pw.TextStyle(
-                    fontSize: 11,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                  textAlign: pw.TextAlign.center,
-                ),
-                pw.SizedBox(height: 4),
-                pw.Text(
-                  AppConstants.organizationNameThai,
-                  style: pw.TextStyle(
-                    fontSize: 10,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                  textAlign: pw.TextAlign.center,
-                ),
-                pw.SizedBox(height: 4),
-                pw.Text(
-                  AppConstants.organizationAddress,
-                  style: const pw.TextStyle(fontSize: 9),
-                  textAlign: pw.TextAlign.center,
-                ),
-                pw.SizedBox(height: 16),
-                pw.Divider(),
-                pw.SizedBox(height: 8),
-                pw.Text(
-                  'PETTY CASH REPORT',
-                  style: pw.TextStyle(
-                    fontSize: 16,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-                pw.SizedBox(height: 8),
-                pw.Text(
-                  'Requested by: Heary Healdy Sairin',
-                  style: const pw.TextStyle(fontSize: 10),
-                ),
-                pw.SizedBox(height: 2),
-                pw.Text(
-                  'Department: Hope Channel Southeast Asia',
-                  style: const pw.TextStyle(fontSize: 10),
-                ),
-              ],
-            ),
-          ),
-          pw.SizedBox(height: 20),
-
-          // Report Information
           _buildInfoSection(report, dateFormat),
           pw.SizedBox(height: 20),
 
@@ -98,7 +46,7 @@ class PdfExportService {
           ),
           pw.SizedBox(height: 20),
 
-          // Transactions Table
+          // Transactions Table (auto-paginates)
           pw.Text(
             'Transactions',
             style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
@@ -124,24 +72,6 @@ class PdfExportService {
           // Signature Section
           pw.SizedBox(height: 30),
           _buildSignatureSection(),
-
-          // Footer
-          pw.SizedBox(height: 30),
-          pw.Divider(),
-          pw.SizedBox(height: 10),
-          pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-            children: [
-              pw.Text(
-                'Generated on: ${DateFormat('MMM dd, yyyy hh:mm a').format(DateTime.now())}',
-                style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey),
-              ),
-              pw.Text(
-                'Report: ${report.reportNumber}',
-                style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey),
-              ),
-            ],
-          ),
         ],
       ),
     );
@@ -204,43 +134,63 @@ class PdfExportService {
     DateFormat dateFormat,
     NumberFormat currencyFormat,
   ) {
-    return pw.Table(
-      border: pw.TableBorder.all(color: PdfColors.grey300),
-      columnWidths: {
-        0: const pw.FlexColumnWidth(1.5),
-        1: const pw.FlexColumnWidth(1.5),
-        2: const pw.FlexColumnWidth(3),
-        3: const pw.FlexColumnWidth(2),
-        4: const pw.FlexColumnWidth(1.5),
-      },
-      children: [
-        // Header
-        pw.TableRow(
-          decoration: const pw.BoxDecoration(color: PdfColors.grey300),
-          children: [
-            _buildTableCell('Date', isHeader: true),
-            _buildTableCell('Receipt No', isHeader: true),
-            _buildTableCell('Description', isHeader: true),
-            _buildTableCell('Category', isHeader: true),
-            _buildTableCell('Amount', isHeader: true),
+    final rows = transactions
+        .map(
+          (transaction) => [
+            dateFormat.format(transaction.date),
+            transaction.receiptNo,
+            transaction.description,
+            transaction.category.expenseCategoryDisplayName,
+            currencyFormat.format(transaction.amount),
           ],
-        ),
-        // Data rows
-        ...transactions.map((transaction) {
-          return pw.TableRow(
-            children: [
-              _buildTableCell(dateFormat.format(transaction.date)),
-              _buildTableCell(transaction.receiptNo),
-              _buildTableCell(transaction.description),
-              _buildTableCell(transaction.category.expenseCategoryDisplayName),
-              _buildTableCell(
-                currencyFormat.format(transaction.amount),
-                alignment: pw.Alignment.centerRight,
-              ),
-            ],
-          );
-        }),
-      ],
+        )
+        .toList();
+
+    return pw.ListView.builder(
+      itemCount: rows.length + 1,
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return _buildTransactionRow(const [
+            'Date',
+            'Receipt No',
+            'Description',
+            'Category',
+            'Amount',
+          ], isHeader: true);
+        }
+
+        return _buildTransactionRow(rows[index - 1]);
+      },
+    );
+  }
+
+  pw.Widget _buildTransactionRow(List<String> cells, {bool isHeader = false}) {
+    final styles = pw.TextStyle(
+      fontWeight: isHeader ? pw.FontWeight.bold : pw.FontWeight.normal,
+      fontSize: isHeader ? 10 : 9,
+    );
+
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+        color: isHeader ? PdfColors.grey300 : null,
+        border: pw.Border.all(color: PdfColors.grey300),
+      ),
+      padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+      child: pw.Row(
+        children: [
+          pw.Expanded(flex: 15, child: pw.Text(cells[0], style: styles)),
+          pw.Expanded(flex: 15, child: pw.Text(cells[1], style: styles)),
+          pw.Expanded(flex: 30, child: pw.Text(cells[2], style: styles)),
+          pw.Expanded(flex: 20, child: pw.Text(cells[3], style: styles)),
+          pw.Expanded(
+            flex: 15,
+            child: pw.Align(
+              alignment: pw.Alignment.centerRight,
+              child: pw.Text(cells[4], style: styles),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -258,6 +208,61 @@ class PdfExportService {
           fontWeight: isHeader ? pw.FontWeight.bold : pw.FontWeight.normal,
           fontSize: isHeader ? 10 : 9,
         ),
+      ),
+    );
+  }
+
+  pw.Widget _buildHeader(PettyCashReport report) {
+    return pw.Column(
+      children: [
+        pw.Text(
+          AppConstants.organizationName,
+          style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
+          textAlign: pw.TextAlign.center,
+        ),
+        pw.SizedBox(height: 4),
+        pw.Text(
+          AppConstants.organizationNameThai,
+          style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+          textAlign: pw.TextAlign.center,
+        ),
+        pw.SizedBox(height: 4),
+        pw.Text(
+          AppConstants.organizationAddress,
+          style: const pw.TextStyle(fontSize: 9),
+          textAlign: pw.TextAlign.center,
+        ),
+        pw.SizedBox(height: 12),
+        pw.Text(
+          'PETTY CASH REPORT',
+          style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+        ),
+        pw.SizedBox(height: 6),
+        pw.Text(
+          'Report: ${report.reportNumber}',
+          style: const pw.TextStyle(fontSize: 10),
+        ),
+        pw.Divider(),
+        pw.SizedBox(height: 12),
+      ],
+    );
+  }
+
+  pw.Widget _buildFooter(pw.Context context, PettyCashReport report) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.only(top: 8),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text(
+            'Generated on: ${DateFormat('MMM dd, yyyy hh:mm a').format(DateTime.now())}',
+            style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey),
+          ),
+          pw.Text(
+            'Page ${context.pageNumber} of ${context.pagesCount}',
+            style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey),
+          ),
+        ],
       ),
     );
   }
@@ -289,7 +294,9 @@ class PdfExportService {
             children: [
               _buildSummaryRow(
                 'Balance:',
-                currencyFormat.format(report.openingBalance - report.totalDisbursements),
+                currencyFormat.format(
+                  report.openingBalance - report.totalDisbursements,
+                ),
                 isBold: true,
               ),
               pw.Padding(
@@ -313,10 +320,7 @@ class PdfExportService {
             'Closing Balance:',
             currencyFormat.format(report.closingBalance),
           ),
-          _buildSummaryRow(
-            'Variance:',
-            currencyFormat.format(report.variance),
-          ),
+          _buildSummaryRow('Variance:', currencyFormat.format(report.variance)),
         ],
       ),
     );
@@ -375,10 +379,7 @@ class PdfExportService {
         children: [
           pw.Text(
             title,
-            style: pw.TextStyle(
-              fontSize: 10,
-              fontWeight: pw.FontWeight.bold,
-            ),
+            style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
           ),
           pw.SizedBox(height: 30),
           pw.Container(
@@ -391,10 +392,7 @@ class PdfExportService {
           if (subtitle.isNotEmpty)
             pw.Text(
               subtitle,
-              style: const pw.TextStyle(
-                fontSize: 9,
-                color: PdfColors.grey600,
-              ),
+              style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600),
             ),
         ],
       ),
@@ -409,10 +407,7 @@ class PdfExportService {
         children: [
           pw.Text(
             'Action No:',
-            style: pw.TextStyle(
-              fontSize: 10,
-              fontWeight: pw.FontWeight.bold,
-            ),
+            style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
           ),
           pw.SizedBox(height: 30),
           pw.Container(

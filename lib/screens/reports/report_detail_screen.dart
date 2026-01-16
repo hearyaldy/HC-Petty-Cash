@@ -133,7 +133,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     final transactions = transactionProvider.transactions
         .where((t) => t.reportId == report.id)
         .toList();
-    _sortTransactions(transactions);
+    _sortTransactions(transactions); // Sort transactions
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -2267,387 +2267,294 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     );
     final boldTtf = pw.Font.ttf(boldFontData);
 
+    // Define constants for pagination
+    const maxRowsSinglePage = 18; // Leave room for summary/signature
+    final needsSummaryPage = transactions.length > maxRowsSinglePage;
+
+    pw.Widget buildSummaryAndSignature() {
+      return pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          // Balance Summary
+          pw.Container(
+            padding: const pw.EdgeInsets.all(12),
+            decoration: pw.BoxDecoration(
+              color: PdfColors.grey100,
+              border: pw.Border.all(color: PdfColors.grey400),
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+            ),
+            child: pw.Column(
+              children: [
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Text(
+                      'Opening Balance:',
+                      style: pw.TextStyle(font: ttf, fontSize: 10),
+                    ),
+                    pw.Text(
+                      currencyFormat.format(report.openingBalance),
+                      style: pw.TextStyle(font: ttf, fontSize: 10),
+                    ),
+                  ],
+                ),
+                pw.SizedBox(height: 6),
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Text(
+                      'Total Disbursements:',
+                      style: pw.TextStyle(font: ttf, fontSize: 10),
+                    ),
+                    pw.Text(
+                      currencyFormat.format(
+                        transactions.fold<double>(
+                          0,
+                          (sum, t) => sum + t.amount,
+                        ),
+                      ),
+                      style: pw.TextStyle(font: ttf, fontSize: 10),
+                    ),
+                  ],
+                ),
+                pw.Divider(thickness: 1, color: PdfColors.grey400),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text(
+                          'Balance:',
+                          style: pw.TextStyle(font: boldTtf, fontSize: 11),
+                        ),
+                        pw.Text(
+                          currencyFormat.format(
+                            report.openingBalance -
+                                transactions.fold<double>(
+                                  0,
+                                  (sum, t) => sum + t.amount,
+                                ),
+                          ),
+                          style: pw.TextStyle(font: boldTtf, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                    pw.SizedBox(height: 4),
+                    pw.Text(
+                      '(${_convertToWords(report.openingBalance - transactions.fold<double>(0, (sum, t) => sum + t.amount))})',
+                      style: pw.TextStyle(
+                        font: ttf,
+                        fontSize: 9,
+                        fontStyle: pw.FontStyle.italic,
+                        color: PdfColors.grey700,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 20),
+
+          // Signature Section
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
+            children: [
+              pw.Container(
+                width: 150,
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'Requested By:',
+                      style: pw.TextStyle(font: boldTtf, fontSize: 10),
+                    ),
+                    pw.SizedBox(height: 30),
+                    pw.Container(
+                      decoration: const pw.BoxDecoration(
+                        border: pw.Border(
+                          bottom: pw.BorderSide(color: PdfColors.black),
+                        ),
+                      ),
+                      height: 1,
+                    ),
+                    pw.SizedBox(height: 4),
+                    pw.Text(
+                      'Name',
+                      style: pw.TextStyle(
+                        font: ttf,
+                        fontSize: 9,
+                        color: PdfColors.grey600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              pw.Container(
+                width: 150,
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'Approved By:',
+                      style: pw.TextStyle(font: boldTtf, fontSize: 10),
+                    ),
+                    pw.SizedBox(height: 30),
+                    pw.Container(
+                      decoration: const pw.BoxDecoration(
+                        border: pw.Border(
+                          bottom: pw.BorderSide(color: PdfColors.black),
+                        ),
+                      ),
+                      height: 1,
+                    ),
+                  ],
+                ),
+              ),
+              pw.Container(
+                width: 120,
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'Action No:',
+                      style: pw.TextStyle(font: boldTtf, fontSize: 10),
+                    ),
+                    pw.SizedBox(height: 30),
+                    pw.Container(
+                      decoration: const pw.BoxDecoration(
+                        border: pw.Border(
+                          bottom: pw.BorderSide(color: PdfColors.black),
+                        ),
+                      ),
+                      height: 1,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+
+    final totalAmount = transactions.fold<double>(
+      0,
+      (sum, t) => sum + t.amount,
+    );
+    final List<List<dynamic>> tableRows = transactions
+        .map<List<dynamic>>(
+          (transaction) => [
+            dateFormat.format(transaction.date),
+            transaction.receiptNo,
+            transaction.description,
+            transaction.categoryDisplayName,
+            currencyFormat.format(transaction.amount),
+            transaction.paymentMethodEnum.displayName,
+            transaction.statusEnum.displayName,
+          ],
+        )
+        .toList();
+
+    tableRows.add([
+      '',
+      '',
+      '',
+      'Total',
+      currencyFormat.format(totalAmount),
+      '',
+      '',
+    ]);
+
+    final totalRowNum = 1 + tableRows.length - 1;
+
     pdf.addPage(
-      pw.Page(
+      pw.MultiPage(
         pageFormat: PdfPageFormat.a4.landscape,
         theme: pw.ThemeData.withFont(
           base: ttf,
           bold: boldTtf,
           fontFallback: [pw.Font.helvetica()],
         ),
-        build: (context) {
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              // Header
-              pw.Text(
-                'Transactions Report',
-                style: pw.TextStyle(font: boldTtf, fontSize: 20),
-              ),
-              pw.SizedBox(height: 8),
-              pw.Text(
-                '${report.reportNumber} - ${report.department}',
-                style: pw.TextStyle(font: ttf, fontSize: 12),
-              ),
-              pw.Text(
-                'Period: ${dateFormat.format(report.periodStart)} - ${dateFormat.format(report.periodEnd)}',
-                style: pw.TextStyle(font: ttf, fontSize: 10),
-              ),
-              pw.SizedBox(height: 8),
-              pw.Text(
-                'Requested by: Heary Healdy Sairin',
-                style: pw.TextStyle(font: ttf, fontSize: 10),
-              ),
-              pw.SizedBox(height: 2),
-              pw.Text(
-                'Department: Hope Channel Southeast Asia',
-                style: pw.TextStyle(font: ttf, fontSize: 10),
-              ),
-              pw.SizedBox(height: 20),
-
-              // Table
-              pw.Table(
-                border: pw.TableBorder.all(color: PdfColors.grey400),
-                columnWidths: {
-                  0: const pw.FlexColumnWidth(1),
-                  1: const pw.FlexColumnWidth(1),
-                  2: const pw.FlexColumnWidth(2.5),
-                  3: const pw.FlexColumnWidth(1.5),
-                  4: const pw.FlexColumnWidth(1),
-                  5: const pw.FlexColumnWidth(1.5),
-                  6: const pw.FlexColumnWidth(1),
-                },
-                children: [
-                  // Header row
-                  pw.TableRow(
-                    decoration: const pw.BoxDecoration(
-                      color: PdfColors.grey300,
-                    ),
-                    children: [
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text(
-                          'Date',
-                          style: pw.TextStyle(font: boldTtf, fontSize: 9),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text(
-                          'Receipt No',
-                          style: pw.TextStyle(font: boldTtf, fontSize: 9),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text(
-                          'Description',
-                          style: pw.TextStyle(font: boldTtf, fontSize: 9),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text(
-                          'Category',
-                          style: pw.TextStyle(font: boldTtf, fontSize: 9),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text(
-                          'Amount',
-                          style: pw.TextStyle(font: boldTtf, fontSize: 9),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text(
-                          'Payment',
-                          style: pw.TextStyle(font: boldTtf, fontSize: 9),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text(
-                          'Status',
-                          style: pw.TextStyle(font: boldTtf, fontSize: 9),
-                        ),
-                      ),
-                    ],
-                  ),
-                  // Data rows
-                  ...transactions.map((transaction) {
-                    final categoryName = transaction.categoryDisplayName;
-                    return pw.TableRow(
-                      children: [
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(4),
-                          child: pw.Text(
-                            dateFormat.format(transaction.date),
-                            style: pw.TextStyle(font: ttf, fontSize: 8),
-                          ),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(4),
-                          child: pw.Text(
-                            transaction.receiptNo,
-                            style: pw.TextStyle(font: ttf, fontSize: 8),
-                          ),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(4),
-                          child: pw.Text(
-                            transaction.description,
-                            style: pw.TextStyle(font: ttf, fontSize: 8),
-                          ),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(4),
-                          child: pw.Text(
-                            categoryName,
-                            style: pw.TextStyle(font: ttf, fontSize: 8),
-                          ),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(4),
-                          child: pw.Text(
-                            currencyFormat.format(transaction.amount),
-                            style: pw.TextStyle(font: ttf, fontSize: 8),
-                          ),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(4),
-                          child: pw.Text(
-                            transaction.paymentMethodEnum.displayName,
-                            style: pw.TextStyle(font: ttf, fontSize: 8),
-                          ),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(4),
-                          child: pw.Text(
-                            transaction.statusEnum.displayName,
-                            style: pw.TextStyle(font: ttf, fontSize: 8),
-                          ),
-                        ),
-                      ],
-                    );
-                  }),
-                  // Total row
-                  pw.TableRow(
-                    decoration: const pw.BoxDecoration(
-                      color: PdfColors.grey200,
-                    ),
-                    children: [
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text('', style: pw.TextStyle(font: ttf)),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text('', style: pw.TextStyle(font: ttf)),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text('', style: pw.TextStyle(font: ttf)),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text(
-                          'Total:',
-                          style: pw.TextStyle(font: boldTtf, fontSize: 9),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text(
-                          currencyFormat.format(
-                            transactions.fold<double>(
-                              0,
-                              (sum, t) => sum + t.amount,
-                            ),
-                          ),
-                          style: pw.TextStyle(font: boldTtf, fontSize: 9),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text('', style: pw.TextStyle(font: ttf)),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text('', style: pw.TextStyle(font: ttf)),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              pw.SizedBox(height: 20),
-
-              // Balance Summary
-              pw.Container(
-                padding: const pw.EdgeInsets.all(12),
-                decoration: pw.BoxDecoration(
-                  color: PdfColors.grey100,
-                  border: pw.Border.all(color: PdfColors.grey400),
-                  borderRadius: const pw.BorderRadius.all(
-                    pw.Radius.circular(4),
-                  ),
-                ),
-                child: pw.Column(
-                  children: [
-                    pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                      children: [
-                        pw.Text(
-                          'Opening Balance:',
-                          style: pw.TextStyle(font: ttf, fontSize: 10),
-                        ),
-                        pw.Text(
-                          currencyFormat.format(report.openingBalance),
-                          style: pw.TextStyle(font: ttf, fontSize: 10),
-                        ),
-                      ],
-                    ),
-                    pw.SizedBox(height: 6),
-                    pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                      children: [
-                        pw.Text(
-                          'Total Disbursements:',
-                          style: pw.TextStyle(font: ttf, fontSize: 10),
-                        ),
-                        pw.Text(
-                          currencyFormat.format(
-                            transactions.fold<double>(
-                              0,
-                              (sum, t) => sum + t.amount,
-                            ),
-                          ),
-                          style: pw.TextStyle(font: ttf, fontSize: 10),
-                        ),
-                      ],
-                    ),
-                    pw.Divider(thickness: 1, color: PdfColors.grey400),
-                    pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Row(
-                          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                          children: [
-                            pw.Text(
-                              'Balance:',
-                              style: pw.TextStyle(font: boldTtf, fontSize: 11),
-                            ),
-                            pw.Text(
-                              currencyFormat.format(
-                                report.openingBalance -
-                                    transactions.fold<double>(
-                                      0,
-                                      (sum, t) => sum + t.amount,
-                                    ),
-                              ),
-                              style: pw.TextStyle(font: boldTtf, fontSize: 11),
-                            ),
-                          ],
-                        ),
-                        pw.SizedBox(height: 4),
-                        pw.Text(
-                          '(${_convertToWords(report.openingBalance - transactions.fold<double>(0, (sum, t) => sum + t.amount))})',
-                          style: pw.TextStyle(
-                            font: ttf,
-                            fontSize: 9,
-                            fontStyle: pw.FontStyle.italic,
-                            color: PdfColors.grey700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              pw.SizedBox(height: 20),
-
-              // Signature Section
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
-                children: [
-                  pw.Container(
-                    width: 150,
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Text(
-                          'Requested By:',
-                          style: pw.TextStyle(font: boldTtf, fontSize: 10),
-                        ),
-                        pw.SizedBox(height: 30),
-                        pw.Container(
-                          decoration: const pw.BoxDecoration(
-                            border: pw.Border(
-                              bottom: pw.BorderSide(color: PdfColors.black),
-                            ),
-                          ),
-                          height: 1,
-                        ),
-                        pw.SizedBox(height: 4),
-                        pw.Text(
-                          'Name',
-                          style: pw.TextStyle(
-                            font: ttf,
-                            fontSize: 9,
-                            color: PdfColors.grey600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  pw.Container(
-                    width: 150,
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Text(
-                          'Approved By:',
-                          style: pw.TextStyle(font: boldTtf, fontSize: 10),
-                        ),
-                        pw.SizedBox(height: 30),
-                        pw.Container(
-                          decoration: const pw.BoxDecoration(
-                            border: pw.Border(
-                              bottom: pw.BorderSide(color: PdfColors.black),
-                            ),
-                          ),
-                          height: 1,
-                        ),
-                      ],
-                    ),
-                  ),
-                  pw.Container(
-                    width: 120,
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Text(
-                          'Action No:',
-                          style: pw.TextStyle(font: boldTtf, fontSize: 10),
-                        ),
-                        pw.SizedBox(height: 30),
-                        pw.Container(
-                          decoration: const pw.BoxDecoration(
-                            border: pw.Border(
-                              bottom: pw.BorderSide(color: PdfColors.black),
-                            ),
-                          ),
-                          height: 1,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+        margin: const pw.EdgeInsets.all(20),
+        build: (context) => [
+          pw.Text(
+            'Transactions Report',
+            style: pw.TextStyle(font: boldTtf, fontSize: 20),
+          ),
+          pw.SizedBox(height: 8),
+          pw.Text(
+            '${report.reportNumber} - ${report.department}',
+            style: pw.TextStyle(font: ttf, fontSize: 12),
+          ),
+          pw.Text(
+            'Period: ${dateFormat.format(report.periodStart)} - ${dateFormat.format(report.periodEnd)}',
+            style: pw.TextStyle(font: ttf, fontSize: 10),
+          ),
+          pw.SizedBox(height: 8),
+          pw.Text(
+            'Requested by: Heary Healdy Sairin',
+            style: pw.TextStyle(font: ttf, fontSize: 10),
+          ),
+          pw.SizedBox(height: 2),
+          pw.Text(
+            'Department: Hope Channel Southeast Asia',
+            style: pw.TextStyle(font: ttf, fontSize: 10),
+          ),
+          pw.SizedBox(height: 12),
+          pw.Table.fromTextArray(
+            headers: const [
+              'Date',
+              'Receipt No',
+              'Description',
+              'Category',
+              'Amount',
+              'Payment',
+              'Status',
             ],
-          );
-        },
+            data: tableRows,
+            border: pw.TableBorder.all(color: PdfColors.grey400),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
+            headerStyle: pw.TextStyle(font: boldTtf, fontSize: 9),
+            cellStyle: pw.TextStyle(font: ttf, fontSize: 8),
+            cellAlignment: pw.Alignment.centerLeft,
+            cellAlignments: {4: pw.Alignment.centerRight},
+            cellDecoration: (index, data, rowNum) => rowNum == totalRowNum
+                ? pw.BoxDecoration(color: PdfColors.grey200)
+                : const pw.BoxDecoration(),
+            columnWidths: {
+              0: const pw.FlexColumnWidth(1),
+              1: const pw.FlexColumnWidth(1),
+              2: const pw.FlexColumnWidth(2.5),
+              3: const pw.FlexColumnWidth(1.5),
+              4: const pw.FlexColumnWidth(1),
+              5: const pw.FlexColumnWidth(1.5),
+              6: const pw.FlexColumnWidth(1),
+            },
+          ),
+          pw.SizedBox(height: 12),
+          if (needsSummaryPage) pw.NewPage(),
+          if (needsSummaryPage) ...[
+            pw.Text(
+              'Transactions Report - Summary',
+              style: pw.TextStyle(font: boldTtf, fontSize: 18),
+            ),
+            pw.SizedBox(height: 6),
+            pw.Text(
+              '${report.reportNumber} - ${report.department}',
+              style: pw.TextStyle(font: ttf, fontSize: 12),
+            ),
+            pw.Text(
+              'Period: ${dateFormat.format(report.periodStart)} - ${dateFormat.format(report.periodEnd)}',
+              style: pw.TextStyle(font: ttf, fontSize: 10),
+            ),
+            pw.SizedBox(height: 16),
+            buildSummaryAndSignature(),
+          ] else ...[
+            buildSummaryAndSignature(),
+          ],
+        ],
       ),
     );
 
@@ -2655,51 +2562,65 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     await showDialog(
       context: context,
       builder: (context) => Dialog(
-        child: Container(
+        insetPadding: const EdgeInsets.all(16),
+        child: SizedBox(
           width: MediaQuery.of(context).size.width * 0.9,
           height: MediaQuery.of(context).size.height * 0.9,
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Transactions Report Preview',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  Row(
-                    children: [
-                      ElevatedButton.icon(
-                        onPressed: () async {
-                          await Printing.layoutPdf(
-                            onLayout: (format) async => pdf.save(),
-                          );
-                        },
-                        icon: const Icon(Icons.print),
-                        label: const Text('Print'),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Transactions Report Preview',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
                       ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: PdfPreview(
-                  build: (format) async => pdf.save(),
-                  allowPrinting: true,
-                  allowSharing: true,
-                  canChangePageFormat: false,
-                  canChangeOrientation: false,
-                  canDebug: false,
+                    ),
+                    Row(
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: () async {
+                            await Printing.layoutPdf(
+                              onLayout: (format) async => pdf.save(),
+                            );
+                          },
+                          icon: const Icon(Icons.print),
+                          label: const Text('Print'),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      return SizedBox(
+                        width: constraints.maxWidth,
+                        height: constraints.maxHeight,
+                        child: PdfPreview(
+                          build: (format) async => pdf.save(),
+                          allowPrinting: true,
+                          allowSharing: true,
+                          canChangePageFormat: false,
+                          canChangeOrientation: false,
+                          canDebug: false,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

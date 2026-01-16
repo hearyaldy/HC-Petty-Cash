@@ -976,388 +976,419 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
     );
     final boldTtf = pw.Font.ttf(boldFontData);
 
-    pdf.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.a4.landscape,
-        theme: pw.ThemeData.withFont(
-          base: ttf,
-          bold: boldTtf,
-          fontFallback: [pw.Font.helvetica()],
-        ),
-        build: (context) {
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              // Header
-              pw.Text(
-                'Project Transactions Report',
-                style: pw.TextStyle(font: boldTtf, fontSize: 20),
-              ),
-              pw.SizedBox(height: 8),
-              pw.Text(
-                '${report.reportNumber} - ${report.projectName}',
-                style: pw.TextStyle(font: ttf, fontSize: 12),
-              ),
-              pw.Text(
-                'Period: ${dateFormat.format(report.startDate)} - ${dateFormat.format(report.endDate)}',
-                style: pw.TextStyle(font: ttf, fontSize: 10),
-              ),
-              pw.SizedBox(height: 8),
-              pw.Text(
-                'Requested by: Heary Healdy Sairin',
-                style: pw.TextStyle(font: ttf, fontSize: 10),
-              ),
-              pw.SizedBox(height: 2),
-              pw.Text(
-                'Department: Hope Channel Southeast Asia',
-                style: pw.TextStyle(font: ttf, fontSize: 10),
-              ),
-              pw.SizedBox(height: 20),
+    // Define constants for pagination
+    const maxRowsPerPage = 25; // Adjust based on content height
+    final transactionChunks = <List<Transaction>>[];
 
-              // Table
-              pw.Table(
-                border: pw.TableBorder.all(color: PdfColors.grey400),
-                columnWidths: {
-                  0: const pw.FlexColumnWidth(1),
-                  1: const pw.FlexColumnWidth(1),
-                  2: const pw.FlexColumnWidth(2.5),
-                  3: const pw.FlexColumnWidth(1.5),
-                  4: const pw.FlexColumnWidth(1),
-                  5: const pw.FlexColumnWidth(1.5),
-                  6: const pw.FlexColumnWidth(1),
-                },
-                children: [
-                  // Header row
-                  pw.TableRow(
-                    decoration: const pw.BoxDecoration(
-                      color: PdfColors.grey300,
-                    ),
-                    children: [
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text(
-                          'Date',
-                          style: pw.TextStyle(font: boldTtf, fontSize: 9),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text(
-                          'Receipt No',
-                          style: pw.TextStyle(font: boldTtf, fontSize: 9),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text(
-                          'Description',
-                          style: pw.TextStyle(font: boldTtf, fontSize: 9),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text(
-                          'Category',
-                          style: pw.TextStyle(font: boldTtf, fontSize: 9),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text(
-                          'Amount',
-                          style: pw.TextStyle(font: boldTtf, fontSize: 9),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text(
-                          'Payment',
-                          style: pw.TextStyle(font: boldTtf, fontSize: 9),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text(
-                          'Status',
-                          style: pw.TextStyle(font: boldTtf, fontSize: 9),
-                        ),
-                      ),
-                    ],
+    // Split transactions into chunks
+    for (int i = 0; i < transactions.length; i += maxRowsPerPage) {
+      final end = (i + maxRowsPerPage < transactions.length)
+          ? i + maxRowsPerPage
+          : transactions.length;
+      transactionChunks.add(transactions.sublist(i, end));
+    }
+
+    // Add pages for each chunk of transactions
+    for (int pageIndex = 0; pageIndex < transactionChunks.length; pageIndex++) {
+      final chunk = transactionChunks[pageIndex];
+      final isLastPage = pageIndex == transactionChunks.length - 1;
+      final isFirstPage = pageIndex == 0;
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4.landscape,
+          theme: pw.ThemeData.withFont(
+            base: ttf,
+            bold: boldTtf,
+            fontFallback: [pw.Font.helvetica()],
+          ),
+          build: (context) {
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                // Header (only on first page)
+                if (isFirstPage) ...[
+                  pw.Text(
+                    'Project Transactions Report',
+                    style: pw.TextStyle(font: boldTtf, fontSize: 20),
                   ),
-                  // Data rows
-                  ...transactions.map((transaction) {
-                    return pw.TableRow(
-                      children: [
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(4),
-                          child: pw.Text(
-                            dateFormat.format(transaction.date),
-                            style: pw.TextStyle(font: ttf, fontSize: 8),
-                          ),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(4),
-                          child: pw.Text(
-                            transaction.receiptNo,
-                            style: pw.TextStyle(font: ttf, fontSize: 8),
-                          ),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(4),
-                          child: pw.Text(
-                            transaction.description,
-                            style: pw.TextStyle(font: ttf, fontSize: 8),
-                          ),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(4),
-                          child: pw.Text(
-                            transaction.categoryEnum.displayName,
-                            style: pw.TextStyle(font: ttf, fontSize: 8),
-                          ),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(4),
-                          child: pw.Text(
-                            currencyFormat.format(transaction.amount),
-                            style: pw.TextStyle(font: ttf, fontSize: 8),
-                          ),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(4),
-                          child: pw.Text(
-                            transaction.paymentMethodEnum.displayName,
-                            style: pw.TextStyle(font: ttf, fontSize: 8),
-                          ),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(4),
-                          child: pw.Text(
-                            transaction.statusEnum.displayName,
-                            style: pw.TextStyle(font: ttf, fontSize: 8),
-                          ),
-                        ),
-                      ],
-                    );
-                  }),
-                  // Total row
-                  pw.TableRow(
-                    decoration: const pw.BoxDecoration(
-                      color: PdfColors.grey200,
-                    ),
-                    children: [
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text('', style: pw.TextStyle(font: ttf)),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text('', style: pw.TextStyle(font: ttf)),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text('', style: pw.TextStyle(font: ttf)),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text(
-                          'Total:',
-                          style: pw.TextStyle(font: boldTtf, fontSize: 9),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text(
-                          currencyFormat.format(
-                            transactions.fold<double>(
-                              0,
-                              (sum, t) => sum + t.amount,
-                            ),
-                          ),
-                          style: pw.TextStyle(font: boldTtf, fontSize: 9),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text('', style: pw.TextStyle(font: ttf)),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text('', style: pw.TextStyle(font: ttf)),
-                      ),
-                    ],
+                  pw.SizedBox(height: 8),
+                  pw.Text(
+                    '${report.reportNumber} - ${report.projectName}',
+                    style: pw.TextStyle(font: ttf, fontSize: 12),
+                  ),
+                  pw.Text(
+                    'Period: ${dateFormat.format(report.startDate)} - ${dateFormat.format(report.endDate)}',
+                    style: pw.TextStyle(font: ttf, fontSize: 10),
+                  ),
+                  pw.SizedBox(height: 8),
+                  pw.Text(
+                    'Requested by: Heary Healdy Sairin',
+                    style: pw.TextStyle(font: ttf, fontSize: 10),
+                  ),
+                  pw.SizedBox(height: 2),
+                  pw.Text(
+                    'Department: Hope Channel Southeast Asia',
+                    style: pw.TextStyle(font: ttf, fontSize: 10),
                   ),
                 ],
-              ),
-              pw.SizedBox(height: 20),
-
-              // Balance Summary
-              pw.Container(
-                padding: const pw.EdgeInsets.all(12),
-                decoration: pw.BoxDecoration(
-                  color: PdfColors.grey100,
-                  border: pw.Border.all(color: PdfColors.grey400),
-                  borderRadius: const pw.BorderRadius.all(
-                    pw.Radius.circular(4),
-                  ),
+                pw.SizedBox(height: 8),
+                pw.Text(
+                  'Page ${pageIndex + 1} of ${transactionChunks.length}',
+                  style: pw.TextStyle(font: ttf, fontSize: 10),
                 ),
-                child: pw.Column(
+                pw.SizedBox(height: 12),
+
+                // Table
+                pw.Table(
+                  border: pw.TableBorder.all(color: PdfColors.grey400),
+                  columnWidths: {
+                    0: const pw.FlexColumnWidth(1),
+                    1: const pw.FlexColumnWidth(1),
+                    2: const pw.FlexColumnWidth(2.5),
+                    3: const pw.FlexColumnWidth(1.5),
+                    4: const pw.FlexColumnWidth(1),
+                    5: const pw.FlexColumnWidth(1.5),
+                    6: const pw.FlexColumnWidth(1),
+                  },
                   children: [
-                    pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    // Header row (on each page where needed)
+                    pw.TableRow(
+                      decoration: const pw.BoxDecoration(
+                        color: PdfColors.grey300,
+                      ),
                       children: [
-                        pw.Text(
-                          'Opening Balance:',
-                          style: pw.TextStyle(font: ttf, fontSize: 10),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            'Date',
+                            style: pw.TextStyle(font: boldTtf, fontSize: 9),
+                          ),
                         ),
-                        pw.Text(
-                          currencyFormat.format(report.openingBalance),
-                          style: pw.TextStyle(font: ttf, fontSize: 10),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            'Receipt No',
+                            style: pw.TextStyle(font: boldTtf, fontSize: 9),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            'Description',
+                            style: pw.TextStyle(font: boldTtf, fontSize: 9),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            'Category',
+                            style: pw.TextStyle(font: boldTtf, fontSize: 9),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            'Amount',
+                            style: pw.TextStyle(font: boldTtf, fontSize: 9),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            'Payment',
+                            style: pw.TextStyle(font: boldTtf, fontSize: 9),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            'Status',
+                            style: pw.TextStyle(font: boldTtf, fontSize: 9),
+                          ),
                         ),
                       ],
                     ),
-                    pw.SizedBox(height: 6),
-                    pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                      children: [
-                        pw.Text(
-                          'Total Disbursements:',
-                          style: pw.TextStyle(font: ttf, fontSize: 10),
-                        ),
-                        pw.Text(
-                          currencyFormat.format(
-                            transactions.fold<double>(
-                              0,
-                              (sum, t) => sum + t.amount,
+                    // Data rows for this chunk
+                    ...chunk.map((transaction) {
+                      return pw.TableRow(
+                        children: [
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(4),
+                            child: pw.Text(
+                              dateFormat.format(transaction.date),
+                              style: pw.TextStyle(font: ttf, fontSize: 8),
                             ),
                           ),
-                          style: pw.TextStyle(font: ttf, fontSize: 10),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(4),
+                            child: pw.Text(
+                              transaction.receiptNo,
+                              style: pw.TextStyle(font: ttf, fontSize: 8),
+                            ),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(4),
+                            child: pw.Text(
+                              transaction.description,
+                              style: pw.TextStyle(font: ttf, fontSize: 8),
+                            ),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(4),
+                            child: pw.Text(
+                              transaction.categoryEnum.displayName,
+                              style: pw.TextStyle(font: ttf, fontSize: 8),
+                            ),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(4),
+                            child: pw.Text(
+                              currencyFormat.format(transaction.amount),
+                              style: pw.TextStyle(font: ttf, fontSize: 8),
+                            ),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(4),
+                            child: pw.Text(
+                              transaction.paymentMethodEnum.displayName,
+                              style: pw.TextStyle(font: ttf, fontSize: 8),
+                            ),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(4),
+                            child: pw.Text(
+                              transaction.statusEnum.displayName,
+                              style: pw.TextStyle(font: ttf, fontSize: 8),
+                            ),
+                          ),
+                        ],
+                      );
+                    }),
+                    // Total row only on the last page
+                    if (isLastPage)
+                      pw.TableRow(
+                        decoration: const pw.BoxDecoration(
+                          color: PdfColors.grey200,
                         ),
-                      ],
+                        children: [
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(4),
+                            child: pw.Text('', style: pw.TextStyle(font: ttf)),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(4),
+                            child: pw.Text('', style: pw.TextStyle(font: ttf)),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(4),
+                            child: pw.Text('', style: pw.TextStyle(font: ttf)),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(4),
+                            child: pw.Text(
+                              'Total:',
+                              style: pw.TextStyle(font: boldTtf, fontSize: 9),
+                            ),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(4),
+                            child: pw.Text(
+                              currencyFormat.format(
+                                transactions.fold<double>(
+                                  0,
+                                  (sum, t) => sum + t.amount,
+                                ),
+                              ),
+                              style: pw.TextStyle(font: boldTtf, fontSize: 9),
+                            ),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(4),
+                            child: pw.Text('', style: pw.TextStyle(font: ttf)),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.all(4),
+                            child: pw.Text('', style: pw.TextStyle(font: ttf)),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+
+                // Only add balance summary and signature section on the last page
+                if (isLastPage) ...[
+                  pw.SizedBox(height: 20),
+
+                  // Balance Summary
+                  pw.Container(
+                    padding: const pw.EdgeInsets.all(12),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.grey100,
+                      border: pw.Border.all(color: PdfColors.grey400),
+                      borderRadius: const pw.BorderRadius.all(
+                        pw.Radius.circular(4),
+                      ),
                     ),
-                    pw.Divider(thickness: 1, color: PdfColors.grey400),
-                    pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    child: pw.Column(
                       children: [
                         pw.Row(
                           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                           children: [
                             pw.Text(
-                              'Balance:',
-                              style: pw.TextStyle(font: boldTtf, fontSize: 11),
+                              'Opening Balance:',
+                              style: pw.TextStyle(font: ttf, fontSize: 10),
                             ),
                             pw.Text(
-                              currencyFormat.format(
-                                report.openingBalance -
-                                    transactions.fold<double>(
-                                      0,
-                                      (sum, t) => sum + t.amount,
-                                    ),
-                              ),
-                              style: pw.TextStyle(font: boldTtf, fontSize: 11),
+                              currencyFormat.format(report.openingBalance),
+                              style: pw.TextStyle(font: ttf, fontSize: 10),
                             ),
                           ],
                         ),
-                        pw.SizedBox(height: 4),
-                        pw.Text(
-                          '(${_convertToWords(report.openingBalance - transactions.fold<double>(0, (sum, t) => sum + t.amount))})',
-                          style: pw.TextStyle(
-                            font: ttf,
-                            fontSize: 9,
-                            fontStyle: pw.FontStyle.italic,
-                            color: PdfColors.grey700,
-                          ),
+                        pw.SizedBox(height: 6),
+                        pw.Row(
+                          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                          children: [
+                            pw.Text(
+                              'Total Disbursements:',
+                              style: pw.TextStyle(font: ttf, fontSize: 10),
+                            ),
+                            pw.Text(
+                              currencyFormat.format(
+                                transactions.fold<double>(
+                                  0,
+                                  (sum, t) => sum + t.amount,
+                                ),
+                              ),
+                              style: pw.TextStyle(font: ttf, fontSize: 10),
+                            ),
+                          ],
+                        ),
+                        pw.Divider(thickness: 1, color: PdfColors.grey400),
+                        pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Row(
+                              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                              children: [
+                                pw.Text(
+                                  'Balance:',
+                                  style: pw.TextStyle(font: boldTtf, fontSize: 11),
+                                ),
+                                pw.Text(
+                                  currencyFormat.format(
+                                    report.openingBalance -
+                                        transactions.fold<double>(
+                                          0,
+                                          (sum, t) => sum + t.amount,
+                                        ),
+                                  ),
+                                  style: pw.TextStyle(font: boldTtf, fontSize: 11),
+                                ),
+                              ],
+                            ),
+                            pw.SizedBox(height: 4),
+                            pw.Text(
+                              '(${_convertToWords(report.openingBalance - transactions.fold<double>(0, (sum, t) => sum + t.amount))})',
+                              style: pw.TextStyle(
+                                font: ttf,
+                                fontSize: 9,
+                                fontStyle: pw.FontStyle.italic,
+                                color: PdfColors.grey700,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
-              ),
-              pw.SizedBox(height: 20),
+                  ),
+                  pw.SizedBox(height: 20),
 
-              // Signature Section
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
-                children: [
-                  pw.Container(
-                    width: 150,
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Text(
-                          'Requested By:',
-                          style: pw.TextStyle(font: boldTtf, fontSize: 10),
-                        ),
-                        pw.SizedBox(height: 30),
-                        pw.Container(
-                          decoration: const pw.BoxDecoration(
-                            border: pw.Border(
-                              bottom: pw.BorderSide(color: PdfColors.black),
+                  // Signature Section
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
+                    children: [
+                      pw.Container(
+                        width: 150,
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text(
+                              'Requested By:',
+                              style: pw.TextStyle(font: boldTtf, fontSize: 10),
                             ),
-                          ),
-                          height: 1,
-                        ),
-                        pw.SizedBox(height: 4),
-                        pw.Text(
-                          'Name',
-                          style: pw.TextStyle(
-                            font: ttf,
-                            fontSize: 9,
-                            color: PdfColors.grey600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  pw.Container(
-                    width: 150,
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Text(
-                          'Approved By:',
-                          style: pw.TextStyle(font: boldTtf, fontSize: 10),
-                        ),
-                        pw.SizedBox(height: 30),
-                        pw.Container(
-                          decoration: const pw.BoxDecoration(
-                            border: pw.Border(
-                              bottom: pw.BorderSide(color: PdfColors.black),
+                            pw.SizedBox(height: 30),
+                            pw.Container(
+                              decoration: const pw.BoxDecoration(
+                                border: pw.Border(
+                                  bottom: pw.BorderSide(color: PdfColors.black),
+                                ),
+                              ),
+                              height: 1,
                             ),
-                          ),
-                          height: 1,
-                        ),
-                      ],
-                    ),
-                  ),
-                  pw.Container(
-                    width: 120,
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Text(
-                          'Action No:',
-                          style: pw.TextStyle(font: boldTtf, fontSize: 10),
-                        ),
-                        pw.SizedBox(height: 30),
-                        pw.Container(
-                          decoration: const pw.BoxDecoration(
-                            border: pw.Border(
-                              bottom: pw.BorderSide(color: PdfColors.black),
+                            pw.SizedBox(height: 4),
+                            pw.Text(
+                              'Name',
+                              style: pw.TextStyle(
+                                font: ttf,
+                                fontSize: 9,
+                                color: PdfColors.grey600,
+                              ),
                             ),
-                          ),
-                          height: 1,
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                      pw.Container(
+                        width: 150,
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text(
+                              'Approved By:',
+                              style: pw.TextStyle(font: boldTtf, fontSize: 10),
+                            ),
+                            pw.SizedBox(height: 30),
+                            pw.Container(
+                              decoration: const pw.BoxDecoration(
+                                border: pw.Border(
+                                  bottom: pw.BorderSide(color: PdfColors.black),
+                                ),
+                              ),
+                              height: 1,
+                            ),
+                          ],
+                        ),
+                      ),
+                      pw.Container(
+                        width: 120,
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text(
+                              'Action No:',
+                              style: pw.TextStyle(font: boldTtf, fontSize: 10),
+                            ),
+                            pw.SizedBox(height: 30),
+                            pw.Container(
+                              decoration: const pw.BoxDecoration(
+                                border: pw.Border(
+                                  bottom: pw.BorderSide(color: PdfColors.black),
+                                ),
+                              ),
+                              height: 1,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
-              ),
-            ],
-          );
-        },
-      ),
-    );
+              ],
+            );
+          },
+        ),
+      );
+    }
 
     // Show preview dialog
     if (!mounted) return;

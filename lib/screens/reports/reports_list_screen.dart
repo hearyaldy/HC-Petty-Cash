@@ -98,20 +98,20 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: ResponsiveContainer(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildPageHeader(context),
-              const SizedBox(height: 24),
-              _buildFilters(),
-              const SizedBox(height: 24),
-              reports.isEmpty
+      body: ResponsiveContainer(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildPageHeader(context),
+            const SizedBox(height: 24),
+            _buildFilters(),
+            const SizedBox(height: 24),
+            Expanded(
+              child: reports.isEmpty
                   ? _buildEmptyState()
                   : _buildReportsList(reports, transactionProvider.transactions),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -358,8 +358,6 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
         ],
       ),
       child: ListView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         itemCount: reports.length,
         itemBuilder: (context, index) {
