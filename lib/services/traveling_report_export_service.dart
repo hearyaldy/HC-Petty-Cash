@@ -225,7 +225,7 @@ class TravelingReportExportService {
     );
 
     pdf.addPage(
-      pw.Page(
+      pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(25),
         theme: pw.ThemeData.withFont(
@@ -233,48 +233,46 @@ class TravelingReportExportService {
           bold: ttfBold ?? pw.Font.helveticaBold(),
           fontFallback: [pw.Font.helvetica()],
         ),
-        build: (context) => pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
+        header: (context) => pw.Column(
           children: [
-            // Header
             pw.Center(child: _buildHeader(ttf, ttfBold)),
             pw.SizedBox(height: 8),
-
-            // Title
-            _buildTitle(ttf, ttfBold),
-            pw.SizedBox(height: 8),
-
-            // Report Info Section
-            _buildReportInfo(report, dateFormat, ttf, ttfBold),
-            pw.SizedBox(height: 8),
-
-            // Traveling Details Section
-            _buildTravelingDetails(report, dateTimeFormat, ttf, ttfBold),
-            pw.SizedBox(height: 8),
-
-            // Mileage Section
-            _buildMileageSection(report, ttf, ttfBold),
-            pw.SizedBox(height: 8),
-
-            // Per Diem Section
-            _buildPerDiemSection(report, entries, dateFormat, ttf, ttfBold),
-            pw.SizedBox(height: 8),
-
-            // Summary Section
-            _buildSummarySection(report, ttf, ttfBold),
-            pw.SizedBox(height: 8),
-
-            // Spacer to push signature section to bottom (reduced)
-            pw.Spacer(),
-
-            // Signature Section
-            _buildSignatureSection(report, ttf, ttfBold),
-            pw.SizedBox(height: 8),
-
-            // Footer
-            _buildFooter(report, ttf),
           ],
         ),
+        footer: (context) => _buildFooter(report, ttf),
+        build: (context) => [
+          // Title
+          _buildTitle(ttf, ttfBold),
+          pw.SizedBox(height: 8),
+
+          // Report Info Section
+          _buildReportInfo(report, dateFormat, ttf, ttfBold),
+          pw.SizedBox(height: 8),
+
+          // Traveling Details Section
+          _buildTravelingDetails(report, dateTimeFormat, ttf, ttfBold),
+          pw.SizedBox(height: 8),
+
+          // Mileage Section
+          _buildMileageSection(report, ttf, ttfBold),
+          pw.SizedBox(height: 8),
+
+          // Per Diem Section
+          _buildPerDiemSection(report, entries, dateFormat, ttf, ttfBold),
+          pw.SizedBox(height: 8),
+
+          // Summary Section
+          _buildSummarySection(report, ttf, ttfBold),
+          pw.SizedBox(height: 8),
+
+          // If the per diem list is long, start signatures
+          // on a fresh page so they never get clipped.
+          if (entries.length > 8) pw.NewPage(),
+
+          // Signature Section
+          _buildSignatureSection(report, ttf, ttfBold),
+          pw.SizedBox(height: 8),
+        ],
       ),
     );
 
