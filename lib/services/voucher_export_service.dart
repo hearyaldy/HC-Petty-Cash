@@ -1,4 +1,5 @@
 import 'dart:io' show File;
+import 'dart:typed_data' show Uint8List;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:pdf/pdf.dart';
@@ -12,6 +13,7 @@ import '../models/enums.dart';
 import '../utils/constants.dart';
 import '../utils/logger.dart';
 import 'firestore_service.dart';
+import 'firebase_storage_service.dart';
 import 'package:printing/printing.dart';
 
 class VoucherExportService {
@@ -68,9 +70,13 @@ class VoucherExportService {
     pw.Font? ttfBold;
 
     try {
-      final fontData = await rootBundle.load('assets/fonts/NotoSansThai-Regular.ttf');
+      final fontData = await rootBundle.load(
+        'assets/fonts/NotoSansThai-Regular.ttf',
+      );
       ttf = pw.Font.ttf(fontData);
-      final fontBoldData = await rootBundle.load('assets/fonts/NotoSansThai-Bold.ttf');
+      final fontBoldData = await rootBundle.load(
+        'assets/fonts/NotoSansThai-Bold.ttf',
+      );
       ttfBold = pw.Font.ttf(fontBoldData);
     } catch (e) {
       // If custom fonts fail to load, use default fonts
@@ -452,7 +458,8 @@ class VoucherExportService {
     pw.Font? fontBold,
   ) {
     // Check if it's a bank transfer
-    final isBankTransfer = transaction.paymentMethod == PaymentMethod.bankTransfer.name;
+    final isBankTransfer =
+        transaction.paymentMethod == PaymentMethod.bankTransfer.name;
 
     return pw.Container(
       decoration: pw.BoxDecoration(
@@ -463,7 +470,13 @@ class VoucherExportService {
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: [
-          _buildSignatureBox('Requested By:', 'Name', isBankTransfer, font, fontBold),
+          _buildSignatureBox(
+            'Requested By:',
+            'Name',
+            isBankTransfer,
+            font,
+            fontBold,
+          ),
           _buildSignatureBox('Approved By:', '', false, font, fontBold),
           _buildActionNumberBox(font, fontBold),
         ],
@@ -472,7 +485,12 @@ class VoucherExportService {
   }
 
   pw.Widget _buildSignatureBox(
-      String title, String subtitle, bool showTR, pw.Font? font, pw.Font? fontBold) {
+    String title,
+    String subtitle,
+    bool showTR,
+    pw.Font? font,
+    pw.Font? fontBold,
+  ) {
     return pw.Container(
       width: 100,
       child: pw.Column(
@@ -652,17 +670,74 @@ class VoucherExportService {
   }
 
   /// Print support document for a transaction
-  Future<void> printSupportDocument(String documentUrl, String transactionReceiptNo) async {
+  Future<void> printSupportDocument(
+    String documentUrl,
+    String transactionReceiptNo,
+  ) async {
     try {
-      print('Fetching support document: $documentUrl');
+      AppLogger.info('Fetching support document: $documentUrl');
 
-      // Fetch the image
-      final response = await http.get(Uri.parse(documentUrl));
-      if (response.statusCode != 200) {
+      // Fetch the image using FirebaseStorageService for proper authentication
+      final storageService = FirebaseStorageService();
+      final imageBytes = await storageService.downloadImageData(documentUrl);
+
+      if (imageBytes == null) {
         throw Exception('Failed to load support document');
       }
 
-      final imageBytes = response.bodyBytes;
+      // Detect basic image format; skip unsupported (e.g., PDF)
+      String imageFormat = 'unknown';
+      if (imageBytes.length > 4) {
+        if (imageBytes[0] == 0xFF && imageBytes[1] == 0xD8) {
+          imageFormat = 'JPEG';
+        } else if (imageBytes[0] == 0x89 &&
+            imageBytes[1] == 0x50 &&
+            imageBytes[2] == 0x4E &&
+            imageBytes[3] == 0x47) {
+          imageFormat = 'PNG';
+        } else if (imageBytes[0] == 0x47 &&
+            imageBytes[1] == 0x49 &&
+            imageBytes[2] == 0x46) {
+          imageFormat = 'GIF';
+        } else if (imageBytes[0] == 0x25 &&
+            imageBytes[1] == 0x50 &&
+            imageBytes[2] == 0x44 &&
+            imageBytes[3] == 0x46) {
+          imageFormat = 'PDF';
+        }
+      }
+
+      AppLogger.info(
+        'Support document format detected: $imageFormat, size: ${imageBytes.length} bytes',
+      );
+
+      if (imageFormat == 'PDF') {
+        AppLogger.info(
+          'Detected PDF support document, sending raw PDF to printer',
+        );
+        await Printing.layoutPdf(
+          onLayout: (PdfPageFormat format) async => imageBytes,
+          name: 'Support_Document_$transactionReceiptNo',
+        );
+        return;
+      }
+
+      if (imageFormat == 'unknown') {
+        throw Exception('Unsupported support document format: $imageFormat');
+      }
+
+      // Load fonts using built-in Google fonts to avoid Helvetica fallback
+      pw.Font? ttf;
+      pw.Font? ttfBold;
+      try {
+        ttf = await PdfGoogleFonts.notoSansThaiRegular();
+        ttfBold = await PdfGoogleFonts.notoSansThaiBold();
+      } catch (e) {
+        AppLogger.warning(
+          'Failed to load Google fonts for support doc print: $e',
+        );
+      }
+
       final image = pw.MemoryImage(imageBytes);
 
       // Create PDF with the image
@@ -670,16 +745,26 @@ class VoucherExportService {
       pdf.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.a4,
+          theme: pw.ThemeData.withFont(
+            base: ttf ?? pw.Font.helvetica(),
+            bold: ttfBold ?? pw.Font.helveticaBold(),
+            fontFallback: [pw.Font.helvetica(), pw.Font.courier()],
+          ),
+          margin: const pw.EdgeInsets.all(24),
           build: (context) => pw.Center(
             child: pw.Column(
               mainAxisAlignment: pw.MainAxisAlignment.center,
               children: [
                 pw.Text(
                   'Support Document - Voucher $transactionReceiptNo',
-                  style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+                  style: pw.TextStyle(
+                    fontSize: 16,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
                 ),
                 pw.SizedBox(height: 20),
-                pw.Expanded(
+                pw.Container(
+                  height: PdfPageFormat.a4.height * 0.7,
                   child: pw.Image(image, fit: pw.BoxFit.contain),
                 ),
               ],
@@ -707,7 +792,9 @@ class VoucherExportService {
     double amount,
   ) async {
     try {
-      print('Printing ${documentUrls.length} support documents for voucher $transactionReceiptNo');
+      AppLogger.info(
+        'Printing ${documentUrls.length} support documents for voucher $transactionReceiptNo',
+      );
 
       if (documentUrls.isEmpty) {
         throw Exception('No support documents to print');
@@ -715,102 +802,138 @@ class VoucherExportService {
 
       final pdf = pw.Document();
 
-      // Load font for better rendering
+      // Load font for better rendering (Google Fonts avoids Helvetica fallback)
       pw.Font? ttf;
       pw.Font? ttfBold;
       try {
-        final fontData = await rootBundle.load('assets/fonts/NotoSansThai-Regular.ttf');
-        ttf = pw.Font.ttf(fontData);
-        final fontBoldData = await rootBundle.load('assets/fonts/NotoSansThai-Bold.ttf');
-        ttfBold = pw.Font.ttf(fontBoldData);
+        ttf = await PdfGoogleFonts.notoSansThaiRegular();
+        ttfBold = await PdfGoogleFonts.notoSansThaiBold();
       } catch (e) {
-        AppLogger.warning('Failed to load custom font: $e');
+        AppLogger.warning('Failed to load Google font: $e');
       }
 
       // Add a page for each support document
+      final storageService = FirebaseStorageService();
       for (int i = 0; i < documentUrls.length; i++) {
         try {
-          print('Fetching document ${i + 1}/${documentUrls.length}');
+          AppLogger.info('Fetching document ${i + 1}/${documentUrls.length}');
 
-          final response = await http.get(Uri.parse(documentUrls[i]));
-          if (response.statusCode == 200) {
-            final imageBytes = response.bodyBytes;
-            final image = pw.MemoryImage(imageBytes);
+          final imageBytes = await storageService.downloadImageData(
+            documentUrls[i],
+          );
+          if (imageBytes != null) {
+            // Detect format to skip non-images
+            String imageFormat = 'unknown';
+            if (imageBytes.length > 4) {
+              if (imageBytes[0] == 0xFF && imageBytes[1] == 0xD8) {
+                imageFormat = 'JPEG';
+              } else if (imageBytes[0] == 0x89 &&
+                  imageBytes[1] == 0x50 &&
+                  imageBytes[2] == 0x4E &&
+                  imageBytes[3] == 0x47) {
+                imageFormat = 'PNG';
+              } else if (imageBytes[0] == 0x47 &&
+                  imageBytes[1] == 0x49 &&
+                  imageBytes[2] == 0x46) {
+                imageFormat = 'GIF';
+              } else if (imageBytes[0] == 0x25 &&
+                  imageBytes[1] == 0x50 &&
+                  imageBytes[2] == 0x44 &&
+                  imageBytes[3] == 0x46) {
+                imageFormat = 'PDF';
+              }
+            }
 
-            pdf.addPage(
-              pw.Page(
-                pageFormat: PdfPageFormat.a4,
-                theme: pw.ThemeData.withFont(
-                  base: ttf,
-                  bold: ttfBold,
-                  fontFallback: [pw.Font.helvetica(), pw.Font.helveticaBold()],
-                ),
-                build: (context) => pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    // Header with voucher info
-                    pw.Container(
-                      padding: const pw.EdgeInsets.all(12),
-                      decoration: pw.BoxDecoration(
-                        border: pw.Border.all(color: PdfColors.grey400),
-                        borderRadius: pw.BorderRadius.circular(4),
-                      ),
-                      child: pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.start,
-                        children: [
-                          pw.Row(
-                            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                            children: [
-                              pw.Text(
-                                'Support Document ${i + 1} of ${documentUrls.length}',
-                                style: pw.TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: pw.FontWeight.bold,
+            AppLogger.info('Document ${i + 1} format: $imageFormat');
+
+            if (imageFormat == 'JPEG' ||
+                imageFormat == 'PNG' ||
+                imageFormat == 'GIF') {
+              final image = pw.MemoryImage(imageBytes);
+
+              pdf.addPage(
+                pw.Page(
+                  pageFormat: PdfPageFormat.a4,
+                  theme: pw.ThemeData.withFont(
+                    base: ttf,
+                    bold: ttfBold,
+                    fontFallback: [
+                      pw.Font.helvetica(),
+                      pw.Font.helveticaBold(),
+                    ],
+                  ),
+                  build: (context) => pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      // Header with voucher info
+                      pw.Container(
+                        padding: const pw.EdgeInsets.all(12),
+                        decoration: pw.BoxDecoration(
+                          border: pw.Border.all(color: PdfColors.grey400),
+                          borderRadius: pw.BorderRadius.circular(4),
+                        ),
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Row(
+                              mainAxisAlignment:
+                                  pw.MainAxisAlignment.spaceBetween,
+                              children: [
+                                pw.Text(
+                                  'Support Document ${i + 1} of ${documentUrls.length}',
+                                  style: pw.TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: pw.FontWeight.bold,
+                                  ),
                                 ),
-                              ),
-                              pw.Text(
-                                'Page ${i + 1}',
-                                style: pw.TextStyle(
-                                  fontSize: 12,
-                                  color: PdfColors.grey600,
+                                pw.Text(
+                                  'Page ${i + 1}',
+                                  style: pw.TextStyle(
+                                    fontSize: 12,
+                                    color: PdfColors.grey600,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          pw.SizedBox(height: 8),
-                          pw.Divider(),
-                          pw.SizedBox(height: 4),
-                          pw.Text(
-                            'Voucher No: $transactionReceiptNo',
-                            style: const pw.TextStyle(fontSize: 12),
-                          ),
-                          pw.Text(
-                            'Description: $description',
-                            style: const pw.TextStyle(fontSize: 12),
-                          ),
-                          pw.Text(
-                            'Amount: ฿${NumberFormat('#,##0.00').format(amount)}',
-                            style: const pw.TextStyle(fontSize: 12),
-                          ),
-                        ],
+                              ],
+                            ),
+                            pw.SizedBox(height: 8),
+                            pw.Divider(),
+                            pw.SizedBox(height: 4),
+                            pw.Text(
+                              'Voucher No: $transactionReceiptNo',
+                              style: const pw.TextStyle(fontSize: 12),
+                            ),
+                            pw.Text(
+                              'Description: $description',
+                              style: const pw.TextStyle(fontSize: 12),
+                            ),
+                            pw.Text(
+                              'Amount: ฿${NumberFormat('#,##0.00').format(amount)}',
+                              style: const pw.TextStyle(fontSize: 12),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    pw.SizedBox(height: 12),
-                    // Image
-                    pw.Expanded(
-                      child: pw.Center(
-                        child: pw.Image(image, fit: pw.BoxFit.contain),
+                      pw.SizedBox(height: 12),
+                      // Image
+                      pw.Expanded(
+                        child: pw.Center(
+                          child: pw.Image(image, fit: pw.BoxFit.contain),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            );
+              );
+            } else {
+              AppLogger.warning(
+                'Skipping document ${i + 1} due to unsupported format: $imageFormat',
+              );
+            }
           } else {
-            print('Failed to load document ${i + 1}');
+            AppLogger.warning('Failed to load document ${i + 1}');
           }
         } catch (e) {
-          print('Error loading document ${i + 1}: $e');
+          AppLogger.warning('Error loading document ${i + 1}: $e');
           // Continue with other documents even if one fails
         }
       }
@@ -825,10 +948,271 @@ class VoucherExportService {
         name: 'Support_Documents_$transactionReceiptNo',
       );
 
-      print('Successfully printed ${pdf.document.pdfPageList.pages.length} support documents');
+      AppLogger.info(
+        'Successfully printed ${pdf.document.pdfPageList.pages.length} support documents',
+      );
     } catch (e) {
       AppLogger.severe('Error printing multiple support documents: $e');
       throw Exception('Failed to print support documents: $e');
+    }
+  }
+
+  /// Generate PDF for multiple support documents with grid layout (up to 4 per page) - for preview
+  /// Uses the same pattern as traveling report export service which is known to work
+  Future<pw.Document> generateMultipleSupportDocumentsGrid(
+    List<String> documentUrls,
+    String transactionReceiptNo,
+    String description,
+    double amount,
+  ) async {
+    try {
+      AppLogger.info(
+        'Generating PDF for ${documentUrls.length} support documents',
+      );
+
+      if (documentUrls.isEmpty) {
+        throw Exception('No support documents to generate');
+      }
+
+      final pdf = pw.Document();
+      final storageService = FirebaseStorageService();
+
+      // Load Thai font for proper rendering including Baht symbol
+      pw.Font? ttf;
+      pw.Font? ttfBold;
+      try {
+        ttf = await PdfGoogleFonts.notoSansThaiRegular();
+        ttfBold = await PdfGoogleFonts.notoSansThaiBold();
+      } catch (e) {
+        AppLogger.warning('Failed to load Google font: $e');
+      }
+
+      final totalDocs = documentUrls.length;
+
+      // Follow the exact same pattern as traveling report export service:
+      // Fetch each image and immediately add page in the same loop iteration
+      for (int i = 0; i < documentUrls.length; i++) {
+        final documentUrl = documentUrls[i];
+
+        try {
+          AppLogger.info('Fetching document ${i + 1}/${documentUrls.length}');
+          final imageBytes = await storageService.downloadImageData(documentUrl);
+
+          if (imageBytes != null) {
+            AppLogger.info('Successfully fetched document ${i + 1}, size: ${imageBytes.length} bytes');
+
+            // Validate image format
+            bool isValidImage = false;
+            if (imageBytes.length > 4) {
+              // Check for JPEG, PNG, or GIF magic bytes
+              if ((imageBytes[0] == 0xFF && imageBytes[1] == 0xD8) || // JPEG
+                  (imageBytes[0] == 0x89 && imageBytes[1] == 0x50 && imageBytes[2] == 0x4E && imageBytes[3] == 0x47) || // PNG
+                  (imageBytes[0] == 0x47 && imageBytes[1] == 0x49 && imageBytes[2] == 0x46)) { // GIF
+                isValidImage = true;
+              }
+            }
+
+            if (isValidImage) {
+              final docNumber = i + 1;
+              // Add page immediately with imageBytes in scope - exactly like traveling report service
+              pdf.addPage(
+                pw.Page(
+                  pageFormat: PdfPageFormat.a4,
+                  margin: const pw.EdgeInsets.all(24),
+                  theme: pw.ThemeData.withFont(
+                    base: ttf ?? pw.Font.helvetica(),
+                    bold: ttfBold ?? pw.Font.helveticaBold(),
+                    fontFallback: [pw.Font.helvetica()],
+                  ),
+                  build: (context) => pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      // Header section
+                      pw.Container(
+                        padding: const pw.EdgeInsets.all(12),
+                        decoration: pw.BoxDecoration(
+                          border: pw.Border.all(color: PdfColors.grey400),
+                          borderRadius: pw.BorderRadius.circular(4),
+                        ),
+                        child: pw.Row(
+                          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                          children: [
+                            pw.Expanded(
+                              child: pw.Column(
+                                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                                children: [
+                                  pw.Text(
+                                    'Support Document $docNumber of $totalDocs',
+                                    style: pw.TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: pw.FontWeight.bold,
+                                    ),
+                                  ),
+                                  pw.SizedBox(height: 6),
+                                  pw.Text(
+                                    'Voucher No: $transactionReceiptNo',
+                                    style: const pw.TextStyle(fontSize: 11),
+                                  ),
+                                  pw.Text(
+                                    'Description: $description',
+                                    style: const pw.TextStyle(fontSize: 11),
+                                  ),
+                                  pw.Text(
+                                    'Amount: ${NumberFormat.currency(symbol: "THB ", decimalDigits: 2).format(amount)}',
+                                    style: const pw.TextStyle(fontSize: 11),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            pw.Container(
+                              padding: const pw.EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: pw.BoxDecoration(
+                                color: PdfColors.grey200,
+                                borderRadius: pw.BorderRadius.circular(4),
+                              ),
+                              child: pw.Text(
+                                'Page $docNumber/$totalDocs',
+                                style: pw.TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: pw.FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      pw.SizedBox(height: 12),
+
+                      // Image section - 70% smaller (30% of original size in container)
+                      pw.Expanded(
+                        child: pw.Center(
+                          child: pw.Container(
+                            constraints: const pw.BoxConstraints(
+                              maxWidth: 350,  // 70% smaller
+                              maxHeight: 450, // 70% smaller
+                            ),
+                            decoration: pw.BoxDecoration(
+                              border: pw.Border.all(color: PdfColors.grey300),
+                            ),
+                            padding: const pw.EdgeInsets.all(8),
+                            child: pw.Image(
+                              pw.MemoryImage(imageBytes),
+                              fit: pw.BoxFit.contain,
+                            ),
+                          ),
+                        ),
+                      ),
+                      pw.SizedBox(height: 12),
+
+                      // Signature section
+                      pw.Container(
+                        decoration: pw.BoxDecoration(
+                          border: pw.Border.all(color: PdfColors.grey400),
+                          borderRadius: pw.BorderRadius.circular(4),
+                        ),
+                        padding: const pw.EdgeInsets.all(12),
+                        child: pw.Row(
+                          mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
+                          children: [
+                            pw.Container(
+                              width: 180,
+                              child: pw.Column(
+                                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                                children: [
+                                  pw.Text(
+                                    'Verified By:',
+                                    style: pw.TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: pw.FontWeight.bold,
+                                    ),
+                                  ),
+                                  pw.SizedBox(height: 30),
+                                  pw.Container(
+                                    decoration: const pw.BoxDecoration(
+                                      border: pw.Border(
+                                        bottom: pw.BorderSide(color: PdfColors.black),
+                                      ),
+                                    ),
+                                    height: 1,
+                                  ),
+                                  pw.SizedBox(height: 4),
+                                  pw.Text(
+                                    'Signature',
+                                    style: pw.TextStyle(
+                                      fontSize: 8,
+                                      color: PdfColors.grey600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            pw.Container(
+                              width: 140,
+                              child: pw.Column(
+                                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                                children: [
+                                  pw.Text(
+                                    'Date:',
+                                    style: pw.TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: pw.FontWeight.bold,
+                                    ),
+                                  ),
+                                  pw.SizedBox(height: 30),
+                                  pw.Container(
+                                    decoration: const pw.BoxDecoration(
+                                      border: pw.Border(
+                                        bottom: pw.BorderSide(color: PdfColors.black),
+                                      ),
+                                    ),
+                                    height: 1,
+                                  ),
+                                  pw.SizedBox(height: 4),
+                                  pw.Text(
+                                    'DD/MM/YYYY',
+                                    style: pw.TextStyle(
+                                      fontSize: 8,
+                                      color: PdfColors.grey600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+              AppLogger.info('Added page for document ${i + 1}');
+            } else {
+              AppLogger.warning('Skipping document ${i + 1} - not a valid image format');
+            }
+          } else {
+            AppLogger.warning('Failed to download document ${i + 1}');
+          }
+        } catch (e) {
+          AppLogger.warning('Error loading document ${i + 1}: $e');
+          // Continue with other documents
+        }
+      }
+
+      if (pdf.document.pdfPageList.pages.isEmpty) {
+        throw Exception('Failed to load any support documents');
+      }
+
+      AppLogger.info(
+        'PDF generated successfully with ${pdf.document.pdfPageList.pages.length} pages',
+      );
+
+      return pdf;
+    } catch (e) {
+      AppLogger.severe('Error generating support documents: $e');
+      throw Exception('Failed to generate support documents: $e');
     }
   }
 
@@ -840,129 +1224,37 @@ class VoucherExportService {
     double amount,
   ) async {
     try {
-      print('Printing ${documentUrls.length} support documents in grid layout');
-
-      if (documentUrls.isEmpty) {
-        throw Exception('No support documents to print');
-      }
-
-      final pdf = pw.Document();
-
-      // Load font for better rendering
-      pw.Font? ttf;
-      pw.Font? ttfBold;
-      try {
-        final fontData = await rootBundle.load('assets/fonts/NotoSansThai-Regular.ttf');
-        ttf = pw.Font.ttf(fontData);
-        final fontBoldData = await rootBundle.load('assets/fonts/NotoSansThai-Bold.ttf');
-        ttfBold = pw.Font.ttf(fontBoldData);
-      } catch (e) {
-        AppLogger.warning('Failed to load custom font: $e');
-      }
-
-      // Fetch all images first
-      final images = <pw.MemoryImage>[];
-      for (int i = 0; i < documentUrls.length; i++) {
-        try {
-          print('Fetching document ${i + 1}/${documentUrls.length}');
-          final response = await http.get(Uri.parse(documentUrls[i]));
-          if (response.statusCode == 200) {
-            images.add(pw.MemoryImage(response.bodyBytes));
-          } else {
-            print('Failed to load document ${i + 1}');
-          }
-        } catch (e) {
-          print('Error loading document ${i + 1}: $e');
-        }
-      }
-
-      if (images.isEmpty) {
-        throw Exception('Failed to load any support documents');
-      }
-
-      // Create pages with up to 4 images per page
-      final pagesCount = (images.length / 4).ceil();
-      for (int pageIndex = 0; pageIndex < pagesCount; pageIndex++) {
-        final startIndex = pageIndex * 4;
-        final endIndex = (startIndex + 4).clamp(0, images.length);
-        final pageImages = images.sublist(startIndex, endIndex);
-
-        pdf.addPage(
-          pw.Page(
-            pageFormat: PdfPageFormat.a4,
-            theme: pw.ThemeData.withFont(
-              base: ttf,
-              bold: ttfBold,
-              fontFallback: [pw.Font.helvetica(), pw.Font.helveticaBold()],
-            ),
-            build: (context) => pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                // Header
-                pw.Container(
-                  padding: const pw.EdgeInsets.all(10),
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border.all(color: PdfColors.grey400),
-                    borderRadius: pw.BorderRadius.circular(4),
-                  ),
-                  child: pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    children: [
-                      pw.Expanded(
-                        child: pw.Column(
-                          crossAxisAlignment: pw.CrossAxisAlignment.start,
-                          children: [
-                            pw.Text(
-                              'Support Documents - Voucher $transactionReceiptNo',
-                              style: pw.TextStyle(
-                                fontSize: 14,
-                                fontWeight: pw.FontWeight.bold,
-                              ),
-                            ),
-                            pw.SizedBox(height: 2),
-                            pw.Text('Description: $description', style: const pw.TextStyle(fontSize: 10)),
-                            pw.Text(
-                              'Amount: ฿${NumberFormat('#,##0.00').format(amount)}',
-                              style: const pw.TextStyle(fontSize: 10),
-                            ),
-                          ],
-                        ),
-                      ),
-                      pw.Container(
-                        padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: pw.BoxDecoration(
-                          color: PdfColors.grey200,
-                          borderRadius: pw.BorderRadius.circular(4),
-                        ),
-                        child: pw.Text(
-                          'Page ${pageIndex + 1}/$pagesCount',
-                          style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                pw.SizedBox(height: 10),
-                // Images in grid
-                pw.Expanded(
-                  child: _buildImageGrid(pageImages, startIndex),
-                ),
-                // Signature section at bottom
-                pw.SizedBox(height: 12),
-                _buildSupportDocumentSignatureSection(ttf, ttfBold),
-              ],
-            ),
-          ),
-        );
-      }
-
-      final bytes = await pdf.save();
-      await Printing.layoutPdf(
-        onLayout: (PdfPageFormat format) async => bytes,
-        name: 'Support_Documents_Grid_$transactionReceiptNo',
+      print('=== PRINTING MULTIPLE SUPPORT DOCUMENTS GRID ===');
+      final pdf = await generateMultipleSupportDocumentsGrid(
+        documentUrls,
+        transactionReceiptNo,
+        description,
+        amount,
       );
 
-      print('Successfully printed ${images.length} documents in grid layout on $pagesCount page(s)');
+      print('Saving PDF to bytes...');
+      final bytes = await pdf.save();
+      print('PDF saved successfully, size: ${bytes.length} bytes, pages: ${pdf.document.pdfPageList.pages.length}');
+      AppLogger.info(
+        'PDF generated successfully, size: ${bytes.length} bytes, pages: ${pdf.document.pdfPageList.pages.length}',
+      );
+
+      print('Sending PDF to printer...');
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async {
+          print('Printing layoutPdf called, returning ${bytes.length} bytes');
+          AppLogger.info(
+            'Printing layoutPdf called, returning ${bytes.length} bytes',
+          );
+          return bytes;
+        },
+        name: 'Support_Documents_Grid_$transactionReceiptNo',
+      );
+      print('PDF sent to printer successfully');
+
+      AppLogger.info(
+        'Successfully printed ${documentUrls.length} documents in grid layout',
+      );
     } catch (e) {
       AppLogger.severe('Error printing support documents in grid: $e');
       throw Exception('Failed to print support documents: $e');
@@ -970,7 +1262,10 @@ class VoucherExportService {
   }
 
   /// Build signature section for support documents
-  pw.Widget _buildSupportDocumentSignatureSection(pw.Font? font, pw.Font? fontBold) {
+  pw.Widget _buildSupportDocumentSignatureSection(
+    pw.Font? font,
+    pw.Font? fontBold,
+  ) {
     return pw.Container(
       decoration: pw.BoxDecoration(
         border: pw.Border.all(color: PdfColors.grey400),
@@ -995,17 +1290,16 @@ class VoucherExportService {
                 pw.SizedBox(height: 25),
                 pw.Container(
                   decoration: const pw.BoxDecoration(
-                    border: pw.Border(bottom: pw.BorderSide(color: PdfColors.black)),
+                    border: pw.Border(
+                      bottom: pw.BorderSide(color: PdfColors.black),
+                    ),
                   ),
                   height: 1,
                 ),
                 pw.SizedBox(height: 4),
                 pw.Text(
                   'Signature',
-                  style: pw.TextStyle(
-                    fontSize: 8,
-                    color: PdfColors.grey600,
-                  ),
+                  style: pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
                 ),
               ],
             ),
@@ -1026,17 +1320,16 @@ class VoucherExportService {
                 pw.SizedBox(height: 25),
                 pw.Container(
                   decoration: const pw.BoxDecoration(
-                    border: pw.Border(bottom: pw.BorderSide(color: PdfColors.black)),
+                    border: pw.Border(
+                      bottom: pw.BorderSide(color: PdfColors.black),
+                    ),
                   ),
                   height: 1,
                 ),
                 pw.SizedBox(height: 4),
                 pw.Text(
                   'DD/MM/YYYY',
-                  style: pw.TextStyle(
-                    fontSize: 8,
-                    color: PdfColors.grey600,
-                  ),
+                  style: pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
                 ),
               ],
             ),
@@ -1046,9 +1339,9 @@ class VoucherExportService {
     );
   }
 
-  /// Build image grid layout based on number of images (1-4 per page)
-  pw.Widget _buildImageGrid(List<pw.MemoryImage> images, int startIndex) {
-    final count = images.length;
+  /// Build image grid layout from raw bytes (creates MemoryImage inline for proper PDF embedding)
+  pw.Widget _buildImageGridFromBytes(List<Uint8List> imageDataList, int startIndex) {
+    final count = imageDataList.length;
 
     if (count == 1) {
       // Single image - centered
@@ -1062,8 +1355,11 @@ class VoucherExportService {
             mainAxisSize: pw.MainAxisSize.min,
             children: [
               pw.Container(
-                constraints: const pw.BoxConstraints(maxHeight: 650),
-                child: pw.Image(images[0], fit: pw.BoxFit.contain),
+                constraints: const pw.BoxConstraints(maxHeight: 650, maxWidth: 500),
+                child: pw.Image(
+                  pw.MemoryImage(imageDataList[0]),
+                  fit: pw.BoxFit.contain,
+                ),
               ),
               pw.SizedBox(height: 4),
               pw.Text(
@@ -1089,12 +1385,18 @@ class VoucherExportService {
                 child: pw.Column(
                   children: [
                     pw.Expanded(
-                      child: pw.Image(images[i], fit: pw.BoxFit.contain),
+                      child: pw.Image(
+                        pw.MemoryImage(imageDataList[i]),
+                        fit: pw.BoxFit.contain,
+                      ),
                     ),
                     pw.SizedBox(height: 4),
                     pw.Text(
                       'Document ${startIndex + i + 1}',
-                      style: pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
+                      style: pw.TextStyle(
+                        fontSize: 9,
+                        color: PdfColors.grey700,
+                      ),
                     ),
                   ],
                 ),
@@ -1113,7 +1415,10 @@ class VoucherExportService {
                 for (int i = 0; i < 2; i++)
                   pw.Expanded(
                     child: pw.Container(
-                      margin: pw.EdgeInsets.only(right: i == 0 ? 6 : 0, bottom: 6),
+                      margin: pw.EdgeInsets.only(
+                        right: i == 0 ? 6 : 0,
+                        bottom: 6,
+                      ),
                       padding: const pw.EdgeInsets.all(4),
                       decoration: pw.BoxDecoration(
                         border: pw.Border.all(color: PdfColors.grey300),
@@ -1121,12 +1426,18 @@ class VoucherExportService {
                       child: pw.Column(
                         children: [
                           pw.Expanded(
-                            child: pw.Image(images[i], fit: pw.BoxFit.contain),
+                            child: pw.Image(
+                              pw.MemoryImage(imageDataList[i]),
+                              fit: pw.BoxFit.contain,
+                            ),
                           ),
                           pw.SizedBox(height: 4),
                           pw.Text(
                             'Document ${startIndex + i + 1}',
-                            style: pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
+                            style: pw.TextStyle(
+                              fontSize: 9,
+                              color: PdfColors.grey700,
+                            ),
                           ),
                         ],
                       ),
@@ -1147,12 +1458,205 @@ class VoucherExportService {
                 child: pw.Column(
                   children: [
                     pw.Expanded(
-                      child: pw.Image(images[2], fit: pw.BoxFit.contain),
+                      child: pw.Image(
+                        pw.MemoryImage(imageDataList[2]),
+                        fit: pw.BoxFit.contain,
+                      ),
                     ),
                     pw.SizedBox(height: 4),
                     pw.Text(
                       'Document ${startIndex + 3}',
-                      style: pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
+                      style: pw.TextStyle(
+                        fontSize: 9,
+                        color: PdfColors.grey700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    } else {
+      // Four images - 2x2 grid
+      return pw.Column(
+        children: [
+          for (int row = 0; row < 2; row++)
+            pw.Expanded(
+              child: pw.Row(
+                children: [
+                  for (int col = 0; col < 2; col++)
+                    if (row * 2 + col < imageDataList.length)
+                      pw.Expanded(
+                        child: pw.Container(
+                          margin: pw.EdgeInsets.only(
+                            right: col == 0 ? 6 : 0,
+                            bottom: row == 0 ? 6 : 0,
+                          ),
+                          padding: const pw.EdgeInsets.all(4),
+                          decoration: pw.BoxDecoration(
+                            border: pw.Border.all(color: PdfColors.grey300),
+                          ),
+                          child: pw.Column(
+                            children: [
+                              pw.Expanded(
+                                child: pw.Image(
+                                  pw.MemoryImage(imageDataList[row * 2 + col]),
+                                  fit: pw.BoxFit.contain,
+                                ),
+                              ),
+                              pw.SizedBox(height: 4),
+                              pw.Text(
+                                'Document ${startIndex + row * 2 + col + 1}',
+                                style: pw.TextStyle(
+                                  fontSize: 9,
+                                  color: PdfColors.grey700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                ],
+              ),
+            ),
+        ],
+      );
+    }
+  }
+
+  /// Build image grid layout based on number of images (1-4 per page) - legacy method
+  pw.Widget _buildImageGrid(List<pw.MemoryImage> images, int startIndex) {
+    final count = images.length;
+
+    if (count == 1) {
+      // Single image - centered
+      return pw.Center(
+        child: pw.Container(
+          padding: const pw.EdgeInsets.all(4),
+          decoration: pw.BoxDecoration(
+            border: pw.Border.all(color: PdfColors.grey300),
+          ),
+          child: pw.Column(
+            mainAxisSize: pw.MainAxisSize.min,
+            children: [
+              pw.Container(
+                constraints: const pw.BoxConstraints(maxHeight: 650, maxWidth: 500),
+                child: pw.Image(
+                  images[0],
+                  fit: pw.BoxFit.scaleDown, // Changed from BoxFit.contain to BoxFit.scaleDown
+                ),
+              ),
+              pw.SizedBox(height: 4),
+              pw.Text(
+                'Document ${startIndex + 1}',
+                style: pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
+              ),
+            ],
+          ),
+        ),
+      );
+    } else if (count == 2) {
+      // Two images - side by side
+      return pw.Row(
+        children: [
+          for (int i = 0; i < 2; i++)
+            pw.Expanded(
+              child: pw.Container(
+                margin: pw.EdgeInsets.only(right: i == 0 ? 6 : 0),
+                padding: const pw.EdgeInsets.all(4),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(color: PdfColors.grey300),
+                ),
+                child: pw.Column(
+                  children: [
+                    pw.Expanded(
+                      child: pw.Image(
+                        images[i],
+                        fit: pw.BoxFit.scaleDown, // Changed from BoxFit.contain to BoxFit.scaleDown
+                      ),
+                    ),
+                    pw.SizedBox(height: 4),
+                    pw.Text(
+                      'Document ${startIndex + i + 1}',
+                      style: pw.TextStyle(
+                        fontSize: 9,
+                        color: PdfColors.grey700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      );
+    } else if (count == 3) {
+      // Three images - 2 on top, 1 centered at bottom
+      return pw.Column(
+        children: [
+          // Top row - 2 images
+          pw.Expanded(
+            child: pw.Row(
+              children: [
+                for (int i = 0; i < 2; i++)
+                  pw.Expanded(
+                    child: pw.Container(
+                      margin: pw.EdgeInsets.only(
+                        right: i == 0 ? 6 : 0,
+                        bottom: 6,
+                      ),
+                      padding: const pw.EdgeInsets.all(4),
+                      decoration: pw.BoxDecoration(
+                        border: pw.Border.all(color: PdfColors.grey300),
+                      ),
+                      child: pw.Column(
+                        children: [
+                          pw.Expanded(
+                            child: pw.Image(
+                              images[i],
+                              fit: pw.BoxFit.scaleDown, // Changed from BoxFit.contain to BoxFit.scaleDown
+                            ),
+                          ),
+                          pw.SizedBox(height: 4),
+                          pw.Text(
+                            'Document ${startIndex + i + 1}',
+                            style: pw.TextStyle(
+                              fontSize: 9,
+                              color: PdfColors.grey700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          // Bottom row - 1 image centered
+          pw.Expanded(
+            child: pw.Center(
+              child: pw.Container(
+                width: 380,
+                padding: const pw.EdgeInsets.all(4),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(color: PdfColors.grey300),
+                ),
+                child: pw.Column(
+                  children: [
+                    pw.Expanded(
+                      child: pw.Image(
+                        images[2],
+                        fit: pw.BoxFit.scaleDown, // Changed from BoxFit.contain to BoxFit.scaleDown
+                      ),
+                    ),
+                    pw.SizedBox(height: 4),
+                    pw.Text(
+                      'Document ${startIndex + 3}',
+                      style: pw.TextStyle(
+                        fontSize: 9,
+                        color: PdfColors.grey700,
+                      ),
                     ),
                   ],
                 ),
@@ -1184,12 +1688,18 @@ class VoucherExportService {
                           child: pw.Column(
                             children: [
                               pw.Expanded(
-                                child: pw.Image(images[row * 2 + col], fit: pw.BoxFit.contain),
+                                child: pw.Image(
+                                  images[row * 2 + col],
+                                  fit: pw.BoxFit.scaleDown, // Changed from BoxFit.contain to BoxFit.scaleDown
+                                ),
                               ),
                               pw.SizedBox(height: 4),
                               pw.Text(
                                 'Document ${startIndex + row * 2 + col + 1}',
-                                style: pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
+                                style: pw.TextStyle(
+                                  fontSize: 9,
+                                  color: PdfColors.grey700,
+                                ),
                               ),
                             ],
                           ),
@@ -1209,11 +1719,17 @@ class VoucherExportService {
     PettyCashReport report,
   ) async {
     try {
-      print('Printing all support documents for ${transactions.length} transactions');
+      print(
+        'Printing all support documents for ${transactions.length} transactions',
+      );
 
       // Filter transactions with support documents
       final transactionsWithDocs = transactions
-          .where((t) => t.supportDocumentUrl != null && t.supportDocumentUrl!.isNotEmpty)
+          .where(
+            (t) =>
+                t.supportDocumentUrl != null &&
+                t.supportDocumentUrl!.isNotEmpty,
+          )
           .toList();
 
       if (transactionsWithDocs.isEmpty) {
@@ -1225,7 +1741,9 @@ class VoucherExportService {
       // Load font for better rendering
       pw.Font? ttf;
       try {
-        final fontData = await rootBundle.load('assets/fonts/NotoSansThai-Regular.ttf');
+        final fontData = await rootBundle.load(
+          'assets/fonts/NotoSansThai-Regular.ttf',
+        );
         ttf = pw.Font.ttf(fontData);
       } catch (e) {
         AppLogger.warning('Failed to load custom font: $e');
@@ -1236,7 +1754,9 @@ class VoucherExportService {
         try {
           print('Fetching document for voucher ${transaction.receiptNo}');
 
-          final response = await http.get(Uri.parse(transaction.supportDocumentUrl!));
+          final response = await http.get(
+            Uri.parse(transaction.supportDocumentUrl!),
+          );
           if (response.statusCode == 200) {
             final imageBytes = response.bodyBytes;
             final image = pw.MemoryImage(imageBytes);
@@ -1244,9 +1764,7 @@ class VoucherExportService {
             pdf.addPage(
               pw.Page(
                 pageFormat: PdfPageFormat.a4,
-                theme: pw.ThemeData.withFont(
-                  base: ttf ?? pw.Font.helvetica(),
-                ),
+                theme: pw.ThemeData.withFont(base: ttf ?? pw.Font.helvetica()),
                 build: (context) => pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
@@ -1270,7 +1788,9 @@ class VoucherExportService {
                           pw.SizedBox(height: 4),
                           pw.Text('Voucher No: ${transaction.receiptNo}'),
                           pw.Text('Description: ${transaction.description}'),
-                          pw.Text('Amount: ฿${NumberFormat('#,##0.00').format(transaction.amount)}'),
+                          pw.Text(
+                            'Amount: ฿${NumberFormat('#,##0.00').format(transaction.amount)}',
+                          ),
                         ],
                       ),
                     ),
@@ -1286,10 +1806,14 @@ class VoucherExportService {
               ),
             );
           } else {
-            print('Failed to load document for voucher ${transaction.receiptNo}');
+            print(
+              'Failed to load document for voucher ${transaction.receiptNo}',
+            );
           }
         } catch (e) {
-          print('Error loading document for voucher ${transaction.receiptNo}: $e');
+          print(
+            'Error loading document for voucher ${transaction.receiptNo}: $e',
+          );
           // Continue with other documents even if one fails
         }
       }
@@ -1304,10 +1828,13 @@ class VoucherExportService {
         name: 'All_Support_Documents_${report.reportNumber}',
       );
 
-      print('Successfully printed ${pdf.document.pdfPageList.pages.length} support documents');
+      print(
+        'Successfully printed ${pdf.document.pdfPageList.pages.length} support documents',
+      );
     } catch (e) {
       AppLogger.severe('Error printing all support documents: $e');
       throw Exception('Failed to print support documents: $e');
     }
   }
+
 }

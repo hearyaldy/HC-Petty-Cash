@@ -7,6 +7,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:printing/printing.dart';
+import 'package:pdf/pdf.dart' as pw;
 import '../services/firebase_storage_service.dart';
 import '../services/image_compression_service.dart';
 import '../services/voucher_export_service.dart';
@@ -176,17 +178,21 @@ class _SupportDocumentUploadDialogState
       print('File is image: $isImage');
 
       Uint8List finalBytes;
-      if (isImage) {
-        // Compress image
-        print('Compressing image...');
-        finalBytes = await ImageCompressionService.compressImageBytes(
-          imageBytes!,
-        );
-        print('Compressed size: ${finalBytes.length} bytes');
+      if (imageBytes != null) {
+        if (isImage) {
+          // Compress image
+          print('Compressing image...');
+          finalBytes = await ImageCompressionService.compressImageBytes(
+            imageBytes,
+          );
+          print('Compressed size: ${finalBytes.length} bytes');
+        } else {
+          // For non-image files (PDF, DOC, etc.), use original bytes
+          print('Skipping compression for non-image file');
+          finalBytes = imageBytes;
+        }
       } else {
-        // For non-image files (PDF, DOC, etc.), use original bytes
-        print('Skipping compression for non-image file');
-        finalBytes = imageBytes!;
+        throw Exception('Image bytes are null');
       }
       setState(() => _uploadProgress = 0.5);
 
@@ -952,9 +958,51 @@ class _SupportDocumentSelectionDialogState
     await storageService.downloadImageData(originalUrl);
   }
 
+  Future<void> _showPrintPreview() async {
+    final sortedIndices = selectedIndices.toList()..sort();
+    final selectedUrls = sortedIndices
+        .map((i) => widget.documentUrls[i])
+        .toList();
+
+    if (selectedUrls.isEmpty) return;
+
+    // Create a temporary PDF to show preview
+    final voucherService = VoucherExportService();
+
+    try {
+      // Generate the PDF that would be printed
+      final pdf = await voucherService.generateMultipleSupportDocumentsGrid(
+        selectedUrls,
+        widget.transactionReceiptNo,
+        widget.description,
+        widget.amount,
+      );
+
+      final bytes = await pdf.save();
+
+      // Show the preview using the printing package's preview functionality
+      await Printing.layoutPdf(
+        onLayout: (pw.PdfPageFormat format) async => bytes,
+        name: 'Preview_Support_Documents_Grid_${widget.transactionReceiptNo}',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error generating preview: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final selectedCount = selectedIndices.length;
+    final nonImageUrls = widget.documentUrls
+        .where((url) => !_isImageFile(url) && _getFileExtension(url) == 'PDF')
+        .toList();
 
     return Dialog(
       child: Container(
@@ -1015,7 +1063,7 @@ class _SupportDocumentSelectionDialogState
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Only images can be printed in grid format (up to 4 per page). Documents (PDF, DOC) should be printed separately.',
+                      'Images print in grid (up to 4 per page). PDFs will print individually; other document types should be printed separately.',
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.amber.shade900,
@@ -1269,7 +1317,9 @@ class _SupportDocumentSelectionDialogState
                   Text(
                     selectedCount > 0
                         ? '${(selectedCount / 4).ceil()} page${(selectedCount / 4).ceil() > 1 ? "s" : ""} (${selectedCount > 4 ? "4 images/page" : "$selectedCount image${selectedCount > 1 ? "s" : ""}/page"})'
-                        : 'No documents selected',
+                        : (nonImageUrls.isNotEmpty
+                              ? '${nonImageUrls.length} PDF file${nonImageUrls.length == 1 ? "" : "s"} will print individually'
+                              : 'No documents selected'),
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
                   Row(
@@ -1281,55 +1331,62 @@ class _SupportDocumentSelectionDialogState
                         child: const Text('Cancel'),
                       ),
                       const SizedBox(width: 8),
+                      // Preview button
+                      if (selectedCount > 0)
+                        TextButton.icon(
+                          onPressed: isPrinting ? null : _showPrintPreview,
+                          icon: const Icon(Icons.preview),
+                          label: const Text('Preview'),
+                        ),
+                      const SizedBox(width: 8),
                       ElevatedButton.icon(
-                        onPressed: isPrinting || selectedCount == 0
+                        onPressed:
+                            isPrinting ||
+                                (selectedCount == 0 && nonImageUrls.isEmpty)
                             ? null
                             : () async {
                                 setState(() => isPrinting = true);
 
                                 try {
-                                  final selectedUrls =
-                                      selectedIndices
-                                          .map((i) => widget.documentUrls[i])
-                                          .toList()
-                                        ..sort(
-                                          (a, b) => selectedIndices
-                                              .toList()
-                                              .indexOf(
-                                                widget.documentUrls.indexOf(a),
-                                              )
-                                              .compareTo(
-                                                selectedIndices
-                                                    .toList()
-                                                    .indexOf(
-                                                      widget.documentUrls
-                                                          .indexOf(b),
-                                                    ),
-                                              ),
-                                        );
+                                  final sortedIndices = selectedIndices.toList()
+                                    ..sort();
+                                  final selectedUrls = sortedIndices
+                                      .map((i) => widget.documentUrls[i])
+                                      .toList();
 
                                   final voucherService = VoucherExportService();
-                                  await voucherService
-                                      .printMultipleSupportDocumentsGrid(
-                                        selectedUrls,
+
+                                  if (selectedUrls.isNotEmpty) {
+                                    await voucherService
+                                        .printMultipleSupportDocumentsGrid(
+                                          selectedUrls,
+                                          widget.transactionReceiptNo,
+                                          widget.description,
+                                          widget.amount,
+                                        );
+                                  }
+
+                                  if (nonImageUrls.isNotEmpty) {
+                                    for (final url in nonImageUrls) {
+                                      await voucherService.printSupportDocument(
+                                        url,
                                         widget.transactionReceiptNo,
-                                        widget.description,
-                                        widget.amount,
                                       );
+                                    }
+                                  }
 
                                   if (context.mounted) {
                                     Navigator.pop(context);
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: Text(
-                                          'Printing $selectedCount document${selectedCount > 1 ? "s" : ""} on ${(selectedCount / 4).ceil()} page${(selectedCount / 4).ceil() > 1 ? "s" : ""}...',
+                                          'Printing ${selectedUrls.length} image${selectedUrls.length == 1 ? "" : "s"}${nonImageUrls.isNotEmpty ? " + ${nonImageUrls.length} file${nonImageUrls.length == 1 ? "" : "s"}" : ""}...',
                                         ),
                                         backgroundColor: Colors.green,
                                       ),
                                     );
                                   }
                                 } catch (e) {
-                                  setState(() => isPrinting = false);
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
@@ -1337,6 +1394,10 @@ class _SupportDocumentSelectionDialogState
                                         backgroundColor: Colors.red,
                                       ),
                                     );
+                                  }
+                                } finally {
+                                  if (mounted) {
+                                    setState(() => isPrinting = false);
                                   }
                                 }
                               },

@@ -2558,6 +2558,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       ),
     );
 
+    // Support documents are NOT included in transaction list printing
+    // to avoid slow processing. Users can print support documents separately
+    // from the voucher preview dialog.
+
     // Show preview dialog
     await showDialog(
       context: context,

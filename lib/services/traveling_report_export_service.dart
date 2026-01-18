@@ -1,7 +1,6 @@
 import 'dart:io' show File;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:http/http.dart' as http;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
@@ -11,6 +10,7 @@ import '../models/traveling_per_diem_entry.dart';
 import '../utils/constants.dart';
 import '../utils/logger.dart';
 import 'firestore_service.dart';
+import 'firebase_storage_service.dart';
 import 'package:printing/printing.dart';
 
 class TravelingReportExportService {
@@ -100,15 +100,15 @@ class TravelingReportExportService {
     try {
       AppLogger.info('Fetching support document: $documentUrl');
 
-      final response = await http.get(Uri.parse(documentUrl));
-      if (response.statusCode != 200) {
+      final storageService = FirebaseStorageService();
+      final imageBytes = await storageService.downloadImageData(documentUrl);
+
+      if (imageBytes == null) {
         throw Exception('Failed to load support document');
       }
 
-      final bytes = response.bodyBytes;
-
       await Printing.layoutPdf(
-        onLayout: (PdfPageFormat format) async => bytes,
+        onLayout: (PdfPageFormat format) async => imageBytes,
         name: 'Support_Document_$reportNumber',
       );
     } catch (e) {
@@ -134,14 +134,15 @@ class TravelingReportExportService {
       final pdf = pw.Document();
 
       // Add a page for each support document
+      final storageService = FirebaseStorageService();
       for (int i = 0; i < documentUrls.length; i++) {
         final documentUrl = documentUrls[i];
 
         try {
-          final response = await http.get(Uri.parse(documentUrl));
-          if (response.statusCode == 200) {
-            final bytes = response.bodyBytes;
-
+          final imageBytes = await storageService.downloadImageData(
+            documentUrl,
+          );
+          if (imageBytes != null) {
             pdf.addPage(
               pw.Page(
                 pageFormat: PdfPageFormat.a4,
@@ -159,7 +160,7 @@ class TravelingReportExportService {
                     ),
                     pw.Expanded(
                       child: pw.Image(
-                        pw.MemoryImage(bytes),
+                        pw.MemoryImage(imageBytes),
                         fit: pw.BoxFit.contain,
                       ),
                     ),
