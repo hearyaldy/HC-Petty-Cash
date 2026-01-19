@@ -796,7 +796,7 @@ class TravelingReportExportService {
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Text(
-                      'Approved by:',
+                      'Approved by Treasurer',
                       style: pw.TextStyle(font: ttfBold, fontSize: 10),
                     ),
                     pw.SizedBox(height: 25),
@@ -814,7 +814,7 @@ class TravelingReportExportService {
                         style: pw.TextStyle(font: ttf, fontSize: 9),
                       ),
                     pw.Text(
-                      'Supervisor',
+                      '',
                       style: pw.TextStyle(font: ttf, fontSize: 9),
                     ),
                     if (report.approvedAt != null) ...[
@@ -837,7 +837,7 @@ class TravelingReportExportService {
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Text(
-                      'Action No:',
+                      'Date:',
                       style: pw.TextStyle(font: ttfBold, fontSize: 10),
                     ),
                     pw.SizedBox(height: 25),
@@ -850,7 +850,7 @@ class TravelingReportExportService {
                     pw.SizedBox(height: 3),
                     pw.Text('', style: pw.TextStyle(font: ttf, fontSize: 9)),
                     pw.Text(
-                      'Reference',
+                      '',
                       style: pw.TextStyle(font: ttf, fontSize: 9),
                     ),
                   ],
@@ -1449,12 +1449,12 @@ class TravelingReportExportService {
             fontBold,
           ),
           _buildTravelingSignatureBox(
-            'Approved By:',
+            'Approved by Treasurer',
             report.approvedBy ?? '',
             font,
             fontBold,
           ),
-          _buildTravelingActionNumberBox(font, fontBold),
+          _buildTravelingDateBox(font, fontBold),
         ],
       ),
     );
@@ -1501,14 +1501,14 @@ class TravelingReportExportService {
     );
   }
 
-  pw.Widget _buildTravelingActionNumberBox(pw.Font? font, pw.Font? fontBold) {
+  pw.Widget _buildTravelingDateBox(pw.Font? font, pw.Font? fontBold) {
     return pw.Container(
       width: 80,
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           pw.Text(
-            'Action No.',
+            'Date:',
             style: pw.TextStyle(
               fontSize: 8,
               fontWeight: pw.FontWeight.bold,

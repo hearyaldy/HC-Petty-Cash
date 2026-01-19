@@ -2367,7 +2367,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Text(
-                      'Requested By:',
+                      'Received By:',
                       style: pw.TextStyle(font: boldTtf, fontSize: 10),
                     ),
                     pw.SizedBox(height: 30),
@@ -2397,7 +2397,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Text(
-                      'Approved By:',
+                      'Paid By:',
                       style: pw.TextStyle(font: boldTtf, fontSize: 10),
                     ),
                     pw.SizedBox(height: 30),
@@ -2418,7 +2418,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Text(
-                      'Action No:',
+                      'Approved By:',
                       style: pw.TextStyle(font: boldTtf, fontSize: 10),
                     ),
                     pw.SizedBox(height: 30),

@@ -363,9 +363,9 @@ class PdfExportService {
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
         children: [
-          _buildSignatureBox('Requested By:', 'Name'),
-          _buildSignatureBox('Approved By:', ''),
-          _buildActionNumberBox(),
+          _buildSignatureBox('Received By:', 'Name'),
+          _buildSignatureBox('Paid By:', ''),
+          _buildApprovedByBox(),
         ],
       ),
     );
@@ -399,14 +399,14 @@ class PdfExportService {
     );
   }
 
-  pw.Widget _buildActionNumberBox() {
+  pw.Widget _buildApprovedByBox() {
     return pw.Container(
       width: 120,
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           pw.Text(
-            'Action No:',
+            'Approved By:',
             style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
           ),
           pw.SizedBox(height: 30),

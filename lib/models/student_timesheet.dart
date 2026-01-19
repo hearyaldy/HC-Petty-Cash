@@ -153,6 +153,7 @@ class StudentProfile {
   final String yearLevel;
   final String? language;
   final String? role;
+  final String? grade; // 'A', 'B', 'C', 'D'
   final double hourlyRate;
   final DateTime? onboardedAt;
 
@@ -164,6 +165,7 @@ class StudentProfile {
     required this.yearLevel,
     this.language,
     this.role,
+    this.grade,
     this.hourlyRate = 0.0,
     this.onboardedAt,
   });
@@ -177,6 +179,7 @@ class StudentProfile {
       'yearLevel': yearLevel,
       'language': language,
       'role': role,
+      'grade': grade,
       'hourlyRate': hourlyRate,
       'onboardedAt': onboardedAt != null
           ? Timestamp.fromDate(onboardedAt!)
@@ -194,6 +197,7 @@ class StudentProfile {
       yearLevel: data['yearLevel'] ?? '',
       language: data['language'],
       role: data['role'],
+      grade: data['grade'],
       hourlyRate: (data['hourlyRate'] ?? 0.0).toDouble(),
       onboardedAt: data['onboardedAt'] != null
           ? (data['onboardedAt'] as Timestamp).toDate()
@@ -209,6 +213,7 @@ class StudentProfile {
     String? yearLevel,
     String? language,
     String? role,
+    String? grade,
     double? hourlyRate,
     DateTime? onboardedAt,
   }) {
@@ -220,6 +225,7 @@ class StudentProfile {
       yearLevel: yearLevel ?? this.yearLevel,
       language: language ?? this.language,
       role: role ?? this.role,
+      grade: grade ?? this.grade,
       hourlyRate: hourlyRate ?? this.hourlyRate,
       onboardedAt: onboardedAt ?? this.onboardedAt,
     );

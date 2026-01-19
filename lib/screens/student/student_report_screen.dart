@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../models/student_timesheet.dart';
 import '../../providers/auth_provider.dart';
+import '../../utils/responsive_helper.dart';
 
 class StudentReportScreen extends StatefulWidget {
   final String? initialMonth;
@@ -1186,9 +1187,11 @@ class _StudentReportScreenState extends State<StudentReportScreen>
           ? const Center(child: CircularProgressIndicator())
           : _studentProfile == null
           ? _buildNoProfileState()
-          : TabBarView(
-              controller: _tabController,
-              children: [_buildCurrentMonthView(), _buildHistoryView()],
+          : ResponsiveContainer(
+              child: TabBarView(
+                controller: _tabController,
+                children: [_buildCurrentMonthView(), _buildHistoryView()],
+              ),
             ),
       floatingActionButton: _studentProfile != null
           ? Container(

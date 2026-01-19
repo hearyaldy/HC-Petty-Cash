@@ -507,8 +507,8 @@ class VoucherPreviewDialog extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _buildSignatureBox('Requested By:', 'Name', isBankTransfer),
-          _buildSignatureBox('Approved By:', '', false),
+          _buildSignatureBox('Received By:', 'Name', isBankTransfer),
+          _buildSignatureBox('Paid By:', '', false),
           _buildActionNumberBox(),
         ],
       ),
@@ -558,7 +558,7 @@ class VoucherPreviewDialog extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Action No:',
+            'Approved By:',
             style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 20),

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:printing/printing.dart';
 import '../../models/student_timesheet.dart';
 import '../../utils/constants.dart';
+import '../../utils/responsive_helper.dart';
+import '../../services/student_pdf_export_service.dart';
 
 enum TimesheetSortOption { dateNewest, dateOldest, hoursHighest, hoursLowest }
 
@@ -182,6 +185,161 @@ class _AdminStudentReportDetailScreenState
     );
   }
 
+  Future<void> _updatePaymentStatus(String newPaymentStatus) async {
+    setState(() => _isApproving = true);
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('student_monthly_reports')
+          .doc(widget.reportId)
+          .update({
+            'paymentStatus': newPaymentStatus,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+
+      // Reload to get updated data
+      await _loadReportDetails();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Payment status updated to $newPaymentStatus successfully',
+            ),
+            backgroundColor: newPaymentStatus == 'paid'
+                ? Colors.green
+                : Colors.blue,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating payment status: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() => _isApproving = false);
+    }
+  }
+
+  void _showPaymentStatusDialog() {
+    final currentStatus = _reportData?['status'] ?? 'draft';
+    final paymentStatusOptions = ['paid', 'not_paid', 'review'];
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Update Payment Status'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: paymentStatusOptions.map((status) => RadioListTile<String>(
+            title: Text(_formatPaymentStatus(status)),
+            value: status,
+            groupValue: _reportData?['paymentStatus'] ?? 'not_paid',
+            onChanged: (value) {
+              if (value != null) {
+                Navigator.of(context).pop();
+                _updatePaymentStatus(value);
+              }
+            },
+          )).toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatPaymentStatus(String status) {
+    switch (status) {
+      case 'paid':
+        return 'Paid';
+      case 'not_paid':
+        return 'Not Paid';
+      case 'review':
+        return 'Review';
+      default:
+        return status;
+    }
+  }
+
+  Future<void> _generatePdf() async {
+    final timesheetCount = _timesheets.length;
+    final totalHours = _timesheets.fold<double>(
+      0.0,
+      (sum, ts) => sum + ts.totalHours,
+    );
+    final hourlyRate = _reportData?['hourlyRate'] ?? 0.0;
+    final totalAmount = totalHours * hourlyRate;
+
+    // Get student profile to get grade
+    String? grade;
+    try {
+      final studentProfileDoc = await FirebaseFirestore.instance
+          .collection('student_profiles')
+          .doc(_reportData?['studentId'])
+          .get();
+
+      if (studentProfileDoc.exists) {
+        final profileData = studentProfileDoc.data() as Map<String, dynamic>;
+        grade = profileData['grade'];
+      }
+    } catch (e) {
+      print('Error getting student profile: $e');
+    }
+
+    // Get student profile to get additional fields
+    String? course, yearLevel, phoneNumber, language, role;
+    try {
+      final studentProfileDoc = await FirebaseFirestore.instance
+          .collection('student_profiles')
+          .doc(_reportData?['studentId'])
+          .get();
+
+      if (studentProfileDoc.exists) {
+        final profileData = studentProfileDoc.data() as Map<String, dynamic>;
+        course = profileData['course'];
+        yearLevel = profileData['yearLevel'];
+        phoneNumber = profileData['phoneNumber'];
+        language = profileData['language'];
+        role = profileData['role'];
+      }
+    } catch (e) {
+      print('Error getting student profile: $e');
+    }
+
+    final service = StudentPdfExportService();
+    final pdfBytes = await service.exportStudentReport(
+      studentName: _reportData?['studentName'] ?? 'Unknown',
+      studentNumber: _reportData?['studentNumber'] ?? 'Unknown',
+      monthDisplay: widget.monthDisplay,
+      reportId: widget.reportId,
+      status: _reportData?['status'] ?? 'draft',
+      hourlyRate: hourlyRate,
+      timesheets: _timesheets,
+      grade: grade,
+      course: course,
+      yearLevel: yearLevel,
+      phoneNumber: phoneNumber,
+      language: language,
+      role: role,
+      paymentStatus: _reportData?['paymentStatus'] ?? 'not_paid',
+    );
+
+    // Show the PDF using the printing package
+    await Printing.layoutPdf(
+      onLayout: (format) async => pdfBytes,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -226,6 +384,16 @@ class _AdminStudentReportDetailScreenState
               tooltip: 'Reject',
             ),
           ],
+          IconButton(
+            icon: const Icon(Icons.print),
+            onPressed: _generatePdf,
+            tooltip: 'Print Report',
+          ),
+          IconButton(
+            icon: const Icon(Icons.payment),
+            onPressed: _showPaymentStatusDialog,
+            tooltip: 'Update Payment Status',
+          ),
           PopupMenuButton<TimesheetSortOption>(
             icon: const Icon(Icons.sort),
             onSelected: (option) {
@@ -252,13 +420,12 @@ class _AdminStudentReportDetailScreenState
         ],
       ),
       backgroundColor: Colors.grey[50],
-      body: Column(
-        children: [
-          _buildReportSummary(),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
+      body: ResponsiveContainer(
+        child: Column(
+          children: [
+            _buildReportSummary(),
+            const SizedBox(height: 8),
+            Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
@@ -274,20 +441,19 @@ class _AdminStudentReportDetailScreenState
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: _timesheets.isEmpty
-                ? _buildEmptyState()
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _timesheets.length,
-                    itemBuilder: (context, index) {
-                      return _buildTimesheetCard(_timesheets[index]);
-                    },
-                  ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Expanded(
+              child: _timesheets.isEmpty
+                  ? _buildEmptyState()
+                  : ListView.builder(
+                      itemCount: _timesheets.length,
+                      itemBuilder: (context, index) {
+                        return _buildTimesheetCard(_timesheets[index]);
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -295,6 +461,7 @@ class _AdminStudentReportDetailScreenState
   Widget _buildReportSummary() {
     final studentName = _reportData!['studentName'] ?? 'Unknown';
     final status = _reportData!['status'] ?? 'draft';
+    final paymentStatus = _reportData!['paymentStatus'] ?? 'not_paid';
     final totalHours = (_reportData!['totalHours'] ?? 0.0).toDouble();
     final hourlyRate = (_reportData!['hourlyRate'] ?? 0.0).toDouble();
     final totalAmount = (_reportData!['totalAmount'] ?? 0.0).toDouble();
@@ -315,9 +482,28 @@ class _AdminStudentReportDetailScreenState
         statusColor = Colors.orange;
         statusIcon = Icons.pending;
         break;
+      case 'paid':
+        statusColor = Colors.blue;
+        statusIcon = Icons.payment;
+        break;
       default:
         statusColor = Colors.grey;
         statusIcon = Icons.edit_document;
+    }
+
+    Color paymentStatusColor;
+    switch (paymentStatus) {
+      case 'paid':
+        paymentStatusColor = Colors.green;
+        break;
+      case 'not_paid':
+        paymentStatusColor = Colors.red;
+        break;
+      case 'review':
+        paymentStatusColor = Colors.orange;
+        break;
+      default:
+        paymentStatusColor = Colors.grey;
     }
 
     return Container(
@@ -385,30 +571,53 @@ class _AdminStudentReportDetailScreenState
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(statusIcon, size: 18, color: statusColor),
-                    const SizedBox(width: 6),
-                    Text(
-                      status.toUpperCase(),
+              Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(statusIcon, size: 18, color: statusColor),
+                        const SizedBox(width: 6),
+                        Text(
+                          status.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: statusColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      _formatPaymentStatus(paymentStatus).toUpperCase(),
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: statusColor,
+                        color: paymentStatusColor,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ],
           ),

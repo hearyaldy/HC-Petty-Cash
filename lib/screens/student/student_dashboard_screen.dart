@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/student_timesheet.dart';
+import '../../utils/responsive_helper.dart';
 
 class _StatData {
   final String title;
@@ -369,22 +370,23 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _loadDashboardData,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildWelcomeCard(),
-                    const SizedBox(height: 16),
-                    _buildStatsGrid(),
-                    const SizedBox(height: 24),
-                    _buildQuickActions(),
-                    const SizedBox(height: 24),
-                    _buildMonthlyReports(),
-                    const SizedBox(height: 24),
-                    _buildRecentTimesheets(),
-                  ],
+              child: ResponsiveContainer(
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildWelcomeCard(),
+                      const SizedBox(height: 16),
+                      _buildStatsGrid(),
+                      const SizedBox(height: 24),
+                      _buildQuickActions(),
+                      const SizedBox(height: 24),
+                      _buildMonthlyReports(),
+                      const SizedBox(height: 24),
+                      _buildRecentTimesheets(),
+                    ],
+                  ),
                 ),
               ),
             ),

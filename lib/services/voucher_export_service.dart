@@ -471,13 +471,13 @@ class VoucherExportService {
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: [
           _buildSignatureBox(
-            'Requested By:',
+            'Received By:',
             'Name',
             isBankTransfer,
             font,
             fontBold,
           ),
-          _buildSignatureBox('Approved By:', '', false, font, fontBold),
+          _buildSignatureBox('Paid By:', '', false, font, fontBold),
           _buildActionNumberBox(font, fontBold),
         ],
       ),
@@ -545,7 +545,7 @@ class VoucherExportService {
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           pw.Text(
-            'Action No:',
+            'Approved By:',
             style: pw.TextStyle(
               fontSize: 8,
               fontWeight: pw.FontWeight.bold,

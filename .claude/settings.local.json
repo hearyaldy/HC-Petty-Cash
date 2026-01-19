@@ -12,7 +12,9 @@
       "Bash(git push)",
       "Bash(firebase deploy:*)",
       "Bash(grep:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(flutter build:*)"
     ]
   }
 }

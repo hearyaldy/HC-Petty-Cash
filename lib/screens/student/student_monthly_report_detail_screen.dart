@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../../models/student_timesheet.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/responsive_helper.dart';
+import '../../services/student_pdf_export_service.dart';
 
 class StudentMonthlyReportDetailScreen extends StatefulWidget {
   final String reportId;
@@ -71,272 +72,64 @@ class _StudentMonthlyReportDetailScreenState
   }
 
   Future<void> _generatePdf() async {
-    final pdf = pw.Document();
+    // Get student profile to get grade
+    String? grade;
+    try {
+      final studentProfileDoc = await FirebaseFirestore.instance
+          .collection('student_profiles')
+          .doc(_reportData?['studentId'])
+          .get();
 
-    final timesheetCount = _timesheets.length;
-    final totalHours = _timesheets.fold<double>(
-      0.0,
-      (sum, ts) => sum + ts.totalHours,
-    );
-    final hourlyRate = _reportData?['hourlyRate'] ?? 0.0;
-    final totalAmount = totalHours * hourlyRate;
+      if (studentProfileDoc.exists) {
+        final profileData = studentProfileDoc.data() as Map<String, dynamic>;
+        grade = profileData['grade'];
+      }
+    } catch (e) {
+      print('Error getting student profile: $e');
+    }
 
-    pdf.addPage(
-      pw.MultiPage(
-        header: (context) => pw.Container(
-          alignment: pw.Alignment.center,
-          margin: const pw.EdgeInsets.only(bottom: 20),
-          child: pw.Text(
-            'Student Labour Report - ${widget.monthDisplay}',
-            style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
-          ),
-        ),
-        footer: (context) => pw.Container(
-          alignment: pw.Alignment.center,
-          margin: const pw.EdgeInsets.only(top: 20),
-          child: pw.Text(
-            'Page ${context.pageNumber} of ${context.pagesCount}',
-            style: pw.TextStyle(fontSize: 10),
-          ),
-        ),
-        build: (context) => [
-          pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Expanded(
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Text(
-                          'Student: ${_reportData?['studentName'] ?? ''}',
-                          style: pw.TextStyle(
-                            fontSize: 12,
-                            fontWeight: pw.FontWeight.bold,
-                          ),
-                        ),
-                        pw.SizedBox(height: 4),
-                        pw.Text(
-                          'Student ID: ${_reportData?['studentId'] ?? ''}',
-                          style: pw.TextStyle(fontSize: 10),
-                        ),
-                        pw.SizedBox(height: 4),
-                        pw.Text(
-                          'Report Period: ${widget.monthDisplay}',
-                          style: pw.TextStyle(fontSize: 10),
-                        ),
-                      ],
-                    ),
-                  ),
-                  pw.Expanded(
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.end,
-                      children: [
-                        pw.Text(
-                          'Report ID: ${widget.reportId}',
-                          style: pw.TextStyle(fontSize: 10),
-                        ),
-                        pw.SizedBox(height: 4),
-                        pw.Text(
-                          'Generated: ${DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())}',
-                          style: pw.TextStyle(fontSize: 10),
-                        ),
-                        pw.SizedBox(height: 4),
-                        pw.Text(
-                          'Status: ${_reportData?['status'] ?? 'Unknown'}',
-                          style: pw.TextStyle(fontSize: 10),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              pw.SizedBox(height: 20),
-              pw.Text(
-                'Summary',
-                style: pw.TextStyle(
-                  fontSize: 14,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              pw.SizedBox(height: 10),
-              pw.Table(
-                border: pw.TableBorder.all(),
-                children: [
-                  pw.TableRow(
-                    children: [
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text('Entries'),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text('Total Hours'),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text('Hourly Rate'),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text('Total Amount'),
-                      ),
-                    ],
-                  ),
-                  pw.TableRow(
-                    children: [
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text('$timesheetCount'),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text('${totalHours.toStringAsFixed(2)} h'),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text('฿${hourlyRate.toStringAsFixed(2)}/h'),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text('฿${totalAmount.toStringAsFixed(2)}'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              pw.SizedBox(height: 20),
-              pw.Text(
-                'Detailed Timesheet Entries',
-                style: pw.TextStyle(
-                  fontSize: 14,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              pw.SizedBox(height: 10),
-              pw.Table(
-                border: pw.TableBorder.all(),
-                columnWidths: const {
-                  0: pw.FlexColumnWidth(1),
-                  1: pw.FlexColumnWidth(1),
-                  2: pw.FlexColumnWidth(1),
-                  3: pw.FlexColumnWidth(2),
-                  4: pw.FlexColumnWidth(1),
-                  5: pw.FlexColumnWidth(1),
-                  6: pw.FlexColumnWidth(1),
-                },
-                children: [
-                  pw.TableRow(
-                    children: [
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text(
-                          'Date',
-                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text(
-                          'Start Time',
-                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text(
-                          'End Time',
-                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text(
-                          'Task',
-                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text(
-                          'Hours',
-                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text(
-                          'Amount',
-                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text(
-                          'Status',
-                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                        ),
-                      ),
-                    ],
-                  ),
-                  ..._timesheets.map(
-                    (ts) => pw.TableRow(
-                      children: [
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text(
-                            DateFormat('dd/MM/yyyy').format(ts.date),
-                          ),
-                        ),
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text(
-                            DateFormat('HH:mm').format(ts.startTime),
-                          ),
-                        ),
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text(
-                            DateFormat('HH:mm').format(ts.endTime),
-                          ),
-                        ),
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text(
-                            ts.task,
-                            style: pw.TextStyle(fontSize: 10),
-                          ),
-                        ),
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text(
-                            '${ts.totalHours.toStringAsFixed(2)} h',
-                          ),
-                        ),
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text(
-                            '฿${ts.totalAmount.toStringAsFixed(2)}',
-                          ),
-                        ),
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text(ts.status),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
+    // Get student profile to get additional fields
+    String? course, yearLevel, phoneNumber, language, role;
+    try {
+      final studentProfileDoc = await FirebaseFirestore.instance
+          .collection('student_profiles')
+          .doc(_reportData?['studentId'])
+          .get();
+
+      if (studentProfileDoc.exists) {
+        final profileData = studentProfileDoc.data() as Map<String, dynamic>;
+        course = profileData['course'];
+        yearLevel = profileData['yearLevel'];
+        phoneNumber = profileData['phoneNumber'];
+        language = profileData['language'];
+        role = profileData['role'];
+      }
+    } catch (e) {
+      print('Error getting student profile: $e');
+    }
+
+    final service = StudentPdfExportService();
+    final pdfBytes = await service.exportStudentReport(
+      studentName: _reportData?['studentName'] ?? 'Unknown',
+      studentNumber: _reportData?['studentNumber'] ?? 'Unknown',
+      monthDisplay: widget.monthDisplay,
+      reportId: widget.reportId,
+      status: _reportData?['status'] ?? 'draft',
+      hourlyRate: _reportData?['hourlyRate'] ?? 0.0,
+      timesheets: _timesheets,
+      grade: grade,
+      course: course,
+      yearLevel: yearLevel,
+      phoneNumber: phoneNumber,
+      language: language,
+      role: role,
+      paymentStatus: _reportData?['paymentStatus'] ?? 'not_paid',
     );
 
-    await Printing.layoutPdf(onLayout: (format) async => pdf.save());
+    // Show the PDF using the printing package
+    await Printing.layoutPdf(
+      onLayout: (format) async => pdfBytes,
+    );
   }
 
   Future<void> _generateExcel() async {
