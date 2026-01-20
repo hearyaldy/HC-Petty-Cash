@@ -283,32 +283,58 @@ class TravelingReportExportService {
   pw.Widget _buildVoucherHeader(pw.Font? font, pw.Font? fontBold) {
     return pw.Column(
       children: [
-        pw.Center(
-          child: pw.Text(
-            AppConstants.organizationName,
-            style: pw.TextStyle(
-              fontSize: 10,
-              fontWeight: pw.FontWeight.bold,
-              font: fontBold ?? pw.Font.helvetica(),
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.center,
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            // Add logo if it exists - simplified approach for PDF
+            pw.Container(
+              width: 30,
+              height: 30,
+              child: pw.Padding(
+                padding: pw.EdgeInsets.all(3),
+                child: pw.DecoratedBox(
+                  decoration: pw.BoxDecoration(
+                    color: PdfColors.grey300,
+                    borderRadius: pw.BorderRadius.circular(4),
+                  ),
+                  child: pw.Center(
+                    child: pw.Text(
+                      "H",
+                      style: pw.TextStyle(
+                        fontSize: 14,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.grey700,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
-            textAlign: pw.TextAlign.center,
-          ),
-        ),
-        pw.SizedBox(height: 2),
-        pw.Center(
-          child: pw.Text(
-            AppConstants.organizationNameThai,
-            style: pw.TextStyle(fontSize: 6, font: font ?? pw.Font.helvetica()),
-            textAlign: pw.TextAlign.center,
-          ),
-        ),
-        pw.SizedBox(height: 2),
-        pw.Center(
-          child: pw.Text(
-            AppConstants.organizationAddress,
-            style: pw.TextStyle(fontSize: 5, font: font ?? pw.Font.helvetica()),
-            textAlign: pw.TextAlign.center,
-          ),
+            pw.SizedBox(width: 8),
+            // Organization name and address
+            pw.Expanded(
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    AppConstants.organizationName,
+                    style: pw.TextStyle(
+                      fontSize: 10,
+                      fontWeight: pw.FontWeight.bold,
+                      font: fontBold ?? pw.Font.helvetica(),
+                    ),
+                    textAlign: pw.TextAlign.left,
+                  ),
+                  pw.Text(
+                    AppConstants.organizationAddress,
+                    style: pw.TextStyle(fontSize: 5, font: font ?? pw.Font.helvetica()),
+                    textAlign: pw.TextAlign.left,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -1080,40 +1106,62 @@ class TravelingReportExportService {
   pw.Widget _buildHeader(pw.Font? font, pw.Font? fontBold) {
     return pw.Column(
       children: [
-        pw.Center(
-          child: pw.Text(
-            AppConstants.organizationName,
-            style: pw.TextStyle(
-              fontSize: 12,
-              fontWeight: pw.FontWeight.bold,
-              font: fontBold ?? pw.Font.helvetica(),
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.center,
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            // Add logo if it exists - simplified approach for PDF
+            pw.Container(
+              width: 40,
+              height: 40,
+              child: pw.Padding(
+                padding: pw.EdgeInsets.all(5),
+                child: pw.DecoratedBox(
+                  decoration: pw.BoxDecoration(
+                    color: PdfColors.grey300,
+                    borderRadius: pw.BorderRadius.circular(5),
+                  ),
+                  child: pw.Center(
+                    child: pw.Text(
+                      "H",
+                      style: pw.TextStyle(
+                        fontSize: 20,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.grey700,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
-            textAlign: pw.TextAlign.center,
-          ),
-        ),
-        pw.SizedBox(height: 2),
-        pw.Center(
-          child: pw.Text(
-            AppConstants.organizationNameThai,
-            style: pw.TextStyle(
-              fontSize: 10,
-              fontWeight: pw.FontWeight.bold,
-              font: fontBold ?? pw.Font.helvetica(),
+            pw.SizedBox(width: 10),
+            // Organization name and address
+            pw.Expanded(
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    AppConstants.organizationName,
+                    style: pw.TextStyle(
+                      fontSize: 12,
+                      fontWeight: pw.FontWeight.bold,
+                      font: fontBold ?? pw.Font.helvetica(),
+                    ),
+                    textAlign: pw.TextAlign.left,
+                  ),
+                  pw.Text(
+                    AppConstants.organizationAddress,
+                    style: pw.TextStyle(
+                      fontSize: 8,
+                      color: PdfColors.grey700,
+                      font: font ?? pw.Font.helvetica(),
+                    ),
+                    textAlign: pw.TextAlign.left,
+                  ),
+                ],
+              ),
             ),
-            textAlign: pw.TextAlign.center,
-          ),
-        ),
-        pw.SizedBox(height: 2),
-        pw.Center(
-          child: pw.Text(
-            AppConstants.organizationAddress,
-            style: pw.TextStyle(
-              fontSize: 8,
-              color: PdfColors.grey700,
-              font: font ?? pw.Font.helvetica(),
-            ),
-            textAlign: pw.TextAlign.center,
-          ),
+          ],
         ),
       ],
     );
@@ -1589,4 +1637,5 @@ class TravelingReportExportService {
       ],
     );
   }
+
 }

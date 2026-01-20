@@ -289,5 +289,46 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/income_reports/$(resource.data.reportId)).data.createdById == request.auth.uid
         && get(/databases/$(database)/documents/income_reports/$(resource.data.reportId)).data.status == 'draft';
     }
+
+    // Purchase Requisitions collection
+    match /purchase_requisitions/{requisitionId} {
+      // All authenticated users can read
+      allow read: if isAuthenticated();
+
+      // Any authenticated user can create requisitions
+      allow create: if isAuthenticated();
+
+      // Users can update draft requisitions, approvers can update submitted requisitions
+      allow update: if isAuthenticated() && (
+        resource.data.status == 'draft' ||
+        canApprove()
+      );
+
+      // Users can delete draft requisitions, admin can delete any
+      allow delete: if isAuthenticated() && (
+        resource.data.status == 'draft' || isAdmin()
+      );
+    }
+
+    // Purchase Requisition Items collection
+    match /purchase_requisition_items/{itemId} {
+      // All authenticated users can read
+      allow read: if isAuthenticated();
+
+      // Create only if the parent requisition is draft
+      allow create: if isAuthenticated()
+        && exists(/databases/$(database)/documents/purchase_requisitions/$(request.resource.data.requisitionId))
+        && get(/databases/$(database)/documents/purchase_requisitions/$(request.resource.data.requisitionId)).data.status == 'draft';
+
+      // Update only if the parent requisition is draft
+      allow update: if isAuthenticated()
+        && exists(/databases/$(database)/documents/purchase_requisitions/$(resource.data.requisitionId))
+        && get(/databases/$(database)/documents/purchase_requisitions/$(resource.data.requisitionId)).data.status == 'draft';
+
+      // Delete only if the parent requisition is draft
+      allow delete: if isAuthenticated()
+        && exists(/databases/$(database)/documents/purchase_requisitions/$(resource.data.requisitionId))
+        && get(/databases/$(database)/documents/purchase_requisitions/$(resource.data.requisitionId)).data.status == 'draft';
+    }
   }
 }

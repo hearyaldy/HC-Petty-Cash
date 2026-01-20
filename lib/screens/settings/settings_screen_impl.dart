@@ -1002,9 +1002,6 @@ class _SettingsScreenImplState extends State<SettingsScreenImpl> {
     final nameController = TextEditingController(
       text: _settings!.organizationName,
     );
-    final thaiNameController = TextEditingController(
-      text: _settings!.organizationNameThai,
-    );
     final addressController = TextEditingController(
       text: _settings!.organizationAddress,
     );
@@ -1021,14 +1018,6 @@ class _SettingsScreenImplState extends State<SettingsScreenImpl> {
                 controller: nameController,
                 decoration: const InputDecoration(
                   labelText: 'Organization Name',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: thaiNameController,
-                decoration: const InputDecoration(
-                  labelText: 'Thai Name',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -1054,7 +1043,7 @@ class _SettingsScreenImplState extends State<SettingsScreenImpl> {
               _updateSetting(
                 _settings!.copyWith(
                   organizationName: nameController.text.trim(),
-                  organizationNameThai: thaiNameController.text.trim(),
+                  organizationNameThai: '', // Keep Thai name empty as requested
                   organizationAddress: addressController.text.trim(),
                 ),
               );

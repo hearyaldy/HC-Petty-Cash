@@ -40,6 +40,8 @@ import 'screens/admin/admin_income_reports_screen.dart';
 import 'screens/income/income_reports_screen.dart';
 import 'screens/income/new_income_report_screen.dart';
 import 'screens/income/income_report_detail_screen.dart';
+import 'screens/purchase_requisition/purchase_requisitions_screen.dart';
+import 'screens/purchase_requisition/purchase_requisition_detail_screen.dart';
 import 'providers/income_report_provider.dart';
 import 'utils/constants.dart';
 import 'utils/logger.dart';
@@ -364,6 +366,20 @@ class MyApp extends StatelessWidget {
           builder: (context, state) {
             final reportId = state.pathParameters['reportId']!;
             return AdminTravelingReportDetailScreen(reportId: reportId);
+          },
+        ),
+        // Purchase Requisition Routes
+        GoRoute(
+          path: '/purchase-requisitions',
+          builder: (context, state) => const PurchaseRequisitionsScreen(),
+        ),
+        GoRoute(
+          path: '/purchase-requisitions/:requisitionId',
+          builder: (context, state) {
+            final requisitionId = state.pathParameters['requisitionId']!;
+            return PurchaseRequisitionDetailScreen(
+              requisitionId: requisitionId,
+            );
           },
         ),
       ],

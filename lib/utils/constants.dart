@@ -4,9 +4,9 @@ class AppConstants {
   static const String appName = 'Petty Cash Manager';
   static const String appVersion = '1.0.0';
 
-  // Organization Information (Parent Organization)
-  static const String organizationName = 'SOUTHEASTERN ASIA UNION MISSION OF SEVENTH-DAY ADVENTIST FOUNDATION (SEUM)';
-  static const String organizationNameThai = 'มูลนิธิสหมิชชั่นเอเชียตะวันออกเฉียงใต้ของเซเว่นธ์เดย์แอ๊ดเวนตีส';
+  // Organization Information
+  static const String organizationName = 'Hope Channel Southeast Asia';
+  static const String organizationNameThai = ''; // Removed Thai name as requested
   static const String organizationAddress = '195 Moo.3, Muak Lek, Saraburi, 18180 Thailand';
 
   // Company Information (Reporting Entity)

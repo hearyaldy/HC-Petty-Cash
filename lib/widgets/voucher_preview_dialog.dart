@@ -263,22 +263,43 @@ class VoucherPreviewDialog extends StatelessWidget {
   Widget _buildHeader() {
     return Column(
       children: [
-        Text(
-          AppConstants.organizationName,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 2),
-        Text(
-          AppConstants.organizationNameThai,
-          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 2),
-        Text(
-          AppConstants.organizationAddress,
-          style: TextStyle(fontSize: 9, color: Colors.grey.shade700),
-          textAlign: TextAlign.center,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Add logo if it exists
+            Image.asset(
+              AppConstants.companyLogo,
+              width: 40,
+              height: 40,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return const Icon(
+                  Icons.store,
+                  size: 40,
+                  color: Colors.grey,
+                );
+              },
+            ),
+            const SizedBox(width: 10),
+            // Organization name
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    AppConstants.organizationName,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.left,
+                  ),
+                  Text(
+                    AppConstants.organizationAddress,
+                    style: TextStyle(fontSize: 9, color: Colors.grey.shade700),
+                    textAlign: TextAlign.left,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ],
     );

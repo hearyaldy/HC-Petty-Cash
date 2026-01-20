@@ -1403,6 +1403,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         gradient: [Colors.indigo.shade400, Colors.indigo.shade600],
         onPressed: () => context.go('/traveling-reports'),
       ),
+      _ActionData(
+        label: 'Purchase Requisition',
+        icon: Icons.shopping_cart,
+        gradient: [Colors.purple.shade400, Colors.purple.shade600],
+        onPressed: () => context.go('/purchase-requisitions'),
+      ),
       if (authProvider.canManageUsers())
         _ActionData(
           label: 'Income Reports',

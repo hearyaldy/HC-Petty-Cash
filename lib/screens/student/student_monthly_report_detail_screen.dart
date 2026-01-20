@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:excel/excel.dart' as excel_package;
 import 'package:go_router/go_router.dart';
@@ -127,9 +126,7 @@ class _StudentMonthlyReportDetailScreenState
     );
 
     // Show the PDF using the printing package
-    await Printing.layoutPdf(
-      onLayout: (format) async => pdfBytes,
-    );
+    await Printing.layoutPdf(onLayout: (format) async => pdfBytes);
   }
 
   Future<void> _generateExcel() async {

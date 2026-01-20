@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
@@ -215,22 +216,54 @@ class PdfExportService {
   pw.Widget _buildHeader(PettyCashReport report) {
     return pw.Column(
       children: [
-        pw.Text(
-          AppConstants.organizationName,
-          style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
-          textAlign: pw.TextAlign.center,
-        ),
-        pw.SizedBox(height: 4),
-        pw.Text(
-          AppConstants.organizationNameThai,
-          style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
-          textAlign: pw.TextAlign.center,
-        ),
-        pw.SizedBox(height: 4),
-        pw.Text(
-          AppConstants.organizationAddress,
-          style: const pw.TextStyle(fontSize: 9),
-          textAlign: pw.TextAlign.center,
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.center,
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            // Add logo if it exists - simplified approach for PDF
+            pw.Container(
+              width: 40,
+              height: 40,
+              child: pw.Padding(
+                padding: pw.EdgeInsets.all(5),
+                child: pw.DecoratedBox(
+                  decoration: pw.BoxDecoration(
+                    color: PdfColors.grey300,
+                    borderRadius: pw.BorderRadius.circular(5),
+                  ),
+                  child: pw.Center(
+                    child: pw.Text(
+                      "H",
+                      style: pw.TextStyle(
+                        fontSize: 20,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.grey700,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            pw.SizedBox(width: 10),
+            // Organization name and address
+            pw.Expanded(
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    AppConstants.organizationName,
+                    style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
+                    textAlign: pw.TextAlign.left,
+                  ),
+                  pw.Text(
+                    AppConstants.organizationAddress,
+                    style: const pw.TextStyle(fontSize: 9),
+                    textAlign: pw.TextAlign.left,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
         pw.SizedBox(height: 12),
         pw.Text(
@@ -489,4 +522,5 @@ class PdfExportService {
 
     return number.toString(); // Fallback for very large numbers
   }
+
 }

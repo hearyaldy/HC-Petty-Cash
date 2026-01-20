@@ -94,6 +94,11 @@ class _AdminScreenState extends State<AdminScreen> {
             tooltip: 'Traveling Reports',
           ),
           IconButton(
+            icon: const Icon(Icons.shopping_cart),
+            onPressed: () => context.push('/purchase-requisitions'),
+            tooltip: 'Purchase Requisitions',
+          ),
+          IconButton(
             icon: const Icon(Icons.home_outlined),
             onPressed: () => context.go('/dashboard'),
             tooltip: 'Home',

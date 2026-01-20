@@ -162,6 +162,67 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Organization Header
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Colors.blue.shade600, Colors.blue.shade400],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.blue.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          // Add logo if it exists
+                          Image.asset(
+                            AppConstants.companyLogo,
+                            width: 40,
+                            height: 40,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Icon(
+                                Icons.store,
+                                size: 40,
+                                color: Colors.white,
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  AppConstants.organizationName,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  AppConstants.organizationAddress,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.white.withOpacity(0.9),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                     // Summary Cards
                     _buildSummaryCards(
                       filteredTransactions.length,
@@ -902,32 +963,62 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
             pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                pw.Text(
-                  AppConstants.organizationName,
-                  style: pw.TextStyle(
-                    fontSize: 16,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-                pw.SizedBox(height: 4),
-                pw.Text(
-                  AppConstants.organizationNameThai,
-                  style: pw.TextStyle(
-                    fontSize: 14,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-                pw.SizedBox(height: 2),
-                pw.Text(
-                  AppConstants.organizationAddress,
-                  style: const pw.TextStyle(
-                    fontSize: 10,
-                    color: PdfColors.grey700,
-                  ),
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.start,
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    // Add logo if it exists - simplified approach for PDF
+                    pw.Container(
+                      width: 40,
+                      height: 40,
+                      child: pw.Padding(
+                        padding: pw.EdgeInsets.all(5),
+                        child: pw.DecoratedBox(
+                          decoration: pw.BoxDecoration(
+                            color: PdfColors.grey300,
+                            borderRadius: pw.BorderRadius.circular(5),
+                          ),
+                          child: pw.Center(
+                            child: pw.Text(
+                              "H",
+                              style: pw.TextStyle(
+                                fontSize: 20,
+                                fontWeight: pw.FontWeight.bold,
+                                color: PdfColors.grey700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    pw.SizedBox(width: 10),
+                    // Organization name and address
+                    pw.Expanded(
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text(
+                            AppConstants.organizationName,
+                            style: pw.TextStyle(
+                              fontSize: 16,
+                              fontWeight: pw.FontWeight.bold,
+                            ),
+                          ),
+                          pw.Text(
+                            AppConstants.organizationAddress,
+                            style: const pw.TextStyle(
+                              fontSize: 10,
+                              color: PdfColors.grey700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
                 pw.SizedBox(height: 16),
                 pw.Text(
-                  'TRANSACTIONS SUMMARY REPORT',
+                  'ALL TRANSACTIONS SUMMARY REPORT',
                   style: pw.TextStyle(
                     fontSize: 18,
                     fontWeight: pw.FontWeight.bold,

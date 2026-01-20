@@ -8,6 +8,7 @@ import '../models/transaction.dart' as app;
 import '../models/traveling_report.dart';
 import '../models/traveling_per_diem_entry.dart';
 import '../models/income_report.dart';
+import '../models/purchase_requisition.dart';
 import '../utils/logger.dart';
 
 class FirestoreService {
@@ -31,6 +32,12 @@ class FirestoreService {
       _firestore.collection('income_reports');
   CollectionReference<Map<String, dynamic>> get _incomeEntriesCollection =>
       _firestore.collection('income_entries');
+  CollectionReference<Map<String, dynamic>>
+  get _purchaseRequisitionsCollection =>
+      _firestore.collection('purchase_requisitions');
+  CollectionReference<Map<String, dynamic>>
+  get _purchaseRequisitionItemsCollection =>
+      _firestore.collection('purchase_requisition_items');
 
   // ===== USER OPERATIONS =====
 
@@ -1179,6 +1186,372 @@ class FirestoreService {
       });
     } catch (e) {
       AppLogger.severe('Error recalculating income report total: $e');
+      rethrow;
+    }
+  }
+
+  // ===== PURCHASE REQUISITION OPERATIONS =====
+
+  /// Generate unique purchase requisition number
+  String generatePurchaseRequisitionNumber() {
+    final now = DateTime.now();
+    final dateStr = DateFormat('yyyyMMdd').format(now);
+    final uuid = const Uuid().v4().substring(0, 3).toUpperCase();
+    return 'PR-$dateStr-$uuid';
+  }
+
+  /// Get a single purchase requisition
+  Future<PurchaseRequisition?> getPurchaseRequisition(
+    String requisitionId,
+  ) async {
+    try {
+      final doc =
+          await _purchaseRequisitionsCollection.doc(requisitionId).get();
+      return doc.exists ? PurchaseRequisition.fromFirestore(doc) : null;
+    } catch (e) {
+      AppLogger.severe('Error getting purchase requisition: $e');
+      rethrow;
+    }
+  }
+
+  /// Get all purchase requisitions
+  Future<List<PurchaseRequisition>> getAllPurchaseRequisitions() async {
+    try {
+      final snapshot = await _purchaseRequisitionsCollection
+          .orderBy('createdAt', descending: true)
+          .get();
+      return snapshot.docs
+          .map((doc) => PurchaseRequisition.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      AppLogger.severe('Error getting all purchase requisitions: $e');
+      rethrow;
+    }
+  }
+
+  /// Get purchase requisitions by requester
+  Future<List<PurchaseRequisition>> getPurchaseRequisitionsByRequester(
+    String requestedBy,
+  ) async {
+    try {
+      final snapshot = await _purchaseRequisitionsCollection
+          .where('requestedBy', isEqualTo: requestedBy)
+          .orderBy('createdAt', descending: true)
+          .get();
+      return snapshot.docs
+          .map((doc) => PurchaseRequisition.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      AppLogger.severe('Error getting purchase requisitions by requester: $e');
+      rethrow;
+    }
+  }
+
+  /// Get purchase requisitions by status
+  Future<List<PurchaseRequisition>> getPurchaseRequisitionsByStatus(
+    String status,
+  ) async {
+    try {
+      final snapshot = await _purchaseRequisitionsCollection
+          .where('status', isEqualTo: status)
+          .orderBy('createdAt', descending: true)
+          .get();
+      return snapshot.docs
+          .map((doc) => PurchaseRequisition.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      AppLogger.severe('Error getting purchase requisitions by status: $e');
+      rethrow;
+    }
+  }
+
+  /// Get purchase requisitions by department
+  Future<List<PurchaseRequisition>> getPurchaseRequisitionsByDepartment(
+    String department,
+  ) async {
+    try {
+      final snapshot = await _purchaseRequisitionsCollection
+          .where('chargeToDepartment', isEqualTo: department)
+          .orderBy('createdAt', descending: true)
+          .get();
+      return snapshot.docs
+          .map((doc) => PurchaseRequisition.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      AppLogger.severe(
+        'Error getting purchase requisitions by department: $e',
+      );
+      rethrow;
+    }
+  }
+
+  /// Stream purchase requisitions
+  Stream<List<PurchaseRequisition>> purchaseRequisitionsStream() {
+    return _purchaseRequisitionsCollection
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => PurchaseRequisition.fromFirestore(doc))
+              .toList(),
+        );
+  }
+
+  /// Stream purchase requisitions by requester
+  Stream<List<PurchaseRequisition>> purchaseRequisitionsByRequesterStream(
+    String requestedBy,
+  ) {
+    return _purchaseRequisitionsCollection
+        .where('requestedBy', isEqualTo: requestedBy)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => PurchaseRequisition.fromFirestore(doc))
+              .toList(),
+        );
+  }
+
+  /// Save a new purchase requisition
+  Future<void> savePurchaseRequisition(PurchaseRequisition requisition) async {
+    try {
+      await _purchaseRequisitionsCollection
+          .doc(requisition.id)
+          .set(requisition.toFirestore());
+    } catch (e) {
+      AppLogger.severe('Error saving purchase requisition: $e');
+      rethrow;
+    }
+  }
+
+  /// Update an existing purchase requisition
+  Future<void> updatePurchaseRequisition(
+    PurchaseRequisition requisition,
+  ) async {
+    try {
+      await _purchaseRequisitionsCollection
+          .doc(requisition.id)
+          .update(requisition.toFirestore());
+    } catch (e) {
+      AppLogger.severe('Error updating purchase requisition: $e');
+      rethrow;
+    }
+  }
+
+  /// Delete a purchase requisition and its items
+  Future<void> deletePurchaseRequisition(String requisitionId) async {
+    try {
+      // Delete all items associated with the requisition
+      final itemsSnapshot = await _purchaseRequisitionItemsCollection
+          .where('requisitionId', isEqualTo: requisitionId)
+          .get();
+
+      final batch = _firestore.batch();
+      for (final doc in itemsSnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      batch.delete(_purchaseRequisitionsCollection.doc(requisitionId));
+      await batch.commit();
+    } catch (e) {
+      AppLogger.severe('Error deleting purchase requisition: $e');
+      rethrow;
+    }
+  }
+
+  /// Submit a purchase requisition for approval
+  Future<void> submitPurchaseRequisition(
+    String requisitionId,
+    String userId,
+  ) async {
+    try {
+      await _purchaseRequisitionsCollection.doc(requisitionId).update({
+        'status': 'submitted',
+        'submittedAt': FieldValue.serverTimestamp(),
+        'submittedBy': userId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      AppLogger.severe('Error submitting purchase requisition: $e');
+      rethrow;
+    }
+  }
+
+  /// Approve a purchase requisition
+  Future<void> approvePurchaseRequisition(
+    String requisitionId,
+    String approverName, {
+    String? actionNo,
+  }) async {
+    try {
+      final updateData = <String, dynamic>{
+        'status': 'approved',
+        'approvedAt': FieldValue.serverTimestamp(),
+        'approvedBy': approverName,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      if (actionNo != null) {
+        updateData['actionNo'] = actionNo;
+      }
+      await _purchaseRequisitionsCollection.doc(requisitionId).update(
+        updateData,
+      );
+    } catch (e) {
+      AppLogger.severe('Error approving purchase requisition: $e');
+      rethrow;
+    }
+  }
+
+  /// Reject a purchase requisition
+  Future<void> rejectPurchaseRequisition(
+    String requisitionId,
+    String rejectionReason,
+  ) async {
+    try {
+      await _purchaseRequisitionsCollection.doc(requisitionId).update({
+        'status': 'rejected',
+        'rejectionReason': rejectionReason,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      AppLogger.severe('Error rejecting purchase requisition: $e');
+      rethrow;
+    }
+  }
+
+  /// Revert a purchase requisition to draft
+  Future<void> revertPurchaseRequisitionToDraft(String requisitionId) async {
+    try {
+      await _purchaseRequisitionsCollection.doc(requisitionId).update({
+        'status': 'draft',
+        'submittedAt': null,
+        'submittedBy': null,
+        'approvedAt': null,
+        'approvedBy': null,
+        'actionNo': null,
+        'rejectionReason': null,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      AppLogger.severe('Error reverting purchase requisition to draft: $e');
+      rethrow;
+    }
+  }
+
+  // ===== PURCHASE REQUISITION ITEM OPERATIONS =====
+
+  /// Get a single purchase requisition item
+  Future<PurchaseRequisitionItem?> getPurchaseRequisitionItem(
+    String itemId,
+  ) async {
+    try {
+      final doc =
+          await _purchaseRequisitionItemsCollection.doc(itemId).get();
+      return doc.exists ? PurchaseRequisitionItem.fromFirestore(doc) : null;
+    } catch (e) {
+      AppLogger.severe('Error getting purchase requisition item: $e');
+      rethrow;
+    }
+  }
+
+  /// Get all items for a purchase requisition
+  Future<List<PurchaseRequisitionItem>> getPurchaseRequisitionItems(
+    String requisitionId,
+  ) async {
+    try {
+      final snapshot = await _purchaseRequisitionItemsCollection
+          .where('requisitionId', isEqualTo: requisitionId)
+          .orderBy('itemNo', descending: false)
+          .get();
+      return snapshot.docs
+          .map((doc) => PurchaseRequisitionItem.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      AppLogger.severe('Error getting purchase requisition items: $e');
+      rethrow;
+    }
+  }
+
+  /// Stream purchase requisition items
+  Stream<List<PurchaseRequisitionItem>> purchaseRequisitionItemsStream(
+    String requisitionId,
+  ) {
+    return _purchaseRequisitionItemsCollection
+        .where('requisitionId', isEqualTo: requisitionId)
+        .orderBy('itemNo', descending: false)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => PurchaseRequisitionItem.fromFirestore(doc))
+              .toList(),
+        );
+  }
+
+  /// Save a new purchase requisition item
+  Future<void> savePurchaseRequisitionItem(
+    PurchaseRequisitionItem item,
+  ) async {
+    try {
+      await _purchaseRequisitionItemsCollection
+          .doc(item.id)
+          .set(item.toFirestore());
+
+      // Recalculate requisition total
+      await _recalculatePurchaseRequisitionTotal(item.requisitionId);
+    } catch (e) {
+      AppLogger.severe('Error saving purchase requisition item: $e');
+      rethrow;
+    }
+  }
+
+  /// Update a purchase requisition item
+  Future<void> updatePurchaseRequisitionItem(
+    PurchaseRequisitionItem item,
+  ) async {
+    try {
+      await _purchaseRequisitionItemsCollection
+          .doc(item.id)
+          .update(item.toFirestore());
+
+      // Recalculate requisition total
+      await _recalculatePurchaseRequisitionTotal(item.requisitionId);
+    } catch (e) {
+      AppLogger.severe('Error updating purchase requisition item: $e');
+      rethrow;
+    }
+  }
+
+  /// Delete a purchase requisition item
+  Future<void> deletePurchaseRequisitionItem(String itemId) async {
+    try {
+      final item = await getPurchaseRequisitionItem(itemId);
+      if (item != null) {
+        await _purchaseRequisitionItemsCollection.doc(itemId).delete();
+        // Recalculate requisition total
+        await _recalculatePurchaseRequisitionTotal(item.requisitionId);
+      }
+    } catch (e) {
+      AppLogger.severe('Error deleting purchase requisition item: $e');
+      rethrow;
+    }
+  }
+
+  /// Recalculate and update purchase requisition total
+  Future<void> _recalculatePurchaseRequisitionTotal(
+    String requisitionId,
+  ) async {
+    try {
+      final items = await getPurchaseRequisitionItems(requisitionId);
+      final totalAmount = items.fold<double>(
+        0.0,
+        (total, item) => total + item.totalPrice,
+      );
+
+      await _purchaseRequisitionsCollection.doc(requisitionId).update({
+        'totalAmount': totalAmount,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      AppLogger.severe('Error recalculating purchase requisition total: $e');
       rethrow;
     }
   }

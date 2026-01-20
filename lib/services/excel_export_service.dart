@@ -28,15 +28,12 @@ class ExcelExportService {
     _styleCell(sheet, 0, currentRow, bold: true, fontSize: 14);
     currentRow++;
 
-    _setCellValue(sheet, 0, currentRow, AppConstants.organizationNameThai);
-    _mergeCells(sheet, currentRow, 0, currentRow, 8);
-    _styleCell(sheet, 0, currentRow, bold: true, fontSize: 13);
-    currentRow++;
-
     _setCellValue(sheet, 0, currentRow, AppConstants.organizationAddress);
     _mergeCells(sheet, currentRow, 0, currentRow, 8);
     _styleCell(sheet, 0, currentRow, bold: false, fontSize: 11);
     currentRow++;
+
+    currentRow++; // Empty row for spacing
 
     currentRow++; // Empty row
 

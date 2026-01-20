@@ -630,7 +630,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _showOrganizationDialog() {
     final nameController = TextEditingController(text: AppConstants.organizationName);
-    final thaiNameController = TextEditingController(text: AppConstants.organizationNameThai);
     final addressController = TextEditingController(text: AppConstants.organizationAddress);
 
     showDialog(
@@ -645,14 +644,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 controller: nameController,
                 decoration: const InputDecoration(
                   labelText: 'Organization Name',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: thaiNameController,
-                decoration: const InputDecoration(
-                  labelText: 'Thai Name',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -675,6 +666,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           ElevatedButton(
             onPressed: () {
+              // Update organization settings
+              AppConstants.organizationName = nameController.text.trim();
+              AppConstants.organizationAddress = addressController.text.trim();
+              AppConstants.organizationNameThai = ''; // Keep Thai name empty as requested
+
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Organization settings saved')),

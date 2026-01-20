@@ -33,7 +33,7 @@ class AppSettings {
     this.defaultExportFormat = 'PDF',
     this.defaultReportType = 'petty_cash',
     this.organizationName = 'Hope Channel Southeast Asia',
-    this.organizationNameThai = 'โฮป แชนแนล เอเชียตะวันออกเฉียงใต้',
+    this.organizationNameThai = '', // Removed Thai name as requested
     this.organizationAddress = '123 Main Street, Bangkok, Thailand',
     List<String>? customVendors,
     List<String>? customStaff,
@@ -99,8 +99,7 @@ class AppSettings {
       organizationName:
           data['organizationName'] as String? ?? 'Hope Channel Southeast Asia',
       organizationNameThai:
-          data['organizationNameThai'] as String? ??
-          'โฮป แชนแนล เอเชียตะวันออกเฉียงใต้',
+          data['organizationNameThai'] as String? ?? '',
       organizationAddress:
           data['organizationAddress'] as String? ??
           '123 Main Street, Bangkok, Thailand',
