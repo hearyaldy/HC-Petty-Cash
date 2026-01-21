@@ -42,7 +42,11 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
 
       _students = studentsQuery.docs.map((doc) {
         final data = doc.data();
-        return {'id': doc.id, 'name': data['studentName'] ?? 'Unknown'};
+        return {
+          'id': doc.id,
+          'name': data['studentName'] ?? 'Unknown',
+          'photoUrl': data['photoUrl'] as String?,
+        };
       }).toList();
 
       setState(() => _isLoadingStudents = false);
@@ -217,6 +221,13 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
 
   Widget _buildReportCard(String reportId, Map<String, dynamic> reportData) {
     final studentName = reportData['studentName'] ?? 'Unknown';
+    final studentId = reportData['studentId'] ?? '';
+    final photoUrl =
+        _students.firstWhere(
+              (s) => s['id'] == studentId,
+              orElse: () => const {'photoUrl': null},
+            )['photoUrl']
+            as String?;
     final month = reportData['month'] ?? '';
     final status = reportData['status'] ?? 'draft';
     final totalHours = (reportData['totalHours'] ?? 0.0).toDouble();
@@ -275,31 +286,7 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
             children: [
               Row(
                 children: [
-                  Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.orange.shade400,
-                          Colors.orange.shade600,
-                        ],
-                      ),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text(
-                        studentName.isNotEmpty
-                            ? studentName[0].toUpperCase()
-                            : 'S',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
-                        ),
-                      ),
-                    ),
-                  ),
+                  _buildAvatar(studentName, photoUrl),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Column(
@@ -409,6 +396,37 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
         ),
         Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
       ],
+    );
+  }
+
+  Widget _buildAvatar(String studentName, String? photoUrl) {
+    if (photoUrl != null && photoUrl.isNotEmpty) {
+      return CircleAvatar(
+        radius: 25,
+        backgroundImage: NetworkImage(photoUrl),
+        backgroundColor: Colors.grey.shade200,
+      );
+    }
+
+    return Container(
+      width: 50,
+      height: 50,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.orange.shade400, Colors.orange.shade600],
+        ),
+        shape: BoxShape.circle,
+      ),
+      child: Center(
+        child: Text(
+          studentName.isNotEmpty ? studentName[0].toUpperCase() : 'S',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+      ),
     );
   }
 

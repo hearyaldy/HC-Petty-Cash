@@ -31,6 +31,7 @@ import 'screens/student/student_report_screen.dart';
 import 'screens/student/student_registration_screen.dart';
 import 'screens/student/student_dashboard_screen.dart';
 import 'screens/student/student_monthly_report_detail_screen.dart';
+import 'screens/student/student_profile_screen.dart';
 import 'screens/student/new_student_report_screen.dart';
 import 'screens/traveling/traveling_reports_screen.dart';
 import 'screens/traveling/traveling_report_detail_screen.dart';
@@ -153,6 +154,7 @@ class MyApp extends StatelessWidget {
             '/student-report/new',
             '/student-monthly-report-detail',
             '/student-onboarding',
+            '/student-profile',
             '/settings',
           ];
           if (!studentRoutes.any(
@@ -277,6 +279,10 @@ class MyApp extends StatelessWidget {
         GoRoute(
           path: '/student-dashboard',
           builder: (context, state) => const StudentDashboardScreen(),
+        ),
+        GoRoute(
+          path: '/student-profile',
+          builder: (context, state) => const StudentProfileScreen(),
         ),
         GoRoute(
           path: '/student-onboarding',

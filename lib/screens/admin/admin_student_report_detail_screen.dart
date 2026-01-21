@@ -59,6 +59,7 @@ class _AdminStudentReportDetailScreenState
   List<StudentTimesheet> _timesheets = [];
   TimesheetSortOption _sortOption = TimesheetSortOption.dateNewest;
   bool _isApproving = false;
+  String? _profilePhotoUrl;
 
   @override
   void initState() {
@@ -78,6 +79,19 @@ class _AdminStudentReportDetailScreenState
 
       if (reportDoc.exists) {
         _reportData = reportDoc.data() as Map<String, dynamic>;
+
+        // Load profile photo
+        final studentId = _reportData?['studentId'];
+        if (studentId != null) {
+          final profileDoc = await FirebaseFirestore.instance
+              .collection('student_profiles')
+              .doc(studentId)
+              .get();
+          if (profileDoc.exists) {
+            final profileData = profileDoc.data() as Map<String, dynamic>;
+            _profilePhotoUrl = profileData['photoUrl'] as String?;
+          }
+        }
 
         // Load associated timesheets
         final timesheetsQuery = await FirebaseFirestore.instance
@@ -236,17 +250,21 @@ class _AdminStudentReportDetailScreenState
         title: const Text('Update Payment Status'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          children: paymentStatusOptions.map((status) => RadioListTile<String>(
-            title: Text(_formatPaymentStatus(status)),
-            value: status,
-            groupValue: _reportData?['paymentStatus'] ?? 'not_paid',
-            onChanged: (value) {
-              if (value != null) {
-                Navigator.of(context).pop();
-                _updatePaymentStatus(value);
-              }
-            },
-          )).toList(),
+          children: paymentStatusOptions
+              .map(
+                (status) => RadioListTile<String>(
+                  title: Text(_formatPaymentStatus(status)),
+                  value: status,
+                  groupValue: _reportData?['paymentStatus'] ?? 'not_paid',
+                  onChanged: (value) {
+                    if (value != null) {
+                      Navigator.of(context).pop();
+                      _updatePaymentStatus(value);
+                    }
+                  },
+                ),
+              )
+              .toList(),
         ),
         actions: [
           TextButton(
@@ -335,9 +353,7 @@ class _AdminStudentReportDetailScreenState
     );
 
     // Show the PDF using the printing package
-    await Printing.layoutPdf(
-      onLayout: (format) async => pdfBytes,
-    );
+    await Printing.layoutPdf(onLayout: (format) async => pdfBytes);
   }
 
   @override
@@ -529,23 +545,25 @@ class _AdminStudentReportDetailScreenState
         children: [
           Row(
             children: [
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    studentName.isNotEmpty ? studentName[0].toUpperCase() : 'S',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 28,
-                    ),
-                  ),
-                ),
+              CircleAvatar(
+                radius: 30,
+                backgroundImage:
+                    (_profilePhotoUrl != null && _profilePhotoUrl!.isNotEmpty)
+                    ? NetworkImage(_profilePhotoUrl!)
+                    : null,
+                backgroundColor: Colors.white.withOpacity(0.2),
+                child: (_profilePhotoUrl == null || _profilePhotoUrl!.isEmpty)
+                    ? Text(
+                        studentName.isNotEmpty
+                            ? studentName[0].toUpperCase()
+                            : 'S',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 28,
+                        ),
+                      )
+                    : null,
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -765,6 +783,39 @@ class _AdminStudentReportDetailScreenState
               ],
             ),
             const Divider(height: 20),
+            if (timesheet.task.isNotEmpty) ...[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.task_alt, size: 16, color: Colors.grey[600]),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Task',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          timesheet.task,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(height: 20),
+            ],
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [

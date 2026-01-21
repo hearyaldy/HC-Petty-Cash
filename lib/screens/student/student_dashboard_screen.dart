@@ -324,6 +324,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
             onSelected: (value) {
               if (value == 'timesheets') {
                 context.go('/student-report');
+              } else if (value == 'profile') {
+                context.go('/student-profile');
               } else if (value == 'settings') {
                 context.go('/settings');
               } else if (value == 'logout') {
@@ -338,6 +340,16 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                     Icon(Icons.access_time, size: 20),
                     SizedBox(width: 12),
                     Text('My Timesheets'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'profile',
+                child: Row(
+                  children: [
+                    Icon(Icons.person, size: 20),
+                    SizedBox(width: 12),
+                    Text('My Profile'),
                   ],
                 ),
               ),
