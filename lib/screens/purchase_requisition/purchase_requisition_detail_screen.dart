@@ -9,6 +9,7 @@ import '../../services/purchase_requisition_pdf_export_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/edit_purchase_requisition_dialog.dart';
 import '../../widgets/purchase_requisition_item_dialog.dart';
+import '../../widgets/support_document_upload_dialog.dart';
 
 class PurchaseRequisitionDetailScreen extends StatefulWidget {
   final String requisitionId;
@@ -714,8 +715,8 @@ class _PurchaseRequisitionDetailScreenState
           ),
         ],
       ),
-      body: FutureBuilder<PurchaseRequisition?>(
-        future: _firestoreService.getPurchaseRequisition(widget.requisitionId),
+      body: StreamBuilder<PurchaseRequisition?>(
+        stream: _firestoreService.purchaseRequisitionStream(widget.requisitionId),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -749,6 +750,7 @@ class _PurchaseRequisitionDetailScreenState
               _buildSummarySection(requisition),
               _buildNoteSection(),
               _buildSignatureSection(requisition),
+              _buildSupportDocumentsSection(requisition),
               const SizedBox(height: 24),
             ],
           ),
@@ -1145,6 +1147,14 @@ class _PurchaseRequisitionDetailScreenState
                   textAlign: TextAlign.center,
                 ),
               ),
+              const SizedBox(
+                width: 50,
+                child: Text(
+                  'Docs',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  textAlign: TextAlign.center,
+                ),
+              ),
               if (requisition.status == 'draft') const SizedBox(width: 80),
             ],
           ),
@@ -1245,6 +1255,42 @@ class _PurchaseRequisitionDetailScreenState
                         color: Colors.grey.shade600,
                       ),
                       textAlign: TextAlign.center,
+                    ),
+                  ),
+                  // Support Documents Column
+                  SizedBox(
+                    width: 50,
+                    child: Center(
+                      child: InkWell(
+                        onTap: () => _showItemSupportDocumentDialog(item),
+                        borderRadius: BorderRadius.circular(4),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                item.supportDocumentUrls.isNotEmpty
+                                    ? Icons.attach_file
+                                    : Icons.add_circle_outline,
+                                size: 18,
+                                color: item.supportDocumentUrls.isNotEmpty
+                                    ? Colors.green.shade600
+                                    : Colors.grey.shade400,
+                              ),
+                              if (item.supportDocumentUrls.isNotEmpty)
+                                Text(
+                                  '${item.supportDocumentUrls.length}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green.shade600,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                   if (requisition.status == 'draft')
@@ -1487,6 +1533,287 @@ class _PurchaseRequisitionDetailScreenState
             style: TextStyle(
               fontSize: 13,
               color: value != null ? Colors.black : Colors.grey.shade500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Item Support Document Methods
+  void _showItemSupportDocumentDialog(PurchaseRequisitionItem item) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.attach_file, color: Colors.purple.shade600),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Item #${item.itemNo} Documents',
+                style: const TextStyle(fontSize: 18),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              item.description,
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (item.supportDocumentUrls.isNotEmpty) ...[
+              Text(
+                '${item.supportDocumentUrls.length} document(s) attached',
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _viewItemSupportDocuments(item);
+                    },
+                    icon: const Icon(Icons.visibility, size: 16),
+                    label: const Text('View'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _printItemSupportDocuments(item);
+                    },
+                    icon: const Icon(Icons.print, size: 16),
+                    label: const Text('Print'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _uploadItemSupportDocuments(item);
+                },
+                icon: const Icon(Icons.upload_file, size: 18),
+                label: Text(
+                  item.supportDocumentUrls.isEmpty
+                      ? 'Upload Documents'
+                      : 'Manage Documents',
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.purple.shade600,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _uploadItemSupportDocuments(PurchaseRequisitionItem item) {
+    showDialog(
+      context: context,
+      builder: (context) => SupportDocumentUploadDialog(
+        transactionId: item.id,
+        existingDocumentUrls: item.supportDocumentUrls,
+        onDocumentsUploaded: (urls) async {
+          try {
+            final updatedItem = item.copyWith(
+              supportDocumentUrls: urls,
+            );
+            await _firestoreService.updatePurchaseRequisitionItem(updatedItem);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Item documents updated successfully'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Error updating item documents: $e'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          }
+        },
+      ),
+    );
+  }
+
+  void _viewItemSupportDocuments(PurchaseRequisitionItem item) {
+    if (item.supportDocumentUrls.isEmpty) return;
+    showDialog(
+      context: context,
+      builder: (context) => SupportDocumentGallery(
+        documentUrls: item.supportDocumentUrls,
+        transactionReceiptNo: 'Item #${item.itemNo}',
+      ),
+    );
+  }
+
+  void _printItemSupportDocuments(PurchaseRequisitionItem item) {
+    if (item.supportDocumentUrls.isEmpty) return;
+    showDialog(
+      context: context,
+      builder: (context) => SupportDocumentSelectionDialog(
+        documentUrls: item.supportDocumentUrls,
+        transactionReceiptNo: 'Item #${item.itemNo}',
+        description: item.description,
+        amount: item.totalPrice,
+      ),
+    );
+  }
+
+  // Requisition Support Document Methods
+  void _showSupportDocumentUploadDialog(PurchaseRequisition requisition) {
+    showDialog(
+      context: context,
+      builder: (context) => SupportDocumentUploadDialog(
+        transactionId: requisition.id,
+        existingDocumentUrls: requisition.supportDocumentUrls,
+        onDocumentsUploaded: (urls) async {
+          try {
+            final updatedRequisition = requisition.copyWith(
+              supportDocumentUrls: urls,
+              updatedAt: DateTime.now(),
+            );
+            await _firestoreService.updatePurchaseRequisition(updatedRequisition);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Support documents updated successfully'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Error updating support documents: $e'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          }
+        },
+      ),
+    );
+  }
+
+  void _showSupportDocument(PurchaseRequisition requisition) {
+    if (requisition.supportDocumentUrls.isEmpty) return;
+    showDialog(
+      context: context,
+      builder: (context) => SupportDocumentGallery(
+        documentUrls: requisition.supportDocumentUrls,
+        transactionReceiptNo: requisition.requisitionNumber,
+      ),
+    );
+  }
+
+  Future<void> _printSupportDocument(PurchaseRequisition requisition) async {
+    if (requisition.supportDocumentUrls.isEmpty) return;
+    showDialog(
+      context: context,
+      builder: (context) => SupportDocumentSelectionDialog(
+        documentUrls: requisition.supportDocumentUrls,
+        transactionReceiptNo: requisition.requisitionNumber,
+        description: requisition.notes ?? '',
+        amount: requisition.totalAmount,
+      ),
+    );
+  }
+
+  Widget _buildSupportDocumentsSection(PurchaseRequisition requisition) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.attach_file, color: Colors.purple.shade600, size: 24),
+              const SizedBox(width: 8),
+              const Text(
+                'Support Documents',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const Divider(height: 24),
+          if (requisition.supportDocumentUrls.isNotEmpty) ...[
+            Text(
+              '${requisition.supportDocumentUrls.length} Document${requisition.supportDocumentUrls.length > 1 ? "s" : ""} Attached',
+              style: const TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => _showSupportDocument(requisition),
+                  icon: const Icon(Icons.visibility, size: 16),
+                  label: const Text('View Documents'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => _printSupportDocument(requisition),
+                  icon: const Icon(Icons.print, size: 16),
+                  label: const Text('Print Documents'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => _showSupportDocumentUploadDialog(requisition),
+              icon: const Icon(Icons.upload_file, size: 18),
+              label: const Text('Upload Support Documents'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.purple.shade600,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
             ),
           ),
         ],

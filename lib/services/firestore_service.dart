@@ -1312,6 +1312,19 @@ class FirestoreService {
         );
   }
 
+  /// Stream a single purchase requisition by ID
+  Stream<PurchaseRequisition?> purchaseRequisitionStream(String requisitionId) {
+    return _purchaseRequisitionsCollection
+        .doc(requisitionId)
+        .snapshots()
+        .map((doc) {
+      if (doc.exists) {
+        return PurchaseRequisition.fromFirestore(doc);
+      }
+      return null;
+    });
+  }
+
   /// Save a new purchase requisition
   Future<void> savePurchaseRequisition(PurchaseRequisition requisition) async {
     try {

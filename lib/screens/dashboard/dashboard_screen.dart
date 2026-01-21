@@ -10,6 +10,7 @@ import '../../providers/transaction_provider.dart';
 import '../../models/enums.dart';
 import '../../models/traveling_report.dart';
 import '../../models/income_report.dart';
+import '../../models/purchase_requisition.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
@@ -488,6 +489,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             SizedBox(height: ResponsiveHelper.getSpacing(context)),
             _buildQuickActions(context, authProvider),
             SizedBox(height: ResponsiveHelper.getSpacing(context)),
+            _buildPurchaseRequisitionSummary(context),
+            SizedBox(height: ResponsiveHelper.getSpacing(context)),
             _buildPettyCashReports(context, myReports),
             SizedBox(height: ResponsiveHelper.getSpacing(context)),
             _buildProjectReports(context),
@@ -583,6 +586,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
             SizedBox(height: ResponsiveHelper.getSpacing(context)),
+            _buildPurchaseRequisitionSummary(context),
+            SizedBox(height: ResponsiveHelper.getSpacing(context)),
             _buildPettyCashReports(context, myReports),
             SizedBox(height: ResponsiveHelper.getSpacing(context)),
             _buildProjectReports(context),
@@ -674,6 +679,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
             SizedBox(height: ResponsiveHelper.getSpacing(context)),
             _buildQuickActions(context, authProvider),
+            SizedBox(height: ResponsiveHelper.getSpacing(context)),
+            _buildPurchaseRequisitionSummary(context),
             SizedBox(height: ResponsiveHelper.getSpacing(context)),
             // Bottom section with reports in columns
             Row(
@@ -2254,6 +2261,270 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
       ],
     );
+  }
+
+  Widget _buildPurchaseRequisitionSummary(BuildContext context) {
+    final currencyFormat = NumberFormat('#,##0.00', 'en_US');
+    final dateFormat = DateFormat('MMM dd, yyyy');
+
+    return StreamBuilder<List<PurchaseRequisition>>(
+      stream: FirestoreService().purchaseRequisitionsStream(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final requisitions = snapshot.data ?? [];
+        final pendingRequisitions = requisitions
+            .where((r) => r.status == 'submitted')
+            .toList();
+
+        final totalAmount = requisitions.fold<double>(
+          0.0,
+          (total, r) => total + r.totalAmount,
+        );
+
+        // Sort by date (newest first)
+        final recentRequisitions = List<PurchaseRequisition>.from(requisitions)
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header with gradient
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.purple.shade50, Colors.purple.shade100],
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.purple,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.shopping_cart,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Purchase Requisitions',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.purple.shade900,
+                        ),
+                      ),
+                    ],
+                  ),
+                  TextButton.icon(
+                    onPressed: () => context.go('/purchase-requisitions'),
+                    icon: const Icon(Icons.arrow_forward),
+                    label: const Text('View All'),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Summary cards
+            Row(
+              children: [
+                Expanded(
+                  child: _buildPRSummaryCard(
+                    title: 'Total Requisitions',
+                    value: requisitions.length.toString(),
+                    icon: Icons.list_alt,
+                    color: Colors.purple,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildPRSummaryCard(
+                    title: 'Pending Approval',
+                    value: pendingRequisitions.length.toString(),
+                    icon: Icons.pending_actions,
+                    color: Colors.orange,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildPRSummaryCard(
+                    title: 'Total Amount',
+                    value: '฿${currencyFormat.format(totalAmount)}',
+                    icon: Icons.account_balance_wallet,
+                    color: Colors.green,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Recent requisitions list
+            if (recentRequisitions.isNotEmpty) ...[
+              Text(
+                'Recent Requisitions',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: recentRequisitions.take(5).length,
+                itemBuilder: (context, index) {
+                  final requisition = recentRequisitions[index];
+                  final statusColor = _getPRStatusColor(requisition.status);
+
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: Colors.purple.shade100,
+                        child: Icon(
+                          Icons.receipt,
+                          color: Colors.purple.shade700,
+                          size: 20,
+                        ),
+                      ),
+                      title: Text(
+                        requisition.requisitionNumber,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            requisition.requestedBy,
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 12,
+                            ),
+                          ),
+                          Text(
+                            dateFormat.format(requisition.requisitionDate),
+                            style: TextStyle(
+                              color: Colors.grey.shade500,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                      trailing: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '฿${currencyFormat.format(requisition.totalAmount)}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: statusColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              requisition.status.toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: statusColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      onTap: () => context.push(
+                        '/purchase-requisitions/${requisition.id}',
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildPRSummaryCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getPRStatusColor(String status) {
+    switch (status) {
+      case 'draft':
+        return Colors.grey;
+      case 'submitted':
+        return Colors.orange;
+      case 'approved':
+        return Colors.green;
+      case 'rejected':
+        return Colors.red;
+      case 'closed':
+        return Colors.blue;
+      default:
+        return Colors.grey;
+    }
   }
 
   Widget _buildPendingTravelingReports(

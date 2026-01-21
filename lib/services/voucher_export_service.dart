@@ -83,6 +83,15 @@ class VoucherExportService {
       AppLogger.warning('Failed to load custom fonts: $e');
     }
 
+    // Load logo
+    pw.ImageProvider? logoImage;
+    try {
+      final logoData = await rootBundle.load('assets/images/hope_channel_logo.png');
+      logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
+    } catch (e) {
+      // Logo loading failed, will use fallback
+    }
+
     // Get user information
     final requestor = await FirestoreService().getUser(transaction.requestorId);
 
@@ -99,7 +108,7 @@ class VoucherExportService {
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
             // Header with organization details
-            _buildHeader(ttf, ttfBold),
+            _buildHeader(ttf, ttfBold, logoImage),
             pw.SizedBox(height: 10),
 
             // Voucher Title
@@ -142,9 +151,19 @@ class VoucherExportService {
     return pdf;
   }
 
-  pw.Widget _buildHeader(pw.Font? font, pw.Font? fontBold) {
+  pw.Widget _buildHeader(pw.Font? font, pw.Font? fontBold, pw.ImageProvider? logoImage) {
     return pw.Column(
       children: [
+        // Logo
+        if (logoImage != null)
+          pw.Center(
+            child: pw.Container(
+              width: 40,
+              height: 40,
+              child: pw.Image(logoImage, fit: pw.BoxFit.contain),
+            ),
+          ),
+        if (logoImage != null) pw.SizedBox(height: 4),
         pw.Center(
           child: pw.Text(
             AppConstants.organizationName,

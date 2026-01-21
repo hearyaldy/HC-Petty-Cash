@@ -10,6 +10,7 @@ class PurchaseRequisitionItem {
   final double unitPrice;
   final String? remark;
   final DateTime createdAt;
+  final List<String> supportDocumentUrls;
 
   PurchaseRequisitionItem({
     required this.id,
@@ -20,7 +21,8 @@ class PurchaseRequisitionItem {
     required this.unitPrice,
     this.remark,
     required this.createdAt,
-  });
+    List<String>? supportDocumentUrls,
+  }) : supportDocumentUrls = supportDocumentUrls ?? [];
 
   double get totalPrice => quantity * unitPrice;
 
@@ -34,6 +36,7 @@ class PurchaseRequisitionItem {
       'unitPrice': unitPrice,
       'remark': remark,
       'createdAt': Timestamp.fromDate(createdAt),
+      'supportDocumentUrls': supportDocumentUrls,
     };
   }
 
@@ -48,6 +51,7 @@ class PurchaseRequisitionItem {
       unitPrice: (data['unitPrice'] ?? 0.0).toDouble(),
       remark: data['remark'],
       createdAt: (data['createdAt'] as Timestamp).toDate(),
+      supportDocumentUrls: List<String>.from(data['supportDocumentUrls'] ?? []),
     );
   }
 
@@ -63,6 +67,7 @@ class PurchaseRequisitionItem {
       createdAt: data['createdAt'] is Timestamp
           ? (data['createdAt'] as Timestamp).toDate()
           : DateTime.parse(data['createdAt'] ?? DateTime.now().toIso8601String()),
+      supportDocumentUrls: List<String>.from(data['supportDocumentUrls'] ?? []),
     );
   }
 
@@ -77,6 +82,7 @@ class PurchaseRequisitionItem {
     double? unitPrice,
     String? remark,
     DateTime? createdAt,
+    List<String>? supportDocumentUrls,
   }) {
     return PurchaseRequisitionItem(
       id: id ?? this.id,
@@ -87,6 +93,7 @@ class PurchaseRequisitionItem {
       unitPrice: unitPrice ?? this.unitPrice,
       remark: remark ?? this.remark,
       createdAt: createdAt ?? this.createdAt,
+      supportDocumentUrls: supportDocumentUrls ?? this.supportDocumentUrls,
     );
   }
 }

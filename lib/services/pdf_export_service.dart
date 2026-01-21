@@ -16,6 +16,15 @@ class PdfExportService {
     final dateFormat = DateFormat('MMM dd, yyyy');
     final currencyFormat = NumberFormat.currency(symbol: '\$');
 
+    // Load logo
+    pw.ImageProvider? logoImage;
+    try {
+      final logoData = await rootBundle.load('assets/images/hope_channel_logo.png');
+      logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
+    } catch (e) {
+      // Logo loading failed, will use fallback
+    }
+
     // Get transactions
     final transactions = await FirestoreService().getTransactionsByReportId(
       report.id,
@@ -25,7 +34,7 @@ class PdfExportService {
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(32),
-        header: (context) => _buildHeader(report),
+        header: (context) => _buildHeader(report, logoImage),
         footer: (context) => _buildFooter(context, report),
         build: (context) => [
           _buildInfoSection(report, dateFormat),
@@ -213,37 +222,44 @@ class PdfExportService {
     );
   }
 
-  pw.Widget _buildHeader(PettyCashReport report) {
+  pw.Widget _buildHeader(PettyCashReport report, pw.ImageProvider? logoImage) {
     return pw.Column(
       children: [
         pw.Row(
           mainAxisAlignment: pw.MainAxisAlignment.center,
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            // Add logo if it exists - simplified approach for PDF
-            pw.Container(
-              width: 40,
-              height: 40,
-              child: pw.Padding(
-                padding: pw.EdgeInsets.all(5),
-                child: pw.DecoratedBox(
-                  decoration: pw.BoxDecoration(
-                    color: PdfColors.grey300,
-                    borderRadius: pw.BorderRadius.circular(5),
-                  ),
-                  child: pw.Center(
-                    child: pw.Text(
-                      "H",
-                      style: pw.TextStyle(
-                        fontSize: 20,
-                        fontWeight: pw.FontWeight.bold,
-                        color: PdfColors.grey700,
+            // Add logo
+            if (logoImage != null)
+              pw.Container(
+                width: 40,
+                height: 40,
+                child: pw.Image(logoImage, fit: pw.BoxFit.contain),
+              )
+            else
+              pw.Container(
+                width: 40,
+                height: 40,
+                child: pw.Padding(
+                  padding: pw.EdgeInsets.all(5),
+                  child: pw.DecoratedBox(
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.grey300,
+                      borderRadius: pw.BorderRadius.circular(5),
+                    ),
+                    child: pw.Center(
+                      child: pw.Text(
+                        "H",
+                        style: pw.TextStyle(
+                          fontSize: 20,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.grey700,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
             pw.SizedBox(width: 10),
             // Organization name and address
             pw.Expanded(
@@ -396,8 +412,8 @@ class PdfExportService {
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
         children: [
-          _buildSignatureBox('Received By:', 'Name'),
-          _buildSignatureBox('Paid By:', ''),
+          _buildSignatureBox('Requested By:', '(Pr. Heary Healdy Sairin)'),
+          _buildSignatureBox('Approved By:', ''),
           _buildApprovedByBox(),
         ],
       ),
@@ -439,7 +455,7 @@ class PdfExportService {
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           pw.Text(
-            'Approved By:',
+            'Action No:',
             style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
           ),
           pw.SizedBox(height: 30),

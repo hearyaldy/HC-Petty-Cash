@@ -976,6 +976,15 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
     );
     final boldTtf = pw.Font.ttf(boldFontData);
 
+    // Load logo
+    pw.ImageProvider? logoImage;
+    try {
+      final logoData = await rootBundle.load('assets/images/hope_channel_logo.png');
+      logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
+    } catch (e) {
+      // Logo loading failed, will use fallback
+    }
+
     // Define constants for pagination
     const maxRowsPerPage = 25; // Adjust based on content height
     final transactionChunks = <List<Transaction>>[];
@@ -1013,30 +1022,37 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
                     mainAxisAlignment: pw.MainAxisAlignment.start,
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      // Add logo if it exists - simplified approach for PDF
-                      pw.Container(
-                        width: 40,
-                        height: 40,
-                        child: pw.Padding(
-                          padding: pw.EdgeInsets.all(5),
-                          child: pw.DecoratedBox(
-                            decoration: pw.BoxDecoration(
-                              color: PdfColors.grey300,
-                              borderRadius: pw.BorderRadius.circular(5),
-                            ),
-                            child: pw.Center(
-                              child: pw.Text(
-                                "H",
-                                style: pw.TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: pw.FontWeight.bold,
-                                  color: PdfColors.grey700,
+                      // Add logo
+                      if (logoImage != null)
+                        pw.Container(
+                          width: 40,
+                          height: 40,
+                          child: pw.Image(logoImage, fit: pw.BoxFit.contain),
+                        )
+                      else
+                        pw.Container(
+                          width: 40,
+                          height: 40,
+                          child: pw.Padding(
+                            padding: pw.EdgeInsets.all(5),
+                            child: pw.DecoratedBox(
+                              decoration: pw.BoxDecoration(
+                                color: PdfColors.grey300,
+                                borderRadius: pw.BorderRadius.circular(5),
+                              ),
+                              child: pw.Center(
+                                child: pw.Text(
+                                  "H",
+                                  style: pw.TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: pw.FontWeight.bold,
+                                    color: PdfColors.grey700,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                      ),
                       pw.SizedBox(width: 10),
                       // Organization name and address
                       pw.Expanded(

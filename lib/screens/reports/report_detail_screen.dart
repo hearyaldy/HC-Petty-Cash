@@ -2267,6 +2267,17 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     );
     final boldTtf = pw.Font.ttf(boldFontData);
 
+    // Load logo
+    pw.ImageProvider? logoImage;
+    try {
+      final logoData = await rootBundle.load(
+        'assets/images/hope_channel_logo.png',
+      );
+      logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
+    } catch (e) {
+      // Logo loading failed, will use fallback
+    }
+
     // Define constants for pagination
     const maxRowsSinglePage = 18; // Leave room for summary/signature
     final needsSummaryPage = transactions.length > maxRowsSinglePage;
@@ -2367,7 +2378,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Text(
-                      'Received By:',
+                      'Requested By:',
                       style: pw.TextStyle(font: boldTtf, fontSize: 10),
                     ),
                     pw.SizedBox(height: 30),
@@ -2381,7 +2392,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     ),
                     pw.SizedBox(height: 4),
                     pw.Text(
-                      'Name',
+                      'Name: Pr. Heary Healdy Sairin',
                       style: pw.TextStyle(
                         font: ttf,
                         fontSize: 9,
@@ -2397,7 +2408,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Text(
-                      'Paid By:',
+                      'Approved By:',
                       style: pw.TextStyle(font: boldTtf, fontSize: 10),
                     ),
                     pw.SizedBox(height: 30),
@@ -2418,7 +2429,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Text(
-                      'Approved By:',
+                      'Action No:',
                       style: pw.TextStyle(font: boldTtf, fontSize: 10),
                     ),
                     pw.SizedBox(height: 30),
@@ -2484,30 +2495,37 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             mainAxisAlignment: pw.MainAxisAlignment.start,
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              // Add logo if it exists - simplified approach for PDF
-              pw.Container(
-                width: 40,
-                height: 40,
-                child: pw.Padding(
-                  padding: pw.EdgeInsets.all(5),
-                  child: pw.DecoratedBox(
-                    decoration: pw.BoxDecoration(
-                      color: PdfColors.grey300,
-                      borderRadius: pw.BorderRadius.circular(5),
-                    ),
-                    child: pw.Center(
-                      child: pw.Text(
-                        "H",
-                        style: pw.TextStyle(
-                          fontSize: 20,
-                          fontWeight: pw.FontWeight.bold,
-                          color: PdfColors.grey700,
+              // Add logo
+              if (logoImage != null)
+                pw.Container(
+                  width: 40,
+                  height: 40,
+                  child: pw.Image(logoImage, fit: pw.BoxFit.contain),
+                )
+              else
+                pw.Container(
+                  width: 40,
+                  height: 40,
+                  child: pw.Padding(
+                    padding: pw.EdgeInsets.all(5),
+                    child: pw.DecoratedBox(
+                      decoration: pw.BoxDecoration(
+                        color: PdfColors.grey300,
+                        borderRadius: pw.BorderRadius.circular(5),
+                      ),
+                      child: pw.Center(
+                        child: pw.Text(
+                          "H",
+                          style: pw.TextStyle(
+                            fontSize: 20,
+                            fontWeight: pw.FontWeight.bold,
+                            color: PdfColors.grey700,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
               pw.SizedBox(width: 10),
               // Organization name and address
               pw.Expanded(

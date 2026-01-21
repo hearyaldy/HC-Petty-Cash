@@ -7,6 +7,7 @@ import '../../models/purchase_requisition.dart';
 import '../../services/firestore_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/edit_purchase_requisition_dialog.dart';
+import '../../utils/responsive_helper.dart';
 
 class _StatData {
   final String title;
@@ -439,8 +440,16 @@ class _PurchaseRequisitionsScreenState
         ],
       ),
       backgroundColor: Colors.grey[50],
-      body: SingleChildScrollView(
-        child: _buildDesktopLayout(context, isAdmin), // Using desktop layout for all screen sizes for simplicity
+      body: ResponsiveBuilder(
+        mobile: SingleChildScrollView(
+          child: _buildMobileLayout(context, isAdmin),
+        ),
+        tablet: SingleChildScrollView(
+          child: _buildTabletLayout(context, isAdmin),
+        ),
+        desktop: SingleChildScrollView(
+          child: _buildDesktopLayout(context, isAdmin),
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _createNewRequisition,
@@ -452,9 +461,27 @@ class _PurchaseRequisitionsScreenState
     );
   }
 
-  // Removed the mobile and tablet layouts since we're using a single layout for all screen sizes
+  Widget _buildMobileLayout(BuildContext context, bool isAdmin) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildWelcomeHeaderMobile(context),
+          const SizedBox(height: 12),
+          _buildStatCardsMobile(context),
+          const SizedBox(height: 12),
+          _buildSummaryBar(),
+          const SizedBox(height: 12),
+          _buildFilterBar(),
+          const SizedBox(height: 12),
+          _buildRequisitionListMobile(context, isAdmin),
+        ],
+      ),
+    );
+  }
 
-  Widget _buildDesktopLayout(BuildContext context, bool isAdmin) {
+  Widget _buildTabletLayout(BuildContext context, bool isAdmin) {
     return Container(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -462,26 +489,50 @@ class _PurchaseRequisitionsScreenState
         children: [
           _buildWelcomeHeader(context),
           const SizedBox(height: 16),
-          // Top section with stats and summary
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 3,
-                child: _buildStatCards(context),
-              ),
-              const SizedBox(width: 24),
-              Expanded(
-                flex: 1,
-                child: _buildSummaryBar(),
-              ),
-            ],
-          ),
+          // Stats in a row
+          _buildStatCards(context),
+          const SizedBox(height: 16),
+          _buildSummaryBar(),
           const SizedBox(height: 16),
           _buildFilterBar(),
           const SizedBox(height: 16),
           _buildRequisitionList(context, isAdmin),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDesktopLayout(BuildContext context, bool isAdmin) {
+    return Center(
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 1400),
+        padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildWelcomeHeader(context),
+            const SizedBox(height: 24),
+            // Top section with stats and summary
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: _buildStatCards(context),
+                ),
+                const SizedBox(width: 24),
+                Expanded(
+                  flex: 1,
+                  child: _buildSummaryBar(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            _buildFilterBar(),
+            const SizedBox(height: 24),
+            _buildRequisitionList(context, isAdmin),
+          ],
+        ),
       ),
     );
   }
@@ -498,7 +549,7 @@ class _PurchaseRequisitionsScreenState
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.purple.withOpacity(0.3),
+            color: Colors.purple.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -514,13 +565,13 @@ class _PurchaseRequisitionsScreenState
                   'Purchase Requisitions',
                   style: TextStyle(
                     fontSize: 16,
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
+                const Text(
                   'Manage your purchase requests',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
@@ -531,7 +582,7 @@ class _PurchaseRequisitionsScreenState
                   'Track, approve, and manage purchase requisitions',
                   style: TextStyle(
                     fontSize: 14,
-                    color: Colors.white.withOpacity(0.8),
+                    color: Colors.white.withValues(alpha: 0.8),
                   ),
                 ),
               ],
@@ -540,13 +591,329 @@ class _PurchaseRequisitionsScreenState
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.shopping_cart, size: 48, color: Colors.white),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildWelcomeHeaderMobile(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.purple.shade600, Colors.purple.shade400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.shopping_cart, size: 28, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Purchase Requisitions',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Text(
+                      'Manage your purchase requests',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withValues(alpha: 0.8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCardsMobile(BuildContext context) {
+    return StreamBuilder<List<PurchaseRequisition>>(
+      stream: _firestoreService.purchaseRequisitionsStream(),
+      builder: (context, snapshot) {
+        final requisitions = snapshot.data ?? [];
+
+        final draftCount = requisitions.where((r) => r.status == 'draft').length;
+        final pendingCount = requisitions.where((r) => r.status == 'submitted').length;
+        final approvedCount = requisitions.where((r) => r.status == 'approved').length;
+
+        return Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _buildMiniStatCard(
+                    'Total',
+                    requisitions.length.toString(),
+                    Icons.shopping_cart,
+                    Colors.purple,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildMiniStatCard(
+                    'Draft',
+                    draftCount.toString(),
+                    Icons.edit_document,
+                    Colors.orange,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildMiniStatCard(
+                    'Pending',
+                    pendingCount.toString(),
+                    Icons.pending_actions,
+                    Colors.blue,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildMiniStatCard(
+                    'Approved',
+                    approvedCount.toString(),
+                    Icons.check_circle,
+                    Colors.green,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildMiniStatCard(String title, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRequisitionListMobile(BuildContext context, bool isAdmin) {
+    final currencyFormat = NumberFormat('#,##0.00', 'en_US');
+    final dateFormat = DateFormat('MMM dd, yyyy');
+
+    return StreamBuilder<List<PurchaseRequisition>>(
+      stream: _firestoreService.purchaseRequisitionsStream(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        var requisitions = snapshot.data ?? [];
+
+        // Apply status filter
+        if (_selectedStatus != null && _selectedStatus != 'all') {
+          requisitions = requisitions
+              .where((r) => r.status == _selectedStatus)
+              .toList();
+        }
+
+        // Sort by date (newest first)
+        requisitions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+        if (requisitions.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.shopping_cart_outlined,
+                    size: 64,
+                    color: Colors.grey.shade300,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No requisitions found',
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: requisitions.length,
+          itemBuilder: (context, index) {
+            final requisition = requisitions[index];
+            final statusColor = _getStatusColor(requisition.status);
+
+            return Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: InkWell(
+                onTap: () => context.push('/purchase-requisitions/${requisition.id}'),
+                borderRadius: BorderRadius.circular(10),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              requisition.requisitionNumber,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: statusColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              requisition.status.toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: statusColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(Icons.person, size: 14, color: Colors.grey.shade500),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              requisition.requestedBy,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            dateFormat.format(requisition.requisitionDate),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
+                          Text(
+                            '฿${currencyFormat.format(requisition.totalAmount)}',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: Colors.purple.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -559,10 +926,6 @@ class _PurchaseRequisitionsScreenState
         final draftCount = requisitions.where((r) => r.status == 'draft').length;
         final pendingCount = requisitions.where((r) => r.status == 'submitted').length;
         final approvedCount = requisitions.where((r) => r.status == 'approved').length;
-        final totalAmount = requisitions.fold<double>(
-          0.0,
-          (sum, r) => sum + r.totalAmount,
-        );
 
         final stats = [
           _StatData(
@@ -627,7 +990,7 @@ class _PurchaseRequisitionsScreenState
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -643,7 +1006,7 @@ class _PurchaseRequisitionsScreenState
               height: 100,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: stat.gradient.map((c) => c.withOpacity(0.1)).toList(),
+                  colors: stat.gradient.map((c) => c.withValues(alpha: 0.1)).toList(),
                 ),
                 shape: BoxShape.circle,
               ),
@@ -782,7 +1145,7 @@ class _PurchaseRequisitionsScreenState
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -878,7 +1241,7 @@ class _PurchaseRequisitionsScreenState
       padding: const EdgeInsets.all(12),
       margin: const EdgeInsets.only(right: 8, bottom: 8),
       decoration: BoxDecoration(
-        color: iconColor.withOpacity(0.1),
+        color: iconColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(

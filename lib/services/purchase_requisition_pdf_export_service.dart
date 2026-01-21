@@ -11,6 +11,7 @@ import '../utils/logger.dart';
 class PurchaseRequisitionPdfExportService {
   pw.Font? _ttf;
   pw.Font? _ttfBold;
+  pw.ImageProvider? _logoImage;
 
   Future<void> _loadFonts() async {
     if (_ttf != null && _ttfBold != null) return;
@@ -26,6 +27,14 @@ class PurchaseRequisitionPdfExportService {
       _ttfBold = pw.Font.ttf(fontBoldData);
     } catch (e) {
       AppLogger.warning('Failed to load custom fonts: $e');
+    }
+
+    // Load logo
+    try {
+      final logoData = await rootBundle.load('assets/images/hope_channel_logo.png');
+      _logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
+    } catch (e) {
+      // Logo loading failed, will use fallback
     }
   }
 
@@ -88,30 +97,37 @@ class PurchaseRequisitionPdfExportService {
           mainAxisAlignment: pw.MainAxisAlignment.center,
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            // Add logo if it exists - simplified approach for PDF
-            pw.Container(
-              width: 40,
-              height: 40,
-              child: pw.Padding(
-                padding: pw.EdgeInsets.all(5),
-                child: pw.DecoratedBox(
-                  decoration: pw.BoxDecoration(
-                    color: PdfColors.grey300,
-                    borderRadius: pw.BorderRadius.circular(5),
-                  ),
-                  child: pw.Center(
-                    child: pw.Text(
-                      "H",
-                      style: pw.TextStyle(
-                        fontSize: 20,
-                        fontWeight: pw.FontWeight.bold,
-                        color: PdfColors.grey700,
+            // Add logo
+            if (_logoImage != null)
+              pw.Container(
+                width: 40,
+                height: 40,
+                child: pw.Image(_logoImage!, fit: pw.BoxFit.contain),
+              )
+            else
+              pw.Container(
+                width: 40,
+                height: 40,
+                child: pw.Padding(
+                  padding: pw.EdgeInsets.all(5),
+                  child: pw.DecoratedBox(
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.grey300,
+                      borderRadius: pw.BorderRadius.circular(5),
+                    ),
+                    child: pw.Center(
+                      child: pw.Text(
+                        "H",
+                        style: pw.TextStyle(
+                          fontSize: 20,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.grey700,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
             pw.SizedBox(width: 10),
             // Organization name and address
             pw.Expanded(
