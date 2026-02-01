@@ -110,17 +110,33 @@ class TravelingReport {
 
   factory TravelingReport.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+
+    // Helper function to safely parse Timestamp
+    DateTime parseTimestamp(dynamic value, DateTime fallback) {
+      if (value == null) return fallback;
+      if (value is Timestamp) return value.toDate();
+      return fallback;
+    }
+
+    DateTime? parseTimestampOptional(dynamic value) {
+      if (value == null) return null;
+      if (value is Timestamp) return value.toDate();
+      return null;
+    }
+
+    final now = DateTime.now();
+
     return TravelingReport(
       id: data['id'] ?? doc.id,
       reportNumber: data['reportNumber'] ?? '',
       reporterId: data['reporterId'] ?? '',
       reporterName: data['reporterName'] ?? '',
       department: data['department'] ?? '',
-      reportDate: (data['reportDate'] as Timestamp).toDate(),
+      reportDate: parseTimestamp(data['reportDate'], now),
       purpose: data['purpose'] ?? '',
       placeName: data['placeName'] ?? '',
-      departureTime: (data['departureTime'] as Timestamp).toDate(),
-      destinationTime: (data['destinationTime'] as Timestamp).toDate(),
+      departureTime: parseTimestamp(data['departureTime'], now),
+      destinationTime: parseTimestamp(data['destinationTime'], now),
       totalMembers: data['totalMembers'] ?? 1,
       travelLocation: data['travelLocation'] ?? 'local',
       mileageStart: (data['mileageStart'] ?? 0.0).toDouble(),
@@ -128,22 +144,16 @@ class TravelingReport {
       perDiemTotal: (data['perDiemTotal'] ?? 0.0).toDouble(),
       perDiemDays: data['perDiemDays'] ?? 0,
       status: data['status'] ?? 'draft',
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      submittedAt: data['submittedAt'] != null
-          ? (data['submittedAt'] as Timestamp).toDate()
-          : null,
+      createdAt: parseTimestamp(data['createdAt'], now),
+      submittedAt: parseTimestampOptional(data['submittedAt']),
       submittedBy: data['submittedBy'],
-      approvedAt: data['approvedAt'] != null
-          ? (data['approvedAt'] as Timestamp).toDate()
-          : null,
+      approvedAt: parseTimestampOptional(data['approvedAt']),
       approvedBy: data['approvedBy'],
       rejectionReason: data['rejectionReason'],
       notes: data['notes'],
       supportDocumentUrls:
           (data['supportDocumentUrls'] as List<dynamic>?)?.cast<String>() ?? [],
-      updatedAt: data['updatedAt'] != null
-          ? (data['updatedAt'] as Timestamp).toDate()
-          : null,
+      updatedAt: parseTimestampOptional(data['updatedAt']),
     );
   }
 

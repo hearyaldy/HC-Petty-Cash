@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/report_provider.dart';
 import '../../utils/constants.dart';
+import '../../utils/responsive_helper.dart';
 
 class NewReportScreen extends StatefulWidget {
   const NewReportScreen({super.key});
@@ -52,16 +53,13 @@ class _NewReportScreenState extends State<NewReportScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 800),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
+      body: ResponsiveContainer(
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
@@ -224,8 +222,7 @@ class _NewReportScreenState extends State<NewReportScreen> {
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 
   Widget _buildDateField(

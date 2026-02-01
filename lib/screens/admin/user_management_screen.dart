@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 import '../../models/user.dart';
 import '../../models/enums.dart';
 import '../../models/student_timesheet.dart';
 import '../../services/firestore_service.dart';
+import '../../providers/auth_provider.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
 import '../../utils/student_rate_config.dart';
@@ -30,12 +32,19 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   Future<void> _loadUsers() async {
     setState(() => _isLoading = true);
     try {
+      debugPrint('UserManagement: Starting to load users...');
       final users = await _firestoreService.getAllUsers();
+      debugPrint('UserManagement: Loaded ${users.length} users');
+      for (final user in users) {
+        debugPrint('  - User: ${user.name} (${user.email}), role: ${user.role}');
+      }
       setState(() {
         _users = users;
         _isLoading = false;
       });
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('UserManagement: Error loading users: $e');
+      debugPrint('Stack trace: $stackTrace');
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(
@@ -60,6 +69,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadUsers,
+            tooltip: 'Refresh',
+          ),
           IconButton(
             icon: const Icon(Icons.home_outlined),
             onPressed: () => context.go('/dashboard'),
@@ -217,24 +231,40 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
   Widget _buildUserList() {
     // Group users by role
+    final knownRoles = ['admin', 'manager', 'finance', 'requester', 'studentWorker'];
     final admins = _users.where((u) => u.role == 'admin').toList();
-    final approvers = _users.where((u) => u.role == 'approver').toList();
-    final requestors = _users.where((u) => u.role == 'requestor').toList();
+    final managers = _users.where((u) => u.role == 'manager').toList();
+    final finance = _users.where((u) => u.role == 'finance').toList();
+    final requesters = _users.where((u) => u.role == 'requester').toList();
     final students = _users.where((u) => u.role == 'studentWorker').toList();
+    // Catch users with unknown/old role values
+    final others = _users.where((u) => !knownRoles.contains(u.role)).toList();
 
     return ListView(
       children: [
+        // Debug info - total users loaded
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            'Total users: ${_users.length}',
+            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+          ),
+        ),
         if (admins.isNotEmpty) ...[
           _buildSectionHeader('Admins', Icons.admin_panel_settings, Colors.purple, admins.length),
           ...admins.map((user) => _buildUserCard(user)),
         ],
-        if (approvers.isNotEmpty) ...[
-          _buildSectionHeader('Approvers', Icons.verified_user, Colors.blue, approvers.length),
-          ...approvers.map((user) => _buildUserCard(user)),
+        if (managers.isNotEmpty) ...[
+          _buildSectionHeader('Managers', Icons.verified_user, Colors.blue, managers.length),
+          ...managers.map((user) => _buildUserCard(user)),
         ],
-        if (requestors.isNotEmpty) ...[
-          _buildSectionHeader('Requestors', Icons.person, Colors.green, requestors.length),
-          ...requestors.map((user) => _buildUserCard(user)),
+        if (finance.isNotEmpty) ...[
+          _buildSectionHeader('Finance', Icons.account_balance, Colors.teal, finance.length),
+          ...finance.map((user) => _buildUserCard(user)),
+        ],
+        if (requesters.isNotEmpty) ...[
+          _buildSectionHeader('Requesters', Icons.person, Colors.green, requesters.length),
+          ...requesters.map((user) => _buildUserCard(user)),
         ],
         if (students.isNotEmpty) ...[
           _buildSectionHeader('Student Workers', Icons.school, Colors.orange, students.length),
@@ -251,6 +281,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               return _buildStudentCard(user, profile);
             },
           )),
+        ],
+        // Show users with unknown roles (for debugging)
+        if (others.isNotEmpty) ...[
+          _buildSectionHeader('Other (Unknown Role)', Icons.help_outline, Colors.grey, others.length),
+          ...others.map((user) => _buildUserCard(user)),
         ],
       ],
     );
@@ -807,9 +842,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     switch (role) {
       case 'admin':
         return [Colors.purple.shade400, Colors.purple.shade600];
-      case 'approver':
+      case 'manager':
         return [Colors.blue.shade400, Colors.blue.shade600];
-      case 'requestor':
+      case 'finance':
+        return [Colors.teal.shade400, Colors.teal.shade600];
+      case 'requester':
         return [Colors.green.shade400, Colors.green.shade600];
       case 'studentWorker':
         return [Colors.orange.shade400, Colors.orange.shade600];
@@ -822,9 +859,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     switch (role) {
       case 'admin':
         return Colors.purple;
-      case 'approver':
+      case 'manager':
         return Colors.blue;
-      case 'requestor':
+      case 'finance':
+        return Colors.teal;
+      case 'requester':
         return Colors.green;
       case 'studentWorker':
         return Colors.orange;
@@ -848,18 +887,51 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     }
   }
 
+  // Normalize old role values to new enum values
+  String _normalizeRole(String role) {
+    switch (role) {
+      case 'requestor':
+        return 'requester';
+      case 'approver':
+        return 'manager'; // Map old 'approver' to 'manager'
+      default:
+        // Check if it's a valid role, otherwise default to requester
+        final validRoles = ['requester', 'manager', 'finance', 'admin', 'studentWorker'];
+        return validRoles.contains(role) ? role : 'requester';
+    }
+  }
+
   void _showAddUserDialog() {
     final nameController = TextEditingController();
     final emailController = TextEditingController();
+    final passwordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
     final departmentController = TextEditingController();
-    String selectedRole = 'requestor';
+    String selectedRole = 'requester';
     final formKey = GlobalKey<FormState>();
+    bool obscurePassword = true;
+    bool obscureConfirmPassword = true;
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          title: const Text('Add New User'),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.purple.shade400, Colors.purple.shade600],
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.person_add, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 12),
+              const Text('Add New User'),
+            ],
+          ),
           content: Form(
             key: formKey,
             child: SingleChildScrollView(
@@ -901,6 +973,52 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
+                    controller: passwordController,
+                    obscureText: obscurePassword,
+                    decoration: InputDecoration(
+                      labelText: 'Password',
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.lock),
+                      suffixIcon: IconButton(
+                        icon: Icon(obscurePassword ? Icons.visibility : Icons.visibility_off),
+                        onPressed: () => setState(() => obscurePassword = !obscurePassword),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter a password';
+                      }
+                      if (value.length < 6) {
+                        return 'Password must be at least 6 characters';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: confirmPasswordController,
+                    obscureText: obscureConfirmPassword,
+                    decoration: InputDecoration(
+                      labelText: 'Confirm Password',
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      suffixIcon: IconButton(
+                        icon: Icon(obscureConfirmPassword ? Icons.visibility : Icons.visibility_off),
+                        onPressed: () => setState(() => obscureConfirmPassword = !obscureConfirmPassword),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please confirm password';
+                      }
+                      if (value != passwordController.text) {
+                        return 'Passwords do not match';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
                     controller: departmentController,
                     decoration: const InputDecoration(
                       labelText: 'Department',
@@ -924,12 +1042,16 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     ),
                     items: const [
                       DropdownMenuItem(
-                        value: 'requestor',
-                        child: Text('Requestor'),
+                        value: 'requester',
+                        child: Text('Requester'),
                       ),
                       DropdownMenuItem(
-                        value: 'approver',
-                        child: Text('Approver'),
+                        value: 'manager',
+                        child: Text('Manager'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'finance',
+                        child: Text('Finance'),
                       ),
                       DropdownMenuItem(value: 'admin', child: Text('Admin')),
                       DropdownMenuItem(
@@ -942,6 +1064,27 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                         selectedRole = value!;
                       });
                     },
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.amber.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Colors.amber.shade700, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'You will need to re-enter your password after creating this user.',
+                            style: TextStyle(fontSize: 12, color: Colors.amber.shade800),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -959,11 +1102,16 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   await _addUser(
                     nameController.text.trim(),
                     emailController.text.trim(),
+                    passwordController.text,
                     departmentController.text.trim(),
                     selectedRole,
                   );
                 }
               },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.purple.shade600,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Add User'),
             ),
           ],
@@ -976,7 +1124,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     final nameController = TextEditingController(text: user.name);
     final emailController = TextEditingController(text: user.email);
     final departmentController = TextEditingController(text: user.department);
-    String selectedRole = user.role;
+    // Normalize old role values to new ones
+    String selectedRole = _normalizeRole(user.role);
     final formKey = GlobalKey<FormState>();
 
     showDialog(
@@ -1048,12 +1197,16 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     ),
                     items: const [
                       DropdownMenuItem(
-                        value: 'requestor',
-                        child: Text('Requestor'),
+                        value: 'requester',
+                        child: Text('Requester'),
                       ),
                       DropdownMenuItem(
-                        value: 'approver',
-                        child: Text('Approver'),
+                        value: 'manager',
+                        child: Text('Manager'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'finance',
+                        child: Text('Finance'),
                       ),
                       DropdownMenuItem(value: 'admin', child: Text('Admin')),
                       DropdownMenuItem(
@@ -1127,38 +1280,269 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   Future<void> _addUser(
     String name,
     String email,
+    String password,
     String department,
     String role,
   ) async {
-    try {
-      final user = User(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        name: name,
-        email: email,
-        department: department,
-        role: role,
-        createdAt: DateTime.now(),
+    // Get current admin email before creating new user
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final adminEmail = authProvider.currentUser?.email;
+
+    // Store references before async operations
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    if (adminEmail == null) {
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(
+          content: Text('Error: Admin not logged in'),
+          backgroundColor: Colors.red,
+        ),
       );
-      await _firestoreService.saveUser(user);
-      await _loadUsers();
+      return;
+    }
+
+    // Track if loading dialog is showing
+    bool isDialogShowing = false;
+
+    void closeLoadingDialog() {
+      if (isDialogShowing && mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        isDialogShowing = false;
+      }
+    }
+
+    try {
+      // Show loading indicator
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('User added successfully'),
-            backgroundColor: Colors.green,
+        isDialogShowing = true;
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => PopScope(
+            canPop: false,
+            child: const Center(
+              child: Card(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text('Creating user...'),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
         );
       }
-    } catch (e) {
+
+      // Convert role string to UserRole enum
+      final userRole = UserRole.values.firstWhere(
+        (e) => e.name == role,
+        orElse: () => UserRole.requester,
+      );
+
+      debugPrint('Creating user with email: $email, role: ${userRole.name}');
+
+      // Create new user with Firebase Auth (this will sign out admin)
+      final userId = await authProvider.registerUser(
+        email: email,
+        password: password,
+        name: name,
+        role: userRole,
+        department: department,
+      );
+
+      debugPrint('User created with ID: $userId');
+
+      // Close loading dialog
+      closeLoadingDialog();
+
+      // Show success message and prompt for admin re-authentication
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(
+            content: Text('User created successfully! Please re-authenticate.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // Show re-authentication dialog
+        await _showReauthenticationDialog(adminEmail);
+      }
+    } catch (e, stackTrace) {
+      debugPrint('Error creating user: $e');
+      debugPrint('Stack trace: $stackTrace');
+
+      // Close loading dialog if open
+      closeLoadingDialog();
+
+      if (mounted) {
+        scaffoldMessenger.showSnackBar(
           SnackBar(
             content: Text('Error adding user: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 10),
           ),
         );
       }
     }
+  }
+
+  Future<void> _showReauthenticationDialog(String adminEmail) async {
+    final passwordController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool obscurePassword = true;
+    bool isLoading = false;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.purple.shade400, Colors.purple.shade600],
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.lock_person, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 12),
+              const Text('Re-authenticate'),
+            ],
+          ),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'User created successfully!',
+                  style: TextStyle(
+                    color: Colors.green.shade700,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Please enter your admin password to continue:',
+                  style: TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.email, size: 16, color: Colors.grey.shade600),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          adminEmail,
+                          style: TextStyle(
+                            color: Colors.grey.shade700,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: passwordController,
+                  obscureText: obscurePassword,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: 'Your Password',
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.lock),
+                    suffixIcon: IconButton(
+                      icon: Icon(obscurePassword ? Icons.visibility : Icons.visibility_off),
+                      onPressed: () => setState(() => obscurePassword = !obscurePassword),
+                    ),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your password';
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            if (isLoading)
+              const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            else
+              ElevatedButton(
+                onPressed: () async {
+                  if (formKey.currentState!.validate()) {
+                    setState(() => isLoading = true);
+                    try {
+                      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                      final navigator = Navigator.of(context);
+                      final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+                      await authProvider.login(adminEmail, passwordController.text);
+
+                      if (context.mounted) {
+                        navigator.pop();
+                      }
+
+                      await _loadUsers();
+
+                      if (mounted) {
+                        scaffoldMessenger.showSnackBar(
+                          const SnackBar(
+                            content: Text('Welcome back, Admin!'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      setState(() => isLoading = false);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Login failed: $e'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    }
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.purple.shade600,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Sign In'),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _updateUser(

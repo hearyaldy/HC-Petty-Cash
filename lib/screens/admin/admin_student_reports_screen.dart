@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import '../../utils/constants.dart';
+import '../../utils/responsive_helper.dart';
 
 class AdminStudentReportsScreen extends StatefulWidget {
   const AdminStudentReportsScreen({super.key});
@@ -18,8 +20,12 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
   List<Map<String, dynamic>> _students = [];
   bool _isLoadingStudents = true;
 
+  // Store reports in state to avoid StreamBuilder issues on web
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> _reports = [];
+  bool _isLoadingReports = true;
+  String? _reportsError;
+
   final List<String> _statusOptions = [
-    'all',
     'draft',
     'submitted',
     'approved',
@@ -30,6 +36,7 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
   void initState() {
     super.initState();
     _loadStudents();
+    _loadReports();
   }
 
   Future<void> _loadStudents() async {
@@ -38,21 +45,52 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
     try {
       final studentsQuery = await FirebaseFirestore.instance
           .collection('student_profiles')
-          .get();
+          .get(const GetOptions(source: Source.server));
 
-      _students = studentsQuery.docs.map((doc) {
+      // Remove duplicates by creating a map with unique IDs, then converting back to list
+      final uniqueStudentsMap = <String, Map<String, dynamic>>{};
+      for (final doc in studentsQuery.docs) {
         final data = doc.data();
-        return {
-          'id': doc.id,
+        final id = doc.id;
+        uniqueStudentsMap[id] = {
+          'id': id,
           'name': data['studentName'] ?? 'Unknown',
           'photoUrl': data['photoUrl'] as String?,
         };
-      }).toList();
+      }
+      _students = uniqueStudentsMap.values.toList();
 
       setState(() => _isLoadingStudents = false);
     } catch (e) {
-      print('Error loading students: $e');
+      debugPrint('Error loading students: $e');
       setState(() => _isLoadingStudents = false);
+    }
+  }
+
+  Future<void> _loadReports() async {
+    setState(() {
+      _isLoadingReports = true;
+      _reportsError = null;
+    });
+
+    try {
+      final query = _buildQuery();
+      final snapshot = await query.get(const GetOptions(source: Source.server));
+
+      if (mounted) {
+        setState(() {
+          _reports = snapshot.docs;
+          _isLoadingReports = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading reports: $e');
+      if (mounted) {
+        setState(() {
+          _reportsError = e.toString();
+          _isLoadingReports = false;
+        });
+      }
     }
   }
 
@@ -61,11 +99,11 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
         .collection('student_monthly_reports')
         .orderBy('month', descending: true);
 
-    if (_selectedStudentId != null && _selectedStudentId != 'all') {
+    if (_selectedStudentId != null) {
       query = query.where('studentId', isEqualTo: _selectedStudentId);
     }
 
-    if (_selectedStatus != null && _selectedStatus != 'all') {
+    if (_selectedStatus != null) {
       query = query.where('status', isEqualTo: _selectedStatus);
     }
 
@@ -88,133 +126,136 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
         ),
       ),
       backgroundColor: Colors.grey[50],
-      body: Column(
-        children: [
-          _buildFilterBar(),
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: _buildQuery().snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                }
-
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                final reports = snapshot.data!.docs;
-
-                if (reports.isEmpty) {
-                  return _buildEmptyState();
-                }
-
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: reports.length,
-                  itemBuilder: (context, index) {
-                    final reportDoc = reports[index];
-                    final reportData = reportDoc.data() as Map<String, dynamic>;
-                    return _buildReportCard(reportDoc.id, reportData);
-                  },
-                );
-              },
+      body: ResponsiveContainer(
+        child: Column(
+          children: [
+            _buildFilterBar(),
+            const SizedBox(height: 16),
+            Expanded(
+              child: _buildReportsList(),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
+  Widget _buildReportsList() {
+    if (_reportsError != null) {
+      return Center(child: Text('Error: $_reportsError'));
+    }
+    if (_isLoadingReports) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_reports.isEmpty) {
+      return _buildEmptyState();
+    }
+    return ListView.builder(
+      padding: EdgeInsets.zero,
+      itemCount: _reports.length,
+      itemBuilder: (context, index) {
+        final reportDoc = _reports[index];
+        final reportData = reportDoc.data();
+        return _buildReportCard(reportDoc.id, reportData);
+      },
+    );
+  }
+
   Widget _buildFilterBar() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Filter Reports',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _isLoadingStudents
-                    ? const Center(child: CircularProgressIndicator())
-                    : DropdownButtonFormField<String>(
-                        value: _selectedStudentId,
-                        decoration: const InputDecoration(
-                          labelText: 'Student',
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                        ),
-                        items: [
-                          const DropdownMenuItem(
-                            value: null,
-                            child: Text('All Students'),
-                          ),
-                          ..._students.map(
-                            (student) => DropdownMenuItem(
-                              value: student['id'],
-                              child: Text(student['name']),
-                            ),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedStudentId = value;
-                          });
-                        },
-                      ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  value: _selectedStatus,
-                  decoration: const InputDecoration(
-                    labelText: 'Status',
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                  ),
-                  items: [
-                    const DropdownMenuItem(
-                      value: null,
-                      child: Text('All Status'),
-                    ),
-                    ..._statusOptions.map(
-                      (status) => DropdownMenuItem(
-                        value: status == 'all' ? null : status,
-                        child: Text(status.toUpperCase()),
-                      ),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedStatus = value;
-                    });
-                  },
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.filter_list, color: Colors.orange[600]),
+                const SizedBox(width: 8),
+                const Text(
+                  'Filter Reports',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _isLoadingStudents
+                      ? const Center(child: CircularProgressIndicator())
+                      : DropdownButtonFormField<String>(
+                          value: _selectedStudentId,
+                          decoration: InputDecoration(
+                            labelText: 'Student',
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.person),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[100],
+                          ),
+                          items: [
+                            const DropdownMenuItem(
+                              value: null,
+                              child: Text('All Students'),
+                            ),
+                            ..._students.map(
+                              (student) => DropdownMenuItem(
+                                value: student['id'].toString(),
+                                child: Text(student['name']),
+                              ),
+                            ),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedStudentId = value;
+                            });
+                            _loadReports();
+                          },
+                        ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedStatus,
+                    decoration: InputDecoration(
+                      labelText: 'Status',
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.flag),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey[100],
+                    ),
+                    items: [
+                      const DropdownMenuItem(
+                        value: null,
+                        child: Text('All Status'),
+                      ),
+                      ..._statusOptions.map(
+                        (status) => DropdownMenuItem(
+                          value: status,
+                          child: Text(status.toUpperCase()),
+                        ),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedStatus = value;
+                      });
+                      _loadReports();
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -286,36 +327,46 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
             children: [
               Row(
                 children: [
-                  _buildAvatar(studentName, photoUrl),
-                  const SizedBox(width: 16),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
                       children: [
-                        Text(
-                          studentName,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.calendar_today,
-                              size: 14,
-                              color: Colors.grey[600],
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              monthDisplay,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[600],
+                        _buildAvatar(studentName, photoUrl),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                studentName,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.calendar_today,
+                                    size: 14,
+                                    color: Colors.grey[600],
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Flexible(
+                                    child: Text(
+                                      monthDisplay,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.grey[600],
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),

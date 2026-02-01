@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:cloud_firestore/cloud_firestore.dart' as firestore;
+import 'package:flutter/foundation.dart';
 import '../models/user.dart';
 import '../models/enums.dart';
 import '../utils/logger.dart';
@@ -11,6 +12,9 @@ class FirebaseAuthService {
       firestore.FirebaseFirestore.instance;
 
   User? _currentUser;
+
+  // Flag to prevent auth state listener from interfering during login/registration
+  bool _isAuthOperationInProgress = false;
 
   User? get currentUser => _currentUser;
   bool get isAuthenticated => _currentUser != null;
@@ -28,6 +32,7 @@ class FirebaseAuthService {
 
   // Login with email and password
   Future<bool> login(String email, String password) async {
+    _isAuthOperationInProgress = true;
     try {
       // Sanitize inputs
       final sanitizedEmail = ValidationUtils.sanitizeString(email);
@@ -45,6 +50,8 @@ class FirebaseAuthService {
     } catch (e) {
       AppLogger.severe('Unexpected login error: $e');
       throw 'An unexpected error occurred';
+    } finally {
+      _isAuthOperationInProgress = false;
     }
   }
 
@@ -56,6 +63,7 @@ class FirebaseAuthService {
     required UserRole role,
     required String department,
   }) async {
+    _isAuthOperationInProgress = true;
     try {
       // Sanitize inputs
       final sanitizedEmail = ValidationUtils.sanitizeString(email);
@@ -63,7 +71,7 @@ class FirebaseAuthService {
       final sanitizedName = ValidationUtils.sanitizeString(name);
       final sanitizedDepartment = ValidationUtils.sanitizeString(department);
 
-      print('DEBUG AUTH: Creating Firebase Auth user');
+      debugPrint('DEBUG AUTH: Creating Firebase Auth user');
       // Create Firebase Auth user
       final credential = await _auth.createUserWithEmailAndPassword(
         email: sanitizedEmail,
@@ -71,7 +79,7 @@ class FirebaseAuthService {
       );
 
       final userId = credential.user!.uid;
-      print('DEBUG AUTH: User created with ID: $userId');
+      debugPrint('DEBUG AUTH: User created with ID: $userId');
 
       // Create user document in Firestore
       final user = User(
@@ -83,25 +91,27 @@ class FirebaseAuthService {
         createdAt: DateTime.now(),
       );
 
-      print('DEBUG AUTH: Saving user to Firestore');
+      debugPrint('DEBUG AUTH: Saving user to Firestore');
       await _firestore.collection('users').doc(user.id).set(user.toFirestore());
-      print('DEBUG AUTH: User saved to Firestore');
+      debugPrint('DEBUG AUTH: User saved to Firestore');
 
-      // Load the newly created user data
-      print('DEBUG AUTH: Initializing user data');
-      await initialize();
-      print('DEBUG AUTH: User data initialized');
+      // Note: We don't call initialize() here because:
+      // 1. When admin creates a user, they will re-authenticate as admin afterward
+      // 2. The auth state listener will handle loading user data when needed
+      // 3. Calling initialize() here was causing hangs due to conflicting auth state updates
 
       return userId;
     } on firebase_auth.FirebaseAuthException catch (e) {
       AppLogger.severe('Registration error: ${e.code} - ${e.message}');
-      print('DEBUG AUTH: Firebase auth error: ${e.code} - ${e.message}');
+      debugPrint('DEBUG AUTH: Firebase auth error: ${e.code} - ${e.message}');
       throw _handleAuthException(e);
     } catch (e, stackTrace) {
       AppLogger.severe('Unexpected registration error: $e');
-      print('DEBUG AUTH: Unexpected error: $e');
-      print('DEBUG AUTH: Stack trace: $stackTrace');
+      debugPrint('DEBUG AUTH: Unexpected error: $e');
+      debugPrint('DEBUG AUTH: Stack trace: $stackTrace');
       throw 'An unexpected error occurred: $e';
+    } finally {
+      _isAuthOperationInProgress = false;
     }
   }
 
@@ -112,19 +122,45 @@ class FirebaseAuthService {
   }
 
   // Load user data from Firestore
-  Future<void> _loadUserData(String uid) async {
+  // throwOnNotFound: if false, missing document won't throw (useful for auth state listener)
+  Future<bool> _loadUserData(String uid, {bool throwOnNotFound = true}) async {
     try {
       final doc = await _firestore.collection('users').doc(uid).get();
       if (doc.exists) {
         _currentUser = User.fromFirestore(doc);
+        return true;
       } else {
         AppLogger.warning('User document not found for UID: $uid');
-        throw 'User profile not found';
+        _currentUser = null;
+        if (throwOnNotFound) {
+          throw 'User profile not found';
+        }
+        return false;
       }
     } catch (e) {
       AppLogger.severe('Error loading user data: $e');
-      rethrow;
+      if (throwOnNotFound) {
+        rethrow;
+      }
+      return false;
     }
+  }
+
+  // Try to load user data silently (for auth state listener)
+  // Returns true if user data was loaded, false otherwise
+  // Skips if an auth operation (login/register) is already in progress
+  Future<bool> tryLoadUserData() async {
+    // Don't interfere if login or registration is in progress
+    if (_isAuthOperationInProgress) {
+      debugPrint('DEBUG AUTH: Skipping tryLoadUserData - auth operation in progress');
+      return false;
+    }
+
+    final firebaseUser = _auth.currentUser;
+    if (firebaseUser != null) {
+      return await _loadUserData(firebaseUser.uid, throwOnNotFound: false);
+    }
+    return false;
   }
 
   // Update user profile
@@ -165,6 +201,19 @@ class FirebaseAuthService {
   bool canManageUsers() => _currentUser?.roleEnum == UserRole.admin;
 
   bool canCreateReports() => _currentUser != null;
+
+  bool canCreatePurchaseRequisitions() {
+    if (_currentUser == null) return false;
+    // Only allow certain roles to create purchase requisitions
+    return _currentUser!.roleEnum == UserRole.manager ||
+           _currentUser!.roleEnum == UserRole.finance ||
+           _currentUser!.roleEnum == UserRole.admin;
+  }
+
+  bool canCreateTravelingReports() {
+    // Any authenticated user can create traveling reports
+    return _currentUser != null;
+  }
 
   // Error handling
   String _handleAuthException(firebase_auth.FirebaseAuthException e) {

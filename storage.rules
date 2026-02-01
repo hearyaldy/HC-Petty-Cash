@@ -3,7 +3,25 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Temporarily allow all authenticated users for debugging
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return request.auth != null && 
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Staff photos - admins can write, all authenticated users can read
+    match /staff_photos/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    // Staff documents - admins can write, all authenticated users can read
+    match /staff_documents/{staffId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    // General files - allow all authenticated users
     match /{allPaths=**} {
       allow read, write: if request.auth != null;
     }

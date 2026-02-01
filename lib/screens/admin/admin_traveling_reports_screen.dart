@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import '../../models/traveling_report.dart';
 import '../../services/firestore_service.dart';
+import '../../utils/responsive_helper.dart';
 
 class AdminTravelingReportsScreen extends StatefulWidget {
   const AdminTravelingReportsScreen({super.key});
@@ -65,52 +66,50 @@ class _AdminTravelingReportsScreenState
         ],
       ),
       backgroundColor: Colors.grey[50],
-      body: Column(
-        children: [
-          _buildFilterBar(),
-          Expanded(
-            child: StreamBuilder<List<TravelingReport>>(
-              stream: _firestoreService.travelingReportsStream(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                }
-
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                var reports = snapshot.data!;
-
-                // Apply status filter
-                if (_selectedStatus != null && _selectedStatus != 'all') {
-                  reports = reports
-                      .where((report) => report.status == _selectedStatus)
-                      .toList();
-                }
-
-                if (reports.isEmpty) {
-                  return _buildEmptyState();
-                }
-
-                return Center(
-                  child: Container(
-                    constraints: const BoxConstraints(maxWidth: 1200),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: ListView.builder(
-                      padding: const EdgeInsets.only(top: 16, bottom: 16),
-                      itemCount: reports.length,
-                      itemBuilder: (context, index) {
-                        final report = reports[index];
-                        return _buildReportCard(report);
-                      },
+      body: ResponsiveContainer(
+        padding: EdgeInsets.zero,
+        child: Column(
+          children: [
+            _buildFilterBar(),
+            Expanded(
+              child: StreamBuilder<List<TravelingReport>>(
+                stream: _firestoreService.travelingReportsStream(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Error: ${snapshot.error}'));
+                  }
+                  if (!snapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  var reports = snapshot.data!;
+                  // Apply status filter
+                  if (_selectedStatus != null && _selectedStatus != 'all') {
+                    reports = reports
+                        .where((report) => report.status == _selectedStatus)
+                        .toList();
+                  }
+                  if (reports.isEmpty) {
+                    return _buildEmptyState();
+                  }
+                  return Center(
+                    child: Container(
+                      constraints: const BoxConstraints(maxWidth: 1200),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: ListView.builder(
+                        padding: const EdgeInsets.only(top: 16, bottom: 16),
+                        itemCount: reports.length,
+                        itemBuilder: (context, index) {
+                          final report = reports[index];
+                          return _buildReportCard(report);
+                        },
+                      ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

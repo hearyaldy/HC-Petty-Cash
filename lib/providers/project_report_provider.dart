@@ -29,7 +29,8 @@ class ProjectReportProvider extends ChangeNotifier {
       _projectReports = await _firestoreService.getAllProjectReports();
     } catch (e) {
       AppLogger.severe('Error loading project reports: $e');
-      _projectReports = [];
+      // Don't clear existing data on error - keep the cached data
+      // _projectReports = [];
     }
 
     _isLoading = false;

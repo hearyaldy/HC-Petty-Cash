@@ -36,6 +36,12 @@ migrate_working_dir/
 # Firebase CLI local state
 .firebase/
 
+# Firebase config (iOS)
+ios/Runner/GoogleService-Info.plist
+
+# Firebase config (Android)
+android/app/google-services.json
+
 # Symbolication related
 app.*.symbols
 

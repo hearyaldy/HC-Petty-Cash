@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import '../models/user.dart';
@@ -54,7 +55,22 @@ class FirestoreService {
   Future<List<User>> getAllUsers() async {
     try {
       final snapshot = await _usersCollection.get();
-      return snapshot.docs.map((doc) => User.fromFirestore(doc)).toList();
+      AppLogger.info('Found ${snapshot.docs.length} user documents in Firestore');
+
+      final List<User> users = [];
+      for (final doc in snapshot.docs) {
+        try {
+          final user = User.fromFirestore(doc);
+          users.add(user);
+        } catch (e) {
+          AppLogger.warning('Error parsing user document ${doc.id}: $e');
+          AppLogger.warning('Document data: ${doc.data()}');
+          // Continue processing other documents
+        }
+      }
+
+      AppLogger.info('Successfully parsed ${users.length} users');
+      return users;
     } catch (e) {
       AppLogger.severe('Error getting all users: $e');
       rethrow;
@@ -103,14 +119,18 @@ class FirestoreService {
 
   Future<List<PettyCashReport>> getAllReports() async {
     try {
+      debugPrint('DEBUG FIRESTORE: Getting all reports...');
       final snapshot = await _reportsCollection
           .orderBy('createdAt', descending: true)
           .get();
+      debugPrint('DEBUG FIRESTORE: Got ${snapshot.docs.length} report documents');
       return snapshot.docs
           .map((doc) => PettyCashReport.fromFirestore(doc))
           .toList();
-    } catch (e) {
+    } catch (e, stackTrace) {
       AppLogger.severe('Error getting all reports: $e');
+      debugPrint('DEBUG FIRESTORE: Error getting reports: $e');
+      debugPrint('DEBUG FIRESTORE: Stack: $stackTrace');
       rethrow;
     }
   }

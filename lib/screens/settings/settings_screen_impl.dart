@@ -94,244 +94,240 @@ class _SettingsScreenImplState extends State<SettingsScreenImpl> {
           ),
         ],
       ),
-      body: Center(
-        child: Container(
-          constraints: BoxConstraints(
-            maxWidth: ResponsiveHelper.getMaxContentWidth(context),
-          ),
-          child: ListView(
-            padding: ResponsiveHelper.getScreenPadding(context),
-            children: [
-          // User Profile Section
-          _buildProfileCard(
-            currentUser?.name ?? 'User',
-            currentUser?.email ?? '',
-          ),
-          const SizedBox(height: 16),
+      body: ResponsiveContainer(
+        child: ListView(
+          children: [
+            // User Profile Section
+            _buildProfileCard(
+              currentUser?.name ?? 'User',
+              currentUser?.email ?? '',
+            ),
+            const SizedBox(height: 16),
 
-          // Appearance Section
-          _buildSectionCard(
-            title: 'Appearance',
-            icon: Icons.palette_outlined,
-            gradientColors: [Colors.purple.shade400, Colors.purple.shade600],
-            children: [
-              _buildSettingTile(
-                icon: Icons.palette_outlined,
-                title: 'Color Theme',
-                subtitle: _getColorThemeDisplayName(_settings!.colorTheme),
-                onTap: () => _showColorThemeDialog(themeProvider),
-              ),
-              const Divider(height: 1),
-              _buildSettingTile(
-                icon: Icons.brightness_6,
-                title: 'Theme Mode',
-                subtitle: _getThemeDisplayName(_settings!.theme),
-                onTap: () => _showThemeDialog(themeProvider),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Preferences Section
-          _buildSectionCard(
-            title: 'Preferences',
-            icon: Icons.tune,
-            gradientColors: [Colors.blue.shade400, Colors.blue.shade600],
-            children: [
-              _buildSettingTile(
-                icon: Icons.language,
-                title: 'Language',
-                subtitle: _getLanguageDisplayName(_settings!.language),
-                onTap: () => _showLanguageDialog(),
-              ),
-              const Divider(height: 1),
-              _buildSettingTile(
-                icon: Icons.attach_money,
-                title: 'Currency',
-                subtitle: _getCurrencyDisplayName(_settings!.currency),
-                onTap: () => _showCurrencyDialog(),
-              ),
-              const Divider(height: 1),
-              _buildSettingTile(
-                icon: Icons.calendar_today,
-                title: 'Date Format',
-                subtitle: _settings!.dateFormat,
-                onTap: () => _showDateFormatDialog(),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Notifications Section
-          _buildSectionCard(
-            title: 'Notifications',
-            icon: Icons.notifications_outlined,
-            gradientColors: [Colors.orange.shade400, Colors.orange.shade600],
-            children: [
-              _buildSwitchTile(
-                icon: Icons.email_outlined,
-                title: 'Email Notifications',
-                subtitle: 'Receive updates via email',
-                value: _settings!.emailNotifications,
-                onChanged: (value) {
-                  _updateSetting(
-                    _settings!.copyWith(emailNotifications: value),
-                  );
-                },
-              ),
-              const Divider(height: 1),
-              _buildSwitchTile(
-                icon: Icons.notifications_outlined,
-                title: 'Push Notifications',
-                subtitle: 'Receive push notifications',
-                value: _settings!.pushNotifications,
-                onChanged: (value) {
-                  _updateSetting(_settings!.copyWith(pushNotifications: value));
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Reports Section
-          _buildSectionCard(
-            title: 'Reports',
-            icon: Icons.receipt_long,
-            gradientColors: [Colors.green.shade400, Colors.green.shade600],
-            children: [
-              _buildSettingTile(
-                icon: Icons.receipt_long,
-                title: 'Default Report Type',
-                subtitle: _getReportTypeDisplayName(
-                  _settings!.defaultReportType,
-                ),
-                onTap: () => _showReportTypeDialog(),
-              ),
-              const Divider(height: 1),
-              _buildSettingTile(
-                icon: Icons.file_download_outlined,
-                title: 'Default Export Format',
-                subtitle: _settings!.defaultExportFormat,
-                onTap: () => _showExportFormatDialog(),
-              ),
-              const Divider(height: 1),
-              _buildSwitchTile(
-                icon: Icons.backup_outlined,
-                title: 'Auto Backup',
-                subtitle: 'Automatically backup data',
-                value: _settings!.autoBackup,
-                onChanged: (value) {
-                  _updateSetting(_settings!.copyWith(autoBackup: value));
-                },
-              ),
-              const Divider(height: 1),
-              _buildSettingTile(
-                icon: Icons.cloud_upload_outlined,
-                title: 'Backup Now',
-                subtitle: 'Manually backup your data',
-                onTap: () => _performBackup(),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Admin Settings (only for admins)
-          if (authProvider.canApprove()) ...[
+            // Appearance Section
             _buildSectionCard(
-              title: 'Admin Settings',
-              icon: Icons.admin_panel_settings,
-              gradientColors: [Colors.red.shade400, Colors.red.shade600],
+              title: 'Appearance',
+              icon: Icons.palette_outlined,
+              gradientColors: [Colors.purple.shade400, Colors.purple.shade600],
               children: [
                 _buildSettingTile(
-                  icon: Icons.people_outline,
-                  title: 'Manage Users',
-                  subtitle: 'Add, edit, or remove users',
-                  onTap: () => context.push('/admin/users'),
+                  icon: Icons.palette_outlined,
+                  title: 'Color Theme',
+                  subtitle: _getColorThemeDisplayName(_settings!.colorTheme),
+                  onTap: () => _showColorThemeDialog(themeProvider),
                 ),
                 const Divider(height: 1),
                 _buildSettingTile(
-                  icon: Icons.category_outlined,
-                  title: 'Manage Categories',
-                  subtitle: 'Edit expense categories',
-                  onTap: () => showDialog(
-                    context: context,
-                    builder: (context) =>
-                        const EnhancedCategoryManagementDialog(),
-                  ),
-                ),
-                const Divider(height: 1),
-                _buildSettingTile(
-                  icon: Icons.account_balance_wallet_outlined,
-                  title: 'Manage Paid To Options',
-                  subtitle: 'Edit vendor list for paid to field',
-                  onTap: () => showDialog(
-                    context: context,
-                    builder: (context) => const PaidToManagementDialog(),
-                  ),
-                ),
-                const Divider(height: 1),
-                _buildSettingTile(
-                  icon: Icons.business_outlined,
-                  title: 'Organization Settings',
-                  subtitle: 'Update organization details',
-                  onTap: () => _showOrganizationDialog(),
+                  icon: Icons.brightness_6,
+                  title: 'Theme Mode',
+                  subtitle: _getThemeDisplayName(_settings!.theme),
+                  onTap: () => _showThemeDialog(themeProvider),
                 ),
               ],
             ),
             const SizedBox(height: 16),
+
+            // Preferences Section
+            _buildSectionCard(
+              title: 'Preferences',
+              icon: Icons.tune,
+              gradientColors: [Colors.blue.shade400, Colors.blue.shade600],
+              children: [
+                _buildSettingTile(
+                  icon: Icons.language,
+                  title: 'Language',
+                  subtitle: _getLanguageDisplayName(_settings!.language),
+                  onTap: () => _showLanguageDialog(),
+                ),
+                const Divider(height: 1),
+                _buildSettingTile(
+                  icon: Icons.attach_money,
+                  title: 'Currency',
+                  subtitle: _getCurrencyDisplayName(_settings!.currency),
+                  onTap: () => _showCurrencyDialog(),
+                ),
+                const Divider(height: 1),
+                _buildSettingTile(
+                  icon: Icons.calendar_today,
+                  title: 'Date Format',
+                  subtitle: _settings!.dateFormat,
+                  onTap: () => _showDateFormatDialog(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Notifications Section
+            _buildSectionCard(
+              title: 'Notifications',
+              icon: Icons.notifications_outlined,
+              gradientColors: [Colors.orange.shade400, Colors.orange.shade600],
+              children: [
+                _buildSwitchTile(
+                  icon: Icons.email_outlined,
+                  title: 'Email Notifications',
+                  subtitle: 'Receive updates via email',
+                  value: _settings!.emailNotifications,
+                  onChanged: (value) {
+                    _updateSetting(
+                      _settings!.copyWith(emailNotifications: value),
+                    );
+                  },
+                ),
+                const Divider(height: 1),
+                _buildSwitchTile(
+                  icon: Icons.notifications_outlined,
+                  title: 'Push Notifications',
+                  subtitle: 'Receive push notifications',
+                  value: _settings!.pushNotifications,
+                  onChanged: (value) {
+                    _updateSetting(
+                      _settings!.copyWith(pushNotifications: value),
+                    );
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Reports Section
+            _buildSectionCard(
+              title: 'Reports',
+              icon: Icons.receipt_long,
+              gradientColors: [Colors.green.shade400, Colors.green.shade600],
+              children: [
+                _buildSettingTile(
+                  icon: Icons.receipt_long,
+                  title: 'Default Report Type',
+                  subtitle: _getReportTypeDisplayName(
+                    _settings!.defaultReportType,
+                  ),
+                  onTap: () => _showReportTypeDialog(),
+                ),
+                const Divider(height: 1),
+                _buildSettingTile(
+                  icon: Icons.file_download_outlined,
+                  title: 'Default Export Format',
+                  subtitle: _settings!.defaultExportFormat,
+                  onTap: () => _showExportFormatDialog(),
+                ),
+                const Divider(height: 1),
+                _buildSwitchTile(
+                  icon: Icons.backup_outlined,
+                  title: 'Auto Backup',
+                  subtitle: 'Automatically backup data',
+                  value: _settings!.autoBackup,
+                  onChanged: (value) {
+                    _updateSetting(_settings!.copyWith(autoBackup: value));
+                  },
+                ),
+                const Divider(height: 1),
+                _buildSettingTile(
+                  icon: Icons.cloud_upload_outlined,
+                  title: 'Backup Now',
+                  subtitle: 'Manually backup your data',
+                  onTap: () => _performBackup(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Admin Settings (only for admins)
+            if (authProvider.canApprove()) ...[
+              _buildSectionCard(
+                title: 'Admin Settings',
+                icon: Icons.admin_panel_settings,
+                gradientColors: [Colors.red.shade400, Colors.red.shade600],
+                children: [
+                  _buildSettingTile(
+                    icon: Icons.people_outline,
+                    title: 'Manage Users',
+                    subtitle: 'Add, edit, or remove users',
+                    onTap: () => context.push('/admin/users'),
+                  ),
+                  const Divider(height: 1),
+                  _buildSettingTile(
+                    icon: Icons.category_outlined,
+                    title: 'Manage Categories',
+                    subtitle: 'Edit expense categories',
+                    onTap: () => showDialog(
+                      context: context,
+                      builder: (context) =>
+                          const EnhancedCategoryManagementDialog(),
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  _buildSettingTile(
+                    icon: Icons.account_balance_wallet_outlined,
+                    title: 'Manage Paid To Options',
+                    subtitle: 'Edit vendor list for paid to field',
+                    onTap: () => showDialog(
+                      context: context,
+                      builder: (context) => const PaidToManagementDialog(),
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  _buildSettingTile(
+                    icon: Icons.business_outlined,
+                    title: 'Organization Settings',
+                    subtitle: 'Update organization details',
+                    onTap: () => _showOrganizationDialog(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // Data Management Section
+            _buildSectionCard(
+              title: 'Data Management',
+              icon: Icons.storage,
+              gradientColors: [Colors.teal.shade400, Colors.teal.shade600],
+              children: [
+                _buildSettingTile(
+                  icon: Icons.download_outlined,
+                  title: 'Export All Data',
+                  subtitle: 'Download all reports and transactions',
+                  onTap: () => _exportAllData(),
+                ),
+                const Divider(height: 1),
+                _buildSettingTile(
+                  icon: Icons.delete_outline,
+                  title: 'Clear Cache',
+                  subtitle: 'Free up storage space',
+                  onTap: () => _clearCache(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // About Section
+            _buildSectionCard(
+              title: 'About',
+              icon: Icons.info_outline,
+              gradientColors: [Colors.grey.shade400, Colors.grey.shade600],
+              children: [
+                _buildSettingTile(
+                  icon: Icons.info_outline,
+                  title: 'App Version',
+                  subtitle: '1.0.0',
+                  onTap: () {},
+                ),
+                const Divider(height: 1),
+                _buildSettingTile(
+                  icon: Icons.help_outline,
+                  title: 'Help & Support',
+                  subtitle: 'Get help or contact support',
+                  onTap: () {},
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Logout Button
+            _buildLogoutCard(),
+            const SizedBox(height: 20),
           ],
-
-          // Data Management Section
-          _buildSectionCard(
-            title: 'Data Management',
-            icon: Icons.storage,
-            gradientColors: [Colors.teal.shade400, Colors.teal.shade600],
-            children: [
-              _buildSettingTile(
-                icon: Icons.download_outlined,
-                title: 'Export All Data',
-                subtitle: 'Download all reports and transactions',
-                onTap: () => _exportAllData(),
-              ),
-              const Divider(height: 1),
-              _buildSettingTile(
-                icon: Icons.delete_outline,
-                title: 'Clear Cache',
-                subtitle: 'Free up storage space',
-                onTap: () => _clearCache(),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // About Section
-          _buildSectionCard(
-            title: 'About',
-            icon: Icons.info_outline,
-            gradientColors: [Colors.grey.shade400, Colors.grey.shade600],
-            children: [
-              _buildSettingTile(
-                icon: Icons.info_outline,
-                title: 'App Version',
-                subtitle: '1.0.0',
-                onTap: () {},
-              ),
-              const Divider(height: 1),
-              _buildSettingTile(
-                icon: Icons.help_outline,
-                title: 'Help & Support',
-                subtitle: 'Get help or contact support',
-                onTap: () {},
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Logout Button
-          _buildLogoutCard(),
-          const SizedBox(height: 20),
-            ],
-          ),
         ),
       ),
     );

@@ -8,6 +8,7 @@ import '../../providers/report_provider.dart';
 import '../../providers/project_report_provider.dart';
 import '../../models/transaction.dart';
 import '../../models/traveling_report.dart';
+import '../../models/petty_cash_report.dart';
 import '../../models/enums.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/constants.dart';
@@ -181,10 +182,15 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
         // Handle transactions first
         if (index < transactions.length) {
           final transaction = transactions[index];
-          final report = reportProvider.reports.firstWhere(
-            (r) => r.id == transaction.reportId,
-            orElse: () => throw Exception('Report not found'),
+          final report = reportProvider.reports.cast<PettyCashReport?>().firstWhere(
+            (r) => r?.id == transaction.reportId,
+            orElse: () => null,
           );
+
+          // Skip this item if report not found
+          if (report == null) {
+            return const SizedBox.shrink();
+          }
 
           return Card(
             margin: const EdgeInsets.only(bottom: 16),

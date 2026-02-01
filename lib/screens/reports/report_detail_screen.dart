@@ -93,9 +93,17 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     super.initState();
     _loadCustomCategories();
     _pendingAutoAddTransaction = widget.autoLaunchAddTransaction;
+    // Only load data if not already loaded - avoid unnecessary reloads that can cause Firestore errors on web
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<TransactionProvider>().loadTransactions();
-      context.read<ProjectReportProvider>().loadProjectReports();
+      final transactionProvider = context.read<TransactionProvider>();
+      final projectReportProvider = context.read<ProjectReportProvider>();
+
+      if (transactionProvider.transactions.isEmpty) {
+        transactionProvider.loadTransactions();
+      }
+      if (projectReportProvider.projectReports.isEmpty) {
+        projectReportProvider.loadProjectReports();
+      }
     });
   }
 
@@ -114,10 +122,54 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     final reportProvider = context.watch<ReportProvider>();
     final transactionProvider = context.watch<TransactionProvider>();
 
-    final report = reportProvider.reports.firstWhere(
-      (r) => r.id == widget.reportId,
-      orElse: () => throw Exception('Report not found'),
+    // Try to find the report first
+    final report = reportProvider.reports.cast<PettyCashReport?>().firstWhere(
+      (r) => r?.id == widget.reportId,
+      orElse: () => null,
     );
+
+    // Only show loading if report is not found AND still loading
+    if (report == null && (reportProvider.isLoading || reportProvider.reports.isEmpty)) {
+      return Scaffold(
+        backgroundColor: Colors.grey[50],
+        appBar: AppBar(
+          elevation: 0,
+          title: const Text('Loading...'),
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (report == null) {
+      return Scaffold(
+        backgroundColor: Colors.grey[50],
+        appBar: AppBar(
+          elevation: 0,
+          title: const Text('Report'),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
+              const SizedBox(height: 16),
+              Text(
+                'Report not found',
+                style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () => context.go('/dashboard'),
+                icon: const Icon(Icons.home),
+                label: const Text('Go to Dashboard'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     if (_pendingAutoAddTransaction) {
       _pendingAutoAddTransaction = false;
@@ -244,8 +296,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: ResponsiveContainer(
+      body: ResponsiveContainer(
+        child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

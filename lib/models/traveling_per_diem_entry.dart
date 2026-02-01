@@ -102,10 +102,26 @@ class TravelingPerDiemEntry {
 
   factory TravelingPerDiemEntry.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+
+    // Helper function to safely parse Timestamp
+    DateTime parseTimestamp(dynamic value, DateTime fallback) {
+      if (value == null) return fallback;
+      if (value is Timestamp) return value.toDate();
+      return fallback;
+    }
+
+    DateTime? parseTimestampOptional(dynamic value) {
+      if (value == null) return null;
+      if (value is Timestamp) return value.toDate();
+      return null;
+    }
+
+    final now = DateTime.now();
+
     return TravelingPerDiemEntry(
       id: data['id'] ?? doc.id,
       reportId: data['reportId'] ?? '',
-      date: (data['date'] as Timestamp).toDate(),
+      date: parseTimestamp(data['date'], now),
       hasBreakfast: data['hasBreakfast'] ?? false,
       hasLunch: data['hasLunch'] ?? false,
       hasSupper: data['hasSupper'] ?? false,
@@ -117,10 +133,8 @@ class TravelingPerDiemEntry {
       incidentMealAmount: (data['incidentMealAmount'] ?? 0.0).toDouble(),
       dailyTotal: (data['dailyTotal'] ?? 0.0).toDouble(),
       dailyTotalAllMembers: (data['dailyTotalAllMembers'] ?? 0.0).toDouble(),
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      updatedAt: data['updatedAt'] != null
-          ? (data['updatedAt'] as Timestamp).toDate()
-          : null,
+      createdAt: parseTimestamp(data['createdAt'], now),
+      updatedAt: parseTimestampOptional(data['updatedAt']),
     );
   }
 

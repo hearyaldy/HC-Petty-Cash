@@ -245,3 +245,70 @@ extension TravelLocationExtension on String {
     return toTravelLocation().perDiemRate;
   }
 }
+
+// Employment-related enums for Staff model
+enum EmploymentType {
+  fullTime,
+  partTime,
+  contract,
+  intern,
+  consultant;
+
+  String get displayName {
+    switch (this) {
+      case EmploymentType.fullTime:
+        return 'Full Time';
+      case EmploymentType.partTime:
+        return 'Part Time';
+      case EmploymentType.contract:
+        return 'Contract';
+      case EmploymentType.intern:
+        return 'Intern';
+      case EmploymentType.consultant:
+        return 'Consultant';
+    }
+  }
+}
+
+enum EmploymentStatus {
+  active,
+  onLeave,
+  resigned,
+  terminated,
+  retired;
+
+  String get displayName {
+    switch (this) {
+      case EmploymentStatus.active:
+        return 'Active';
+      case EmploymentStatus.onLeave:
+        return 'On Leave';
+      case EmploymentStatus.resigned:
+        return 'Resigned';
+      case EmploymentStatus.terminated:
+        return 'Terminated';
+      case EmploymentStatus.retired:
+        return 'Retired';
+    }
+  }
+}
+
+enum Gender {
+  male,
+  female,
+  other,
+  preferNotToSay;
+
+  String get displayName {
+    switch (this) {
+      case Gender.male:
+        return 'Male';
+      case Gender.female:
+        return 'Female';
+      case Gender.other:
+        return 'Other';
+      case Gender.preferNotToSay:
+        return 'Prefer not to say';
+    }
+  }
+}

@@ -11,10 +11,13 @@ import '../../models/enums.dart';
 import '../../models/traveling_report.dart';
 import '../../models/income_report.dart';
 import '../../models/purchase_requisition.dart';
-import '../../services/firestore_service.dart';
+import '../../services/managed_firestore_service.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
 import '../../widgets/edit_traveling_report_dialog.dart';
+import '../../widgets/staff_directory_widget.dart';
+import '../../widgets/app_drawer.dart';
+import '../../widgets/dashboard_section.dart';
 
 class _StatData {
   final String title;
@@ -54,13 +57,56 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  bool _dataLoaded = false;
+
+  // Store income and traveling data locally to avoid StreamBuilder issues on web
+  List<IncomeReport> _incomeReports = [];
+  List<TravelingReport> _travelingReports = [];
+  List<PurchaseRequisition> _purchaseRequisitions = [];
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ReportProvider>().loadReports();
-      context.read<ProjectReportProvider>().loadProjectReports();
-      context.read<TransactionProvider>().loadTransactions();
+    _loadAllData();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Reload data when dependencies change (e.g., when returning to screen)
+    if (_dataLoaded) {
+      _loadAllData();
+    }
+  }
+
+  void _loadAllData() {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (mounted) {
+        context.read<ReportProvider>().loadReports();
+        context.read<ProjectReportProvider>().loadProjectReports();
+        context.read<TransactionProvider>().loadTransactions();
+
+        // Load income, traveling, and purchase data using one-time fetches to avoid web stream issues
+        try {
+          final service = ManagedFirestoreService();
+          final incomeReports = await service.getAllIncomeReports();
+          final travelingReports = await service.getAllTravelingReports();
+          final purchaseRequisitions = await service.getAllPurchaseRequisitions();
+
+          if (mounted) {
+            setState(() {
+              _incomeReports = incomeReports;
+              _travelingReports = travelingReports;
+              _purchaseRequisitions = purchaseRequisitions;
+            });
+          }
+          debugPrint('DEBUG DASHBOARD: Loaded ${incomeReports.length} income, ${travelingReports.length} traveling, ${purchaseRequisitions.length} purchase requisitions');
+        } catch (e) {
+          debugPrint('DEBUG DASHBOARD: Error loading extra data: $e');
+        }
+
+        _dataLoaded = true;
+      }
     });
   }
 
@@ -72,37 +118,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final transactionProvider = context.watch<TransactionProvider>();
     final user = authProvider.currentUser;
 
+    final canViewAll = authProvider.canViewAllReports();
+
     final allReports = reportProvider.reports;
     final allProjectReports = projectReportProvider.projectReports;
     final allTransactions = transactionProvider.transactions;
 
+    debugPrint('DEBUG DASHBOARD: user=${user?.name}, role=${user?.role}, canViewAll=$canViewAll');
+    debugPrint('DEBUG DASHBOARD: allReports=${allReports.length}, allProjectReports=${allProjectReports.length}, allTransactions=${allTransactions.length}');
+
     final myReports = user != null
         ? allReports.where((r) => r.custodianId == user.id).toList()
         : [];
-    final draftReports = allReports
+    final totalReportsCount = canViewAll ? allReports.length : myReports.length;
+    final reportsForSummary = canViewAll ? allReports : myReports;
+
+    final myProjectReports = user != null
+        ? allProjectReports.where((r) => r.custodianId == user.id).toList()
+        : [];
+    final projectReportsForSummary = canViewAll
+        ? allProjectReports
+        : myProjectReports;
+
+    final draftReports = reportsForSummary
         .where((r) => r.status == ReportStatus.draft.name)
         .toList();
     final pendingApprovals = transactionProvider.getPendingApprovals();
 
     // Calculate petty cash totals
-    final pettyCashReceived = allReports.fold<double>(
+    final pettyCashReceived = reportsForSummary.fold<double>(
       0.0,
-      (sum, report) => sum + report.openingBalance,
+      (acc, report) => acc + report.openingBalance,
     );
-    final pettyCashUsed = allReports.fold<double>(
+    final pettyCashUsed = reportsForSummary.fold<double>(
       0.0,
-      (sum, report) => sum + report.totalDisbursements,
+      (acc, report) => acc + report.totalDisbursements,
     );
 
     // Calculate project totals
-    final projectBudgetTotal = allProjectReports.fold<double>(
+    final projectBudgetTotal = projectReportsForSummary.fold<double>(
       0.0,
-      (sum, report) => sum + report.budget,
+      (acc, report) => acc + report.budget,
     );
 
     // Calculate actual project expenses from transactions
-    final projectExpensesTotal = allProjectReports.fold<double>(0.0, (
-      sum,
+    final projectExpensesTotal = projectReportsForSummary.fold<double>(0.0, (
+      acc,
       report,
     ) {
       final reportTransactions = allTransactions.where(
@@ -115,47 +176,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
         0.0,
         (txSum, tx) => txSum + tx.amount,
       );
-      return sum + reportTotal;
+      return acc + reportTotal;
     });
 
-    return StreamBuilder<List<IncomeReport>>(
-      stream: FirestoreService().incomeReportsStream(),
-      builder: (context, incomeSnapshot) {
-        final incomeReports = incomeSnapshot.data ?? [];
-        final totalIncomeAmount = incomeReports.fold<double>(
-          0.0,
-          (sum, r) => sum + r.totalIncome,
-        );
-        final pendingIncomeReports = incomeReports
-            .where((r) => r.status == 'submitted')
-            .length;
+    // Use state-based data instead of StreamBuilders to avoid web listener issues
+    final incomeReports = _incomeReports;
+    final totalIncomeAmount = incomeReports.fold<double>(
+      0.0,
+      (acc, r) => acc + r.totalIncome,
+    );
+    final pendingIncomeReports = incomeReports
+        .where((r) => r.status == 'submitted')
+        .length;
 
-        return StreamBuilder<List<TravelingReport>>(
-          stream: FirestoreService().travelingReportsStream(),
-          builder: (context, travelingSnapshot) {
-            final allTravelingReports = travelingSnapshot.data ?? [];
-            // Filter pending reports, excluding admin's own reports
-            final pendingTravelingReports = allTravelingReports
-                .where(
-                  (r) => r.status == 'submitted' && r.reporterId != user?.id,
-                )
-                .toList();
+    final allTravelingReports = _travelingReports;
+    // Filter pending reports, excluding admin's own reports
+    final pendingTravelingReports = allTravelingReports
+        .where(
+          (r) => r.status == 'submitted' && r.reporterId != user?.id,
+        )
+        .toList();
 
-            final totalMileageKm = allTravelingReports.fold<double>(
-              0.0,
-              (sum, r) => sum + r.totalKM,
-            );
-            final totalMileageAmount = allTravelingReports.fold<double>(
-              0.0,
-              (sum, r) => sum + r.mileageAmount,
-            );
+    final totalMileageKm = allTravelingReports.fold<double>(
+      0.0,
+      (acc, r) => acc + r.totalKM,
+    );
+    final totalMileageAmount = allTravelingReports.fold<double>(
+      0.0,
+      (acc, r) => acc + r.mileageAmount,
+    );
 
-            return Scaffold(
+    return Scaffold(
               backgroundColor: Colors.grey[50],
               appBar: _buildResponsiveAppBar(context, user),
+              drawer: const AppDrawer(),
               body: ResponsiveBuilder(
                 mobile: _buildMobileLayout(
                   context,
+                  totalReportsCount,
                   allReports,
                   myReports,
                   draftReports,
@@ -175,6 +233,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 tablet: _buildTabletLayout(
                   context,
+                  totalReportsCount,
                   allReports,
                   myReports,
                   draftReports,
@@ -194,6 +253,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 desktop: _buildDesktopLayout(
                   context,
+                  totalReportsCount,
                   allReports,
                   myReports,
                   draftReports,
@@ -213,10 +273,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             );
-          },
-        );
-      },
-    );
   }
 
   Widget _buildIncomeMileageSummary(
@@ -251,7 +307,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           boxShadow: [
             BoxShadow(
-              color: gradient.last.withOpacity(0.2),
+              color: gradient.last.withValues(alpha: 0.2),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
@@ -262,7 +318,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
+                color: Colors.white.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: Colors.white, size: 20),
@@ -434,6 +490,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildMobileLayout(
     BuildContext context,
+    int totalReportsCount,
     List allReports,
     List myReports,
     List draftReports,
@@ -451,62 +508,196 @@ class _DashboardScreenState extends State<DashboardScreen> {
     double totalMileageKm,
     double totalMileageAmount,
   ) {
+    final spacing = ResponsiveHelper.getSpacing(context);
+
     return SingleChildScrollView(
       child: ResponsiveContainer(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Welcome Header
             _buildWelcomeHeader(context, authProvider.currentUser?.name ?? ''),
-            SizedBox(height: ResponsiveHelper.getSpacing(context)),
+            SizedBox(height: spacing),
+
+            // Key Metrics
             _buildStatCards(
               context,
-              allReports.length,
+              totalReportsCount,
               myReports.length,
               draftReports.length,
               pendingApprovals.length,
               pendingTravelingReports.length,
               authProvider.canApprove(),
             ),
-            SizedBox(height: ResponsiveHelper.getSpacing(context)),
-            _buildFinancialSummary(
-              context,
-              pettyCashReceived,
-              pettyCashUsed,
-              projectBudgetTotal,
-              projectExpensesTotal,
-            ),
-            if (authProvider.canManageUsers()) ...[
-              SizedBox(height: ResponsiveHelper.getSpacing(context)),
-              _buildIncomeMileageSummary(
-                context,
-                totalIncomeAmount,
-                incomeReportCount,
-                pendingIncomeReports,
-                totalMileageKm,
-                totalMileageAmount,
+            SizedBox(height: spacing),
+
+            // Financial Overview
+            DashboardSection(
+              title: 'Financial Overview',
+              icon: Icons.account_balance,
+              iconColor: Colors.green,
+              collapsible: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                child: Column(
+                  children: [
+                    _buildFinancialSummary(
+                      context,
+                      pettyCashReceived,
+                      pettyCashUsed,
+                      projectBudgetTotal,
+                      projectExpensesTotal,
+                    ),
+                    if (authProvider.canManageUsers()) ...[
+                      const SizedBox(height: 16),
+                      _buildIncomeMileageSummary(
+                        context,
+                        totalIncomeAmount,
+                        incomeReportCount,
+                        pendingIncomeReports,
+                        totalMileageKm,
+                        totalMileageAmount,
+                      ),
+                    ],
+                  ],
+                ),
               ),
-            ],
-            SizedBox(height: ResponsiveHelper.getSpacing(context)),
+            ),
+            SizedBox(height: spacing),
+
+            // Quick Actions
             _buildQuickActions(context, authProvider),
-            SizedBox(height: ResponsiveHelper.getSpacing(context)),
-            _buildPurchaseRequisitionSummary(context),
-            SizedBox(height: ResponsiveHelper.getSpacing(context)),
-            _buildPettyCashReports(context, myReports),
-            SizedBox(height: ResponsiveHelper.getSpacing(context)),
-            _buildProjectReports(context),
-            if (authProvider.canApprove()) ...[
-              SizedBox(height: ResponsiveHelper.getSpacing(context)),
-              _buildMileageSummary(context, allTravelingReports),
-              SizedBox(height: ResponsiveHelper.getSpacing(context)),
-              _buildPendingApprovals(context, pendingApprovals),
-              if (pendingTravelingReports.isNotEmpty) ...[
-                SizedBox(height: ResponsiveHelper.getSpacing(context)),
-                _buildPendingTravelingReports(context, pendingTravelingReports),
-              ],
+            SizedBox(height: spacing),
+
+            // Critical Items (Approvals)
+            if (authProvider.canApprove() &&
+                (pendingApprovals.isNotEmpty ||
+                    pendingTravelingReports.isNotEmpty)) ...[
+              DashboardSection(
+                title: 'Pending Approvals',
+                icon: Icons.pending_actions,
+                iconColor: Colors.red,
+                showBadge: true,
+                badgeCount:
+                    pendingApprovals.length + pendingTravelingReports.length,
+                initiallyExpanded: true,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  child: Column(
+                    children: [
+                      if (pendingApprovals.isNotEmpty)
+                        _buildPendingApprovals(context, pendingApprovals),
+                      if (pendingApprovals.isNotEmpty &&
+                          pendingTravelingReports.isNotEmpty)
+                        const SizedBox(height: 16),
+                      if (pendingTravelingReports.isNotEmpty)
+                        _buildPendingTravelingReports(
+                          context,
+                          pendingTravelingReports,
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(height: spacing),
             ],
+
+            // Recent Reports
+            DashboardSection(
+              title: 'My Recent Reports',
+              icon: Icons.receipt_long,
+              iconColor: Colors.blue,
+              initiallyExpanded: true,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                child: Column(
+                  children: [
+                    _buildPettyCashReports(context, myReports),
+                    const SizedBox(height: 16),
+                    _buildProjectReports(context),
+                  ],
+                ),
+              ),
+            ),
+            SizedBox(height: spacing),
+
+            // My Data Section (for regular users)
+            DashboardSection(
+              title: 'My Data',
+              icon: Icons.badge,
+              iconColor: Colors.cyan,
+              initiallyExpanded: true,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                child: _buildMyDataSection(context),
+              ),
+            ),
+            SizedBox(height: spacing),
+
+            // HR Data Submissions (for admins only)
+            if (authProvider.canManageUsers())
+              DashboardSection(
+                title: 'HR Data Submissions',
+                icon: Icons.person_add,
+                iconColor: Colors.orange,
+                initiallyExpanded: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  child: _buildHrDataSubmissions(context, true),
+                ),
+              ),
+            if (authProvider.canManageUsers()) SizedBox(height: spacing),
+
+            // Reports Overview (for approvers)
+            if (authProvider.canApprove()) ...[
+              DashboardSection(
+                title: 'Reports Overview',
+                icon: Icons.flight_takeoff,
+                iconColor: Colors.orange,
+                initiallyExpanded: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  child: _buildMileageSummary(context, allTravelingReports),
+                ),
+              ),
+              SizedBox(height: spacing),
+            ],
+
+            // Management Section (for admins)
             if (authProvider.canManageUsers()) ...[
-              SizedBox(height: ResponsiveHelper.getSpacing(context)),
-              _buildStudentReports(context),
+              DashboardSection(
+                title: 'Purchase Requisitions',
+                icon: Icons.shopping_cart,
+                iconColor: Colors.purple,
+                initiallyExpanded: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  child: _buildPurchaseRequisitionSummary(context),
+                ),
+              ),
+              SizedBox(height: spacing),
+              DashboardSection(
+                title: 'Student Management',
+                icon: Icons.school,
+                iconColor: Colors.indigo,
+                initiallyExpanded: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  child: _buildStudentReports(context),
+                ),
+              ),
+              SizedBox(height: spacing),
+              DashboardSection(
+                title: 'Staff Directory',
+                icon: Icons.badge,
+                iconColor: Colors.teal,
+                initiallyExpanded: false,
+                child: const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  child: StaffDirectoryWidget(maxItems: 6),
+                ),
+              ),
+              SizedBox(height: spacing),
             ],
           ],
         ),
@@ -516,6 +707,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildTabletLayout(
     BuildContext context,
+    int totalReportsCount,
     List allReports,
     List myReports,
     List draftReports,
@@ -533,33 +725,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
     double totalMileageKm,
     double totalMileageAmount,
   ) {
+    final spacing = ResponsiveHelper.getSpacing(context);
+
     return SingleChildScrollView(
       child: ResponsiveContainer(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Welcome Header
             _buildWelcomeHeader(context, authProvider.currentUser?.name ?? ''),
-            SizedBox(height: ResponsiveHelper.getSpacing(context)),
+            SizedBox(height: spacing),
+
+            // Stats Cards (full width)
+            _buildStatCards(
+              context,
+              totalReportsCount,
+              myReports.length,
+              draftReports.length,
+              pendingApprovals.length,
+              pendingTravelingReports.length,
+              authProvider.canApprove(),
+            ),
+            SizedBox(height: spacing),
+
+            // Quick Actions + Financial Summary Row
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   flex: 2,
+                  child: _buildQuickActions(context, authProvider),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  flex: 1,
                   child: Column(
                     children: [
-                      _buildStatCards(
+                      _buildFinancialSummary(
                         context,
-                        allReports.length,
-                        myReports.length,
-                        draftReports.length,
-                        pendingApprovals.length,
-                        pendingTravelingReports.length,
-                        authProvider.canApprove(),
+                        pettyCashReceived,
+                        pettyCashUsed,
+                        projectBudgetTotal,
+                        projectExpensesTotal,
                       ),
-                      SizedBox(height: ResponsiveHelper.getSpacing(context)),
-                      _buildQuickActions(context, authProvider),
                       if (authProvider.canManageUsers()) ...[
-                        SizedBox(height: ResponsiveHelper.getSpacing(context)),
+                        SizedBox(height: spacing),
                         _buildIncomeMileageSummary(
                           context,
                           totalIncomeAmount,
@@ -572,38 +782,173 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 24),
+              ],
+            ),
+            SizedBox(height: spacing),
+
+            // Critical Items (Approvals)
+            if (authProvider.canApprove() &&
+                (pendingApprovals.isNotEmpty ||
+                    pendingTravelingReports.isNotEmpty)) ...[
+              DashboardSection(
+                title: 'Pending Approvals',
+                icon: Icons.pending_actions,
+                iconColor: Colors.red,
+                showBadge: true,
+                badgeCount:
+                    pendingApprovals.length + pendingTravelingReports.length,
+                initiallyExpanded: true,
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (pendingApprovals.isNotEmpty)
+                        Expanded(
+                          child: _buildPendingApprovals(
+                            context,
+                            pendingApprovals,
+                          ),
+                        ),
+                      if (pendingApprovals.isNotEmpty &&
+                          pendingTravelingReports.isNotEmpty)
+                        const SizedBox(width: 16),
+                      if (pendingTravelingReports.isNotEmpty)
+                        Expanded(
+                          child: _buildPendingTravelingReports(
+                            context,
+                            pendingTravelingReports,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(height: spacing),
+            ],
+
+            // Recent Reports + My Data in 2 columns
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Expanded(
-                  flex: 1,
-                  child: _buildFinancialSummary(
-                    context,
-                    pettyCashReceived,
-                    pettyCashUsed,
-                    projectBudgetTotal,
-                    projectExpensesTotal,
+                  child: DashboardSection(
+                    title: 'My Recent Reports',
+                    icon: Icons.receipt_long,
+                    iconColor: Colors.blue,
+                    initiallyExpanded: true,
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildPettyCashReports(context, myReports),
+                          const SizedBox(height: 16),
+                          _buildProjectReports(context),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: DashboardSection(
+                    title: 'My Data',
+                    icon: Icons.badge,
+                    iconColor: Colors.cyan,
+                    initiallyExpanded: true,
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: _buildMyDataSection(context),
+                    ),
                   ),
                 ),
               ],
             ),
-            SizedBox(height: ResponsiveHelper.getSpacing(context)),
-            _buildPurchaseRequisitionSummary(context),
-            SizedBox(height: ResponsiveHelper.getSpacing(context)),
-            _buildPettyCashReports(context, myReports),
-            SizedBox(height: ResponsiveHelper.getSpacing(context)),
-            _buildProjectReports(context),
-            if (authProvider.canApprove()) ...[
-              SizedBox(height: ResponsiveHelper.getSpacing(context)),
-              _buildMileageSummary(context, allTravelingReports),
-              SizedBox(height: ResponsiveHelper.getSpacing(context)),
-              _buildPendingApprovals(context, pendingApprovals),
-              if (pendingTravelingReports.isNotEmpty) ...[
-                SizedBox(height: ResponsiveHelper.getSpacing(context)),
-                _buildPendingTravelingReports(context, pendingTravelingReports),
-              ],
-            ],
+            SizedBox(height: spacing),
+
+            // Admin Sections Row
             if (authProvider.canManageUsers()) ...[
-              SizedBox(height: ResponsiveHelper.getSpacing(context)),
-              _buildStudentReports(context),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: DashboardSection(
+                      title: 'HR Data Submissions',
+                      icon: Icons.person_add,
+                      iconColor: Colors.orange,
+                      initiallyExpanded: false,
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: _buildHrDataSubmissions(context, true),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: DashboardSection(
+                      title: 'Purchase Requisitions',
+                      icon: Icons.shopping_cart,
+                      iconColor: Colors.purple,
+                      initiallyExpanded: false,
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: _buildPurchaseRequisitionSummary(context),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: spacing),
+            ],
+
+            // Management Section (for approvers/admins)
+            if (authProvider.canApprove()) ...[
+              DashboardSection(
+                title: 'Reports Overview',
+                icon: Icons.flight_takeoff,
+                iconColor: Colors.orange,
+                initiallyExpanded: false,
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: _buildMileageSummary(context, allTravelingReports),
+                ),
+              ),
+              SizedBox(height: spacing),
+            ],
+
+            // Bottom Row: Students + Staff
+            if (authProvider.canManageUsers()) ...[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: DashboardSection(
+                      title: 'Student Management',
+                      icon: Icons.school,
+                      iconColor: Colors.indigo,
+                      initiallyExpanded: false,
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: _buildStudentReports(context),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: DashboardSection(
+                      title: 'Staff Directory',
+                      icon: Icons.badge,
+                      iconColor: Colors.teal,
+                      initiallyExpanded: false,
+                      child: const Padding(
+                        padding: EdgeInsets.all(20),
+                        child: StaffDirectoryWidget(maxItems: 6),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ],
         ),
@@ -613,6 +958,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildDesktopLayout(
     BuildContext context,
+    int totalReportsCount,
     List allReports,
     List myReports,
     List draftReports,
@@ -630,28 +976,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
     double totalMileageKm,
     double totalMileageAmount,
   ) {
+    final spacing = ResponsiveHelper.getSpacing(context);
+
     return SingleChildScrollView(
       child: ResponsiveContainer(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Welcome Header
             _buildWelcomeHeader(context, authProvider.currentUser?.name ?? ''),
-            SizedBox(height: ResponsiveHelper.getSpacing(context)),
-            // Top section with stats and financial summary
+            SizedBox(height: spacing),
+
+            // Stats Cards (full width)
+            _buildStatCards(
+              context,
+              totalReportsCount,
+              myReports.length,
+              draftReports.length,
+              pendingApprovals.length,
+              pendingTravelingReports.length,
+              authProvider.canApprove(),
+            ),
+            SizedBox(height: spacing),
+
+            // Quick Actions + Financial Summary Row
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  flex: 3,
-                  child: _buildStatCards(
-                    context,
-                    allReports.length,
-                    myReports.length,
-                    draftReports.length,
-                    pendingApprovals.length,
-                    pendingTravelingReports.length,
-                    authProvider.canApprove(),
-                  ),
+                  flex: 2,
+                  child: _buildQuickActions(context, authProvider),
                 ),
                 const SizedBox(width: 24),
                 Expanded(
@@ -664,46 +1018,186 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     projectExpensesTotal,
                   ),
                 ),
+                if (authProvider.canManageUsers()) ...[
+                  const SizedBox(width: 24),
+                  Expanded(
+                    flex: 1,
+                    child: _buildIncomeMileageSummary(
+                      context,
+                      totalIncomeAmount,
+                      incomeReportCount,
+                      pendingIncomeReports,
+                      totalMileageKm,
+                      totalMileageAmount,
+                    ),
+                  ),
+                ],
               ],
             ),
-            if (authProvider.canManageUsers()) ...[
-              SizedBox(height: ResponsiveHelper.getSpacing(context)),
-              _buildIncomeMileageSummary(
-                context,
-                totalIncomeAmount,
-                incomeReportCount,
-                pendingIncomeReports,
-                totalMileageKm,
-                totalMileageAmount,
+            SizedBox(height: spacing),
+
+            // Critical Items Row (Pending Approvals)
+            if (authProvider.canApprove() &&
+                (pendingApprovals.isNotEmpty ||
+                    pendingTravelingReports.isNotEmpty)) ...[
+              DashboardSection(
+                title: 'Pending Approvals',
+                icon: Icons.pending_actions,
+                iconColor: Colors.red,
+                showBadge: true,
+                badgeCount:
+                    pendingApprovals.length + pendingTravelingReports.length,
+                initiallyExpanded: true,
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (pendingApprovals.isNotEmpty)
+                        Expanded(
+                          child: _buildPendingApprovals(
+                            context,
+                            pendingApprovals,
+                          ),
+                        ),
+                      if (pendingApprovals.isNotEmpty &&
+                          pendingTravelingReports.isNotEmpty)
+                        const SizedBox(width: 24),
+                      if (pendingTravelingReports.isNotEmpty)
+                        Expanded(
+                          child: _buildPendingTravelingReports(
+                            context,
+                            pendingTravelingReports,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               ),
+              SizedBox(height: spacing),
             ],
-            SizedBox(height: ResponsiveHelper.getSpacing(context)),
-            _buildQuickActions(context, authProvider),
-            SizedBox(height: ResponsiveHelper.getSpacing(context)),
-            _buildPurchaseRequisitionSummary(context),
-            SizedBox(height: ResponsiveHelper.getSpacing(context)),
-            // Bottom section with reports in columns
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: _buildPettyCashReports(context, myReports)),
-                const SizedBox(width: 24),
-                Expanded(child: _buildProjectReports(context)),
-              ],
+
+            // Petty Cash Reports (full width)
+            DashboardSection(
+              title: 'Petty Cash Reports',
+              icon: Icons.receipt_long,
+              iconColor: Colors.blue,
+              initiallyExpanded: true,
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: _buildPettyCashReports(context, myReports),
+              ),
             ),
-            if (authProvider.canApprove()) ...[
-              SizedBox(height: ResponsiveHelper.getSpacing(context)),
-              _buildMileageSummary(context, allTravelingReports),
-              SizedBox(height: ResponsiveHelper.getSpacing(context)),
-              _buildPendingApprovals(context, pendingApprovals),
-              if (pendingTravelingReports.isNotEmpty) ...[
-                SizedBox(height: ResponsiveHelper.getSpacing(context)),
-                _buildPendingTravelingReports(context, pendingTravelingReports),
-              ],
-            ],
+            SizedBox(height: spacing),
+
+            // Project Reports (full width)
+            DashboardSection(
+              title: 'Project Reports',
+              icon: Icons.work,
+              iconColor: Colors.indigo,
+              initiallyExpanded: true,
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: _buildProjectReports(context),
+              ),
+            ),
+            SizedBox(height: spacing),
+
+            // My Data (full width)
+            DashboardSection(
+              title: 'My Data',
+              icon: Icons.badge,
+              iconColor: Colors.cyan,
+              initiallyExpanded: true,
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: _buildMyDataSection(context),
+              ),
+            ),
+            SizedBox(height: spacing),
+
+            // Admin Sections Row
             if (authProvider.canManageUsers()) ...[
-              SizedBox(height: ResponsiveHelper.getSpacing(context)),
-              _buildStudentReports(context),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: DashboardSection(
+                      title: 'HR Data Submissions',
+                      icon: Icons.person_add,
+                      iconColor: Colors.orange,
+                      initiallyExpanded: false,
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: _buildHrDataSubmissions(context, true),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 24),
+                  Expanded(
+                    child: DashboardSection(
+                      title: 'Purchase Requisitions',
+                      icon: Icons.shopping_cart,
+                      iconColor: Colors.purple,
+                      initiallyExpanded: false,
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: _buildPurchaseRequisitionSummary(context),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: spacing),
+            ],
+
+            // Management Sections
+            if (authProvider.canApprove()) ...[
+              DashboardSection(
+                title: 'Traveling Reports Overview',
+                icon: Icons.flight_takeoff,
+                iconColor: Colors.orange,
+                initiallyExpanded: false,
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: _buildMileageSummary(context, allTravelingReports),
+                ),
+              ),
+              SizedBox(height: spacing),
+            ],
+
+            // Bottom Row: Students + Staff
+            if (authProvider.canManageUsers()) ...[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: DashboardSection(
+                      title: 'Student Management',
+                      icon: Icons.school,
+                      iconColor: Colors.indigo,
+                      initiallyExpanded: false,
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: _buildStudentReports(context),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 24),
+                  Expanded(
+                    child: DashboardSection(
+                      title: 'Staff Directory',
+                      icon: Icons.badge,
+                      iconColor: Colors.teal,
+                      initiallyExpanded: false,
+                      child: const Padding(
+                        padding: EdgeInsets.all(20),
+                        child: StaffDirectoryWidget(maxItems: 8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ],
         ),
@@ -723,7 +1217,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withOpacity(0.3),
+            color: Colors.blue.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -739,7 +1233,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   'Welcome back,',
                   style: TextStyle(
                     fontSize: 16,
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -756,7 +1250,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   'Here\'s your financial overview',
                   style: TextStyle(
                     fontSize: 14,
-                    color: Colors.white.withOpacity(0.8),
+                    color: Colors.white.withValues(alpha: 0.8),
                   ),
                 ),
               ],
@@ -765,7 +1259,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.dashboard, size: 48, color: Colors.white),
@@ -891,7 +1385,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         borderRadius: BorderRadius.circular(borderRadius),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: elevation * 2,
             offset: Offset(0, elevation),
           ),
@@ -907,7 +1401,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               height: 100,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: stat.gradient.map((c) => c.withOpacity(0.1)).toList(),
+                  colors: stat.gradient
+                      .map((c) => c.withValues(alpha: 0.1))
+                      .toList(),
                 ),
                 shape: BoxShape.circle,
               ),
@@ -1070,7 +1566,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -1253,7 +1749,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: statusColor.withOpacity(0.1),
+                          color: statusColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: statusColor),
                         ),
@@ -1312,7 +1808,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: statusColor.withOpacity(0.1),
+                          color: statusColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: statusColor),
                         ),
@@ -1411,11 +1907,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
         onPressed: () => context.go('/traveling-reports'),
       ),
       _ActionData(
-        label: 'Purchase Requisition',
-        icon: Icons.shopping_cart,
-        gradient: [Colors.purple.shade400, Colors.purple.shade600],
-        onPressed: () => context.go('/purchase-requisitions'),
+        label: 'HR Data Form',
+        icon: Icons.work,
+        gradient: [Colors.orange.shade400, Colors.orange.shade600],
+        onPressed: () => context.go('/hr/data-submission'),
       ),
+      if (authProvider.canManageUsers() ||
+          authProvider.canCreatePurchaseRequisitions())
+        _ActionData(
+          label: 'Purchase Requisition',
+          icon: Icons.shopping_cart,
+          gradient: [Colors.purple.shade400, Colors.purple.shade600],
+          onPressed: () => context.go('/purchase-requisitions'),
+        ),
+      if (authProvider.canManageUsers())
+        _ActionData(
+          label: 'HR Dashboard',
+          icon: Icons.people_alt,
+          gradient: [Colors.purple.shade400, Colors.purple.shade600],
+          onPressed: () => context.go('/hr'),
+        ),
       if (authProvider.canManageUsers())
         _ActionData(
           label: 'Income Reports',
@@ -1498,7 +2009,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           borderRadius: BorderRadius.circular(borderRadius),
           boxShadow: [
             BoxShadow(
-              color: action.gradient[1].withOpacity(0.3),
+              color: action.gradient[1].withValues(alpha: 0.3),
               blurRadius: ResponsiveHelper.getCardElevation(context) * 2,
               offset: Offset(0, ResponsiveHelper.getCardElevation(context)),
             ),
@@ -1543,29 +2054,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.blue,
-                      borderRadius: BorderRadius.circular(8),
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.blue,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.account_balance_wallet,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.account_balance_wallet,
-                      color: Colors.white,
-                      size: 20,
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: Text(
+                        'My Petty Cash Reports',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue.shade900,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'My Petty Cash Reports',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue.shade900,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               TextButton.icon(
                 onPressed: () => context.go('/reports'),
@@ -1700,7 +2216,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 (t.statusEnum == TransactionStatus.approved ||
                     t.statusEnum == TransactionStatus.processed),
           )
-          .fold<double>(0.0, (sum, t) => sum + t.amount);
+          .fold<double>(0.0, (acc, t) => acc + t.amount);
     }
 
     return Column(
@@ -1717,29 +2233,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.green,
-                      borderRadius: BorderRadius.circular(8),
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.green,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.business_center,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.business_center,
-                      color: Colors.white,
-                      size: 20,
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: Text(
+                        'My Project Reports',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green.shade900,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'My Project Reports',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green.shade900,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               TextButton.icon(
                 onPressed: () => context.go('/reports'),
@@ -1968,29 +2489,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.teal,
-                      borderRadius: BorderRadius.circular(8),
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.teal,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.speed,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.speed,
-                      color: Colors.white,
-                      size: 20,
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: Text(
+                        'Mileage Summary',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.teal.shade900,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Mileage Summary',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.teal.shade900,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               TextButton.icon(
                 onPressed: () => context.go('/admin/traveling-reports'),
@@ -2268,8 +2794,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final dateFormat = DateFormat('MMM dd, yyyy');
 
     return StreamBuilder<List<PurchaseRequisition>>(
-      stream: FirestoreService().purchaseRequisitionsStream(),
+      stream: ManagedFirestoreService().purchaseRequisitionsStream(),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          // Handle Firestore web stream errors gracefully
+          final errorStr = snapshot.error.toString();
+          if (errorStr.contains('INTERNAL ASSERTION FAILED') ||
+              errorStr.contains('Unexpected state')) {
+            // Reset streams and show reload option
+            ManagedFirestoreService().resetAllStreams();
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.refresh, size: 48, color: Colors.grey),
+                  const SizedBox(height: 8),
+                  const Text('Connection issue. Please refresh.'),
+                  const SizedBox(height: 8),
+                  ElevatedButton(
+                    onPressed: () => setState(() {}),
+                    child: const Text('Refresh'),
+                  ),
+                ],
+              ),
+            );
+          }
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
+
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
@@ -2372,9 +2924,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             if (recentRequisitions.isNotEmpty) ...[
               Text(
                 'Recent Requisitions',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               ListView.builder(
@@ -2488,10 +3040,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Expanded(
                 child: Text(
                   title,
-                  style: TextStyle(
-                    color: Colors.grey.shade600,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
                 ),
               ),
             ],
@@ -2818,7 +3367,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           TextButton(
             onPressed: () async {
               try {
-                await FirestoreService().approveTravelingReport(
+                await ManagedFirestoreService().approveTravelingReport(
                   report.id,
                   user.name,
                 );
@@ -2900,7 +3449,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               }
 
               try {
-                await FirestoreService().rejectTravelingReport(
+                await ManagedFirestoreService().rejectTravelingReport(
                   report.id,
                   reasonController.text.trim(),
                 );
@@ -2949,7 +3498,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           TextButton(
             onPressed: () async {
               try {
-                await FirestoreService().deleteTravelingReport(report.id);
+                await ManagedFirestoreService().deleteTravelingReport(report.id);
 
                 if (context.mounted) {
                   Navigator.of(context).pop(true);
@@ -3009,7 +3558,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           notes: result['notes'] as String,
         );
 
-        await FirestoreService().saveTravelingReport(updatedReport);
+        await ManagedFirestoreService().saveTravelingReport(updatedReport);
 
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -3697,6 +4246,725 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildHrDataSubmissions(BuildContext context, bool isAdmin) {
+    final authProvider = context.watch<AuthProvider>();
+    final user = authProvider.currentUser;
+    final dateFormat = DateFormat('MMM dd, yyyy');
+
+    // Build query based on user role
+    Query query = FirebaseFirestore.instance
+        .collection('hr_data_submissions')
+        .orderBy('submittedAt', descending: true);
+
+    // If not admin, only show user's own submissions
+    if (!isAdmin && user != null) {
+      query = query.where('submittedBy', isEqualTo: user.id);
+    }
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: query.limit(5).snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final submissions = snapshot.data!.docs;
+
+        // Count pending submissions for badge
+        final pendingCount = submissions.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return data['status'] == 'pending';
+        }).length;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.orange.shade50, Colors.orange.shade100],
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.orange,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.person_add,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        isAdmin ? 'HR Data Submissions' : 'My HR Submissions',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange.shade900,
+                        ),
+                      ),
+                      if (isAdmin && pendingCount > 0) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '$pendingCount pending',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  TextButton.icon(
+                    onPressed: () => context.go('/hr/data-submission'),
+                    icon: const Icon(Icons.add),
+                    label: const Text('New'),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Content
+            if (submissions.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(48),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.folder_open,
+                        size: 64,
+                        color: Colors.grey.shade300,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        isAdmin
+                            ? 'No HR data submissions yet'
+                            : 'You have no HR submissions yet',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Submit HR data to get started!',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: submissions.length,
+                itemBuilder: (context, index) {
+                  final doc = submissions[index];
+                  final data = doc.data() as Map<String, dynamic>;
+                  final fullName = data['fullName'] ?? 'Unknown';
+                  final department = data['department'] ?? 'N/A';
+                  final position = data['position'] ?? 'N/A';
+                  final status = data['status'] ?? 'pending';
+                  final submittedAt = data['submittedAt'] as Timestamp?;
+                  final submittedByName = data['submittedByName'] ?? 'Unknown';
+
+                  Color statusColor;
+                  IconData statusIcon;
+                  switch (status) {
+                    case 'approved':
+                      statusColor = Colors.green;
+                      statusIcon = Icons.check_circle;
+                      break;
+                    case 'rejected':
+                      statusColor = Colors.red;
+                      statusIcon = Icons.cancel;
+                      break;
+                    case 'processed':
+                      statusColor = Colors.blue;
+                      statusIcon = Icons.verified;
+                      break;
+                    default:
+                      statusColor = Colors.orange;
+                      statusIcon = Icons.pending;
+                  }
+
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: statusColor.withValues(alpha: 0.2),
+                        child: Icon(statusIcon, color: statusColor, size: 24),
+                      ),
+                      title: Text(
+                        fullName,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('$department • $position'),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              if (isAdmin)
+                                Text(
+                                  'By: $submittedByName • ',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              Text(
+                                submittedAt != null
+                                    ? dateFormat.format(submittedAt.toDate())
+                                    : 'N/A',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: statusColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              status.toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: statusColor,
+                              ),
+                            ),
+                          ),
+                          if (isAdmin && status == 'pending')
+                            PopupMenuButton<String>(
+                              icon: const Icon(Icons.more_vert),
+                              onSelected: (choice) {
+                                if (choice == 'approve') {
+                                  _updateHrSubmissionStatus(
+                                    context,
+                                    doc.id,
+                                    'approved',
+                                    fullName,
+                                  );
+                                } else if (choice == 'reject') {
+                                  _updateHrSubmissionStatus(
+                                    context,
+                                    doc.id,
+                                    'rejected',
+                                    fullName,
+                                  );
+                                } else if (choice == 'process') {
+                                  _updateHrSubmissionStatus(
+                                    context,
+                                    doc.id,
+                                    'processed',
+                                    fullName,
+                                  );
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(
+                                  value: 'approve',
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.check_circle,
+                                        color: Colors.green,
+                                        size: 20,
+                                      ),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'Approve',
+                                        style: TextStyle(color: Colors.green),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'process',
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.verified,
+                                        color: Colors.blue,
+                                        size: 20,
+                                      ),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'Mark Processed',
+                                        style: TextStyle(color: Colors.blue),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'reject',
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.cancel,
+                                        color: Colors.red,
+                                        size: 20,
+                                      ),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'Reject',
+                                        style: TextStyle(color: Colors.red),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                      isThreeLine: true,
+                    ),
+                  );
+                },
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _updateHrSubmissionStatus(
+    BuildContext context,
+    String docId,
+    String newStatus,
+    String employeeName,
+  ) async {
+    final authProvider = context.read<AuthProvider>();
+    final user = authProvider.currentUser;
+
+    if (user == null) return;
+
+    try {
+      final updates = <String, dynamic>{
+        'status': newStatus,
+        'processedAt': FieldValue.serverTimestamp(),
+        'processedBy': user.name,
+      };
+
+      await FirebaseFirestore.instance
+          .collection('hr_data_submissions')
+          .doc(docId)
+          .update(updates);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'HR submission for $employeeName marked as ${newStatus.toUpperCase()}',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating status: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildMyDataSection(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    final user = authProvider.currentUser;
+    final currencyFormat = NumberFormat('#,##0.00', 'en_US');
+
+    if (user == null) {
+      return const SizedBox.shrink();
+    }
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('hr_data_submissions')
+          .where('submittedBy', isEqualTo: user.id)
+          .orderBy('submittedAt', descending: true)
+          .limit(1)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final hasData = snapshot.hasData && snapshot.data!.docs.isNotEmpty;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.cyan.shade50, Colors.cyan.shade100],
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.cyan,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.badge,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'My Data',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.cyan.shade900,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (hasData)
+                    TextButton.icon(
+                      onPressed: () => context.go('/hr/my-data'),
+                      icon: const Icon(Icons.visibility),
+                      label: const Text('View All'),
+                    )
+                  else
+                    TextButton.icon(
+                      onPressed: () => context.go('/hr/data-submission'),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Submit'),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            if (!hasData)
+              Container(
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.person_outline,
+                        size: 48,
+                        color: Colors.grey.shade300,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No HR data submitted yet',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () => context.go('/hr/data-submission'),
+                        child: const Text('Submit your HR information'),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              _buildMyDataCard(
+                context,
+                snapshot.data!.docs.first,
+                currencyFormat,
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildMyDataCard(
+    BuildContext context,
+    DocumentSnapshot doc,
+    NumberFormat currencyFormat,
+  ) {
+    final data = doc.data() as Map<String, dynamic>;
+    final fullName = data['fullName'] ?? 'Unknown';
+    final position = data['position'] ?? 'N/A';
+    final department = data['department'] ?? 'N/A';
+    final employeeId = data['employeeId'] ?? 'N/A';
+    final status = data['status'] ?? 'pending';
+    final calculatedSalary = (data['calculatedSalary'] ?? 0).toDouble();
+    final totalAllowances = (data['totalAllowances'] ?? 0).toDouble();
+
+    Color statusColor;
+    switch (status) {
+      case 'approved':
+        statusColor = Colors.green;
+        break;
+      case 'rejected':
+        statusColor = Colors.red;
+        break;
+      case 'processed':
+        statusColor = Colors.blue;
+        break;
+      default:
+        statusColor = Colors.orange;
+    }
+
+    return InkWell(
+      onTap: () => context.go('/hr/my-data'),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            // Profile header
+            Row(
+              children: [
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.cyan.shade400, Colors.cyan.shade600],
+                    ),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      fullName[0].toUpperCase(),
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        fullName,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '$position • $department',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'ID: $employeeId',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    status.toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: statusColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Divider(color: Colors.grey.shade200),
+            const SizedBox(height: 16),
+            // Salary info
+            Row(
+              children: [
+                Expanded(
+                  child: _buildMiniStatCard(
+                    icon: Icons.monetization_on,
+                    label: 'Salary',
+                    value: '฿${currencyFormat.format(calculatedSalary)}',
+                    color: Colors.green,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildMiniStatCard(
+                    icon: Icons.card_giftcard,
+                    label: 'Allowances',
+                    value: '฿${currencyFormat.format(totalAllowances)}',
+                    color: Colors.pink,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildMiniStatCard(
+                    icon: Icons.account_balance_wallet,
+                    label: 'Total',
+                    value:
+                        '฿${currencyFormat.format(calculatedSalary + totalAllowances)}',
+                    color: Colors.blue,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // View details button
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.cyan.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.visibility, color: Colors.cyan.shade700, size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    'View Full Details & Print',
+                    style: TextStyle(
+                      color: Colors.cyan.shade700,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMiniStatCard({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+          ),
+        ],
+      ),
     );
   }
 }

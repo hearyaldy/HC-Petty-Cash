@@ -27,10 +27,15 @@ class ReportProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      debugPrint('DEBUG REPORTS: Loading reports...');
       _reports = await _reportService.getAllReports();
-    } catch (e) {
+      debugPrint('DEBUG REPORTS: Loaded ${_reports.length} reports');
+    } catch (e, stackTrace) {
       AppLogger.severe('Error loading reports: $e');
-      _reports = [];
+      debugPrint('DEBUG REPORTS: Error loading reports: $e');
+      debugPrint('DEBUG REPORTS: Stack trace: $stackTrace');
+      // Don't clear existing data on error - keep the cached data
+      // _reports = [];
     }
 
     _isLoading = false;

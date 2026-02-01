@@ -53,209 +53,224 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _buildPageHeader(),
                 const SizedBox(height: 24),
 
-              // User Profile Section
-              _buildSectionHeader('User Profile'),
-              _buildProfileTile(currentUser?.name ?? 'User', currentUser?.email ?? ''),
-              const Divider(height: 24),
-
-              // App Preferences
-              _buildSectionHeader('App Preferences'),
-              _buildListTile(
-                icon: Icons.palette_outlined,
-                title: 'Theme',
-                subtitle: 'Light',
-                onTap: () => _showThemeDialog(),
-              ),
-              _buildListTile(
-                icon: Icons.language,
-                title: 'Language',
-                subtitle: 'English',
-                onTap: () => _showLanguageDialog(),
-              ),
-              _buildListTile(
-                icon: Icons.attach_money,
-                title: 'Currency',
-                subtitle: _currency,
-                onTap: () => _showCurrencyDialog(),
-              ),
-              _buildListTile(
-                icon: Icons.calendar_today,
-                title: 'Date Format',
-                subtitle: _dateFormat,
-                onTap: () => _showDateFormatDialog(),
-              ),
-              const Divider(height: 24),
-
-              // Notifications
-              _buildSectionHeader('Notifications'),
-              _buildSwitchListTile(
-                icon: Icons.email_outlined,
-                title: 'Email Notifications',
-                subtitle: 'Receive updates via email',
-                value: _emailNotifications,
-                onChanged: (value) {
-                  setState(() {
-                    _emailNotifications = value;
-                  });
-                },
-              ),
-              _buildSwitchListTile(
-                icon: Icons.notifications_outlined,
-                title: 'Push Notifications',
-                subtitle: 'Receive push notifications',
-                value: _pushNotifications,
-                onChanged: (value) {
-                  setState(() {
-                    _pushNotifications = value;
-                  });
-                },
-              ),
-              const Divider(height: 24),
-
-              // Report Settings
-              _buildSectionHeader('Report Settings'),
-              _buildListTile(
-                icon: Icons.receipt_long,
-                title: 'Default Report Type',
-                subtitle: 'Petty Cash Report',
-                onTap: () => _showReportTypeDialog(),
-              ),
-              _buildListTile(
-                icon: Icons.format_list_numbered,
-                title: 'Report Numbering',
-                subtitle: 'Auto-generate',
-                onTap: () {},
-              ),
-              const Divider(height: 24),
-
-              // Export Settings
-              _buildSectionHeader('Export & Backup'),
-              _buildListTile(
-                icon: Icons.file_download_outlined,
-                title: 'Default Export Format',
-                subtitle: _defaultExportFormat,
-                onTap: () => _showExportFormatDialog(),
-              ),
-              _buildSwitchListTile(
-                icon: Icons.backup_outlined,
-                title: 'Auto Backup',
-                subtitle: 'Automatically backup data',
-                value: _autoBackup,
-                onChanged: (value) {
-                  setState(() {
-                    _autoBackup = value;
-                  });
-                },
-              ),
-              _buildListTile(
-                icon: Icons.cloud_upload_outlined,
-                title: 'Backup Now',
-                subtitle: 'Manually backup your data',
-                onTap: () => _performBackup(),
-              ),
-              const Divider(height: 24),
-
-              // Admin Settings (only for admins)
-              if (authProvider.canApprove()) ...[
-                _buildSectionHeader('Admin Settings'),
-                _buildListTile(
-                  icon: Icons.people_outline,
-                  title: 'Manage Users',
-                  subtitle: 'Add, edit, or remove users',
-                  onTap: () => context.push('/admin/users'),
-                ),
-                _buildListTile(
-                  icon: Icons.category_outlined,
-                  title: 'Manage Categories',
-                  subtitle: 'Edit expense categories',
-                  onTap: () => showDialog(
-                    context: context,
-                    builder: (context) => const CategoryManagementDialog(),
-                  ),
-                ),
-                _buildListTile(
-                  icon: Icons.account_balance_wallet_outlined,
-                  title: 'Manage Paid To Options',
-                  subtitle: 'Edit vendor list for paid to field',
-                  onTap: () => showDialog(
-                    context: context,
-                    builder: (context) => const PaidToManagementDialog(),
-                  ),
-                ),
-                _buildListTile(
-                  icon: Icons.business_outlined,
-                  title: 'Organization Settings',
-                  subtitle: 'Update organization details',
-                  onTap: () => _showOrganizationDialog(),
+                // User Profile Section
+                _buildSectionHeader('User Profile'),
+                _buildProfileTile(
+                  currentUser?.name ?? 'User',
+                  currentUser?.email ?? '',
                 ),
                 const Divider(height: 24),
-              ],
 
-              // Data Management
-              _buildSectionHeader('Data Management'),
-              _buildListTile(
-                icon: Icons.download_outlined,
-                title: 'Export All Data',
-                subtitle: 'Download all reports and transactions',
-                onTap: () => _exportAllData(),
-              ),
-              _buildListTile(
-                icon: Icons.delete_outline,
-                title: 'Clear Cache',
-                subtitle: 'Free up storage space',
-                onTap: () => _clearCache(),
-              ),
-              const Divider(height: 24),
+                // App Preferences
+                _buildSectionHeader('App Preferences'),
+                _buildListTile(
+                  icon: Icons.palette_outlined,
+                  title: 'Theme',
+                  subtitle: 'Light',
+                  onTap: () => _showThemeDialog(),
+                ),
+                _buildListTile(
+                  icon: Icons.language,
+                  title: 'Language',
+                  subtitle: 'English',
+                  onTap: () => _showLanguageDialog(),
+                ),
+                _buildListTile(
+                  icon: Icons.attach_money,
+                  title: 'Currency',
+                  subtitle: _currency,
+                  onTap: () => _showCurrencyDialog(),
+                ),
+                _buildListTile(
+                  icon: Icons.calendar_today,
+                  title: 'Date Format',
+                  subtitle: _dateFormat,
+                  onTap: () => _showDateFormatDialog(),
+                ),
+                const Divider(height: 24),
 
-              // About
-              _buildSectionHeader('About'),
-              _buildListTile(
-                icon: Icons.info_outline,
-                title: 'App Version',
-                subtitle: '1.0.0',
-                onTap: () {},
-              ),
-              _buildListTile(
-                icon: Icons.description_outlined,
-                title: 'Terms & Conditions',
-                subtitle: 'Read our terms',
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Terms & Conditions coming soon')),
-                  );
-                },
-              ),
-              _buildListTile(
-                icon: Icons.privacy_tip_outlined,
-                title: 'Privacy Policy',
-                subtitle: 'Read our privacy policy',
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Privacy Policy coming soon')),
-                  );
-                },
-              ),
-              _buildListTile(
-                icon: Icons.help_outline,
-                title: 'Help & Support',
-                subtitle: 'Get help or contact support',
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Help & Support coming soon')),
-                  );
-                },
-              ),
-              const Divider(height: 24),
+                // Notifications
+                _buildSectionHeader('Notifications'),
+                _buildSwitchListTile(
+                  icon: Icons.email_outlined,
+                  title: 'Email Notifications',
+                  subtitle: 'Receive updates via email',
+                  value: _emailNotifications,
+                  onChanged: (value) {
+                    setState(() {
+                      _emailNotifications = value;
+                    });
+                  },
+                ),
+                _buildSwitchListTile(
+                  icon: Icons.notifications_outlined,
+                  title: 'Push Notifications',
+                  subtitle: 'Receive push notifications',
+                  value: _pushNotifications,
+                  onChanged: (value) {
+                    setState(() {
+                      _pushNotifications = value;
+                    });
+                  },
+                ),
+                const Divider(height: 24),
 
-              // Logout
-              _buildListTile(
-                icon: Icons.logout,
-                title: 'Logout',
-                subtitle: 'Sign out of your account',
-                textColor: Colors.red,
-                onTap: () => _showLogoutDialog(),
-              ),
-              const SizedBox(height: 20),
+                // Report Settings
+                _buildSectionHeader('Report Settings'),
+                _buildListTile(
+                  icon: Icons.receipt_long,
+                  title: 'Default Report Type',
+                  subtitle: 'Petty Cash Report',
+                  onTap: () => _showReportTypeDialog(),
+                ),
+                _buildListTile(
+                  icon: Icons.format_list_numbered,
+                  title: 'Report Numbering',
+                  subtitle: 'Auto-generate',
+                  onTap: () {},
+                ),
+                const Divider(height: 24),
+
+                // Export Settings
+                _buildSectionHeader('Export & Backup'),
+                _buildListTile(
+                  icon: Icons.file_download_outlined,
+                  title: 'Default Export Format',
+                  subtitle: _defaultExportFormat,
+                  onTap: () => _showExportFormatDialog(),
+                ),
+                _buildSwitchListTile(
+                  icon: Icons.backup_outlined,
+                  title: 'Auto Backup',
+                  subtitle: 'Automatically backup data',
+                  value: _autoBackup,
+                  onChanged: (value) {
+                    setState(() {
+                      _autoBackup = value;
+                    });
+                  },
+                ),
+                _buildListTile(
+                  icon: Icons.cloud_upload_outlined,
+                  title: 'Backup Now',
+                  subtitle: 'Manually backup your data',
+                  onTap: () => _performBackup(),
+                ),
+                const Divider(height: 24),
+
+                // Admin Settings (only for admins)
+                if (authProvider.canApprove()) ...[
+                  _buildSectionHeader('Admin Settings'),
+                  _buildListTile(
+                    icon: Icons.people_outline,
+                    title: 'Manage Users',
+                    subtitle: 'Add, edit, or remove users',
+                    onTap: () => context.push('/admin/users'),
+                  ),
+                  _buildListTile(
+                    icon: Icons.badge_outlined,
+                    title: 'Manage Staff',
+                    subtitle: 'HR records and staff information',
+                    onTap: () => context.push('/admin/staff'),
+                  ),
+                  _buildListTile(
+                    icon: Icons.category_outlined,
+                    title: 'Manage Categories',
+                    subtitle: 'Edit expense categories',
+                    onTap: () => showDialog(
+                      context: context,
+                      builder: (context) => const CategoryManagementDialog(),
+                    ),
+                  ),
+                  _buildListTile(
+                    icon: Icons.account_balance_wallet_outlined,
+                    title: 'Manage Paid To Options',
+                    subtitle: 'Edit vendor list for paid to field',
+                    onTap: () => showDialog(
+                      context: context,
+                      builder: (context) => const PaidToManagementDialog(),
+                    ),
+                  ),
+                  _buildListTile(
+                    icon: Icons.business_outlined,
+                    title: 'Organization Settings',
+                    subtitle: 'Update organization details',
+                    onTap: () => _showOrganizationDialog(),
+                  ),
+                  const Divider(height: 24),
+                ],
+
+                // Data Management
+                _buildSectionHeader('Data Management'),
+                _buildListTile(
+                  icon: Icons.download_outlined,
+                  title: 'Export All Data',
+                  subtitle: 'Download all reports and transactions',
+                  onTap: () => _exportAllData(),
+                ),
+                _buildListTile(
+                  icon: Icons.delete_outline,
+                  title: 'Clear Cache',
+                  subtitle: 'Free up storage space',
+                  onTap: () => _clearCache(),
+                ),
+                const Divider(height: 24),
+
+                // About
+                _buildSectionHeader('About'),
+                _buildListTile(
+                  icon: Icons.info_outline,
+                  title: 'App Version',
+                  subtitle: '1.0.0',
+                  onTap: () {},
+                ),
+                _buildListTile(
+                  icon: Icons.description_outlined,
+                  title: 'Terms & Conditions',
+                  subtitle: 'Read our terms',
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Terms & Conditions coming soon'),
+                      ),
+                    );
+                  },
+                ),
+                _buildListTile(
+                  icon: Icons.privacy_tip_outlined,
+                  title: 'Privacy Policy',
+                  subtitle: 'Read our privacy policy',
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Privacy Policy coming soon'),
+                      ),
+                    );
+                  },
+                ),
+                _buildListTile(
+                  icon: Icons.help_outline,
+                  title: 'Help & Support',
+                  subtitle: 'Get help or contact support',
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Help & Support coming soon'),
+                      ),
+                    );
+                  },
+                ),
+                const Divider(height: 24),
+
+                // Logout
+                _buildListTile(
+                  icon: Icons.logout,
+                  title: 'Logout',
+                  subtitle: 'Sign out of your account',
+                  textColor: Colors.red,
+                  onTap: () => _showLogoutDialog(),
+                ),
+                const SizedBox(height: 20),
               ],
             ),
           ),
@@ -364,9 +379,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SnackBar(content: Text('Profile editing coming soon')),
           );
         },
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -397,9 +410,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         subtitle: Text(subtitle),
         trailing: const Icon(Icons.chevron_right),
         onTap: onTap,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -430,9 +441,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         subtitle: Text(subtitle),
         value: value,
         onChanged: onChanged,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -629,8 +638,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showOrganizationDialog() {
-    final nameController = TextEditingController(text: AppConstants.organizationName);
-    final addressController = TextEditingController(text: AppConstants.organizationAddress);
+    final nameController = TextEditingController(
+      text: AppConstants.organizationName,
+    );
+    final addressController = TextEditingController(
+      text: AppConstants.organizationAddress,
+    );
 
     showDialog(
       context: context,
@@ -669,7 +682,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               // Update organization settings
               AppConstants.organizationName = nameController.text.trim();
               AppConstants.organizationAddress = addressController.text.trim();
-              AppConstants.organizationNameThai = ''; // Keep Thai name empty as requested
+              AppConstants.organizationNameThai =
+                  ''; // Keep Thai name empty as requested
 
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(

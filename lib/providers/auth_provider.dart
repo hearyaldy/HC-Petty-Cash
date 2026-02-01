@@ -25,7 +25,9 @@ class AuthProvider extends ChangeNotifier {
     // Listen to auth state changes
     _authService.authStateChanges.listen((firebaseUser) async {
       if (firebaseUser != null) {
-        await _authService.initialize();
+        // Use tryLoadUserData which doesn't throw if document doesn't exist yet
+        // This handles the race condition during user registration
+        await _authService.tryLoadUserData();
       }
       notifyListeners();
     });
@@ -119,6 +121,14 @@ class AuthProvider extends ChangeNotifier {
 
   bool canCreateReports() {
     return _authService.canCreateReports();
+  }
+
+  bool canCreatePurchaseRequisitions() {
+    return _authService.canCreatePurchaseRequisitions();
+  }
+
+  bool canCreateTravelingReports() {
+    return _authService.canCreateTravelingReports();
   }
 
   bool canViewAllReports() {

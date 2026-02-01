@@ -11,6 +11,7 @@ import 'package:printing/printing.dart';
 import '../../providers/transaction_provider.dart';
 import '../../providers/report_provider.dart';
 import '../../models/transaction.dart';
+import '../../models/petty_cash_report.dart';
 import '../../models/enums.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
@@ -858,10 +859,15 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                   ),
                 ],
                 rows: transactions.map((transaction) {
-                  final report = reportProvider.reports.firstWhere(
-                    (r) => r.id == transaction.reportId,
-                    orElse: () => throw Exception('Report not found'),
+                  final report = reportProvider.reports.cast<PettyCashReport?>().firstWhere(
+                    (r) => r?.id == transaction.reportId,
+                    orElse: () => null,
                   );
+
+                  // Skip row if report not found
+                  if (report == null) {
+                    return const DataRow(cells: []);
+                  }
 
                   return DataRow(
                     cells: [

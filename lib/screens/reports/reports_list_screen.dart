@@ -10,7 +10,6 @@ import '../../models/enums.dart';
 import '../../models/transaction.dart';
 import '../../models/petty_cash_report.dart';
 import '../../models/project_report.dart';
-import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
 
 class ReportsListScreen extends StatefulWidget {
@@ -345,551 +344,487 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
   }
 
   Widget _buildReportsList(List<dynamic> reports, List<Transaction> transactions) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Calculate card width based on screen size
+        // 2 cards per row on wide screens, 1 on narrow
+        final isWide = constraints.maxWidth > 800;
+        final cardWidth = isWide
+            ? (constraints.maxWidth - 16) / 2 // 2 cards with 16px gap
+            : constraints.maxWidth;
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.only(top: 8, bottom: 16),
+          child: Wrap(
+            spacing: 16,
+            runSpacing: 16,
+            children: reports.map((report) {
+              final isPettyCash = report is PettyCashReport;
+
+              // Calculate actual expenses from transactions for project reports
+              double projectExpenses = 0;
+              double projectRemaining = 0;
+              if (!isPettyCash) {
+                final projectReport = report as ProjectReport;
+                final projectTransactions = transactions
+                    .where((t) => t.projectId == projectReport.id)
+                    .toList();
+                projectExpenses = projectTransactions
+                    .where((t) =>
+                        t.statusEnum == TransactionStatus.approved ||
+                        t.statusEnum == TransactionStatus.processed)
+                    .fold<double>(0.0, (sum, t) => sum + t.amount);
+                projectRemaining = projectReport.budget - projectExpenses;
+              }
+
+              return SizedBox(
+                width: cardWidth,
+                child: _buildReportCard(
+                  report: report,
+                  isPettyCash: isPettyCash,
+                  projectExpenses: projectExpenses,
+                  projectRemaining: projectRemaining,
+                ),
+              );
+            }).toList(),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildReportCard({
+    required dynamic report,
+    required bool isPettyCash,
+    required double projectExpenses,
+    required double projectRemaining,
+  }) {
+    final dateFormat = DateFormat('MMM dd, yyyy');
+    final currencyFormat = NumberFormat('#,##0.00', 'en_US');
+    final statusColor = _getStatusColor(report.statusEnum);
+    final statusIcon = _getStatusIcon(report.statusEnum);
+    final themeColor = isPettyCash ? Colors.blue : Colors.green;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: reports.length,
-        itemBuilder: (context, index) {
-          final report = reports[index];
-          final isPettyCash = report is PettyCashReport;
-
-          // Calculate actual expenses from transactions for project reports
-          double projectExpenses = 0;
-          double projectRemaining = 0;
-          if (!isPettyCash) {
-            final projectReport = report as ProjectReport;
-            final projectTransactions = transactions
-                .where((t) => t.projectId == projectReport.id)
-                .toList();
-            projectExpenses = projectTransactions
-                .where((t) =>
-                    t.statusEnum == TransactionStatus.approved ||
-                    t.statusEnum == TransactionStatus.processed)
-                .fold<double>(0.0, (sum, t) => sum + t.amount);
-            projectRemaining = projectReport.budget - projectExpenses;
+      child: InkWell(
+        onTap: () {
+          if (isPettyCash) {
+            context.go('/reports/${report.id}');
+          } else {
+            context.go('/project-reports/${report.id}');
           }
-
-          return Card(
-            elevation: 0,
-            margin: const EdgeInsets.only(bottom: 12),
-            shape: RoundedRectangleBorder(
-              side: BorderSide(
-                color: Colors.grey.shade200,
-              ),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: InkWell(
-              onTap: () {
-                if (isPettyCash) {
-                  context.go('/reports/${report.id}');
-                } else {
-                  context.go('/project-reports/${report.id}');
-                }
-              },
-              borderRadius: BorderRadius.circular(12),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header Row with Icon, Report Number, Date and Status
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          themeColor.shade400,
+                          themeColor.shade600,
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      isPettyCash ? Icons.account_balance_wallet : Icons.folder_special,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: isPettyCash
-                                            ? [Colors.blue.shade400, Colors.blue.shade600]
-                                            : [Colors.green.shade400, Colors.green.shade600],
-                                      ),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      isPettyCash ? 'Petty Cash' : 'Project',
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      report.reportNumber,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleLarge
-                                          ?.copyWith(fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                ],
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                isPettyCash
-                                    ? report.department
-                                    : (report as ProjectReport).projectName,
+                              decoration: BoxDecoration(
+                                color: themeColor.shade50,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                isPettyCash ? 'Petty Cash' : 'Project',
                                 style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.grey[700],
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  color: themeColor.shade700,
                                 ),
                               ),
-                            ],
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                report.reportNumber,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          dateFormat.format(report.createdAt),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade600,
                           ),
                         ),
-                        _buildStatusChip(report.statusEnum),
                       ],
                     ),
-                    const Divider(height: 24),
-                    Row(
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: statusColor.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
+                        Icon(statusIcon, size: 12, color: statusColor),
+                        const SizedBox(width: 3),
+                        Text(
+                          report.statusEnum.displayName.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: statusColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(height: 16),
+              // Report Details - Compact 2 column layout
+              Row(
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Icon(
+                          isPettyCash ? Icons.business : Icons.folder,
+                          size: 16,
+                          color: themeColor.shade600,
+                        ),
+                        const SizedBox(width: 6),
                         Expanded(
-                          child: _buildInfoItem(
-                            Icons.person,
-                            'Custodian',
+                          child: Text(
+                            isPettyCash
+                                ? report.department
+                                : (report as ProjectReport).projectName,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Icon(Icons.person, size: 16, color: Colors.grey.shade600),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
                             report.custodianName,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade700,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                        Expanded(
-                          child: _buildInfoItem(
-                            Icons.calendar_today,
-                            'Period',
-                            isPettyCash
-                                ? '${DateFormat('MMM d').format(report.periodStart)} - ${DateFormat('MMM d, y').format(report.periodEnd)}'
-                                : '${DateFormat('MMM d').format((report as ProjectReport).startDate)} - ${DateFormat('MMM d, y').format(report.endDate)}',
-                          ),
-                        ),
-                        // Add menu button for edit/delete options
-                        PopupMenuButton<String>(
-                          icon: const Icon(Icons.more_vert),
-                          onSelected: (String choice) async {
-                            if (choice == 'edit') {
-                              // Navigate to the appropriate detail screen
-                              if (isPettyCash) {
-                                context.go('/reports/${report.id}');
-                              } else {
-                                context.go('/project-reports/${report.id}');
-                              }
-                            } else if (choice == 'submit') {
-                              try {
-                                if (isPettyCash) {
-                                  await context
-                                      .read<ReportProvider>()
-                                      .submitReport(report.id);
-                                } else {
-                                  await context
-                                      .read<ProjectReportProvider>()
-                                      .submitProjectReport(report.id);
-                                }
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Report submitted successfully',
-                                      ),
-                                      backgroundColor: Colors.green,
-                                    ),
-                                  );
-                                }
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Error submitting report: $e',
-                                      ),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                }
-                              }
-                            } else if (choice == 'approve') {
-                              try {
-                                if (isPettyCash) {
-                                  await context
-                                      .read<ReportProvider>()
-                                      .approveReport(report.id);
-                                } else {
-                                  await context
-                                      .read<ProjectReportProvider>()
-                                      .approveProjectReport(report.id);
-                                }
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Report approved successfully',
-                                      ),
-                                      backgroundColor: Colors.green,
-                                    ),
-                                  );
-                                }
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Error approving report: $e'),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                }
-                              }
-                            } else if (choice == 'close') {
-                              try {
-                                if (isPettyCash) {
-                                  await context
-                                      .read<ReportProvider>()
-                                      .closeReport(report.id);
-                                } else {
-                                  await context
-                                      .read<ProjectReportProvider>()
-                                      .closeProjectReport(report.id);
-                                }
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Report closed successfully'),
-                                      backgroundColor: Colors.green,
-                                    ),
-                                  );
-                                }
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Error closing report: $e'),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                }
-                              }
-                            } else if (choice == 'delete') {
-                              // Show confirmation dialog before deleting
-                              showDialog<bool>(
-                                context: context,
-                                builder: (context) => AlertDialog(
-                                  title: const Text('Delete Report'),
-                                  content: Text(
-                                    'Are you sure you want to delete report ${report.reportNumber}? This action cannot be undone.',
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () =>
-                                          Navigator.of(context).pop(false),
-                                      child: const Text('Cancel'),
-                                    ),
-                                    TextButton(
-                                      onPressed: () async {
-                                        try {
-                                          if (isPettyCash) {
-                                            await context
-                                                .read<ReportProvider>()
-                                                .deleteReport(report.id);
-                                          } else {
-                                            await context
-                                                .read<ProjectReportProvider>()
-                                                .deleteProjectReport(report.id);
-                                          }
-                                          if (context.mounted) {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                  'Report deleted successfully',
-                                                ),
-                                              ),
-                                            );
-                                          }
-                                        } catch (e) {
-                                          if (context.mounted) {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                  'Error deleting report: $e',
-                                                ),
-                                                backgroundColor: Colors.red,
-                                              ),
-                                            );
-                                          }
-                                        }
-                                        if (context.mounted) {
-                                          Navigator.of(context).pop(true);
-                                        }
-                                      },
-                                      child: const Text(
-                                        'Delete',
-                                        style: TextStyle(color: Colors.red),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ).then((confirmed) async {
-                                if (confirmed == true && context.mounted) {
-                                  // Refresh the list after deletion
-                                  await context
-                                      .read<ReportProvider>()
-                                      .loadReports();
-                                  await context
-                                      .read<ProjectReportProvider>()
-                                      .loadProjectReports();
-                                }
-                              });
-                            }
-                          },
-                          itemBuilder: (context) {
-                            final authProvider = context.read<AuthProvider>();
-                            final reportStatus = report.statusEnum;
-                            final canApprove = authProvider.canApprove();
-
-                            return [
-                              const PopupMenuItem<String>(
-                                value: 'edit',
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.edit, size: 18),
-                                    SizedBox(width: 8),
-                                    Text('Edit'),
-                                  ],
-                                ),
-                              ),
-                              if (reportStatus == ReportStatus.draft)
-                                const PopupMenuItem<String>(
-                                  value: 'submit',
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.send,
-                                        size: 18,
-                                        color: Colors.blue,
-                                      ),
-                                      SizedBox(width: 8),
-                                      Text('Submit'),
-                                    ],
-                                  ),
-                                ),
-                              if (canApprove &&
-                                  (reportStatus == ReportStatus.submitted ||
-                                      reportStatus == ReportStatus.underReview))
-                                const PopupMenuItem<String>(
-                                  value: 'approve',
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.check_circle,
-                                        size: 18,
-                                        color: Colors.green,
-                                      ),
-                                      SizedBox(width: 8),
-                                      Text(
-                                        'Approve',
-                                        style: TextStyle(color: Colors.green),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              if (canApprove &&
-                                  reportStatus == ReportStatus.approved)
-                                const PopupMenuItem<String>(
-                                  value: 'close',
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.lock,
-                                        size: 18,
-                                        color: Colors.purple,
-                                      ),
-                                      SizedBox(width: 8),
-                                      Text(
-                                        'Close',
-                                        style: TextStyle(color: Colors.purple),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              const PopupMenuItem<String>(
-                                value: 'delete',
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.delete,
-                                      size: 18,
-                                      color: Colors.red,
-                                    ),
-                                    SizedBox(width: 8),
-                                    Text(
-                                      'Delete',
-                                      style: TextStyle(color: Colors.red),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ];
-                          },
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildAmountItem(
-                            isPettyCash ? 'Opening' : 'Budget',
-                            isPettyCash
-                                ? report.openingBalance
-                                : (report as ProjectReport).budget,
-                            isPettyCash ? Colors.blue : Colors.green,
-                          ),
-                        ),
-                        Expanded(
-                          child: _buildAmountItem(
-                            isPettyCash ? 'Disbursements' : 'Expenses',
-                            isPettyCash
-                                ? report.totalDisbursements
-                                : projectExpenses,
-                            Colors.red,
-                          ),
-                        ),
-                        Expanded(
-                          child: _buildAmountItem(
-                            isPettyCash ? 'Balance' : 'Remaining',
-                            isPettyCash
-                                ? report.closingBalance
-                                : projectRemaining,
-                            Colors.green,
-                          ),
-                        ),
-                      ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Icon(Icons.calendar_today, size: 14, color: Colors.grey.shade600),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      isPettyCash
+                          ? '${DateFormat('MMM d').format(report.periodStart)} - ${DateFormat('MMM d, y').format(report.periodEnd)}'
+                          : '${DateFormat('MMM d').format((report as ProjectReport).startDate)} - ${DateFormat('MMM d, y').format(report.endDate)}',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              // Amount Summary Box - Compact
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: themeColor.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildAmountColumn(
+                      isPettyCash ? 'Opening' : 'Budget',
+                      '฿${currencyFormat.format(isPettyCash ? report.openingBalance : (report as ProjectReport).budget)}',
+                      Icons.account_balance,
+                      themeColor,
+                    ),
+                    Container(
+                      width: 1,
+                      height: 32,
+                      color: themeColor.shade200,
+                    ),
+                    _buildAmountColumn(
+                      isPettyCash ? 'Disbursed' : 'Expenses',
+                      '฿${currencyFormat.format(isPettyCash ? report.totalDisbursements : projectExpenses)}',
+                      Icons.payments,
+                      Colors.red,
+                    ),
+                    Container(
+                      width: 1,
+                      height: 32,
+                      color: themeColor.shade200,
+                    ),
+                    _buildAmountColumn(
+                      isPettyCash ? 'Balance' : 'Remaining',
+                      '฿${currencyFormat.format(isPettyCash ? report.closingBalance : projectRemaining)}',
+                      Icons.account_balance_wallet,
+                      Colors.green,
+                      isTotal: true,
                     ),
                   ],
                 ),
               ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildStatusChip(ReportStatus status) {
-    Color backgroundColor;
-    Color textColor = Colors.white;
-
-    switch (status) {
-      case ReportStatus.draft:
-        backgroundColor = Colors.grey.shade600;
-        break;
-      case ReportStatus.submitted:
-        backgroundColor = Colors.blue.shade600;
-        break;
-      case ReportStatus.underReview:
-        backgroundColor = Colors.orange.shade600;
-        break;
-      case ReportStatus.approved:
-        backgroundColor = Colors.green.shade600;
-        break;
-      case ReportStatus.closed:
-        backgroundColor = Colors.purple.shade600;
-        break;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        status.displayName,
-        style: TextStyle(
-          color: textColor,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
+              const SizedBox(height: 16),
+              // Action Buttons Row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton.icon(
+                    onPressed: () {
+                      if (isPettyCash) {
+                        context.go('/reports/${report.id}');
+                      } else {
+                        context.go('/project-reports/${report.id}');
+                      }
+                    },
+                    icon: const Icon(Icons.visibility, size: 16),
+                    label: const Text('View'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.blue.shade700,
+                    ),
+                  ),
+                  if (report.statusEnum == ReportStatus.draft) ...[
+                    const SizedBox(width: 8),
+                    TextButton.icon(
+                      onPressed: () => _submitReport(report, isPettyCash),
+                      icon: const Icon(Icons.send, size: 16),
+                      label: const Text('Submit'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.orange.shade700,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(width: 8),
+                  TextButton.icon(
+                    onPressed: () => _deleteReport(report, isPettyCash),
+                    icon: const Icon(Icons.delete, size: 16),
+                    label: const Text('Delete'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.red.shade700,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildInfoItem(IconData icon, String label, String value) {
-    return Row(
+  Widget _buildAmountColumn(
+    String label,
+    String amount,
+    IconData icon,
+    MaterialColor color, {
+    bool isTotal = false,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 16, color: Colors.grey[600]),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-              ),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            color: Colors.grey.shade600,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          amount,
+          style: TextStyle(
+            fontSize: isTotal ? 12 : 11,
+            fontWeight: FontWeight.bold,
+            color: isTotal ? color.shade700 : Colors.grey.shade800,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildAmountItem(String label, double amount, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.w500,
-            ),
+  Color _getStatusColor(ReportStatus status) {
+    switch (status) {
+      case ReportStatus.draft:
+        return Colors.grey;
+      case ReportStatus.submitted:
+        return Colors.orange;
+      case ReportStatus.underReview:
+        return Colors.blue;
+      case ReportStatus.approved:
+        return Colors.green;
+      case ReportStatus.closed:
+        return Colors.purple;
+    }
+  }
+
+  IconData _getStatusIcon(ReportStatus status) {
+    switch (status) {
+      case ReportStatus.draft:
+        return Icons.edit_document;
+      case ReportStatus.submitted:
+        return Icons.pending;
+      case ReportStatus.underReview:
+        return Icons.hourglass_empty;
+      case ReportStatus.approved:
+        return Icons.check_circle;
+      case ReportStatus.closed:
+        return Icons.lock;
+    }
+  }
+
+  Future<void> _submitReport(dynamic report, bool isPettyCash) async {
+    try {
+      if (isPettyCash) {
+        await context.read<ReportProvider>().submitReport(report.id);
+      } else {
+        await context.read<ProjectReportProvider>().submitProjectReport(report.id);
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Report submitted successfully'),
+            backgroundColor: Colors.green,
           ),
-          const SizedBox(height: 4),
-          Text(
-            '${AppConstants.currencySymbol}${amount.toStringAsFixed(2)}',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error submitting report: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteReport(dynamic report, bool isPettyCash) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Report'),
+        content: Text(
+          'Are you sure you want to delete "${report.reportNumber}"? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete'),
           ),
         ],
       ),
     );
+
+    if (confirm == true && mounted) {
+      try {
+        if (isPettyCash) {
+          await context.read<ReportProvider>().deleteReport(report.id);
+        } else {
+          await context.read<ProjectReportProvider>().deleteProjectReport(report.id);
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Report "${report.reportNumber}" deleted successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error deleting report: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
   }
+
 }

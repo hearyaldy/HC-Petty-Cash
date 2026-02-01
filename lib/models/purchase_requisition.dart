@@ -42,6 +42,14 @@ class PurchaseRequisitionItem {
 
   factory PurchaseRequisitionItem.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+
+    // Helper function to safely parse Timestamp
+    DateTime parseTimestamp(dynamic value, DateTime fallback) {
+      if (value == null) return fallback;
+      if (value is Timestamp) return value.toDate();
+      return fallback;
+    }
+
     return PurchaseRequisitionItem(
       id: data['id'] ?? doc.id,
       requisitionId: data['requisitionId'] ?? '',
@@ -50,7 +58,7 @@ class PurchaseRequisitionItem {
       quantity: data['quantity'] ?? 0,
       unitPrice: (data['unitPrice'] ?? 0.0).toDouble(),
       remark: data['remark'],
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
+      createdAt: parseTimestamp(data['createdAt'], DateTime.now()),
       supportDocumentUrls: List<String>.from(data['supportDocumentUrls'] ?? []),
     );
   }
@@ -171,32 +179,42 @@ class PurchaseRequisition {
 
   factory PurchaseRequisition.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+
+    // Helper function to safely parse Timestamp
+    DateTime parseTimestamp(dynamic value, DateTime fallback) {
+      if (value == null) return fallback;
+      if (value is Timestamp) return value.toDate();
+      return fallback;
+    }
+
+    DateTime? parseTimestampOptional(dynamic value) {
+      if (value == null) return null;
+      if (value is Timestamp) return value.toDate();
+      return null;
+    }
+
+    final now = DateTime.now();
+
     return PurchaseRequisition(
       id: data['id'] ?? doc.id,
       requisitionNumber: data['requisitionNumber'] ?? '',
-      requisitionDate: (data['requisitionDate'] as Timestamp).toDate(),
+      requisitionDate: parseTimestamp(data['requisitionDate'], now),
       requestedBy: data['requestedBy'] ?? '',
       idNo: data['idNo'] ?? '',
       chargeToDepartment: data['chargeToDepartment'] ?? '',
       totalAmount: (data['totalAmount'] ?? 0.0).toDouble(),
       notes: data['notes'],
       status: data['status'] ?? 'draft',
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      submittedAt: data['submittedAt'] != null
-          ? (data['submittedAt'] as Timestamp).toDate()
-          : null,
+      createdAt: parseTimestamp(data['createdAt'], now),
+      submittedAt: parseTimestampOptional(data['submittedAt']),
       submittedBy: data['submittedBy'],
-      approvedAt: data['approvedAt'] != null
-          ? (data['approvedAt'] as Timestamp).toDate()
-          : null,
+      approvedAt: parseTimestampOptional(data['approvedAt']),
       approvedBy: data['approvedBy'],
       actionNo: data['actionNo'],
       rejectionReason: data['rejectionReason'],
       supportDocumentUrls:
           (data['supportDocumentUrls'] as List<dynamic>?)?.cast<String>() ?? [],
-      updatedAt: data['updatedAt'] != null
-          ? (data['updatedAt'] as Timestamp).toDate()
-          : null,
+      updatedAt: parseTimestampOptional(data['updatedAt']),
     );
   }
 

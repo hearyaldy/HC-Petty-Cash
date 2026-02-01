@@ -5,9 +5,11 @@ class AppConstants {
   static const String appVersion = '1.0.0';
 
   // Organization Information
-  static const String organizationName = 'Hope Channel Southeast Asia';
-  static const String organizationNameThai = ''; // Removed Thai name as requested
-  static const String organizationAddress = '195 Moo.3, Muak Lek, Saraburi, 18180 Thailand';
+  // Made mutable so runtime settings edits are allowed from the Settings screen
+  static String organizationName = 'Hope Channel Southeast Asia';
+  static String organizationNameThai = ''; // Removed Thai name as requested
+  static String organizationAddress =
+      '195 Moo.3, Muak Lek, Saraburi, 18180 Thailand';
 
   // Company Information (Reporting Entity)
   static const String companyName = 'Hope Channel Southeast Asia';

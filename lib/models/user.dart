@@ -40,17 +40,37 @@ class User {
   }
 
   factory User.fromFirestore(firestore.DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data()!;
+    final data = doc.data();
+    if (data == null) {
+      throw Exception('User document ${doc.id} has no data');
+    }
+
+    // Parse createdAt with fallback to current time
+    DateTime createdAt;
+    if (data['createdAt'] != null) {
+      if (data['createdAt'] is firestore.Timestamp) {
+        createdAt = (data['createdAt'] as firestore.Timestamp).toDate();
+      } else {
+        createdAt = DateTime.now();
+      }
+    } else {
+      createdAt = DateTime.now();
+    }
+
+    // Parse updatedAt
+    DateTime? updatedAt;
+    if (data['updatedAt'] != null && data['updatedAt'] is firestore.Timestamp) {
+      updatedAt = (data['updatedAt'] as firestore.Timestamp).toDate();
+    }
+
     return User(
       id: doc.id,
-      name: data['name'] as String,
-      email: data['email'] as String,
-      role: data['role'] as String,
-      department: data['department'] as String,
-      createdAt: (data['createdAt'] as firestore.Timestamp).toDate(),
-      updatedAt: data['updatedAt'] != null
-          ? (data['updatedAt'] as firestore.Timestamp).toDate()
-          : null,
+      name: data['name'] as String? ?? 'Unknown',
+      email: data['email'] as String? ?? '',
+      role: data['role'] as String? ?? 'requester',
+      department: data['department'] as String? ?? 'Unknown',
+      createdAt: createdAt,
+      updatedAt: updatedAt,
     );
   }
 

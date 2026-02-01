@@ -147,21 +147,35 @@ class IncomeEntry {
 
   factory IncomeEntry.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
+
+    // Helper function to safely parse Timestamp
+    DateTime parseTimestamp(dynamic value, DateTime fallback) {
+      if (value == null) return fallback;
+      if (value is Timestamp) return value.toDate();
+      return fallback;
+    }
+
+    DateTime? parseTimestampOptional(dynamic value) {
+      if (value == null) return null;
+      if (value is Timestamp) return value.toDate();
+      return null;
+    }
+
+    final now = DateTime.now();
+
     return IncomeEntry(
       id: doc.id,
-      reportId: data['reportId'] as String,
-      dateReceived: (data['dateReceived'] as Timestamp).toDate(),
-      category: data['category'] as String,
-      sourceName: data['sourceName'] as String,
-      description: data['description'] as String,
-      amount: (data['amount'] as num).toDouble(),
-      paymentMethod: data['paymentMethod'] as String,
+      reportId: data['reportId'] as String? ?? '',
+      dateReceived: parseTimestamp(data['dateReceived'], now),
+      category: data['category'] as String? ?? '',
+      sourceName: data['sourceName'] as String? ?? '',
+      description: data['description'] as String? ?? '',
+      amount: (data['amount'] as num?)?.toDouble() ?? 0.0,
+      paymentMethod: data['paymentMethod'] as String? ?? '',
       referenceNumber: data['referenceNumber'] as String?,
       supportDocumentUrls: List<String>.from(data['supportDocumentUrls'] ?? []),
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      updatedAt: data['updatedAt'] != null
-          ? (data['updatedAt'] as Timestamp).toDate()
-          : null,
+      createdAt: parseTimestamp(data['createdAt'], now),
+      updatedAt: parseTimestampOptional(data['updatedAt']),
     );
   }
 
@@ -260,28 +274,38 @@ class IncomeReport {
 
   factory IncomeReport.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
+
+    // Helper function to safely parse Timestamp
+    DateTime parseTimestamp(dynamic value, DateTime fallback) {
+      if (value == null) return fallback;
+      if (value is Timestamp) return value.toDate();
+      return fallback;
+    }
+
+    DateTime? parseTimestampOptional(dynamic value) {
+      if (value == null) return null;
+      if (value is Timestamp) return value.toDate();
+      return null;
+    }
+
+    final now = DateTime.now();
+
     return IncomeReport(
       id: doc.id,
-      reportNumber: data['reportNumber'] as String,
-      reportName: data['reportName'] as String,
-      department: data['department'] as String,
-      createdById: data['createdById'] as String,
-      createdByName: data['createdByName'] as String,
-      periodStart: (data['periodStart'] as Timestamp).toDate(),
-      periodEnd: (data['periodEnd'] as Timestamp).toDate(),
+      reportNumber: data['reportNumber'] as String? ?? '',
+      reportName: data['reportName'] as String? ?? '',
+      department: data['department'] as String? ?? '',
+      createdById: data['createdById'] as String? ?? '',
+      createdByName: data['createdByName'] as String? ?? '',
+      periodStart: parseTimestamp(data['periodStart'], now),
+      periodEnd: parseTimestamp(data['periodEnd'], now),
       totalIncome: (data['totalIncome'] as num?)?.toDouble() ?? 0,
-      status: data['status'] as String,
+      status: data['status'] as String? ?? 'draft',
       description: data['description'] as String?,
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      updatedAt: data['updatedAt'] != null
-          ? (data['updatedAt'] as Timestamp).toDate()
-          : null,
-      submittedAt: data['submittedAt'] != null
-          ? (data['submittedAt'] as Timestamp).toDate()
-          : null,
-      approvedAt: data['approvedAt'] != null
-          ? (data['approvedAt'] as Timestamp).toDate()
-          : null,
+      createdAt: parseTimestamp(data['createdAt'], now),
+      updatedAt: parseTimestampOptional(data['updatedAt']),
+      submittedAt: parseTimestampOptional(data['submittedAt']),
+      approvedAt: parseTimestampOptional(data['approvedAt']),
       approvedBy: data['approvedBy'] as String?,
     );
   }

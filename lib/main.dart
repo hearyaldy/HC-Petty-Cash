@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 
 import 'package:go_router/go_router.dart';
@@ -24,6 +25,15 @@ import 'screens/admin/user_management_screen.dart';
 import 'screens/admin/payment_rate_screen.dart';
 import 'screens/admin/admin_student_reports_screen.dart';
 import 'screens/admin/admin_student_report_detail_screen.dart';
+import 'screens/admin/staff_management_screen.dart';
+import 'screens/admin/add_edit_staff_screen.dart';
+import 'screens/admin/staff_details_screen.dart';
+import 'screens/admin/salary_benefits_management_screen.dart';
+import 'screens/admin/add_edit_salary_benefits_screen.dart';
+import 'screens/admin/salary_benefits_history_screen.dart';
+import 'screens/admin/employment_letter_template_screen.dart';
+import 'screens/admin/add_edit_employment_letter_template_screen.dart';
+import 'screens/admin/send_employment_letter_screen.dart';
 import 'screens/transactions/transactions_summary_screen.dart';
 import 'screens/settings/settings_screen_impl.dart';
 import 'screens/student/student_onboarding_screen.dart';
@@ -31,13 +41,18 @@ import 'screens/student/student_report_screen.dart';
 import 'screens/student/student_registration_screen.dart';
 import 'screens/student/student_dashboard_screen.dart';
 import 'screens/student/student_monthly_report_detail_screen.dart';
-import 'screens/student/student_profile_screen.dart';
 import 'screens/student/new_student_report_screen.dart';
 import 'screens/traveling/traveling_reports_screen.dart';
 import 'screens/traveling/traveling_report_detail_screen.dart';
 import 'screens/admin/admin_traveling_reports_screen.dart';
 import 'screens/admin/admin_traveling_report_detail_screen.dart';
 import 'screens/admin/admin_income_reports_screen.dart';
+import 'screens/hr/employee_onboarding_screen.dart';
+import 'screens/hr/hr_data_submission_screen.dart';
+import 'screens/hr/hr_management_screen.dart';
+import 'screens/hr/my_hr_data_screen.dart';
+import 'screens/hr/hr_data_submissions_screen.dart';
+import 'screens/profile/user_profile_screen.dart';
 import 'screens/income/income_reports_screen.dart';
 import 'screens/income/new_income_report_screen.dart';
 import 'screens/income/income_report_detail_screen.dart';
@@ -60,11 +75,20 @@ void main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
 
-    // Enable offline persistence for Firestore
-    FirebaseFirestore.instance.settings = const Settings(
-      persistenceEnabled: true,
-      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
-    );
+    // Configure Firestore persistence per platform to avoid web assertion crash
+    if (kIsWeb) {
+      // Use memory-only cache for web to avoid IndexedDB issues
+      FirebaseFirestore.instance.settings = const Settings(
+        persistenceEnabled: false,
+        cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+      );
+      debugPrint('DEBUG: Firestore configured for web (persistence disabled)');
+    } else {
+      FirebaseFirestore.instance.settings = const Settings(
+        persistenceEnabled: true,
+        cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+      );
+    }
   } catch (e) {
     AppLogger.severe('Firebase initialization error: $e');
     // Continue anyway for demo purposes
@@ -154,7 +178,6 @@ class MyApp extends StatelessWidget {
             '/student-report/new',
             '/student-monthly-report-detail',
             '/student-onboarding',
-            '/student-profile',
             '/settings',
           ];
           if (!studentRoutes.any(
@@ -255,8 +278,54 @@ class MyApp extends StatelessWidget {
           builder: (context, state) => const UserManagementScreen(),
         ),
         GoRoute(
+          path: '/admin/staff',
+          builder: (context, state) => const StaffManagementScreen(),
+        ),
+        GoRoute(
+          path: '/admin/staff/add',
+          builder: (context, state) => const AddEditStaffScreen(),
+        ),
+        GoRoute(
+          path: '/admin/staff/edit/:staffId',
+          builder: (context, state) {
+            final staffId = state.pathParameters['staffId']!;
+            return AddEditStaffScreen(staffId: staffId);
+          },
+        ),
+        GoRoute(
+          path: '/admin/staff/details/:staffId',
+          builder: (context, state) {
+            final staffId = state.pathParameters['staffId']!;
+            return StaffDetailsScreen(staffId: staffId);
+          },
+        ),
+        GoRoute(
           path: '/admin/payment-rates',
           builder: (context, state) => const PaymentRateScreen(),
+        ),
+        GoRoute(
+          path: '/admin/salary-benefits',
+          builder: (context, state) => const SalaryBenefitsManagementScreen(),
+        ),
+        GoRoute(
+          path: '/admin/salary-benefits/edit',
+          builder: (context, state) => const AddEditSalaryBenefitsScreen(),
+        ),
+        GoRoute(
+          path: '/admin/salary-benefits/history',
+          builder: (context, state) => const SalaryBenefitsHistoryScreen(),
+        ),
+        GoRoute(
+          path: '/admin/employment-letter-template',
+          builder: (context, state) => const EmploymentLetterTemplateScreen(),
+        ),
+        GoRoute(
+          path: '/admin/employment-letter-template/edit',
+          builder: (context, state) => const AddEditEmploymentLetterTemplateScreen(),
+        ),
+        GoRoute(
+          path: '/admin/employment-letter/send',
+          builder: (context, state) => const SendEmploymentLetterScreen(),
         ),
         GoRoute(
           path: '/admin/student-reports',
@@ -279,10 +348,6 @@ class MyApp extends StatelessWidget {
         GoRoute(
           path: '/student-dashboard',
           builder: (context, state) => const StudentDashboardScreen(),
-        ),
-        GoRoute(
-          path: '/student-profile',
-          builder: (context, state) => const StudentProfileScreen(),
         ),
         GoRoute(
           path: '/student-onboarding',
@@ -373,6 +438,30 @@ class MyApp extends StatelessWidget {
             final reportId = state.pathParameters['reportId']!;
             return AdminTravelingReportDetailScreen(reportId: reportId);
           },
+        ),
+        GoRoute(
+          path: '/hr/employee-onboarding',
+          builder: (context, state) => const EmployeeOnboardingScreen(),
+        ),
+        GoRoute(
+          path: '/hr',
+          builder: (context, state) => const HrManagementScreen(),
+        ),
+        GoRoute(
+          path: '/user-profile',
+          builder: (context, state) => const UserProfileScreen(),
+        ),
+        GoRoute(
+          path: '/hr/data-submission',
+          builder: (context, state) => const HrDataSubmissionScreen(),
+        ),
+        GoRoute(
+          path: '/hr/my-data',
+          builder: (context, state) => const MyHrDataScreen(),
+        ),
+        GoRoute(
+          path: '/hr/data-submissions',
+          builder: (context, state) => const HrDataSubmissionsScreen(),
         ),
         // Purchase Requisition Routes
         GoRoute(

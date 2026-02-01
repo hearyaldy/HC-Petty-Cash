@@ -38,9 +38,18 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
   void initState() {
     super.initState();
     _pendingAutoAddTransaction = widget.autoLaunchAddTransaction;
+    // Only load data if not already loaded - avoid unnecessary reloads that can cause Firestore errors on web
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<TransactionProvider>().loadTransactions();
-      context.read<ProjectReportProvider>().loadProjectReports();
+      final projectReportProvider = context.read<ProjectReportProvider>();
+      final transactionProvider = context.read<TransactionProvider>();
+
+      // Only reload if data is empty
+      if (projectReportProvider.projectReports.isEmpty) {
+        projectReportProvider.loadProjectReports();
+      }
+      if (transactionProvider.transactions.isEmpty) {
+        transactionProvider.loadTransactions();
+      }
     });
   }
 
@@ -50,10 +59,54 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
     final projectReportProvider = context.watch<ProjectReportProvider>();
     final transactionProvider = context.watch<TransactionProvider>();
 
-    final report = projectReportProvider.projectReports.firstWhere(
-      (r) => r.id == widget.reportId,
-      orElse: () => throw Exception('Project report not found'),
+    // Try to find the report first
+    final report = projectReportProvider.projectReports.cast<ProjectReport?>().firstWhere(
+      (r) => r?.id == widget.reportId,
+      orElse: () => null,
     );
+
+    // Only show loading if data is empty AND still loading
+    if (report == null && (projectReportProvider.isLoading || projectReportProvider.projectReports.isEmpty)) {
+      return Scaffold(
+        backgroundColor: Colors.grey[50],
+        appBar: AppBar(
+          elevation: 0,
+          title: const Text('Loading...'),
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (report == null) {
+      return Scaffold(
+        backgroundColor: Colors.grey[50],
+        appBar: AppBar(
+          elevation: 0,
+          title: const Text('Project Report'),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
+              const SizedBox(height: 16),
+              Text(
+                'Project report not found',
+                style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () => context.go('/dashboard'),
+                icon: const Icon(Icons.home),
+                label: const Text('Go to Dashboard'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     // Auto-launch add transaction dialog if requested
     if (_pendingAutoAddTransaction) {
@@ -164,8 +217,8 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: ResponsiveContainer(
+      body: ResponsiveContainer(
+        child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -660,9 +713,10 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
                   const SizedBox(width: 8),
                   ElevatedButton.icon(
                     onPressed: () => _showAddTransactionDialog(
-                      context.read<ProjectReportProvider>().projectReports.firstWhere(
-                        (r) => r.id == widget.reportId,
-                      ),
+                      context
+                          .read<ProjectReportProvider>()
+                          .projectReports
+                          .firstWhere((r) => r.id == widget.reportId),
                     ),
                     icon: const Icon(Icons.add),
                     label: const Text('Add Transaction'),
@@ -909,7 +963,9 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
             const SizedBox(height: 8),
             const Text('2. Click "Add Transaction"'),
             const SizedBox(height: 8),
-            const Text('3. Select this project in the "Link to Project" dropdown'),
+            const Text(
+              '3. Select this project in the "Link to Project" dropdown',
+            ),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(12),
@@ -920,7 +976,11 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline, color: Colors.blue.shade700, size: 20),
+                  Icon(
+                    Icons.info_outline,
+                    color: Colors.blue.shade700,
+                    size: 20,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -979,7 +1039,9 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
     // Load logo
     pw.ImageProvider? logoImage;
     try {
-      final logoData = await rootBundle.load('assets/images/hope_channel_logo.png');
+      final logoData = await rootBundle.load(
+        'assets/images/hope_channel_logo.png',
+      );
       logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
     } catch (e) {
       // Logo loading failed, will use fallback
@@ -1333,11 +1395,15 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
                             pw.Row(
-                              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                              mainAxisAlignment:
+                                  pw.MainAxisAlignment.spaceBetween,
                               children: [
                                 pw.Text(
                                   'Balance:',
-                                  style: pw.TextStyle(font: boldTtf, fontSize: 11),
+                                  style: pw.TextStyle(
+                                    font: boldTtf,
+                                    fontSize: 11,
+                                  ),
                                 ),
                                 pw.Text(
                                   currencyFormat.format(
@@ -1347,7 +1413,10 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
                                           (sum, t) => sum + t.amount,
                                         ),
                                   ),
-                                  style: pw.TextStyle(font: boldTtf, fontSize: 11),
+                                  style: pw.TextStyle(
+                                    font: boldTtf,
+                                    fontSize: 11,
+                                  ),
                                 ),
                               ],
                             ),

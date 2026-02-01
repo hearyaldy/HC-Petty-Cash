@@ -332,52 +332,59 @@ class StudentPdfExportService {
       child: pw.Row(
         children: [
           pw.Expanded(
-            flex: 15,
+            flex: 12,
             child: pw.Text(
               'Date',
-              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
-            ),
-          ),
-          pw.Expanded(
-            flex: 15,
-            child: pw.Text(
-              'Start Time',
-              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
-            ),
-          ),
-          pw.Expanded(
-            flex: 15,
-            child: pw.Text(
-              'End Time',
-              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
-            ),
-          ),
-          pw.Expanded(
-            flex: 25,
-            child: pw.Text(
-              'Task',
-              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9),
             ),
           ),
           pw.Expanded(
             flex: 10,
+            child: pw.Text(
+              'Time',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9),
+            ),
+          ),
+          pw.Expanded(
+            flex: 12,
+            child: pw.Text(
+              'Task Type',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9),
+            ),
+          ),
+          pw.Expanded(
+            flex: 18,
+            child: pw.Text(
+              'Task Title',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9),
+            ),
+          ),
+          pw.Expanded(
+            flex: 10,
+            child: pw.Text(
+              'Progress',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9),
+            ),
+          ),
+          pw.Expanded(
+            flex: 10,
+            child: pw.Text(
+              'Task Status',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9),
+            ),
+          ),
+          pw.Expanded(
+            flex: 8,
             child: pw.Text(
               'Hours',
-              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9),
             ),
           ),
           pw.Expanded(
-            flex: 15,
+            flex: 12,
             child: pw.Text(
               'Amount',
-              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
-            ),
-          ),
-          pw.Expanded(
-            flex: 10,
-            child: pw.Text(
-              'Status',
-              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9),
             ),
           ),
         ],
@@ -390,56 +397,100 @@ class StudentPdfExportService {
     DateFormat dateFormat,
     DateFormat timeFormat,
   ) {
+    // Get display values for task type and status
+    final taskTypeDisplay = ts.taskType != null
+        ? ts.taskTypeEnum.displayName
+        : '-';
+    final taskStatusDisplay = ts.taskStatus != null
+        ? ts.taskStatusEnum.displayName
+        : '-';
+    final taskTitleDisplay = ts.taskTitle ?? ts.task;
+    final progressDisplay = ts.taskProgress > 0 ? '${ts.taskProgress}%' : '-';
+
     return pw.Container(
       decoration: pw.BoxDecoration(
         border: pw.Border.all(color: PdfColors.grey300),
       ),
       padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-      child: pw.Row(
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          pw.Expanded(
-            flex: 15,
-            child: pw.Text(
-              dateFormat.format(ts.date),
-              style: pw.TextStyle(fontSize: 9),
+          // Main row
+          pw.Row(
+            children: [
+              pw.Expanded(
+                flex: 12,
+                child: pw.Text(
+                  dateFormat.format(ts.date),
+                  style: const pw.TextStyle(fontSize: 8),
+                ),
+              ),
+              pw.Expanded(
+                flex: 10,
+                child: pw.Text(
+                  '${timeFormat.format(ts.startTime)}-${timeFormat.format(ts.endTime)}',
+                  style: const pw.TextStyle(fontSize: 8),
+                ),
+              ),
+              pw.Expanded(
+                flex: 12,
+                child: pw.Text(
+                  taskTypeDisplay,
+                  style: const pw.TextStyle(fontSize: 8),
+                ),
+              ),
+              pw.Expanded(
+                flex: 18,
+                child: pw.Text(
+                  taskTitleDisplay,
+                  style: const pw.TextStyle(fontSize: 8),
+                ),
+              ),
+              pw.Expanded(
+                flex: 10,
+                child: pw.Text(
+                  progressDisplay,
+                  style: const pw.TextStyle(fontSize: 8),
+                ),
+              ),
+              pw.Expanded(
+                flex: 10,
+                child: pw.Text(
+                  taskStatusDisplay,
+                  style: const pw.TextStyle(fontSize: 8),
+                ),
+              ),
+              pw.Expanded(
+                flex: 8,
+                child: pw.Text(
+                  '${ts.totalHours.toStringAsFixed(1)}h',
+                  style: const pw.TextStyle(fontSize: 8),
+                ),
+              ),
+              pw.Expanded(
+                flex: 12,
+                child: pw.Text(
+                  'THB ${ts.totalAmount.toStringAsFixed(0)}',
+                  style: const pw.TextStyle(fontSize: 8),
+                ),
+              ),
+            ],
+          ),
+          // Description row (if available)
+          if (ts.taskDescription != null && ts.taskDescription!.isNotEmpty) ...[
+            pw.SizedBox(height: 4),
+            pw.Container(
+              padding: const pw.EdgeInsets.only(left: 8),
+              child: pw.Text(
+                'Description: ${ts.taskDescription}',
+                style: pw.TextStyle(
+                  fontSize: 7,
+                  fontStyle: pw.FontStyle.italic,
+                  color: PdfColors.grey700,
+                ),
+              ),
             ),
-          ),
-          pw.Expanded(
-            flex: 15,
-            child: pw.Text(
-              timeFormat.format(ts.startTime),
-              style: pw.TextStyle(fontSize: 9),
-            ),
-          ),
-          pw.Expanded(
-            flex: 15,
-            child: pw.Text(
-              timeFormat.format(ts.endTime),
-              style: pw.TextStyle(fontSize: 9),
-            ),
-          ),
-          pw.Expanded(
-            flex: 25,
-            child: pw.Text(ts.task, style: pw.TextStyle(fontSize: 9)),
-          ),
-          pw.Expanded(
-            flex: 10,
-            child: pw.Text(
-              '${ts.totalHours.toStringAsFixed(2)} h',
-              style: pw.TextStyle(fontSize: 9),
-            ),
-          ),
-          pw.Expanded(
-            flex: 15,
-            child: pw.Text(
-              'THB ${ts.totalAmount.toStringAsFixed(2)}',
-              style: pw.TextStyle(fontSize: 9),
-            ),
-          ),
-          pw.Expanded(
-            flex: 10,
-            child: pw.Text(ts.status, style: pw.TextStyle(fontSize: 9)),
-          ),
+          ],
         ],
       ),
     );

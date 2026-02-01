@@ -40,14 +40,12 @@ service cloud.firestore {
       allow update: if isOwner(userId) &&
         (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']));
 
-      // Allow student workers to self-register (create their own user document)
-      // They can only create a document with their own uid and only as studentWorker role
-      allow create: if isAuthenticated() &&
-        request.auth.uid == userId &&
-        request.resource.data.role == 'studentWorker';
+      // Allow authenticated users to create their own user document
+      // This is needed because when admin creates a user via Firebase Auth,
+      // the new user is automatically signed in, so they need to create their own doc
+      allow create: if isAuthenticated() && request.auth.uid == userId;
 
-      // Only admins can create other users and change roles
-      allow create: if isAdmin();
+      // Only admins can delete users and update other users' profiles
       allow delete: if isAdmin();
       allow update: if isAdmin();
     }
@@ -329,6 +327,72 @@ service cloud.firestore {
       allow delete: if isAuthenticated()
         && exists(/databases/$(database)/documents/purchase_requisitions/$(resource.data.requisitionId))
         && get(/databases/$(database)/documents/purchase_requisitions/$(resource.data.requisitionId)).data.status == 'draft';
+    }
+
+    // Staff collection - HR records
+    match /staff/{staffId} {
+      // All authenticated users can read staff records (for salary/benefits management, directory, etc.)
+      // Write operations are still restricted to admins
+      allow read: if isAuthenticated();
+
+      // Only admins can create, update, or delete staff records
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Staff Documents collection
+    match /staff_documents/{documentId} {
+      // All authenticated users can read staff documents
+      allow read: if isAuthenticated();
+
+      // Only admins can create or delete staff documents
+      allow create, delete: if isAdmin();
+
+      // Admins can update document descriptions
+      allow update: if isAdmin() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['description']);
+    }
+
+    // Salary Benefits collection
+    match /salary_benefits/{salaryBenefitsId} {
+      // All authenticated users can read salary benefits records
+      allow read: if isAuthenticated();
+
+      // Only admins can create, update, or delete salary benefits records
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Employment Letter Templates collection
+    match /employment_letter_templates/{templateId} {
+      // All authenticated users can read templates
+      allow read: if isAuthenticated();
+
+      // Only admins can create, update, or delete templates
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Employment Letters collection
+    match /employment_letters/{letterId} {
+      // All authenticated users can read employment letters
+      allow read: if isAuthenticated();
+
+      // Only admins can create, update, or delete employment letters
+      allow create, update, delete: if isAdmin();
+    }
+
+    // HR Data Submissions collection
+    match /hr_data_submissions/{submissionId} {
+      // Authenticated users can create their own submissions
+      allow create: if isAuthenticated();
+
+      // Users can read their own submissions, HR personnel and admins can read all
+      allow read: if request.auth != null &&
+        (request.auth.uid == resource.data.submittedBy ||
+         isAdmin() ||
+         isManager() ||
+         isFinance());
+
+      // Only admins can update or delete HR data submissions
+      allow update, delete: if isAdmin();
     }
   }
 }

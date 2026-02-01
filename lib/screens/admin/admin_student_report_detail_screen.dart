@@ -59,7 +59,6 @@ class _AdminStudentReportDetailScreenState
   List<StudentTimesheet> _timesheets = [];
   TimesheetSortOption _sortOption = TimesheetSortOption.dateNewest;
   bool _isApproving = false;
-  String? _profilePhotoUrl;
 
   @override
   void initState() {
@@ -79,19 +78,6 @@ class _AdminStudentReportDetailScreenState
 
       if (reportDoc.exists) {
         _reportData = reportDoc.data() as Map<String, dynamic>;
-
-        // Load profile photo
-        final studentId = _reportData?['studentId'];
-        if (studentId != null) {
-          final profileDoc = await FirebaseFirestore.instance
-              .collection('student_profiles')
-              .doc(studentId)
-              .get();
-          if (profileDoc.exists) {
-            final profileData = profileDoc.data() as Map<String, dynamic>;
-            _profilePhotoUrl = profileData['photoUrl'] as String?;
-          }
-        }
 
         // Load associated timesheets
         final timesheetsQuery = await FirebaseFirestore.instance
@@ -250,21 +236,17 @@ class _AdminStudentReportDetailScreenState
         title: const Text('Update Payment Status'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          children: paymentStatusOptions
-              .map(
-                (status) => RadioListTile<String>(
-                  title: Text(_formatPaymentStatus(status)),
-                  value: status,
-                  groupValue: _reportData?['paymentStatus'] ?? 'not_paid',
-                  onChanged: (value) {
-                    if (value != null) {
-                      Navigator.of(context).pop();
-                      _updatePaymentStatus(value);
-                    }
-                  },
-                ),
-              )
-              .toList(),
+          children: paymentStatusOptions.map((status) => RadioListTile<String>(
+            title: Text(_formatPaymentStatus(status)),
+            value: status,
+            groupValue: _reportData?['paymentStatus'] ?? 'not_paid',
+            onChanged: (value) {
+              if (value != null) {
+                Navigator.of(context).pop();
+                _updatePaymentStatus(value);
+              }
+            },
+          )).toList(),
         ),
         actions: [
           TextButton(
@@ -353,7 +335,9 @@ class _AdminStudentReportDetailScreenState
     );
 
     // Show the PDF using the printing package
-    await Printing.layoutPdf(onLayout: (format) async => pdfBytes);
+    await Printing.layoutPdf(
+      onLayout: (format) async => pdfBytes,
+    );
   }
 
   @override
@@ -545,25 +529,23 @@ class _AdminStudentReportDetailScreenState
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 30,
-                backgroundImage:
-                    (_profilePhotoUrl != null && _profilePhotoUrl!.isNotEmpty)
-                    ? NetworkImage(_profilePhotoUrl!)
-                    : null,
-                backgroundColor: Colors.white.withOpacity(0.2),
-                child: (_profilePhotoUrl == null || _profilePhotoUrl!.isEmpty)
-                    ? Text(
-                        studentName.isNotEmpty
-                            ? studentName[0].toUpperCase()
-                            : 'S',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 28,
-                        ),
-                      )
-                    : null,
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                    studentName.isNotEmpty ? studentName[0].toUpperCase() : 'S',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 28,
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -707,6 +689,29 @@ class _AdminStudentReportDetailScreenState
         statusIcon = Icons.edit_document;
     }
 
+    // Task status colors and icons
+    Color taskStatusColor;
+    IconData taskStatusIcon;
+    final taskStatus = timesheet.taskStatusEnum;
+    switch (taskStatus) {
+      case TaskStatus.completed:
+        taskStatusColor = Colors.green;
+        taskStatusIcon = Icons.check_circle;
+        break;
+      case TaskStatus.inProgress:
+        taskStatusColor = Colors.orange;
+        taskStatusIcon = Icons.timelapse;
+        break;
+      case TaskStatus.onHold:
+        taskStatusColor = Colors.red;
+        taskStatusIcon = Icons.pause_circle;
+        break;
+      case TaskStatus.notStarted:
+      default:
+        taskStatusColor = Colors.grey;
+        taskStatusIcon = Icons.radio_button_unchecked;
+    }
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
@@ -716,6 +721,7 @@ class _AdminStudentReportDetailScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header: Date, Time, Status
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -755,67 +761,203 @@ class _AdminStudentReportDetailScreenState
                     ),
                   ],
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(statusIcon, size: 14, color: statusColor),
-                      const SizedBox(width: 4),
-                      Text(
-                        timesheet.status.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: statusColor,
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(statusIcon, size: 14, color: statusColor),
+                          const SizedBox(width: 4),
+                          Text(
+                            timesheet.status.toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: statusColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (timesheet.taskStatus != null) ...[
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: taskStatusColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(taskStatusIcon, size: 12, color: taskStatusColor),
+                            const SizedBox(width: 4),
+                            Text(
+                              taskStatus.displayName,
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: taskStatusColor,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
-                  ),
+                  ],
                 ),
               ],
             ),
-            const Divider(height: 20),
-            if (timesheet.task.isNotEmpty) ...[
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.task_alt, size: 16, color: Colors.grey[600]),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+
+            // Task Info Section
+            if (timesheet.taskType != null || timesheet.taskTitle != null) ...[
+              const Divider(height: 20),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Task Type
+                    Row(
                       children: [
-                        Text(
-                          'Task',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w500,
-                          ),
+                        Icon(
+                          _getTaskTypeIcon(timesheet.taskTypeEnum),
+                          size: 18,
+                          color: Colors.blue.shade700,
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(width: 8),
                         Text(
-                          timesheet.task,
-                          style: const TextStyle(
+                          'Task: ${timesheet.taskTypeEnum.displayName}',
+                          style: TextStyle(
                             fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue.shade700,
                           ),
                         ),
                       ],
                     ),
+                    if (timesheet.taskTitle != null && timesheet.taskTitle!.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.title, size: 16, color: Colors.grey[600]),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              timesheet.taskTitle!,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (timesheet.taskDescription != null && timesheet.taskDescription!.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.description, size: 16, color: Colors.grey[600]),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              timesheet.taskDescription!,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    // Progress Bar
+                    if (timesheet.taskProgress > 0) ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Icon(Icons.trending_up, size: 16, color: Colors.grey[600]),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Progress:',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: timesheet.taskProgress / 100,
+                                minHeight: 8,
+                                backgroundColor: Colors.grey.shade300,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  timesheet.taskProgress >= 100
+                                      ? Colors.green
+                                      : timesheet.taskProgress >= 50
+                                          ? Colors.orange
+                                          : Colors.blue,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${timesheet.taskProgress}%',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ] else if (timesheet.task.isNotEmpty) ...[
+              // Backward compatibility: show old task field if new fields are not set
+              const Divider(height: 20),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.task, size: 16, color: Colors.blue.shade600),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      timesheet.task,
+                      style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                    ),
                   ),
                 ],
               ),
-              const Divider(height: 20),
             ],
+
+            const Divider(height: 20),
+            // Stats Row
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
@@ -861,6 +1003,25 @@ class _AdminStudentReportDetailScreenState
         ),
       ),
     );
+  }
+
+  IconData _getTaskTypeIcon(TaskType type) {
+    switch (type) {
+      case TaskType.videoEditing:
+        return Icons.video_library;
+      case TaskType.contentCreation:
+        return Icons.create;
+      case TaskType.translation:
+        return Icons.translate;
+      case TaskType.research:
+        return Icons.science;
+      case TaskType.production:
+        return Icons.movie;
+      case TaskType.languageEditing:
+        return Icons.language;
+      case TaskType.other:
+        return Icons.work;
+    }
   }
 
   Widget _buildTimesheetStat({

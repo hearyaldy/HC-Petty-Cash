@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/report_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../models/user.dart';
 import '../../models/enums.dart';
@@ -11,6 +10,7 @@ import '../../models/student_timesheet.dart';
 import '../../utils/responsive_helper.dart';
 import '../../utils/student_rate_config.dart';
 import '../../utils/constants.dart';
+import '../../widgets/app_drawer.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
@@ -34,7 +34,17 @@ class _AdminScreenState extends State<AdminScreen> {
       _isLoading = true;
     });
 
-    _users = await FirestoreService().getAllUsers();
+    try {
+      debugPrint('DEBUG ADMIN: Starting to load users...');
+      _users = await FirestoreService().getAllUsers();
+      debugPrint('DEBUG ADMIN: Loaded ${_users.length} users');
+      for (var user in _users) {
+        debugPrint('DEBUG ADMIN: User: ${user.name} (${user.role})');
+      }
+    } catch (e, stackTrace) {
+      debugPrint('DEBUG ADMIN: Error loading users: $e');
+      debugPrint('DEBUG ADMIN: Stack trace: $stackTrace');
+    }
 
     setState(() {
       _isLoading = false;
@@ -48,6 +58,7 @@ class _AdminScreenState extends State<AdminScreen> {
     if (!authProvider.canManageUsers()) {
       return Scaffold(
         appBar: AppBar(title: const Text('Admin')),
+        drawer: const AppDrawer(),
         body: const Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -74,34 +85,9 @@ class _AdminScreenState extends State<AdminScreen> {
         title: const Text('User Management'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.playlist_add),
-            onPressed: _showAddTransactionQuickAction,
-            tooltip: 'Quick Add Transaction',
-          ),
-          IconButton(
-            icon: const Icon(Icons.attach_money),
-            onPressed: () => context.push('/admin/payment-rates'),
-            tooltip: 'Student Payment Rates',
-          ),
-          IconButton(
-            icon: const Icon(Icons.account_balance_wallet_outlined),
-            onPressed: () => context.push('/admin/income'),
-            tooltip: 'Income Reports',
-          ),
-          IconButton(
-            icon: const Icon(Icons.flight_takeoff),
-            onPressed: () => context.push('/admin/traveling-reports'),
-            tooltip: 'Traveling Reports',
-          ),
-          IconButton(
-            icon: const Icon(Icons.shopping_cart),
-            onPressed: () => context.push('/purchase-requisitions'),
-            tooltip: 'Purchase Requisitions',
-          ),
-          IconButton(
-            icon: const Icon(Icons.home_outlined),
-            onPressed: () => context.go('/dashboard'),
-            tooltip: 'Home',
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadUsers,
+            tooltip: 'Refresh Users',
           ),
           IconButton(
             icon: const Icon(Icons.add),
@@ -110,71 +96,11 @@ class _AdminScreenState extends State<AdminScreen> {
           ),
         ],
       ),
+      drawer: const AppDrawer(),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : ResponsiveContainer(child: _buildUsersList()),
     );
-  }
-
-  Future<void> _showAddTransactionQuickAction() async {
-    final reportProvider = context.read<ReportProvider>();
-    if (reportProvider.reports.isEmpty) {
-      await reportProvider.loadReports();
-      if (!mounted) return;
-    }
-
-    final openReports = reportProvider.reports
-        .where((r) => r.statusEnum != ReportStatus.closed)
-        .toList();
-
-    if (openReports.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No open reports available.')),
-      );
-      return;
-    }
-
-    final selectedId = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Transaction to Report'),
-        content: SizedBox(
-          width: 420,
-          child: ListView.separated(
-            shrinkWrap: true,
-            itemCount: openReports.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final report = openReports[index];
-              return ListTile(
-                leading: const Icon(Icons.receipt_long),
-                title: Text(report.reportNumber),
-                subtitle: Text(report.department),
-                trailing: Chip(
-                  label: Text(report.statusEnum.displayName),
-                  backgroundColor: Colors.blue.shade50,
-                  labelStyle: const TextStyle(fontSize: 11),
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                ),
-                onTap: () => Navigator.of(context).pop(report.id),
-              );
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-        ],
-      ),
-    );
-
-    if (selectedId != null && mounted) {
-      context.push('/reports/$selectedId', extra: {'action': 'addTransaction'});
-    }
   }
 
   Widget _buildUsersList() {
@@ -182,47 +108,121 @@ class _AdminScreenState extends State<AdminScreen> {
       return const Center(child: Text('No users found'));
     }
 
-    // Group users by role
+    // Group users by role (include both old and new role values)
+    final knownRoles = [
+      'admin',
+      'manager',
+      'finance',
+      'requester',
+      'studentWorker',
+      'approver',
+      'requestor',
+    ];
     final admins = _users.where((u) => u.role == 'admin').toList();
-    final approvers = _users.where((u) => u.role == 'approver').toList();
-    final requestors = _users.where((u) => u.role == 'requestor').toList();
+    final managers = _users
+        .where((u) => u.role == 'manager' || u.role == 'approver')
+        .toList();
+    final finance = _users.where((u) => u.role == 'finance').toList();
+    final requesters = _users
+        .where((u) => u.role == 'requester' || u.role == 'requestor')
+        .toList();
     final students = _users.where((u) => u.role == 'studentWorker').toList();
+    final others = _users.where((u) => !knownRoles.contains(u.role)).toList();
 
     return ListView(
       children: [
+        // Debug: show total users loaded
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            'Total users: ${_users.length}',
+            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+          ),
+        ),
         if (admins.isNotEmpty) ...[
-          _buildSectionHeader('Admins', Icons.admin_panel_settings, Colors.purple, admins.length),
+          _buildSectionHeader(
+            'Admins',
+            Icons.admin_panel_settings,
+            Colors.purple,
+            admins.length,
+          ),
           ...admins.map((user) => _buildUserCard(user)),
         ],
-        if (approvers.isNotEmpty) ...[
-          _buildSectionHeader('Approvers', Icons.verified_user, Colors.blue, approvers.length),
-          ...approvers.map((user) => _buildUserCard(user)),
+        if (managers.isNotEmpty) ...[
+          _buildSectionHeader(
+            'Managers',
+            Icons.verified_user,
+            Colors.blue,
+            managers.length,
+          ),
+          ...managers.map((user) => _buildUserCard(user)),
         ],
-        if (requestors.isNotEmpty) ...[
-          _buildSectionHeader('Requestors', Icons.person, Colors.green, requestors.length),
-          ...requestors.map((user) => _buildUserCard(user)),
+        if (finance.isNotEmpty) ...[
+          _buildSectionHeader(
+            'Finance',
+            Icons.account_balance,
+            Colors.teal,
+            finance.length,
+          ),
+          ...finance.map((user) => _buildUserCard(user)),
+        ],
+        if (requesters.isNotEmpty) ...[
+          _buildSectionHeader(
+            'Requesters',
+            Icons.person,
+            Colors.green,
+            requesters.length,
+          ),
+          ...requesters.map((user) => _buildUserCard(user)),
         ],
         if (students.isNotEmpty) ...[
-          _buildSectionHeader('Student Workers', Icons.school, Colors.orange, students.length),
-          ...students.map((user) => StreamBuilder<DocumentSnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('student_profiles')
-                .doc(user.id)
-                .snapshots(),
-            builder: (context, snapshot) {
-              StudentProfile? profile;
-              if (snapshot.hasData && snapshot.data!.exists) {
-                profile = StudentProfile.fromFirestore(snapshot.data!);
-              }
-              return _buildStudentCard(user, profile);
-            },
-          )),
+          _buildSectionHeader(
+            'Student Workers',
+            Icons.school,
+            Colors.orange,
+            students.length,
+          ),
+          ...students.map(
+            (user) => StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('student_profiles')
+                  .doc(user.id)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                StudentProfile? profile;
+                if (snapshot.hasData && snapshot.data!.exists) {
+                  profile = StudentProfile.fromFirestore(snapshot.data!);
+                }
+                return _buildStudentCard(user, profile);
+              },
+            ),
+          ),
         ],
+        if (others.isNotEmpty) ...[
+          _buildSectionHeader(
+            'Other (Unknown Role)',
+            Icons.help_outline,
+            Colors.grey,
+            others.length,
+          ),
+          ...others.map((user) => _buildUserCard(user)),
+        ],
+
+        // Salary & Benefits Management Section
+        _buildSalaryBenefitsManagementSection(),
+
+        // Employment Letter Management Section
+        _buildEmploymentLetterManagementSection(),
       ],
     );
   }
 
-  Widget _buildSectionHeader(String title, IconData icon, Color color, int count) {
+  Widget _buildSectionHeader(
+    String title,
+    IconData icon,
+    Color color,
+    int count,
+  ) {
     return Container(
       margin: const EdgeInsets.only(top: 16, bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -232,9 +232,7 @@ class _AdminScreenState extends State<AdminScreen> {
           end: Alignment.centerRight,
           colors: [color.withValues(alpha: 0.1), Colors.transparent],
         ),
-        border: Border(
-          left: BorderSide(color: color, width: 4),
-        ),
+        border: Border(left: BorderSide(color: color, width: 4)),
       ),
       child: Row(
         children: [
@@ -312,6 +310,8 @@ class _AdminScreenState extends State<AdminScreen> {
           onSelected: (value) {
             if (value == 'edit') {
               _showEditUserDialog(user);
+            } else if (value == 'reset_password') {
+              _resetUserPassword(user);
             } else if (value == 'delete') {
               _showDeleteConfirmation(user);
             }
@@ -320,10 +320,16 @@ class _AdminScreenState extends State<AdminScreen> {
             const PopupMenuItem(
               value: 'edit',
               child: Row(
+                children: [Icon(Icons.edit), SizedBox(width: 8), Text('Edit')],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'reset_password',
+              child: Row(
                 children: [
-                  Icon(Icons.edit),
+                  Icon(Icons.lock_reset, color: Colors.orange),
                   SizedBox(width: 8),
-                  Text('Edit'),
+                  Text('Reset Password'),
                 ],
               ),
             ),
@@ -385,7 +391,10 @@ class _AdminScreenState extends State<AdminScreen> {
                           ),
                           if (profile?.grade != null)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: _getGradeColor(profile!.grade!),
                                 borderRadius: BorderRadius.circular(12),
@@ -459,22 +468,54 @@ class _AdminScreenState extends State<AdminScreen> {
               // Student details grid
               Row(
                 children: [
-                  Expanded(child: _buildInfoItem(Icons.badge, 'Student #', profile.studentNumber)),
-                  Expanded(child: _buildInfoItem(Icons.phone, 'Phone', profile.phoneNumber)),
+                  Expanded(
+                    child: _buildInfoItem(
+                      Icons.badge,
+                      'Student #',
+                      profile.studentNumber,
+                    ),
+                  ),
+                  Expanded(
+                    child: _buildInfoItem(
+                      Icons.phone,
+                      'Phone',
+                      profile.phoneNumber,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Expanded(child: _buildInfoItem(Icons.book, 'Course', profile.course)),
-                  Expanded(child: _buildInfoItem(Icons.school_outlined, 'Year', profile.yearLevel)),
+                  Expanded(
+                    child: _buildInfoItem(Icons.book, 'Course', profile.course),
+                  ),
+                  Expanded(
+                    child: _buildInfoItem(
+                      Icons.school_outlined,
+                      'Year',
+                      profile.yearLevel,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Expanded(child: _buildInfoItem(Icons.language, 'Language', profile.language ?? 'Not set')),
-                  Expanded(child: _buildInfoItem(Icons.work_outline, 'Role', profile.role ?? 'Not set')),
+                  Expanded(
+                    child: _buildInfoItem(
+                      Icons.language,
+                      'Language',
+                      profile.language ?? 'Not set',
+                    ),
+                  ),
+                  Expanded(
+                    child: _buildInfoItem(
+                      Icons.work_outline,
+                      'Role',
+                      profile.role ?? 'Not set',
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
@@ -503,7 +544,10 @@ class _AdminScreenState extends State<AdminScreen> {
                       ],
                     ),
                     Chip(
-                      label: const Text('Student Worker', style: TextStyle(color: Colors.white, fontSize: 11)),
+                      label: const Text(
+                        'Student Worker',
+                        style: TextStyle(color: Colors.white, fontSize: 11),
+                      ),
                       backgroundColor: Colors.orange,
                       padding: EdgeInsets.zero,
                       visualDensity: VisualDensity.compact,
@@ -543,16 +587,118 @@ class _AdminScreenState extends State<AdminScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+              Text(
+                label,
+                style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+              ),
               Text(
                 value.isEmpty ? 'Not set' : value,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
                 overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildSalaryBenefitsManagementSection() {
+    return Container(
+      margin: const EdgeInsets.only(top: 24),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.monetization_on, color: Colors.green[700]),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Salary & Benefits Management',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green[700],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Manage staff salaries, benefits, and compensation packages',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () => context.push('/admin/salary-benefits'),
+                icon: const Icon(Icons.manage_accounts),
+                label: const Text('Manage Salaries & Benefits'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green[700],
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmploymentLetterManagementSection() {
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.document_scanner, color: Colors.blue[700]),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Employment Letters',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue[700],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Create and manage employment letter templates',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () => context.push('/admin/employment-letter-template'),
+                icon: const Icon(Icons.edit_note),
+                label: const Text('Manage Letter Templates'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue[700],
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -594,181 +740,390 @@ class _AdminScreenState extends State<AdminScreen> {
     final departmentController = TextEditingController();
     UserRole selectedRole = UserRole.requester;
 
+    // Get admin email before showing dialog
+    final authProvider = context.read<AuthProvider>();
+    final adminEmail = authProvider.currentUser?.email;
+
+    if (adminEmail == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error: Admin not logged in'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: DraggableScrollableSheet(
-          initialChildSize: 0.9,
-          minChildSize: 0.5,
-          maxChildSize: 0.95,
-          expand: false,
-          builder: (context, scrollController) => Column(
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 8),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Add User',
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(),
-              Expanded(
-                child: Form(
-                  key: formKey,
-                  child: ListView(
-                    controller: scrollController,
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      TextFormField(
-                        controller: nameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Name',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter a name';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: emailController,
-                        decoration: const InputDecoration(
-                          labelText: 'Email',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter an email';
-                          }
-                          if (!value.contains('@')) {
-                            return 'Please enter a valid email';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: passwordController,
-                        decoration: const InputDecoration(
-                          labelText: 'Password',
-                          border: OutlineInputBorder(),
-                        ),
-                        obscureText: true,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter a password';
-                          }
-                          if (value.length < 6) {
-                            return 'Password must be at least 6 characters';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: departmentController,
-                        decoration: const InputDecoration(
-                          labelText: 'Department',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter a department';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<UserRole>(
-                        value: selectedRole,
-                        decoration: const InputDecoration(
-                          labelText: 'Role',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: UserRole.values.map((role) {
-                          return DropdownMenuItem(
-                            value: role,
-                            child: Text(role.displayName),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          if (value != null) selectedRole = value;
-                        },
-                      ),
-                      const SizedBox(height: 24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          OutlinedButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            child: const Text('Cancel'),
-                          ),
-                          const SizedBox(width: 12),
-                          ElevatedButton(
-                            onPressed: () async {
-                              if (formKey.currentState!.validate()) {
-                                final authProvider = context
-                                    .read<AuthProvider>();
-                                await authProvider.registerUser(
-                                  email: emailController.text,
-                                  password: passwordController.text,
-                                  name: nameController.text,
-                                  role: selectedRole,
-                                  department: departmentController.text,
-                                );
-                                await _loadUsers();
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) {
+          bool isCreating = false;
 
-                                if (context.mounted) {
-                                  Navigator.of(context).pop();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('User added successfully'),
+          return Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
+            ),
+            child: DraggableScrollableSheet(
+              initialChildSize: 0.9,
+              minChildSize: 0.5,
+              maxChildSize: 0.95,
+              expand: false,
+              builder: (context, scrollController) => Column(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 8),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Add User',
+                            style: Theme.of(context).textTheme.headlineSmall,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.of(sheetContext).pop(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(),
+                  Expanded(
+                    child: Form(
+                      key: formKey,
+                      child: ListView(
+                        controller: scrollController,
+                        padding: const EdgeInsets.all(16),
+                        children: [
+                          // Warning about re-authentication
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            margin: const EdgeInsets.only(bottom: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.amber.shade200),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  color: Colors.amber.shade700,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'You will need to re-enter your password after creating this user.',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.amber.shade800,
                                     ),
-                                  );
-                                }
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          TextFormField(
+                            controller: nameController,
+                            decoration: const InputDecoration(
+                              labelText: 'Name',
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter a name';
                               }
+                              return null;
                             },
-                            child: const Text('Add User'),
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: emailController,
+                            decoration: const InputDecoration(
+                              labelText: 'Email',
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter an email';
+                              }
+                              if (!value.contains('@')) {
+                                return 'Please enter a valid email';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: passwordController,
+                            decoration: const InputDecoration(
+                              labelText: 'Password',
+                              border: OutlineInputBorder(),
+                            ),
+                            obscureText: true,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter a password';
+                              }
+                              if (value.length < 6) {
+                                return 'Password must be at least 6 characters';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: departmentController,
+                            decoration: const InputDecoration(
+                              labelText: 'Department',
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter a department';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          DropdownButtonFormField<UserRole>(
+                            value: selectedRole,
+                            decoration: const InputDecoration(
+                              labelText: 'Role',
+                              border: OutlineInputBorder(),
+                            ),
+                            items: UserRole.values.map((role) {
+                              return DropdownMenuItem(
+                                value: role,
+                                child: Text(role.displayName),
+                              );
+                            }).toList(),
+                            onChanged: (value) {
+                              if (value != null) selectedRole = value;
+                            },
+                          ),
+                          const SizedBox(height: 24),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              OutlinedButton(
+                                onPressed: isCreating
+                                    ? null
+                                    : () => Navigator.of(sheetContext).pop(),
+                                child: const Text('Cancel'),
+                              ),
+                              const SizedBox(width: 12),
+                              ElevatedButton(
+                                onPressed: isCreating
+                                    ? null
+                                    : () async {
+                                        if (formKey.currentState!.validate()) {
+                                          setSheetState(
+                                            () => isCreating = true,
+                                          );
+
+                                          try {
+                                            final authProvider = sheetContext
+                                                .read<AuthProvider>();
+                                            await authProvider.registerUser(
+                                              email: emailController.text
+                                                  .trim(),
+                                              password: passwordController.text,
+                                              name: nameController.text.trim(),
+                                              role: selectedRole,
+                                              department: departmentController
+                                                  .text
+                                                  .trim(),
+                                            );
+
+                                            if (sheetContext.mounted) {
+                                              Navigator.of(sheetContext).pop();
+                                            }
+
+                                            // Show re-authentication dialog
+                                            if (mounted) {
+                                              await _showReauthDialog(
+                                                adminEmail,
+                                              );
+                                            }
+                                          } catch (e) {
+                                            setSheetState(
+                                              () => isCreating = false,
+                                            );
+                                            if (sheetContext.mounted) {
+                                              ScaffoldMessenger.of(
+                                                sheetContext,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: Text('Error: $e'),
+                                                  backgroundColor: Colors.red,
+                                                ),
+                                              );
+                                            }
+                                          }
+                                        }
+                                      },
+                                child: isCreating
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Text('Add User'),
+                              ),
+                            ],
                           ),
                         ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _showReauthDialog(String adminEmail) async {
+    final passwordController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool isLoading = false;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.check, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(child: Text('User Created!')),
+            ],
+          ),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Please re-enter your admin password to continue:'),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.email, size: 16, color: Colors.grey.shade600),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          adminEmail,
+                          style: TextStyle(color: Colors.grey.shade700),
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: passwordController,
+                  obscureText: true,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Your Password',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.lock),
+                  ),
+                  validator: (value) =>
+                      value == null || value.isEmpty ? 'Required' : null,
+                ),
+              ],
+            ),
           ),
+          actions: [
+            ElevatedButton(
+              onPressed: isLoading
+                  ? null
+                  : () async {
+                      if (formKey.currentState!.validate()) {
+                        setDialogState(() => isLoading = true);
+                        try {
+                          final authProvider = dialogContext
+                              .read<AuthProvider>();
+                          await authProvider.login(
+                            adminEmail,
+                            passwordController.text,
+                          );
+
+                          if (dialogContext.mounted) {
+                            Navigator.of(dialogContext).pop();
+                          }
+
+                          await _loadUsers();
+
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('User added successfully!'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          setDialogState(() => isLoading = false);
+                          if (dialogContext.mounted) {
+                            ScaffoldMessenger.of(dialogContext).showSnackBar(
+                              SnackBar(
+                                content: Text('Login failed: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      }
+                    },
+              child: isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Sign In'),
+            ),
+          ],
         ),
       ),
     );
@@ -945,6 +1300,31 @@ class _AdminScreenState extends State<AdminScreen> {
     );
   }
 
+  Future<void> _resetUserPassword(User user) async {
+    try {
+      final authProvider = context.read<AuthProvider>();
+      await authProvider.resetPassword(user.email);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Password reset email sent to ${user.email}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error sending reset email: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _showDeleteConfirmation(User user) async {
     await showModalBottomSheet(
       context: context,
@@ -1035,24 +1415,52 @@ class _AdminScreenState extends State<AdminScreen> {
 
   void _showEditStudentProfileDialog(User user, StudentProfile? profile) {
     final formKey = GlobalKey<FormState>();
-    final studentNumberController = TextEditingController(text: profile?.studentNumber ?? '');
-    final phoneNumberController = TextEditingController(text: profile?.phoneNumber ?? '');
+    final studentNumberController = TextEditingController(
+      text: profile?.studentNumber ?? '',
+    );
+    final phoneNumberController = TextEditingController(
+      text: profile?.phoneNumber ?? '',
+    );
     final courseController = TextEditingController(text: profile?.course ?? '');
     String selectedYearLevel = profile?.yearLevel ?? '1st Year';
     String? selectedLanguage = profile?.language;
     String? selectedRole = profile?.role;
     String? selectedGrade = profile?.grade;
 
-    final yearLevels = ['1st Year', '2nd Year', '3rd Year', '4th Year', 'Graduate'];
-    final languages = ['Malay', 'Thai', 'Khmer', 'Chinese', 'English', 'Lao', 'Vietnamese', 'Other'];
-    final roles = ['Video Editor', 'Producer', 'Content Creator', 'Language Editor', 'Other'];
+    final yearLevels = [
+      '1st Year',
+      '2nd Year',
+      '3rd Year',
+      '4th Year',
+      'Graduate',
+    ];
+    final languages = [
+      'Malay',
+      'Thai',
+      'Khmer',
+      'Chinese',
+      'English',
+      'Lao',
+      'Vietnamese',
+      'Other',
+    ];
+    final roles = [
+      'Video Editor',
+      'Producer',
+      'Content Creator',
+      'Language Editor',
+      'Other',
+    ];
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) {
           final rateRole = selectedRole ?? 'Other';
-          double calculatedRate = StudentRateConfig.getRate(rateRole, selectedGrade);
+          double calculatedRate = StudentRateConfig.getRate(
+            rateRole,
+            selectedGrade,
+          );
 
           return AlertDialog(
             title: Row(
@@ -1063,17 +1471,28 @@ class _AdminScreenState extends State<AdminScreen> {
                     color: Colors.orange,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.school, color: Colors.white, size: 20),
+                  child: const Icon(
+                    Icons.school,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Edit Student Profile', style: TextStyle(fontSize: 18)),
+                      const Text(
+                        'Edit Student Profile',
+                        style: TextStyle(fontSize: 18),
+                      ),
                       Text(
                         user.name,
-                        style: TextStyle(fontSize: 13, color: Colors.grey[600], fontWeight: FontWeight.normal),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.normal,
+                        ),
                       ),
                     ],
                   ),
@@ -1093,7 +1512,8 @@ class _AdminScreenState extends State<AdminScreen> {
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.badge),
                       ),
-                      validator: (value) => value == null || value.isEmpty ? 'Required' : null,
+                      validator: (value) =>
+                          value == null || value.isEmpty ? 'Required' : null,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
@@ -1103,7 +1523,8 @@ class _AdminScreenState extends State<AdminScreen> {
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.phone),
                       ),
-                      validator: (value) => value == null || value.isEmpty ? 'Required' : null,
+                      validator: (value) =>
+                          value == null || value.isEmpty ? 'Required' : null,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
@@ -1113,7 +1534,8 @@ class _AdminScreenState extends State<AdminScreen> {
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.book),
                       ),
-                      validator: (value) => value == null || value.isEmpty ? 'Required' : null,
+                      validator: (value) =>
+                          value == null || value.isEmpty ? 'Required' : null,
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
@@ -1123,7 +1545,11 @@ class _AdminScreenState extends State<AdminScreen> {
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.school_outlined),
                       ),
-                      items: yearLevels.map((y) => DropdownMenuItem(value: y, child: Text(y))).toList(),
+                      items: yearLevels
+                          .map(
+                            (y) => DropdownMenuItem(value: y, child: Text(y)),
+                          )
+                          .toList(),
                       onChanged: (v) => setState(() => selectedYearLevel = v!),
                     ),
                     const SizedBox(height: 12),
@@ -1134,7 +1560,11 @@ class _AdminScreenState extends State<AdminScreen> {
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.language),
                       ),
-                      items: languages.map((l) => DropdownMenuItem(value: l, child: Text(l))).toList(),
+                      items: languages
+                          .map(
+                            (l) => DropdownMenuItem(value: l, child: Text(l)),
+                          )
+                          .toList(),
                       onChanged: (v) => setState(() => selectedLanguage = v),
                     ),
                     const SizedBox(height: 12),
@@ -1145,7 +1575,11 @@ class _AdminScreenState extends State<AdminScreen> {
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.work_outline),
                       ),
-                      items: roles.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+                      items: roles
+                          .map(
+                            (r) => DropdownMenuItem(value: r, child: Text(r)),
+                          )
+                          .toList(),
                       onChanged: (v) => setState(() => selectedRole = v),
                     ),
                     const SizedBox(height: 12),
@@ -1164,7 +1598,13 @@ class _AdminScreenState extends State<AdminScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text('Grade $g'),
-                              Text('THB ${rate.toStringAsFixed(0)}/hr', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                              Text(
+                                'THB ${rate.toStringAsFixed(0)}/hr',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 12,
+                                ),
+                              ),
                             ],
                           ),
                         );
@@ -1186,7 +1626,10 @@ class _AdminScreenState extends State<AdminScreen> {
                             const SizedBox(width: 12),
                             Text(
                               'Rate: THB ${calculatedRate.toStringAsFixed(2)}',
-                              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade700),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green.shade700,
+                              ),
                             ),
                           ],
                         ),
@@ -1214,12 +1657,17 @@ class _AdminScreenState extends State<AdminScreen> {
                       language: selectedLanguage,
                       role: selectedRole,
                       grade: selectedGrade,
-                      hourlyRate: calculatedRate > 0 ? calculatedRate : profile?.hourlyRate ?? 0.0,
+                      hourlyRate: calculatedRate > 0
+                          ? calculatedRate
+                          : profile?.hourlyRate ?? 0.0,
                     );
                   }
                 },
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-                child: const Text('Save', style: TextStyle(color: Colors.white)),
+                child: const Text(
+                  'Save',
+                  style: TextStyle(color: Colors.white),
+                ),
               ),
             ],
           );
@@ -1240,7 +1688,9 @@ class _AdminScreenState extends State<AdminScreen> {
     required double hourlyRate,
   }) async {
     try {
-      final profileRef = FirebaseFirestore.instance.collection('student_profiles').doc(userId);
+      final profileRef = FirebaseFirestore.instance
+          .collection('student_profiles')
+          .doc(userId);
       final profileDoc = await profileRef.get();
 
       if (profileDoc.exists) {
@@ -1276,7 +1726,10 @@ class _AdminScreenState extends State<AdminScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Student profile updated'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('Student profile updated'),
+            backgroundColor: Colors.green,
+          ),
         );
       }
     } catch (e) {

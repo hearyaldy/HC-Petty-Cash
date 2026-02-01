@@ -1098,27 +1098,70 @@ class _StudentMonthlyReportDetailScreenState
                                             ),
                                           ],
                                         ),
-                                        Container(
-                                          padding: EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 6,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: _getStatusColor(
-                                              ts.status,
-                                            ).withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(
-                                              20,
+                                        Row(
+                                          children: [
+                                            Container(
+                                              padding: EdgeInsets.symmetric(
+                                                horizontal: 12,
+                                                vertical: 6,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: _getStatusColor(
+                                                  ts.status,
+                                                ).withValues(alpha: 0.1),
+                                                borderRadius: BorderRadius.circular(
+                                                  20,
+                                                ),
+                                              ),
+                                              child: Text(
+                                                ts.status.toUpperCase(),
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: _getStatusColor(ts.status),
+                                                ),
+                                              ),
                                             ),
-                                          ),
-                                          child: Text(
-                                            ts.status.toUpperCase(),
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                              color: _getStatusColor(ts.status),
-                                            ),
-                                          ),
+                                            // Edit/Delete menu - only show when report is draft
+                                            if ((_reportData?['status'] ?? 'draft') == 'draft')
+                                              PopupMenuButton<String>(
+                                                icon: Icon(
+                                                  Icons.more_vert,
+                                                  size: 20,
+                                                  color: Colors.grey[600],
+                                                ),
+                                                padding: EdgeInsets.zero,
+                                                onSelected: (value) {
+                                                  if (value == 'edit') {
+                                                    _showEditTimesheetDialog(ts);
+                                                  } else if (value == 'delete') {
+                                                    _showDeleteTimesheetDialog(ts);
+                                                  }
+                                                },
+                                                itemBuilder: (context) => [
+                                                  PopupMenuItem(
+                                                    value: 'edit',
+                                                    child: Row(
+                                                      children: [
+                                                        Icon(Icons.edit, size: 18, color: Colors.blue),
+                                                        const SizedBox(width: 8),
+                                                        const Text('Edit'),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  PopupMenuItem(
+                                                    value: 'delete',
+                                                    child: Row(
+                                                      children: [
+                                                        Icon(Icons.delete, size: 18, color: Colors.red),
+                                                        const SizedBox(width: 8),
+                                                        const Text('Delete', style: TextStyle(color: Colors.red)),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                          ],
                                         ),
                                       ],
                                     ),
@@ -1335,6 +1378,17 @@ class _StudentMonthlyReportDetailScreenState
                                         ),
                                       ),
                                     ),
+                                    // Actions column - only show when draft
+                                    if ((_reportData?['status'] ?? 'draft') == 'draft')
+                                      const SizedBox(
+                                        width: 50,
+                                        child: Text(
+                                          '',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
                                   ],
                                 ),
                               ),
@@ -1413,7 +1467,7 @@ class _StudentMonthlyReportDetailScreenState
                                             decoration: BoxDecoration(
                                               color: _getStatusColor(
                                                 ts.status,
-                                              ).withOpacity(0.1),
+                                              ).withValues(alpha: 0.1),
                                               borderRadius:
                                                   BorderRadius.circular(8),
                                             ),
@@ -1430,6 +1484,48 @@ class _StudentMonthlyReportDetailScreenState
                                             ),
                                           ),
                                         ),
+                                        // Actions - only show when draft
+                                        if ((_reportData?['status'] ?? 'draft') == 'draft')
+                                          SizedBox(
+                                            width: 50,
+                                            child: PopupMenuButton<String>(
+                                              icon: Icon(
+                                                Icons.more_vert,
+                                                size: 20,
+                                                color: Colors.grey[600],
+                                              ),
+                                              padding: EdgeInsets.zero,
+                                              onSelected: (value) {
+                                                if (value == 'edit') {
+                                                  _showEditTimesheetDialog(ts);
+                                                } else if (value == 'delete') {
+                                                  _showDeleteTimesheetDialog(ts);
+                                                }
+                                              },
+                                              itemBuilder: (context) => [
+                                                PopupMenuItem(
+                                                  value: 'edit',
+                                                  child: Row(
+                                                    children: [
+                                                      Icon(Icons.edit, size: 18, color: Colors.blue),
+                                                      const SizedBox(width: 8),
+                                                      const Text('Edit'),
+                                                    ],
+                                                  ),
+                                                ),
+                                                PopupMenuItem(
+                                                  value: 'delete',
+                                                  child: Row(
+                                                    children: [
+                                                      Icon(Icons.delete, size: 18, color: Colors.red),
+                                                      const SizedBox(width: 8),
+                                                      const Text('Delete', style: TextStyle(color: Colors.red)),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
                                       ],
                                     ),
                                   ),
@@ -1624,7 +1720,11 @@ class _StudentMonthlyReportDetailScreenState
     DateTime? selectedDate;
     TimeOfDay? startTime;
     TimeOfDay? endTime;
-    final taskController = TextEditingController();
+    TaskType selectedTaskType = TaskType.other;
+    final taskTitleController = TextEditingController();
+    final taskDescriptionController = TextEditingController();
+    int taskProgress = 0;
+    TaskStatus selectedTaskStatus = TaskStatus.inProgress;
     final notesController = TextEditingController();
 
     await showDialog(
@@ -1636,181 +1736,347 @@ class _StudentMonthlyReportDetailScreenState
               children: [
                 Icon(Icons.access_time, color: Colors.orange.shade600),
                 const SizedBox(width: 12),
-                const Text('Add Time Entry'),
+                const Expanded(child: Text('Add Time Entry')),
               ],
             ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Date Picker
-                  Text(
-                    'Date',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey[700],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  InkWell(
-                    onTap: () async {
-                      // Parse month to get valid date range
-                      final monthParts = widget.month.split('-');
-                      final year = int.parse(monthParts[0]);
-                      final month = int.parse(monthParts[1]);
-                      final firstDay = DateTime(year, month, 1);
-                      final lastDay = DateTime(year, month + 1, 0);
-
-                      final date = await showDatePicker(
-                        context: context,
-                        initialDate: selectedDate ?? DateTime.now(),
-                        firstDate: firstDay,
-                        lastDate: lastDay,
-                      );
-                      if (date != null) {
-                        setDialogState(() => selectedDate = date);
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(8),
+            content: SizedBox(
+              width: MediaQuery.of(context).size.width * 0.8,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Date Picker
+                    Text(
+                      'Date *',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[700],
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            selectedDate == null
-                                ? 'Select date'
-                                : DateFormat(
-                                    'MMM dd, yyyy',
-                                  ).format(selectedDate!),
+                    ),
+                    const SizedBox(height: 8),
+                    InkWell(
+                      onTap: () async {
+                        // Parse month to get valid date range
+                        final monthParts = widget.month.split('-');
+                        final year = int.parse(monthParts[0]);
+                        final month = int.parse(monthParts[1]);
+                        final firstDay = DateTime(year, month, 1);
+                        final lastDay = DateTime(year, month + 1, 0);
+
+                        // Determine initial date - must be within the valid range
+                        DateTime initialDate;
+                        if (selectedDate != null) {
+                          initialDate = selectedDate!;
+                        } else {
+                          final now = DateTime.now();
+                          // If today is within the month range, use today
+                          if (now.isAfter(firstDay.subtract(const Duration(days: 1))) &&
+                              now.isBefore(lastDay.add(const Duration(days: 1)))) {
+                            initialDate = now;
+                          } else {
+                            // Otherwise use the first day of the month
+                            initialDate = firstDay;
+                          }
+                        }
+
+                        final date = await showDatePicker(
+                          context: context,
+                          initialDate: initialDate,
+                          firstDate: firstDay,
+                          lastDate: lastDay,
+                        );
+                        if (date != null) {
+                          setDialogState(() => selectedDate = date);
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              selectedDate == null
+                                  ? 'Select date'
+                                  : DateFormat(
+                                      'MMM dd, yyyy',
+                                    ).format(selectedDate!),
+                            ),
+                            const Icon(Icons.calendar_today, size: 20),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Time Row
+                    Row(
+                      children: [
+                        // Start Time
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Start Time *',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              InkWell(
+                                onTap: () async {
+                                  final time = await showTimePicker(
+                                    context: context,
+                                    initialTime: startTime ?? TimeOfDay.now(),
+                                  );
+                                  if (time != null) {
+                                    setDialogState(() => startTime = time);
+                                  }
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: Colors.grey),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        startTime == null
+                                            ? 'Start'
+                                            : startTime!.format(context),
+                                      ),
+                                      const Icon(Icons.access_time, size: 18),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          const Icon(Icons.calendar_today, size: 20),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Start Time
-                  Text(
-                    'Start Time',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey[700],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  InkWell(
-                    onTap: () async {
-                      final time = await showTimePicker(
-                        context: context,
-                        initialTime: startTime ?? TimeOfDay.now(),
-                      );
-                      if (time != null) {
-                        setDialogState(() => startTime = time);
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            startTime == null
-                                ? 'Select start time'
-                                : startTime!.format(context),
+                        ),
+                        const SizedBox(width: 12),
+                        // End Time
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'End Time *',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              InkWell(
+                                onTap: () async {
+                                  final time = await showTimePicker(
+                                    context: context,
+                                    initialTime: endTime ?? TimeOfDay.now(),
+                                  );
+                                  if (time != null) {
+                                    setDialogState(() => endTime = time);
+                                  }
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: Colors.grey),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        endTime == null
+                                            ? 'End'
+                                            : endTime!.format(context),
+                                      ),
+                                      const Icon(Icons.access_time, size: 18),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          const Icon(Icons.access_time, size: 20),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                  // End Time
-                  Text(
-                    'End Time',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey[700],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  InkWell(
-                    onTap: () async {
-                      final time = await showTimePicker(
-                        context: context,
-                        initialTime: endTime ?? TimeOfDay.now(),
-                      );
-                      if (time != null) {
-                        setDialogState(() => endTime = time);
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(8),
+                    const Divider(),
+                    const SizedBox(height: 8),
+
+                    // Task Type Dropdown
+                    Text(
+                      'Task Type *',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[700],
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            endTime == null
-                                ? 'Select end time'
-                                : endTime!.format(context),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<TaskType>(
+                      value: selectedTaskType,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                      ),
+                      items: TaskType.values.map((type) {
+                        return DropdownMenuItem(
+                          value: type,
+                          child: Text(type.displayName),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setDialogState(() => selectedTaskType = value);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Task Title
+                    Text(
+                      'Task Title *',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: taskTitleController,
+                      decoration: InputDecoration(
+                        hintText: 'Enter a title for this task',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Task Description
+                    Text(
+                      'Description',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: taskDescriptionController,
+                      decoration: InputDecoration(
+                        hintText: 'Describe the work done in detail',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      maxLines: 3,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Progress Slider
+                    Text(
+                      'Progress: $taskProgress%',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Text('0%'),
+                        Expanded(
+                          child: Slider(
+                            value: taskProgress.toDouble(),
+                            min: 0,
+                            max: 100,
+                            divisions: 20,
+                            activeColor: Colors.orange.shade600,
+                            label: '$taskProgress%',
+                            onChanged: (value) {
+                              setDialogState(() => taskProgress = value.toInt());
+                            },
                           ),
-                          const Icon(Icons.access_time, size: 20),
-                        ],
-                      ),
+                        ),
+                        const Text('100%'),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                  // Task Description (Required)
-                  Text(
-                    'Task Description *',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey[700],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: taskController,
-                    decoration: InputDecoration(
-                      labelText: 'Task *',
-                      hintText: 'Describe the work or task completed',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
+                    // Task Status Dropdown
+                    Text(
+                      'Status',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[700],
                       ),
-                      errorText: null,
                     ),
-                    maxLines: 2,
-                  ),
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<TaskStatus>(
+                      value: selectedTaskStatus,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                      ),
+                      items: TaskStatus.values.map((status) {
+                        return DropdownMenuItem(
+                          value: status,
+                          child: Row(
+                            children: [
+                              Icon(
+                                _getTaskStatusIcon(status),
+                                size: 18,
+                                color: _getTaskStatusColor(status),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(status.displayName),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setDialogState(() => selectedTaskStatus = value);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
 
-                  // Notes
-                  TextField(
-                    controller: notesController,
-                    decoration: InputDecoration(
-                      labelText: 'Notes (Optional)',
-                      hintText: 'Add any notes about this time entry',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
+                    // Notes
+                    TextField(
+                      controller: notesController,
+                      decoration: InputDecoration(
+                        labelText: 'Notes (Optional)',
+                        hintText: 'Add any additional notes',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
+                      maxLines: 2,
                     ),
-                    maxLines: 3,
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             actions: [
@@ -1823,7 +2089,7 @@ class _StudentMonthlyReportDetailScreenState
                   if (selectedDate == null ||
                       startTime == null ||
                       endTime == null ||
-                      taskController.text.trim().isEmpty) {
+                      taskTitleController.text.trim().isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('Please fill in all required fields'),
@@ -1881,7 +2147,14 @@ class _StudentMonthlyReportDetailScreenState
                     hourlyRate: hourlyRate,
                     totalAmount: hours * hourlyRate,
                     status: 'draft',
-                    task: taskController.text.trim(),
+                    task: taskTitleController.text.trim(), // For backward compatibility
+                    taskType: selectedTaskType.value,
+                    taskTitle: taskTitleController.text.trim(),
+                    taskDescription: taskDescriptionController.text.isNotEmpty
+                        ? taskDescriptionController.text.trim()
+                        : null,
+                    taskProgress: taskProgress,
+                    taskStatus: selectedTaskStatus.value,
                     notes: notesController.text.isNotEmpty
                         ? notesController.text
                         : null,
@@ -1916,6 +2189,584 @@ class _StudentMonthlyReportDetailScreenState
         },
       ),
     );
+  }
+
+  IconData _getTaskStatusIcon(TaskStatus status) {
+    switch (status) {
+      case TaskStatus.notStarted:
+        return Icons.radio_button_unchecked;
+      case TaskStatus.inProgress:
+        return Icons.timelapse;
+      case TaskStatus.completed:
+        return Icons.check_circle;
+      case TaskStatus.onHold:
+        return Icons.pause_circle;
+    }
+  }
+
+  Color _getTaskStatusColor(TaskStatus status) {
+    switch (status) {
+      case TaskStatus.notStarted:
+        return Colors.grey;
+      case TaskStatus.inProgress:
+        return Colors.orange;
+      case TaskStatus.completed:
+        return Colors.green;
+      case TaskStatus.onHold:
+        return Colors.red;
+    }
+  }
+
+  Future<void> _showEditTimesheetDialog(StudentTimesheet timesheet) async {
+    DateTime? selectedDate = timesheet.date;
+    TimeOfDay? startTime = TimeOfDay.fromDateTime(timesheet.startTime);
+    TimeOfDay? endTime = TimeOfDay.fromDateTime(timesheet.endTime);
+    TaskType selectedTaskType = timesheet.taskTypeEnum;
+    final taskTitleController = TextEditingController(text: timesheet.taskTitle ?? timesheet.task);
+    final taskDescriptionController = TextEditingController(text: timesheet.taskDescription ?? '');
+    int taskProgress = timesheet.taskProgress;
+    TaskStatus selectedTaskStatus = timesheet.taskStatusEnum;
+    final notesController = TextEditingController(text: timesheet.notes ?? '');
+
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          return AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.edit, color: Colors.blue.shade600),
+                const SizedBox(width: 12),
+                const Expanded(child: Text('Edit Time Entry')),
+              ],
+            ),
+            content: SizedBox(
+              width: MediaQuery.of(dialogContext).size.width * 0.8,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Date Picker
+                    Text(
+                      'Date *',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    InkWell(
+                      onTap: () async {
+                        final monthParts = widget.month.split('-');
+                        final year = int.parse(monthParts[0]);
+                        final month = int.parse(monthParts[1]);
+                        final firstDay = DateTime(year, month, 1);
+                        final lastDay = DateTime(year, month + 1, 0);
+
+                        final date = await showDatePicker(
+                          context: dialogContext,
+                          initialDate: selectedDate ?? firstDay,
+                          firstDate: firstDay,
+                          lastDate: lastDay,
+                        );
+                        if (date != null) {
+                          setDialogState(() => selectedDate = date);
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              selectedDate == null
+                                  ? 'Select date'
+                                  : DateFormat('MMM dd, yyyy').format(selectedDate!),
+                            ),
+                            const Icon(Icons.calendar_today, size: 20),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Time Row
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Start Time *',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              InkWell(
+                                onTap: () async {
+                                  final time = await showTimePicker(
+                                    context: dialogContext,
+                                    initialTime: startTime ?? TimeOfDay.now(),
+                                  );
+                                  if (time != null) {
+                                    setDialogState(() => startTime = time);
+                                  }
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: Colors.grey),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(startTime?.format(dialogContext) ?? 'Start'),
+                                      const Icon(Icons.access_time, size: 18),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'End Time *',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              InkWell(
+                                onTap: () async {
+                                  final time = await showTimePicker(
+                                    context: dialogContext,
+                                    initialTime: endTime ?? TimeOfDay.now(),
+                                  );
+                                  if (time != null) {
+                                    setDialogState(() => endTime = time);
+                                  }
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: Colors.grey),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(endTime?.format(dialogContext) ?? 'End'),
+                                      const Icon(Icons.access_time, size: 18),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    const Divider(),
+                    const SizedBox(height: 8),
+
+                    // Task Type Dropdown
+                    Text(
+                      'Task Type *',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<TaskType>(
+                      value: selectedTaskType,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                      ),
+                      items: TaskType.values.map((type) {
+                        return DropdownMenuItem(
+                          value: type,
+                          child: Text(type.displayName),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setDialogState(() => selectedTaskType = value);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Task Title
+                    Text(
+                      'Task Title *',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: taskTitleController,
+                      decoration: InputDecoration(
+                        hintText: 'Enter a title for this task',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Task Description
+                    Text(
+                      'Description',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: taskDescriptionController,
+                      decoration: InputDecoration(
+                        hintText: 'Describe the work done in detail',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      maxLines: 3,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Progress Slider
+                    Text(
+                      'Progress: $taskProgress%',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Text('0%'),
+                        Expanded(
+                          child: Slider(
+                            value: taskProgress.toDouble(),
+                            min: 0,
+                            max: 100,
+                            divisions: 20,
+                            activeColor: Colors.orange.shade600,
+                            label: '$taskProgress%',
+                            onChanged: (value) {
+                              setDialogState(() => taskProgress = value.toInt());
+                            },
+                          ),
+                        ),
+                        const Text('100%'),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Task Status Dropdown
+                    Text(
+                      'Status',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<TaskStatus>(
+                      value: selectedTaskStatus,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                      ),
+                      items: TaskStatus.values.map((status) {
+                        return DropdownMenuItem(
+                          value: status,
+                          child: Row(
+                            children: [
+                              Icon(
+                                _getTaskStatusIcon(status),
+                                size: 18,
+                                color: _getTaskStatusColor(status),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(status.displayName),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setDialogState(() => selectedTaskStatus = value);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Notes
+                    TextField(
+                      controller: notesController,
+                      decoration: InputDecoration(
+                        labelText: 'Notes (Optional)',
+                        hintText: 'Add any additional notes',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      maxLines: 2,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (selectedDate == null ||
+                      startTime == null ||
+                      endTime == null ||
+                      taskTitleController.text.trim().isEmpty) {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please fill in all required fields'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+
+                  // Calculate hours
+                  final start = DateTime(
+                    selectedDate!.year,
+                    selectedDate!.month,
+                    selectedDate!.day,
+                    startTime!.hour,
+                    startTime!.minute,
+                  );
+                  final end = DateTime(
+                    selectedDate!.year,
+                    selectedDate!.month,
+                    selectedDate!.day,
+                    endTime!.hour,
+                    endTime!.minute,
+                  );
+                  final duration = end.difference(start);
+                  final hours = duration.inMinutes / 60.0;
+
+                  if (hours <= 0) {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      const SnackBar(
+                        content: Text('End time must be after start time'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+
+                  // Update timesheet entry
+                  final hourlyRate = _reportData?['hourlyRate'] ?? 0.0;
+                  await FirebaseFirestore.instance
+                      .collection('student_timesheets')
+                      .doc(timesheet.id)
+                      .update({
+                        'date': Timestamp.fromDate(selectedDate!),
+                        'startTime': Timestamp.fromDate(start),
+                        'endTime': Timestamp.fromDate(end),
+                        'totalHours': hours,
+                        'totalAmount': hours * hourlyRate,
+                        'task': taskTitleController.text.trim(),
+                        'taskType': selectedTaskType.value,
+                        'taskTitle': taskTitleController.text.trim(),
+                        'taskDescription': taskDescriptionController.text.isNotEmpty
+                            ? taskDescriptionController.text.trim()
+                            : null,
+                        'taskProgress': taskProgress,
+                        'taskStatus': selectedTaskStatus.value,
+                        'notes': notesController.text.isNotEmpty
+                            ? notesController.text
+                            : null,
+                      });
+
+                  // Update report totals
+                  await _updateReportTotals();
+
+                  if (mounted) {
+                    Navigator.pop(dialogContext);
+                    _loadReportDetails();
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Time entry updated successfully'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue.shade600,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Save Changes'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _showDeleteTimesheetDialog(StudentTimesheet timesheet) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.delete, color: Colors.red),
+            const SizedBox(width: 12),
+            const Text('Delete Entry?'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Are you sure you want to delete this time entry?'),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    DateFormat('MMM dd, yyyy').format(timesheet.date),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${DateFormat('HH:mm').format(timesheet.startTime)} - ${DateFormat('HH:mm').format(timesheet.endTime)}',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                  if (timesheet.taskTitle != null || timesheet.task.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      timesheet.taskTitle ?? timesheet.task,
+                      style: TextStyle(color: Colors.grey[700]),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.warning, color: Colors.red.shade700, size: 20),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'This action cannot be undone.',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('student_timesheets')
+            .doc(timesheet.id)
+            .delete();
+
+        // Update report totals
+        await _updateReportTotals();
+
+        if (mounted) {
+          _loadReportDetails();
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Time entry deleted'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error deleting entry: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
   }
 
   Future<void> _updateReportTotals() async {

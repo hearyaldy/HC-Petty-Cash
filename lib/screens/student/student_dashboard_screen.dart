@@ -319,61 +319,31 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
           ),
         ),
         actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            onSelected: (value) {
-              if (value == 'timesheets') {
-                context.go('/student-report');
-              } else if (value == 'profile') {
-                context.go('/student-profile');
-              } else if (value == 'settings') {
-                context.go('/settings');
-              } else if (value == 'logout') {
-                _handleLogout();
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'timesheets',
-                child: Row(
-                  children: [
-                    Icon(Icons.access_time, size: 20),
-                    SizedBox(width: 12),
-                    Text('My Timesheets'),
-                  ],
+          // Settings button
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () => context.go('/settings'),
+            tooltip: 'Settings',
+          ),
+          // Visible Logout button
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            child: IconButton(
+              icon: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.logout,
+                  color: Colors.red.shade700,
+                  size: 20,
                 ),
               ),
-              const PopupMenuItem(
-                value: 'profile',
-                child: Row(
-                  children: [
-                    Icon(Icons.person, size: 20),
-                    SizedBox(width: 12),
-                    Text('My Profile'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'settings',
-                child: Row(
-                  children: [
-                    Icon(Icons.settings, size: 20),
-                    SizedBox(width: 12),
-                    Text('Settings'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'logout',
-                child: Row(
-                  children: [
-                    Icon(Icons.logout, size: 20, color: Colors.red),
-                    SizedBox(width: 12),
-                    Text('Logout', style: TextStyle(color: Colors.red)),
-                  ],
-                ),
-              ),
-            ],
+              onPressed: _handleLogout,
+              tooltip: 'Logout',
+            ),
           ),
         ],
       ),
@@ -1353,6 +1323,11 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
   late DateTime _selectedDate;
   late TimeOfDay _startTime;
   late TimeOfDay _endTime;
+  late TaskType _selectedTaskType;
+  late TextEditingController _taskTitleController;
+  late TextEditingController _taskDescriptionController;
+  late int _taskProgress;
+  late TaskStatus _selectedTaskStatus;
   late TextEditingController _notesController;
   bool _isSaving = false;
 
@@ -1362,6 +1337,15 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
     _selectedDate = widget.timesheet.date;
     _startTime = TimeOfDay.fromDateTime(widget.timesheet.startTime);
     _endTime = TimeOfDay.fromDateTime(widget.timesheet.endTime);
+    _selectedTaskType = widget.timesheet.taskTypeEnum;
+    _taskTitleController = TextEditingController(
+      text: widget.timesheet.taskTitle ?? widget.timesheet.task,
+    );
+    _taskDescriptionController = TextEditingController(
+      text: widget.timesheet.taskDescription ?? '',
+    );
+    _taskProgress = widget.timesheet.taskProgress;
+    _selectedTaskStatus = widget.timesheet.taskStatusEnum;
     _notesController = TextEditingController(
       text: widget.timesheet.notes ?? '',
     );
@@ -1369,6 +1353,8 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
 
   @override
   void dispose() {
+    _taskTitleController.dispose();
+    _taskDescriptionController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -1420,6 +1406,17 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
 
       final totalAmount = hours * hourlyRate;
 
+      // Validate task title
+      if (_taskTitleController.text.trim().isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Task title is required')),
+          );
+        }
+        setState(() => _isSaving = false);
+        return;
+      }
+
       // Update timesheet
       await FirebaseFirestore.instance
           .collection('student_timesheets')
@@ -1430,6 +1427,14 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
             'endTime': Timestamp.fromDate(endDateTime),
             'totalHours': hours,
             'totalAmount': totalAmount,
+            'task': _taskTitleController.text.trim(),
+            'taskType': _selectedTaskType.value,
+            'taskTitle': _taskTitleController.text.trim(),
+            'taskDescription': _taskDescriptionController.text.isNotEmpty
+                ? _taskDescriptionController.text.trim()
+                : null,
+            'taskProgress': _taskProgress,
+            'taskStatus': _selectedTaskStatus.value,
             'notes': _notesController.text.trim(),
             'updatedAt': FieldValue.serverTimestamp(),
           });
@@ -1481,55 +1486,322 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
     }
   }
 
+  IconData _getTaskStatusIcon(TaskStatus status) {
+    switch (status) {
+      case TaskStatus.notStarted:
+        return Icons.radio_button_unchecked;
+      case TaskStatus.inProgress:
+        return Icons.timelapse;
+      case TaskStatus.completed:
+        return Icons.check_circle;
+      case TaskStatus.onHold:
+        return Icons.pause_circle;
+    }
+  }
+
+  Color _getTaskStatusColor(TaskStatus status) {
+    switch (status) {
+      case TaskStatus.notStarted:
+        return Colors.grey;
+      case TaskStatus.inProgress:
+        return Colors.orange;
+      case TaskStatus.completed:
+        return Colors.green;
+      case TaskStatus.onHold:
+        return Colors.red;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Edit Time Entry'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Date picker
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.calendar_today),
-              title: const Text('Date'),
-              subtitle: Text(DateFormat('MMM dd, yyyy').format(_selectedDate)),
-              onTap: _selectDate,
-            ),
-            const SizedBox(height: 8),
-
-            // Start time picker
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.access_time),
-              title: const Text('Start Time'),
-              subtitle: Text(_startTime.format(context)),
-              onTap: () => _selectTime(true),
-            ),
-            const SizedBox(height: 8),
-
-            // End time picker
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.access_time),
-              title: const Text('End Time'),
-              subtitle: Text(_endTime.format(context)),
-              onTap: () => _selectTime(false),
-            ),
-            const SizedBox(height: 16),
-
-            // Notes field
-            TextField(
-              controller: _notesController,
-              decoration: const InputDecoration(
-                labelText: 'Notes (optional)',
-                border: OutlineInputBorder(),
+      title: Row(
+        children: [
+          Icon(Icons.edit, color: Colors.blue.shade600),
+          const SizedBox(width: 12),
+          const Expanded(child: Text('Edit Time Entry')),
+        ],
+      ),
+      content: SizedBox(
+        width: MediaQuery.of(context).size.width * 0.8,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Date picker
+              Text(
+                'Date *',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[700],
+                ),
               ),
-              maxLines: 3,
-            ),
-          ],
+              const SizedBox(height: 8),
+              InkWell(
+                onTap: _selectDate,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(DateFormat('MMM dd, yyyy').format(_selectedDate)),
+                      const Icon(Icons.calendar_today, size: 20),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Time Row
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Start Time *',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        InkWell(
+                          onTap: () => _selectTime(true),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(_startTime.format(context)),
+                                const Icon(Icons.access_time, size: 18),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'End Time *',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        InkWell(
+                          onTap: () => _selectTime(false),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(_endTime.format(context)),
+                                const Icon(Icons.access_time, size: 18),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              const Divider(),
+              const SizedBox(height: 8),
+
+              // Task Type Dropdown
+              Text(
+                'Task Type *',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[700],
+                ),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<TaskType>(
+                value: _selectedTaskType,
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                ),
+                items: TaskType.values.map((type) {
+                  return DropdownMenuItem(
+                    value: type,
+                    child: Text(type.displayName),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _selectedTaskType = value);
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // Task Title
+              Text(
+                'Task Title *',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[700],
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _taskTitleController,
+                decoration: InputDecoration(
+                  hintText: 'Enter a title for this task',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Task Description
+              Text(
+                'Description',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[700],
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _taskDescriptionController,
+                decoration: InputDecoration(
+                  hintText: 'Describe the work done in detail',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 16),
+
+              // Progress Slider
+              Text(
+                'Progress: $_taskProgress%',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[700],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Text('0%'),
+                  Expanded(
+                    child: Slider(
+                      value: _taskProgress.toDouble(),
+                      min: 0,
+                      max: 100,
+                      divisions: 20,
+                      activeColor: Colors.orange.shade600,
+                      label: '$_taskProgress%',
+                      onChanged: (value) {
+                        setState(() => _taskProgress = value.toInt());
+                      },
+                    ),
+                  ),
+                  const Text('100%'),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Task Status Dropdown
+              Text(
+                'Status',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[700],
+                ),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<TaskStatus>(
+                value: _selectedTaskStatus,
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                ),
+                items: TaskStatus.values.map((status) {
+                  return DropdownMenuItem(
+                    value: status,
+                    child: Row(
+                      children: [
+                        Icon(
+                          _getTaskStatusIcon(status),
+                          size: 18,
+                          color: _getTaskStatusColor(status),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(status.displayName),
+                      ],
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _selectedTaskStatus = value);
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // Notes field
+              Text(
+                'Notes (Optional)',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[700],
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _notesController,
+                decoration: InputDecoration(
+                  hintText: 'Add any additional notes',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                maxLines: 2,
+              ),
+            ],
+          ),
         ),
       ),
       actions: [

@@ -37,7 +37,8 @@ class TransactionProvider extends ChangeNotifier {
     } catch (e) {
       _errorMessage = 'Failed to load transactions: ${e.toString()}';
       AppLogger.severe('Error loading transactions: $e');
-      _transactions = [];
+      // Don't clear existing data on error - keep the cached data
+      // _transactions = [];
     }
 
     _isLoading = false;
