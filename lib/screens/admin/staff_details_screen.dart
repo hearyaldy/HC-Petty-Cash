@@ -6,7 +6,9 @@ import 'package:printing/printing.dart';
 import '../../models/staff.dart';
 import '../../models/staff_document.dart';
 import '../../models/enums.dart';
+import '../../models/salary_benefits.dart';
 import '../../services/staff_service.dart';
+import '../../services/salary_benefits_service.dart';
 import '../../services/staff_record_pdf_service.dart';
 import '../../utils/responsive_helper.dart';
 import '../../utils/constants.dart';
@@ -22,10 +24,15 @@ class StaffDetailsScreen extends StatefulWidget {
 
 class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
   final StaffService _staffService = StaffService();
+  final SalaryBenefitsService _salaryBenefitsService = SalaryBenefitsService();
   final StaffRecordPdfService _pdfService = StaffRecordPdfService();
   Staff? _staff;
+  SalaryBenefits? _salaryBenefits;
   bool _isLoading = true;
-  final currencyFormat = NumberFormat.currency(symbol: '${AppConstants.currencySymbol} ', decimalDigits: 0);
+  final currencyFormat = NumberFormat.currency(
+    symbol: '${AppConstants.currencySymbol} ',
+    decimalDigits: 0,
+  );
 
   double get _photoScale => _staff?.photoScale ?? 1.0;
   double get _photoOffsetX => _staff?.photoOffsetX ?? 0.0;
@@ -40,8 +47,19 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
   Future<void> _loadStaff() async {
     try {
       final staff = await _staffService.getStaffById(widget.staffId);
+      SalaryBenefits? salaryBenefits;
+
+      // Load salary benefits for this staff member
+      try {
+        salaryBenefits = await _salaryBenefitsService
+            .getCurrentSalaryBenefitsOnce(widget.staffId);
+      } catch (e) {
+        debugPrint('Error loading salary benefits: $e');
+      }
+
       setState(() {
         _staff = staff;
+        _salaryBenefits = salaryBenefits;
         _isLoading = false;
       });
     } catch (e) {
@@ -68,12 +86,12 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(
-          content: Text('Error deleting document: $e'),
-          backgroundColor: Colors.red,
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting document: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -86,6 +104,146 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Could not open document')),
+        );
+      }
+    }
+  }
+
+  Future<void> _syncHrData() async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.sync, color: Colors.blue),
+            SizedBox(width: 12),
+            Text('Sync HR Data'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'This will update the user\'s HR data submission with the current salary and benefits information.',
+              style: TextStyle(color: Colors.grey[700]),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Data to be synced:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue.shade700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text('• Base Salary & Wage Factor'),
+                  const Text('• Salary Percentage'),
+                  const Text('• All Allowances'),
+                  const Text('• Calculated Salary'),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(context, true),
+            icon: const Icon(Icons.sync),
+            label: const Text('Sync Now'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 20),
+            Text('Syncing HR data...'),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final success = await _salaryBenefitsService.syncStaffDataToHrSubmission(
+        widget.staffId,
+      );
+
+      // Close loading dialog
+      if (mounted) Navigator.pop(context);
+
+      if (mounted) {
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white),
+                  SizedBox(width: 12),
+                  Text('HR data synced successfully!'),
+                ],
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.warning, color: Colors.white),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'No HR submission found or salary benefits not set up for this staff.',
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.orange.shade700,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Close loading dialog
+      if (mounted) Navigator.pop(context);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error syncing HR data: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -258,6 +416,9 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
               case 'edit_id':
                 _showEditStaffIdDialog();
                 break;
+              case 'sync_hr_data':
+                _syncHrData();
+                break;
               case 'home':
                 context.go('/dashboard');
                 break;
@@ -285,6 +446,16 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
               child: ListTile(
                 leading: Icon(Icons.badge),
                 title: Text('Edit Staff ID'),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+            const PopupMenuDivider(),
+            const PopupMenuItem(
+              value: 'sync_hr_data',
+              child: ListTile(
+                leading: Icon(Icons.sync, color: Colors.blue),
+                title: Text('Sync HR Data'),
+                subtitle: Text('Update user\'s HR submission'),
                 contentPadding: EdgeInsets.zero,
               ),
             ),
@@ -401,9 +572,9 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
   Future<void> _showPhotoAdjustDialog() async {
     if (_staff?.photoUrl == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No photo to adjust')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('No photo to adjust')));
       }
       return;
     }
@@ -687,7 +858,7 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
                     ),
                   ),
                 ),
-                if (trailing != null) trailing,
+                ?trailing,
               ],
             ),
           ),
@@ -730,7 +901,11 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
                       Icons.cake,
                     ),
                   if (_staff!.gender != null)
-                    _buildCompactInfoRow('Gender', _staff!.gender!.displayName, Icons.wc),
+                    _buildCompactInfoRow(
+                      'Gender',
+                      _staff!.gender!.displayName,
+                      Icons.wc,
+                    ),
                 ],
               ),
             ),
@@ -743,9 +918,17 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
                   _buildSectionSubtitle('Contact Details'),
                   const SizedBox(height: 8),
                   if (_staff!.phoneNumber != null)
-                    _buildCompactInfoRow('Phone', _staff!.phoneNumber!, Icons.phone),
+                    _buildCompactInfoRow(
+                      'Phone',
+                      _staff!.phoneNumber!,
+                      Icons.phone,
+                    ),
                   if (_staff!.address != null)
-                    _buildCompactInfoRow('Address', _staff!.address!, Icons.location_on),
+                    _buildCompactInfoRow(
+                      'Address',
+                      _staff!.address!,
+                      Icons.location_on,
+                    ),
                 ],
               ),
             ),
@@ -757,18 +940,40 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
                 children: [
                   _buildSectionSubtitle('ID & Location'),
                   const SizedBox(height: 8),
-                  if (_staff!.nationalIdNumber != null && _staff!.nationalIdNumber!.isNotEmpty)
-                    _buildCompactInfoRow('National ID', _staff!.nationalIdNumber!, Icons.badge),
-                  if (_staff!.passportNumber != null && _staff!.passportNumber!.isNotEmpty)
-                    _buildCompactInfoRow('Passport', _staff!.passportNumber!, Icons.card_travel),
+                  if (_staff!.nationalIdNumber != null &&
+                      _staff!.nationalIdNumber!.isNotEmpty)
+                    _buildCompactInfoRow(
+                      'National ID',
+                      _staff!.nationalIdNumber!,
+                      Icons.badge,
+                    ),
+                  if (_staff!.passportNumber != null &&
+                      _staff!.passportNumber!.isNotEmpty)
+                    _buildCompactInfoRow(
+                      'Passport',
+                      _staff!.passportNumber!,
+                      Icons.card_travel,
+                    ),
                   if (_staff!.country != null && _staff!.country!.isNotEmpty)
-                    _buildCompactInfoRow('Country', _staff!.country!, Icons.public),
-                  if (_staff!.provinceState != null && _staff!.provinceState!.isNotEmpty)
-                    _buildCompactInfoRow('Province/State', _staff!.provinceState!, Icons.location_city),
-                  if ((_staff!.nationalIdNumber == null || _staff!.nationalIdNumber!.isEmpty) &&
-                      (_staff!.passportNumber == null || _staff!.passportNumber!.isEmpty) &&
+                    _buildCompactInfoRow(
+                      'Country',
+                      _staff!.country!,
+                      Icons.public,
+                    ),
+                  if (_staff!.provinceState != null &&
+                      _staff!.provinceState!.isNotEmpty)
+                    _buildCompactInfoRow(
+                      'Province/State',
+                      _staff!.provinceState!,
+                      Icons.location_city,
+                    ),
+                  if ((_staff!.nationalIdNumber == null ||
+                          _staff!.nationalIdNumber!.isEmpty) &&
+                      (_staff!.passportNumber == null ||
+                          _staff!.passportNumber!.isEmpty) &&
                       (_staff!.country == null || _staff!.country!.isEmpty) &&
-                      (_staff!.provinceState == null || _staff!.provinceState!.isEmpty))
+                      (_staff!.provinceState == null ||
+                          _staff!.provinceState!.isEmpty))
                     Text(
                       'No ID/Location info',
                       style: TextStyle(
@@ -848,10 +1053,7 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
               children: [
                 Text(
                   label,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.grey.shade500,
-                  ),
+                  style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
                 ),
                 Text(
                   value,
@@ -882,9 +1084,21 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildCompactInfoRow('Department', _staff!.department, Icons.business),
-                  _buildCompactInfoRow('Position', _staff!.position, Icons.work_outline),
-                  _buildCompactInfoRow('System Role', _staff!.role.displayName, Icons.security),
+                  _buildCompactInfoRow(
+                    'Department',
+                    _staff!.department,
+                    Icons.business,
+                  ),
+                  _buildCompactInfoRow(
+                    'Position',
+                    _staff!.position,
+                    Icons.work_outline,
+                  ),
+                  _buildCompactInfoRow(
+                    'System Role',
+                    _staff!.role.displayName,
+                    Icons.security,
+                  ),
                 ],
               ),
             ),
@@ -894,7 +1108,11 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildCompactInfoRow('Employment Type', _staff!.employmentType.displayName, Icons.badge),
+                  _buildCompactInfoRow(
+                    'Employment Type',
+                    _staff!.employmentType.displayName,
+                    Icons.badge,
+                  ),
                   _buildCompactInfoRow(
                     'Date of Joining',
                     DateFormat('MMM d, yyyy').format(_staff!.dateOfJoining),
@@ -915,7 +1133,11 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildCompactInfoRow('Years of Service', '${_staff!.yearsOfService} years', Icons.timeline),
+                  _buildCompactInfoRow(
+                    'Years of Service',
+                    '${_staff!.yearsOfService} years',
+                    Icons.timeline,
+                  ),
                   if (_staff!.approvalLimit != null)
                     _buildCompactInfoRow(
                       'Approval Limit',
@@ -932,10 +1154,12 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
   }
 
   Widget _buildFinancialSection() {
-    final hasFinancialInfo = _staff!.bankAccountNumber != null ||
+    final hasFinancialInfo =
+        _staff!.bankAccountNumber != null ||
         _staff!.bankName != null ||
         _staff!.taxId != null ||
-        _staff!.monthlySalary != null;
+        _staff!.monthlySalary != null ||
+        _salaryBenefits != null;
 
     return _buildSectionCard(
       title: 'Financial Information',
@@ -957,7 +1181,7 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
       children: hasFinancialInfo
           ? [
               // Salary highlight card
-              if (_staff!.monthlySalary != null) ...[
+              if (_staff!.monthlySalary != null || _salaryBenefits != null) ...[
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -987,7 +1211,7 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Monthly Salary',
+                              'Monthly Salary (Gross)',
                               style: TextStyle(
                                 color: Colors.grey.shade600,
                                 fontSize: 12,
@@ -995,7 +1219,11 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              currencyFormat.format(_staff!.monthlySalary!),
+                              currencyFormat.format(
+                                _salaryBenefits?.grossSalary ??
+                                    _staff!.monthlySalary ??
+                                    0,
+                              ),
                               style: TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.bold,
@@ -1005,12 +1233,148 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
                           ],
                         ),
                       ),
+                      if (_salaryBenefits != null) ...[
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Net Salary',
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                currencyFormat.format(
+                                  _salaryBenefits!.netSalary,
+                                ),
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.teal.shade700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
                 const SizedBox(height: 16),
               ],
-              // Three column layout for details
+
+              // Salary Structure Section (from SalaryBenefits)
+              if (_salaryBenefits != null) ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Salary Structure Column
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSectionSubtitle('Salary Structure'),
+                          const SizedBox(height: 8),
+                          if (_salaryBenefits!.wageFactor != null)
+                            _buildCompactInfoRow(
+                              'Wage Factor',
+                              currencyFormat.format(
+                                _salaryBenefits!.wageFactor!,
+                              ),
+                              Icons.calculate,
+                            ),
+                          if (_salaryBenefits!.salaryPercentage != null)
+                            _buildCompactInfoRow(
+                              'Salary %',
+                              '${_salaryBenefits!.salaryPercentage!.toStringAsFixed(1)}%',
+                              Icons.percent,
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    // Allowances Column
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSectionSubtitle('Allowances'),
+                          const SizedBox(height: 8),
+                          if (_salaryBenefits!.housingAllowance != null)
+                            _buildCompactInfoRow(
+                              'Housing',
+                              currencyFormat.format(
+                                _salaryBenefits!.housingAllowance!,
+                              ),
+                              Icons.home,
+                            ),
+                          if (_salaryBenefits!.phoneAllowance != null)
+                            _buildCompactInfoRow(
+                              'Phone',
+                              currencyFormat.format(
+                                _salaryBenefits!.phoneAllowance!,
+                              ),
+                              Icons.phone,
+                            ),
+                          if (_salaryBenefits!.continueEducationAllowance !=
+                              null)
+                            _buildCompactInfoRow(
+                              'Education',
+                              currencyFormat.format(
+                                _salaryBenefits!.continueEducationAllowance!,
+                              ),
+                              Icons.school,
+                            ),
+                          if (_salaryBenefits!.equipmentAllowance != null)
+                            _buildCompactInfoRow(
+                              'Equipment',
+                              currencyFormat.format(
+                                _salaryBenefits!.equipmentAllowance!,
+                              ),
+                              Icons.computer,
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    // Health Benefits Column
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSectionSubtitle('Health Benefits'),
+                          const SizedBox(height: 8),
+                          if (_salaryBenefits!.outPatientPercentage != null)
+                            _buildCompactInfoRow(
+                              'Out-Patient',
+                              '${_salaryBenefits!.outPatientPercentage!.toStringAsFixed(0)}%',
+                              Icons.local_hospital,
+                            ),
+                          if (_salaryBenefits!.inPatientPercentage != null)
+                            _buildCompactInfoRow(
+                              'In-Patient',
+                              '${_salaryBenefits!.inPatientPercentage!.toStringAsFixed(0)}%',
+                              Icons.hotel,
+                            ),
+                          if (_salaryBenefits!.annualLeaveDays != null)
+                            _buildCompactInfoRow(
+                              'Annual Leave',
+                              '${_salaryBenefits!.annualLeaveDays} days',
+                              Icons.beach_access,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              // Banking and Deductions Row
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1022,11 +1386,23 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
                         _buildSectionSubtitle('Banking'),
                         const SizedBox(height: 8),
                         if (_staff!.bankName != null)
-                          _buildCompactInfoRow('Bank Name', _staff!.bankName!, Icons.business),
+                          _buildCompactInfoRow(
+                            'Bank Name',
+                            _staff!.bankName!,
+                            Icons.business,
+                          ),
                         if (_staff!.bankAccountNumber != null)
-                          _buildCompactInfoRow('Account', _staff!.bankAccountNumber!, Icons.account_balance),
+                          _buildCompactInfoRow(
+                            'Account',
+                            _staff!.bankAccountNumber!,
+                            Icons.account_balance,
+                          ),
                         if (_staff!.taxId != null)
-                          _buildCompactInfoRow('Tax ID', _staff!.taxId!, Icons.numbers),
+                          _buildCompactInfoRow(
+                            'Tax ID',
+                            _staff!.taxId!,
+                            Icons.numbers,
+                          ),
                       ],
                     ),
                   ),
@@ -1036,10 +1412,23 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildSectionSubtitle('Compensation'),
+                        _buildSectionSubtitle('Total Compensation'),
                         const SizedBox(height: 8),
-                        if (_staff!.allowances != null)
-                          _buildCompactInfoRow('Allowances', currencyFormat.format(_staff!.allowances!), Icons.money),
+                        if (_salaryBenefits != null)
+                          _buildCompactInfoRow(
+                            'Total',
+                            currencyFormat.format(
+                              _salaryBenefits!.totalCompensation,
+                            ),
+                            Icons.account_balance_wallet,
+                          ),
+                        if (_staff!.allowances != null &&
+                            _salaryBenefits == null)
+                          _buildCompactInfoRow(
+                            'Allowances',
+                            currencyFormat.format(_staff!.allowances!),
+                            Icons.money,
+                          ),
                       ],
                     ),
                   ),
@@ -1051,12 +1440,37 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
                       children: [
                         _buildSectionSubtitle('Deductions'),
                         const SizedBox(height: 8),
-                        if (_staff!.tithePercentage != null)
-                          _buildCompactInfoRow('Tithe', '${_staff!.tithePercentage!.toStringAsFixed(1)}%', Icons.percent),
-                        if (_staff!.socialSecurityAmount != null)
-                          _buildCompactInfoRow('Social Security', currencyFormat.format(_staff!.socialSecurityAmount!), Icons.shield),
-                        if (_staff!.providentFundPercentage != null)
-                          _buildCompactInfoRow('Provident Fund', '${_staff!.providentFundPercentage!.toStringAsFixed(1)}%', Icons.savings),
+                        if (_salaryBenefits?.tithePercentage != null ||
+                            _staff!.tithePercentage != null)
+                          _buildCompactInfoRow(
+                            'Tithe',
+                            '${(_salaryBenefits?.tithePercentage ?? _staff!.tithePercentage)!.toStringAsFixed(1)}%',
+                            Icons.percent,
+                          ),
+                        if (_salaryBenefits?.houseRentalPercentage != null)
+                          _buildCompactInfoRow(
+                            'House Rental',
+                            '${_salaryBenefits!.houseRentalPercentage!.toStringAsFixed(1)}%',
+                            Icons.house,
+                          ),
+                        if (_salaryBenefits?.socialSecurityPercentage != null ||
+                            _staff!.socialSecurityAmount != null)
+                          _buildCompactInfoRow(
+                            'Social Security',
+                            currencyFormat.format(
+                              _salaryBenefits?.socialSecurityAmount ??
+                                  _staff!.socialSecurityAmount ??
+                                  0,
+                            ),
+                            Icons.shield,
+                          ),
+                        if (_salaryBenefits?.providentFundPercentage != null ||
+                            _staff!.providentFundPercentage != null)
+                          _buildCompactInfoRow(
+                            'Provident Fund',
+                            '${(_salaryBenefits?.providentFundPercentage ?? _staff!.providentFundPercentage)!.toStringAsFixed(1)}%',
+                            Icons.savings,
+                          ),
                       ],
                     ),
                   ),
@@ -1069,8 +1483,11 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
                   padding: const EdgeInsets.all(24),
                   child: Column(
                     children: [
-                      Icon(Icons.account_balance_wallet_outlined,
-                          size: 48, color: Colors.grey.shade400),
+                      Icon(
+                        Icons.account_balance_wallet_outlined,
+                        size: 48,
+                        color: Colors.grey.shade400,
+                      ),
                       const SizedBox(height: 12),
                       Text(
                         'No financial information available',
@@ -1166,7 +1583,9 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
             }
 
             return Column(
-              children: documents.map((doc) => _buildDocumentCard(doc)).toList(),
+              children: documents
+                  .map((doc) => _buildDocumentCard(doc))
+                  .toList(),
             );
           },
         ),
@@ -1192,10 +1611,7 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
             borderRadius: BorderRadius.circular(10),
           ),
           child: Center(
-            child: Text(
-              doc.type.icon,
-              style: const TextStyle(fontSize: 24),
-            ),
+            child: Text(doc.type.icon, style: const TextStyle(fontSize: 24)),
           ),
         ),
         title: Text(
@@ -1226,10 +1642,7 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
             const SizedBox(height: 4),
             Text(
               '${doc.formattedFileSize} • ${DateFormat('MMM d, y').format(doc.uploadedAt)}',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade600,
-              ),
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             ),
           ],
         ),
@@ -1341,16 +1754,20 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
   }
 
   void _navigateToSalaryBenefits() {
-    context.push('/admin/salary-benefits/edit', extra: {
-      'staff': _staff,
-    });
+    context.push(
+      '/admin/salary-benefits/edit',
+      extra: {'staff': _staff, 'salaryBenefits': _salaryBenefits},
+    );
   }
 
   Future<void> _printStaffRecord() async {
     if (_staff == null) return;
 
     try {
-      final pdfBytes = await _pdfService.generateStaffRecordPdf(_staff!);
+      final pdfBytes = await _pdfService.generateStaffRecordPdf(
+        _staff!,
+        salaryBenefits: _salaryBenefits,
+      );
       await Printing.layoutPdf(
         onLayout: (format) async => pdfBytes,
         name: 'Staff_Record_${_staff!.fullName.replaceAll(' ', '_')}',
@@ -1396,10 +1813,7 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
           children: [
             Text(
               'Current ID: ${_staff!.employeeId}',
-              style: TextStyle(
-                color: Colors.grey.shade600,
-                fontSize: 12,
-              ),
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
             ),
             const SizedBox(height: 16),
             TextField(

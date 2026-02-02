@@ -8,8 +8,53 @@ import '../../services/staff_service.dart';
 import '../../utils/responsive_helper.dart';
 import '../../widgets/app_drawer.dart';
 
-class HrDataSubmissionsScreen extends StatelessWidget {
+class HrDataSubmissionsScreen extends StatefulWidget {
   const HrDataSubmissionsScreen({super.key});
+
+  @override
+  State<HrDataSubmissionsScreen> createState() =>
+      _HrDataSubmissionsScreenState();
+}
+
+class _HrDataSubmissionsScreenState extends State<HrDataSubmissionsScreen> {
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> _submissions = [];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSubmissions();
+  }
+
+  Future<void> _loadSubmissions() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('hr_data_submissions')
+          .orderBy('submittedAt', descending: true)
+          .get(const GetOptions(source: Source.server));
+
+      if (mounted) {
+        setState(() {
+          _submissions = snapshot.docs;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading HR submissions: $e');
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -121,54 +166,44 @@ class HrDataSubmissionsScreen extends StatelessWidget {
   }
 
   Widget _buildSubmissionsList(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('hr_data_submissions')
-          .orderBy('submittedAt', descending: true)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(48),
-              child: CircularProgressIndicator(),
-            ),
-          );
-        }
+    if (_isLoading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(48),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
 
-        if (snapshot.hasError) {
-          return _buildErrorState(snapshot.error.toString());
-        }
+    if (_error != null) {
+      return _buildErrorState(_error!);
+    }
 
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return _buildEmptyState();
-        }
+    if (_submissions.isEmpty) {
+      return _buildEmptyState();
+    }
 
-        final submissions = snapshot.data!.docs;
+    // Calculate stats
+    final pendingCount = _submissions.where((doc) {
+      final data = doc.data();
+      return data['status'] == 'pending' || data['status'] == null;
+    }).length;
+    final processedCount = _submissions.where((doc) {
+      final data = doc.data();
+      return data['status'] == 'processed';
+    }).length;
 
-        // Calculate stats
-        final pendingCount = submissions.where((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          return data['status'] == 'pending' || data['status'] == null;
-        }).length;
-        final processedCount = submissions.where((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          return data['status'] == 'processed';
-        }).length;
-
-        return Column(
-          children: [
-            // Stats Row
-            _buildStatsRow(submissions.length, pendingCount, processedCount),
-            const SizedBox(height: 24),
-            // Submissions List
-            ...submissions.map((submission) {
-              final data = submission.data() as Map<String, dynamic>;
-              return _buildSubmissionCard(context, data, submission.id);
-            }),
-          ],
-        );
-      },
+    return Column(
+      children: [
+        // Stats Row
+        _buildStatsRow(_submissions.length, pendingCount, processedCount),
+        const SizedBox(height: 24),
+        // Submissions List
+        ..._submissions.map((submission) {
+          final data = submission.data();
+          return _buildSubmissionCard(context, data, submission.id);
+        }),
+      ],
     );
   }
 
@@ -205,7 +240,12 @@ class HrDataSubmissionsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStatCard(String label, String value, IconData icon, List<Color> gradient) {
+  Widget _buildStatCard(
+    String label,
+    String value,
+    IconData icon,
+    List<Color> gradient,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -268,12 +308,20 @@ class HrDataSubmissionsScreen extends StatelessWidget {
               color: Colors.red.shade50,
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.error_outline, size: 48, color: Colors.red.shade400),
+            child: Icon(
+              Icons.error_outline,
+              size: 48,
+              color: Colors.red.shade400,
+            ),
           ),
           const SizedBox(height: 16),
           Text(
             'Error loading submissions',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red.shade600),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.red.shade600,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
@@ -309,12 +357,20 @@ class HrDataSubmissionsScreen extends StatelessWidget {
               color: Colors.indigo.shade50,
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.assignment_outlined, size: 48, color: Colors.indigo.shade400),
+            child: Icon(
+              Icons.assignment_outlined,
+              size: 48,
+              color: Colors.indigo.shade400,
+            ),
           ),
           const SizedBox(height: 16),
           Text(
             'No HR data submissions found',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey.shade700,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
@@ -326,7 +382,11 @@ class HrDataSubmissionsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSubmissionCard(BuildContext context, Map<String, dynamic> data, String submissionId) {
+  Widget _buildSubmissionCard(
+    BuildContext context,
+    Map<String, dynamic> data,
+    String submissionId,
+  ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -383,7 +443,10 @@ class HrDataSubmissionsScreen extends StatelessWidget {
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.blue.shade50,
                             borderRadius: BorderRadius.circular(4),
@@ -423,10 +486,7 @@ class HrDataSubmissionsScreen extends StatelessWidget {
                 const SizedBox(width: 4),
                 Text(
                   'Submitted: ${_formatDate(data['submittedAt'])}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
                 const Spacer(),
                 _buildStatusChip(data['status'] ?? 'pending'),
@@ -475,8 +535,14 @@ class HrDataSubmissionsScreen extends StatelessWidget {
                     children: [
                       _buildInfoRow('Email', data['email']),
                       _buildInfoRow('Phone', data['phone']),
-                      _buildInfoRow('Emergency Contact', data['emergencyContactName']),
-                      _buildInfoRow('Emergency Phone', data['emergencyContactPhone']),
+                      _buildInfoRow(
+                        'Emergency Contact',
+                        data['emergencyContactName'],
+                      ),
+                      _buildInfoRow(
+                        'Emergency Phone',
+                        data['emergencyContactPhone'],
+                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -490,8 +556,14 @@ class HrDataSubmissionsScreen extends StatelessWidget {
                     children: [
                       _buildInfoRow('Department', data['department']),
                       _buildInfoRow('Position', data['position']),
-                      _buildInfoRow('Employment Type', _formatEmploymentType(data['employmentType'])),
-                      _buildInfoRow('Employment Status', _formatEmploymentStatus(data['employmentStatus'])),
+                      _buildInfoRow(
+                        'Employment Type',
+                        _formatEmploymentType(data['employmentType']),
+                      ),
+                      _buildInfoRow(
+                        'Employment Status',
+                        _formatEmploymentStatus(data['employmentStatus']),
+                      ),
                       _buildInfoRow(
                         'Start Date',
                         data['startDate'] != null
@@ -514,6 +586,37 @@ class HrDataSubmissionsScreen extends StatelessWidget {
                       _buildInfoRow('Tax ID', data['taxId']),
                     ],
                   ),
+                  const SizedBox(height: 16),
+
+                  // Monthly Allowances
+                  _buildSectionCard(
+                    context,
+                    title: 'Monthly Allowances',
+                    icon: Icons.account_balance_wallet,
+                    gradient: [Colors.orange.shade400, Colors.orange.shade600],
+                    children: [
+                      _buildInfoRow(
+                        'Phone',
+                        _formatCurrency(data['phoneAllowance']),
+                      ),
+                      _buildInfoRow(
+                        'Education',
+                        _formatCurrency(data['educationAllowance']),
+                      ),
+                      _buildInfoRow(
+                        'Housing',
+                        _formatCurrency(data['houseAllowance']),
+                      ),
+                      _buildInfoRow(
+                        'Equipment',
+                        _formatCurrency(data['equipmentAllowance']),
+                      ),
+                      _buildInfoRow(
+                        'Total Allowances',
+                        _formatCurrency(data['totalAllowances']),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 20),
 
                   // Actions
@@ -531,11 +634,17 @@ class HrDataSubmissionsScreen extends StatelessWidget {
                               onTap: () {},
                               borderRadius: BorderRadius.circular(10),
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(Icons.visibility, color: Colors.grey.shade700, size: 18),
+                                    Icon(
+                                      Icons.visibility,
+                                      color: Colors.grey.shade700,
+                                      size: 18,
+                                    ),
                                     const SizedBox(width: 8),
                                     Text(
                                       'View Details',
@@ -556,7 +665,10 @@ class HrDataSubmissionsScreen extends StatelessWidget {
                         child: Container(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
-                              colors: [Colors.green.shade400, Colors.green.shade600],
+                              colors: [
+                                Colors.green.shade400,
+                                Colors.green.shade600,
+                              ],
                             ),
                             borderRadius: BorderRadius.circular(10),
                             boxShadow: [
@@ -570,14 +682,22 @@ class HrDataSubmissionsScreen extends StatelessWidget {
                           child: Material(
                             color: Colors.transparent,
                             child: InkWell(
-                              onTap: () => _convertToStaffRecord(context, data, submissionId),
+                              onTap: () => _convertToStaffRecord(
+                                context,
+                                data,
+                                submissionId,
+                              ),
                               borderRadius: BorderRadius.circular(10),
                               child: const Padding(
                                 padding: EdgeInsets.symmetric(vertical: 12),
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(Icons.person_add, color: Colors.white, size: 18),
+                                    Icon(
+                                      Icons.person_add,
+                                      color: Colors.white,
+                                      size: 18,
+                                    ),
                                     SizedBox(width: 8),
                                     Text(
                                       'Add as Staff',
@@ -658,9 +778,7 @@ class HrDataSubmissionsScreen extends StatelessWidget {
           // Content
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: Column(
-              children: children,
-            ),
+            child: Column(children: children),
           ),
         ],
       ),
@@ -687,10 +805,7 @@ class HrDataSubmissionsScreen extends StatelessWidget {
           Expanded(
             child: Text(
               value?.toString() ?? 'N/A',
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
             ),
           ),
         ],
@@ -814,11 +929,25 @@ class HrDataSubmissionsScreen extends StatelessWidget {
     }
   }
 
-  Future<void> _convertToStaffRecord(BuildContext context, Map<String, dynamic> data, String submissionId) async {
+  String _formatCurrency(dynamic amount) {
+    if (amount == null) return 'THB 0.00';
+    final value = (amount is num) ? amount.toDouble() : 0.0;
+    return 'THB ${NumberFormat('#,##0.00', 'en_US').format(value)}';
+  }
+
+  Future<void> _convertToStaffRecord(
+    BuildContext context,
+    Map<String, dynamic> data,
+    String submissionId,
+  ) async {
     try {
       // Create a staff record from the HR submission data
+      // IMPORTANT: Pass the userId (Firebase Auth UID) to link staff record to the user
       final staff = Staff.create(
-        employeeId: data['employeeId'] ?? 'EMP-${DateTime.now().millisecondsSinceEpoch}',
+        userId: data['submittedBy'] as String?, // Link to Firebase Auth UID
+        employeeId:
+            data['employeeId'] ??
+            'EMP-${DateTime.now().millisecondsSinceEpoch}',
         fullName: data['fullName'] ?? '',
         email: data['email'] ?? '',
         phoneNumber: data['phone'] ?? '',
@@ -831,9 +960,14 @@ class HrDataSubmissionsScreen extends StatelessWidget {
         department: data['department'] ?? '',
         position: data['position'] ?? '',
         role: UserRole.requester, // Default role, can be updated later
-        employmentType: _getEmploymentTypeFromString(data['employmentType']) ?? EmploymentType.fullTime,
-        employmentStatus: _getEmploymentStatusFromString(data['employmentStatus']) ?? EmploymentStatus.active,
-        dateOfJoining: (data['startDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        employmentType:
+            _getEmploymentTypeFromString(data['employmentType']) ??
+            EmploymentType.fullTime,
+        employmentStatus:
+            _getEmploymentStatusFromString(data['employmentStatus']) ??
+            EmploymentStatus.active,
+        dateOfJoining:
+            (data['startDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
         dateOfLeaving: data['endDate'] != null
             ? (data['endDate'] as Timestamp).toDate()
             : null,
@@ -846,6 +980,7 @@ class HrDataSubmissionsScreen extends StatelessWidget {
         socialSecurityAmount: (data['socialSecurityAmount'] ?? 0.0) as double?,
         providentFundAmount: (data['providentFundAmount'] ?? 0.0) as double?,
         approvalLimit: (data['approvalLimit'] ?? 0.0) as double?,
+        hrSubmissionId: submissionId, // Link back to original HR submission
         createdAt: DateTime.now(),
         notes: data['notes'] ?? '',
       );
@@ -859,10 +994,13 @@ class HrDataSubmissionsScreen extends StatelessWidget {
           .collection('hr_data_submissions')
           .doc(submissionId)
           .update({
-        'status': 'processed',
-        'processedAt': Timestamp.now(),
-        'convertedToStaffId': staffId,
-      });
+            'status': 'processed',
+            'processedAt': Timestamp.now(),
+            'convertedToStaffId': staffId,
+          });
+
+      // Reload submissions to reflect changes
+      await _loadSubmissions();
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -876,7 +1014,9 @@ class HrDataSubmissionsScreen extends StatelessWidget {
             ),
             backgroundColor: Colors.green.shade600,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
           ),
         );
       }
@@ -893,7 +1033,9 @@ class HrDataSubmissionsScreen extends StatelessWidget {
             ),
             backgroundColor: Colors.red.shade600,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
           ),
         );
       }

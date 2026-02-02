@@ -15,7 +15,8 @@ import '../models/purchase_requisition.dart';
 import '../utils/logger.dart';
 
 class ManagedFirestoreService {
-  static final ManagedFirestoreService _instance = ManagedFirestoreService._internal();
+  static final ManagedFirestoreService _instance =
+      ManagedFirestoreService._internal();
   factory ManagedFirestoreService() => _instance;
   ManagedFirestoreService._internal();
 
@@ -53,7 +54,7 @@ class ManagedFirestoreService {
   Stream<List<PettyCashReport>> reportsStream() {
     const cacheKey = 'reports_stream';
     if (!_streamControllers.containsKey(cacheKey) ||
-        (_streamControllers[cacheKey] as BehaviorSubject?)?.isClosed == true) {
+        (_streamControllers[cacheKey])?.isClosed == true) {
       // Clean up any stale entries
       resetStream(cacheKey);
 
@@ -63,9 +64,11 @@ class ManagedFirestoreService {
       final subscription = _reportsCollection
           .orderBy('createdAt', descending: true)
           .snapshots()
-          .map((snapshot) => snapshot.docs
-              .map((doc) => PettyCashReport.fromFirestore(doc))
-              .toList())
+          .map(
+            (snapshot) => snapshot.docs
+                .map((doc) => PettyCashReport.fromFirestore(doc))
+                .toList(),
+          )
           .listen(
             controller.add,
             onError: (error) {
@@ -79,13 +82,15 @@ class ManagedFirestoreService {
       _subscriptions[cacheKey] = subscription;
     }
 
-    return (_streamControllers[cacheKey] as BehaviorSubject<List<PettyCashReport>>).stream;
+    return (_streamControllers[cacheKey]
+            as BehaviorSubject<List<PettyCashReport>>)
+        .stream;
   }
 
   Stream<List<ProjectReport>> projectReportsStream() {
     const cacheKey = 'project_reports_stream';
     if (!_streamControllers.containsKey(cacheKey) ||
-        (_streamControllers[cacheKey] as BehaviorSubject?)?.isClosed == true) {
+        (_streamControllers[cacheKey])?.isClosed == true) {
       resetStream(cacheKey);
 
       final controller = BehaviorSubject<List<ProjectReport>>();
@@ -94,9 +99,11 @@ class ManagedFirestoreService {
       final subscription = _projectReportsCollection
           .orderBy('createdAt', descending: true)
           .snapshots()
-          .map((snapshot) => snapshot.docs
-              .map((doc) => ProjectReport.fromFirestore(doc))
-              .toList())
+          .map(
+            (snapshot) => snapshot.docs
+                .map((doc) => ProjectReport.fromFirestore(doc))
+                .toList(),
+          )
           .listen(
             controller.add,
             onError: (error) {
@@ -110,13 +117,15 @@ class ManagedFirestoreService {
       _subscriptions[cacheKey] = subscription;
     }
 
-    return (_streamControllers[cacheKey] as BehaviorSubject<List<ProjectReport>>).stream;
+    return (_streamControllers[cacheKey]
+            as BehaviorSubject<List<ProjectReport>>)
+        .stream;
   }
 
   Stream<List<app.Transaction>> allTransactionsStream() {
     const cacheKey = 'transactions_stream';
     if (!_streamControllers.containsKey(cacheKey) ||
-        (_streamControllers[cacheKey] as BehaviorSubject?)?.isClosed == true) {
+        (_streamControllers[cacheKey])?.isClosed == true) {
       resetStream(cacheKey);
 
       final controller = BehaviorSubject<List<app.Transaction>>();
@@ -125,9 +134,11 @@ class ManagedFirestoreService {
       final subscription = _transactionsCollection
           .orderBy('createdAt', descending: true)
           .snapshots()
-          .map((snapshot) => snapshot.docs
-              .map((doc) => app.Transaction.fromFirestore(doc))
-              .toList())
+          .map(
+            (snapshot) => snapshot.docs
+                .map((doc) => app.Transaction.fromFirestore(doc))
+                .toList(),
+          )
           .listen(
             controller.add,
             onError: (error) {
@@ -141,13 +152,15 @@ class ManagedFirestoreService {
       _subscriptions[cacheKey] = subscription;
     }
 
-    return (_streamControllers[cacheKey] as BehaviorSubject<List<app.Transaction>>).stream;
+    return (_streamControllers[cacheKey]
+            as BehaviorSubject<List<app.Transaction>>)
+        .stream;
   }
 
   Stream<List<IncomeReport>> incomeReportsStream() {
     const cacheKey = 'income_reports_stream';
     if (!_streamControllers.containsKey(cacheKey) ||
-        (_streamControllers[cacheKey] as BehaviorSubject?)?.isClosed == true) {
+        (_streamControllers[cacheKey])?.isClosed == true) {
       resetStream(cacheKey);
 
       final controller = BehaviorSubject<List<IncomeReport>>();
@@ -156,9 +169,11 @@ class ManagedFirestoreService {
       final subscription = _incomeReportsCollection
           .orderBy('createdAt', descending: true)
           .snapshots()
-          .map((snapshot) => snapshot.docs
-              .map((doc) => IncomeReport.fromFirestore(doc))
-              .toList())
+          .map(
+            (snapshot) => snapshot.docs
+                .map((doc) => IncomeReport.fromFirestore(doc))
+                .toList(),
+          )
           .listen(
             controller.add,
             onError: (error) {
@@ -172,13 +187,14 @@ class ManagedFirestoreService {
       _subscriptions[cacheKey] = subscription;
     }
 
-    return (_streamControllers[cacheKey] as BehaviorSubject<List<IncomeReport>>).stream;
+    return (_streamControllers[cacheKey] as BehaviorSubject<List<IncomeReport>>)
+        .stream;
   }
 
   Stream<List<TravelingReport>> travelingReportsStream() {
     const cacheKey = 'traveling_reports_stream';
     if (!_streamControllers.containsKey(cacheKey) ||
-        (_streamControllers[cacheKey] as BehaviorSubject?)?.isClosed == true) {
+        (_streamControllers[cacheKey])?.isClosed == true) {
       resetStream(cacheKey);
 
       final controller = BehaviorSubject<List<TravelingReport>>();
@@ -187,9 +203,11 @@ class ManagedFirestoreService {
       final subscription = _travelingReportsCollection
           .orderBy('createdAt', descending: true)
           .snapshots()
-          .map((snapshot) => snapshot.docs
-              .map((doc) => TravelingReport.fromFirestore(doc))
-              .toList())
+          .map(
+            (snapshot) => snapshot.docs
+                .map((doc) => TravelingReport.fromFirestore(doc))
+                .toList(),
+          )
           .listen(
             controller.add,
             onError: (error) {
@@ -203,13 +221,15 @@ class ManagedFirestoreService {
       _subscriptions[cacheKey] = subscription;
     }
 
-    return (_streamControllers[cacheKey] as BehaviorSubject<List<TravelingReport>>).stream;
+    return (_streamControllers[cacheKey]
+            as BehaviorSubject<List<TravelingReport>>)
+        .stream;
   }
 
   Stream<List<PurchaseRequisition>> purchaseRequisitionsStream() {
     const cacheKey = 'purchase_requisitions_stream';
     if (!_streamControllers.containsKey(cacheKey) ||
-        (_streamControllers[cacheKey] as BehaviorSubject?)?.isClosed == true) {
+        (_streamControllers[cacheKey])?.isClosed == true) {
       resetStream(cacheKey);
 
       final controller = BehaviorSubject<List<PurchaseRequisition>>();
@@ -218,9 +238,11 @@ class ManagedFirestoreService {
       final subscription = _purchaseRequisitionsCollection
           .orderBy('createdAt', descending: true)
           .snapshots()
-          .map((snapshot) => snapshot.docs
-              .map((doc) => PurchaseRequisition.fromFirestore(doc))
-              .toList())
+          .map(
+            (snapshot) => snapshot.docs
+                .map((doc) => PurchaseRequisition.fromFirestore(doc))
+                .toList(),
+          )
           .listen(
             controller.add,
             onError: (error) {
@@ -234,7 +256,9 @@ class ManagedFirestoreService {
       _subscriptions[cacheKey] = subscription;
     }
 
-    return (_streamControllers[cacheKey] as BehaviorSubject<List<PurchaseRequisition>>).stream;
+    return (_streamControllers[cacheKey]
+            as BehaviorSubject<List<PurchaseRequisition>>)
+        .stream;
   }
 
   // Cleanup method to dispose of all streams when needed
@@ -280,14 +304,16 @@ class ManagedFirestoreService {
   bool _isFirestoreWebInternalError(dynamic error) {
     final errorString = error.toString();
     return errorString.contains('INTERNAL ASSERTION FAILED') ||
-           errorString.contains('Unexpected state');
+        errorString.contains('Unexpected state');
   }
 
   /// Handle stream error - reset and log
   void _handleStreamError(String cacheKey, dynamic error) {
     AppLogger.severe('Stream error for $cacheKey: $error');
     if (_isFirestoreWebInternalError(error)) {
-      AppLogger.warning('Firestore web internal error detected, resetting stream: $cacheKey');
+      AppLogger.warning(
+        'Firestore web internal error detected, resetting stream: $cacheKey',
+      );
       resetStream(cacheKey);
     }
   }
@@ -1205,7 +1231,9 @@ class ManagedFirestoreService {
   /// Update an income report
   Future<void> updateIncomeReport(IncomeReport report) async {
     try {
-      await _incomeReportsCollection.doc(report.id).update(report.toFirestore());
+      await _incomeReportsCollection
+          .doc(report.id)
+          .update(report.toFirestore());
     } catch (e) {
       AppLogger.severe('Error updating income report: $e');
       rethrow;
@@ -1399,8 +1427,9 @@ class ManagedFirestoreService {
     String requisitionId,
   ) async {
     try {
-      final doc =
-          await _purchaseRequisitionsCollection.doc(requisitionId).get();
+      final doc = await _purchaseRequisitionsCollection
+          .doc(requisitionId)
+          .get();
       return doc.exists ? PurchaseRequisition.fromFirestore(doc) : null;
     } catch (e) {
       AppLogger.severe('Error getting purchase requisition: $e');
@@ -1472,9 +1501,7 @@ class ManagedFirestoreService {
           .map((doc) => PurchaseRequisition.fromFirestore(doc))
           .toList();
     } catch (e) {
-      AppLogger.severe(
-        'Error getting purchase requisitions by department: $e',
-      );
+      AppLogger.severe('Error getting purchase requisitions by department: $e');
       rethrow;
     }
   }
@@ -1496,10 +1523,9 @@ class ManagedFirestoreService {
 
   /// Stream a single purchase requisition by ID
   Stream<PurchaseRequisition?> purchaseRequisitionStream(String requisitionId) {
-    return _purchaseRequisitionsCollection
-        .doc(requisitionId)
-        .snapshots()
-        .map((doc) {
+    return _purchaseRequisitionsCollection.doc(requisitionId).snapshots().map((
+      doc,
+    ) {
       if (doc.exists) {
         return PurchaseRequisition.fromFirestore(doc);
       }
@@ -1587,9 +1613,9 @@ class ManagedFirestoreService {
       if (actionNo != null) {
         updateData['actionNo'] = actionNo;
       }
-      await _purchaseRequisitionsCollection.doc(requisitionId).update(
-        updateData,
-      );
+      await _purchaseRequisitionsCollection
+          .doc(requisitionId)
+          .update(updateData);
     } catch (e) {
       AppLogger.severe('Error approving purchase requisition: $e');
       rethrow;
@@ -1639,8 +1665,7 @@ class ManagedFirestoreService {
     String itemId,
   ) async {
     try {
-      final doc =
-          await _purchaseRequisitionItemsCollection.doc(itemId).get();
+      final doc = await _purchaseRequisitionItemsCollection.doc(itemId).get();
       return doc.exists ? PurchaseRequisitionItem.fromFirestore(doc) : null;
     } catch (e) {
       AppLogger.severe('Error getting purchase requisition item: $e');
@@ -1682,9 +1707,7 @@ class ManagedFirestoreService {
   }
 
   /// Save a new purchase requisition item
-  Future<void> savePurchaseRequisitionItem(
-    PurchaseRequisitionItem item,
-  ) async {
+  Future<void> savePurchaseRequisitionItem(PurchaseRequisitionItem item) async {
     try {
       await _purchaseRequisitionItemsCollection
           .doc(item.id)

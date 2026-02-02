@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
@@ -9,7 +8,9 @@ import 'package:provider/provider.dart';
 import '../../models/staff.dart';
 import '../../models/staff_document.dart';
 import '../../models/enums.dart';
+import '../../models/salary_benefits.dart';
 import '../../services/staff_service.dart';
+import '../../services/salary_benefits_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/responsive_helper.dart';
 
@@ -25,6 +26,7 @@ class AddEditStaffScreen extends StatefulWidget {
 class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
   final _formKey = GlobalKey<FormState>();
   final StaffService _staffService = StaffService();
+  final SalaryBenefitsService _salaryBenefitsService = SalaryBenefitsService();
   final ImagePicker _imagePicker = ImagePicker();
 
   bool _isLoading = false;
@@ -292,7 +294,10 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: TextStyle(color: Colors.grey.shade600)),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: Colors.grey.shade600),
+            ),
           ),
           ElevatedButton(
             onPressed: () {
@@ -329,7 +334,18 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
     });
   }
 
-  void _navigateToSalaryBenefits() {
+  Future<void> _navigateToSalaryBenefits() async {
+    // Load existing salary benefits for this staff member
+    SalaryBenefits? existingSalaryBenefits;
+    try {
+      existingSalaryBenefits = await _salaryBenefitsService
+          .getCurrentSalaryBenefitsOnce(widget.staffId!);
+    } catch (e) {
+      debugPrint('Error loading salary benefits: $e');
+    }
+
+    if (!mounted) return;
+
     // Navigate to the salary benefits management screen for this staff member
     context.push(
       '/admin/salary-benefits/edit',
@@ -406,6 +422,7 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
           createdAt: _isEditing ? _existingStaff!.createdAt : DateTime.now(),
           updatedAt: DateTime.now(),
         ),
+        'salaryBenefits': existingSalaryBenefits,
       },
     );
   }
@@ -668,7 +685,9 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Icon(
-                                      _isEditing ? Icons.edit : Icons.person_add,
+                                      _isEditing
+                                          ? Icons.edit
+                                          : Icons.person_add,
                                       color: Colors.white,
                                       size: 28,
                                     ),
@@ -676,10 +695,13 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
                                   const SizedBox(width: 16),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          _isEditing ? 'Edit Staff' : 'Add New Staff',
+                                          _isEditing
+                                              ? 'Edit Staff'
+                                              : 'Add New Staff',
                                           style: const TextStyle(
                                             color: Colors.white,
                                             fontSize: 24,
@@ -692,7 +714,9 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
                                               ? 'Update staff information'
                                               : 'Enter staff details below',
                                           style: TextStyle(
-                                            color: Colors.white.withOpacity(0.9),
+                                            color: Colors.white.withOpacity(
+                                              0.9,
+                                            ),
                                             fontSize: 14,
                                           ),
                                         ),
@@ -795,7 +819,9 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
               gradient: LinearGradient(
                 colors: [iconGradient[0].withOpacity(0.1), Colors.transparent],
               ),
-              border: Border(left: BorderSide(color: iconGradient[0], width: 4)),
+              border: Border(
+                left: BorderSide(color: iconGradient[0], width: 4),
+              ),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(16),
                 topRight: Radius.circular(16),
@@ -827,10 +853,7 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
                     color: iconGradient[0],
                   ),
                 ),
-                if (trailing != null) ...[
-                  const Spacer(),
-                  trailing,
-                ],
+                if (trailing != null) ...[const Spacer(), trailing],
               ],
             ),
           ),
@@ -866,7 +889,10 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         gradient: LinearGradient(
-                          colors: [Colors.purple.shade100, Colors.purple.shade50],
+                          colors: [
+                            Colors.purple.shade100,
+                            Colors.purple.shade50,
+                          ],
                         ),
                         border: Border.all(
                           color: Colors.purple.shade200,
@@ -885,18 +911,21 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
                                 fit: BoxFit.cover,
                               )
                             : _selectedPhoto != null
-                                ? DecorationImage(
-                                    image: FileImage(_selectedPhoto!),
-                                    fit: BoxFit.cover,
-                                  )
-                                : (_photoUrl != null
-                                    ? DecorationImage(
-                                        image: NetworkImage(_photoUrl!),
-                                        fit: BoxFit.cover,
-                                      )
-                                    : null),
+                            ? DecorationImage(
+                                image: FileImage(_selectedPhoto!),
+                                fit: BoxFit.cover,
+                              )
+                            : (_photoUrl != null
+                                  ? DecorationImage(
+                                      image: NetworkImage(_photoUrl!),
+                                      fit: BoxFit.cover,
+                                    )
+                                  : null),
                       ),
-                      child: _selectedPhoto == null && _photoUrl == null && _selectedPhotoBytes == null
+                      child:
+                          _selectedPhoto == null &&
+                              _photoUrl == null &&
+                              _selectedPhotoBytes == null
                           ? Icon(
                               Icons.person,
                               size: 50,
@@ -911,7 +940,10 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [Colors.purple.shade400, Colors.purple.shade600],
+                            colors: [
+                              Colors.purple.shade400,
+                              Colors.purple.shade600,
+                            ],
                           ),
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white, width: 2),
@@ -928,13 +960,12 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                _selectedPhoto != null || _selectedPhotoBytes != null || _photoUrl != null
+                _selectedPhoto != null ||
+                        _selectedPhotoBytes != null ||
+                        _photoUrl != null
                     ? 'Tap to change photo'
                     : 'Tap to add photo',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey.shade600,
-                ),
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
               ),
             ],
           ),
@@ -956,7 +987,9 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
           enabled: !_isEditing,
           validator: (value) {
             if (_isEditing) {
-              return (value?.isEmpty ?? true) ? 'Employee ID is required' : null;
+              return (value?.isEmpty ?? true)
+                  ? 'Employee ID is required'
+                  : null;
             }
             return null;
           },
@@ -995,7 +1028,9 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
                         ? '${_dateOfBirth!.day}/${_dateOfBirth!.month}/${_dateOfBirth!.year}'
                         : 'Select date',
                     style: TextStyle(
-                      color: _dateOfBirth != null ? Colors.black87 : Colors.grey.shade500,
+                      color: _dateOfBirth != null
+                          ? Colors.black87
+                          : Colors.grey.shade500,
                     ),
                   ),
                 ),
@@ -1165,10 +1200,7 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
             icon: Icons.security,
           ),
           items: UserRole.values.map((role) {
-            return DropdownMenuItem(
-              value: role,
-              child: Text(role.displayName),
-            );
+            return DropdownMenuItem(value: role, child: Text(role.displayName));
           }).toList(),
           onChanged: (value) {
             if (value != null) setState(() => _role = value);
@@ -1280,7 +1312,11 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
                       if (_dateOfLeaving != null)
                         GestureDetector(
                           onTap: () => setState(() => _dateOfLeaving = null),
-                          child: Icon(Icons.clear, size: 18, color: Colors.grey.shade400),
+                          child: Icon(
+                            Icons.clear,
+                            size: 18,
+                            color: Colors.grey.shade400,
+                          ),
                         ),
                     ],
                   ),
@@ -1467,7 +1503,11 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
             ),
             child: Column(
               children: [
-                Icon(Icons.cloud_upload_outlined, size: 48, color: Colors.grey.shade400),
+                Icon(
+                  Icons.cloud_upload_outlined,
+                  size: 48,
+                  color: Colors.grey.shade400,
+                ),
                 const SizedBox(height: 12),
                 Text(
                   'No documents added yet',
@@ -1506,7 +1546,10 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
                       color: Colors.orange.shade100,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(doc.type.icon, style: const TextStyle(fontSize: 24)),
+                    child: Text(
+                      doc.type.icon,
+                      style: const TextStyle(fontSize: 24),
+                    ),
                   ),
                   title: Text(
                     fileName,
@@ -1525,7 +1568,10 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
                       if (doc.description != null)
                         Text(
                           doc.description!,
-                          style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 12,
+                          ),
                         ),
                     ],
                   ),

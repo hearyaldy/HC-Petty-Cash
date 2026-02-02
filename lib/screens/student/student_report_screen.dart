@@ -31,6 +31,9 @@ class _StudentReportScreenState extends State<StudentReportScreen>
   bool _isLoading = true;
   late TabController _tabController;
   int _selectedTabIndex = 0; // 0 = Current Month, 1 = History
+  // Store monthly reports in state to avoid Firestore web stream issues
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> _monthlyReports = [];
+  bool _isLoadingReports = false;
 
   @override
   void initState() {
@@ -96,7 +99,7 @@ class _StudentReportScreenState extends State<StudentReportScreen>
     final userId = authProvider.currentUser?.id ?? '';
 
     try {
-      print('DEBUG STUDENT: Loading student profile for userId: $userId');
+      debugPrint('DEBUG STUDENT: Loading student profile for userId: $userId');
       // Load student profile
       final profileDoc = await FirebaseFirestore.instance
           .collection('student_profiles')
@@ -105,12 +108,12 @@ class _StudentReportScreenState extends State<StudentReportScreen>
 
       if (profileDoc.exists) {
         _studentProfile = StudentProfile.fromFirestore(profileDoc);
-        print('DEBUG STUDENT: Profile loaded successfully');
+        debugPrint('DEBUG STUDENT: Profile loaded successfully');
       } else {
-        print('DEBUG STUDENT: No profile found for user');
+        debugPrint('DEBUG STUDENT: No profile found for user');
       }
 
-      print('DEBUG STUDENT: Loading timesheets...');
+      debugPrint('DEBUG STUDENT: Loading timesheets...');
       // Load timesheets
       final timesheetQuery = await FirebaseFirestore.instance
           .collection('student_timesheets')
@@ -122,14 +125,17 @@ class _StudentReportScreenState extends State<StudentReportScreen>
           .map((doc) => StudentTimesheet.fromFirestore(doc))
           .toList();
 
-      print('DEBUG STUDENT: Loaded ${_timesheets.length} timesheets');
+      debugPrint('DEBUG STUDENT: Loaded ${_timesheets.length} timesheets');
 
       _groupTimesheetsByMonth();
+
+      // Load monthly reports
+      await _loadMonthlyReports(userId);
 
       setState(() => _isLoading = false);
     } catch (e) {
       print('===========================================');
-      print('DEBUG STUDENT: ERROR LOADING DATA');
+      debugPrint('DEBUG STUDENT: ERROR LOADING DATA');
       print('Error type: ${e.runtimeType}');
       print('Error message: $e');
       print('Full error details: ${e.toString()}');
@@ -143,6 +149,32 @@ class _StudentReportScreenState extends State<StudentReportScreen>
             duration: const Duration(seconds: 10),
           ),
         );
+      }
+    }
+  }
+
+  Future<void> _loadMonthlyReports(String userId) async {
+    if (userId.isEmpty) return;
+
+    setState(() => _isLoadingReports = true);
+
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('student_monthly_reports')
+          .where('studentId', isEqualTo: userId)
+          .orderBy('month', descending: true)
+          .get(const GetOptions(source: Source.server));
+
+      if (mounted) {
+        setState(() {
+          _monthlyReports = snapshot.docs;
+          _isLoadingReports = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('DEBUG STUDENT: Error loading monthly reports: $e');
+      if (mounted) {
+        setState(() => _isLoadingReports = false);
       }
     }
   }
@@ -727,8 +759,9 @@ class _StudentReportScreenState extends State<StudentReportScreen>
         }
         await batch.commit();
 
-        // Reload data
+        // Reload data and monthly reports
         await _loadData();
+        await _loadMonthlyReports(user.id);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -750,7 +783,7 @@ class _StudentReportScreenState extends State<StudentReportScreen>
           );
         }
       } catch (e) {
-        print('ERROR submitting report: $e');
+        debugPrint('ERROR submitting report: $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -888,200 +921,186 @@ class _StudentReportScreenState extends State<StudentReportScreen>
   }
 
   Widget _buildReportHistory() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('student_monthly_reports')
-          .where('studentId', isEqualTo: _studentProfile?.userId ?? '')
-          .orderBy('month', descending: true)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
-        }
+    if (_isLoadingReports) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        final reports = snapshot.data?.docs ?? [];
-
-        if (reports.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.history, size: 80, color: Colors.grey.shade300),
-                const SizedBox(height: 16),
-                Text(
-                  'No submitted reports yet',
-                  style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Submit your first monthly report to see it here',
-                  style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
-                ),
-              ],
+    if (_monthlyReports.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.history, size: 80, color: Colors.grey.shade300),
+            const SizedBox(height: 16),
+            Text(
+              'No submitted reports yet',
+              style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
             ),
-          );
+            const SizedBox(height: 8),
+            Text(
+              'Submit your first monthly report to see it here',
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _monthlyReports.length,
+      itemBuilder: (context, index) {
+        final data = _monthlyReports[index].data();
+        final reportId = _monthlyReports[index].id;
+        final monthDisplay = data['monthDisplay'] ?? '';
+        final status = data['status'] ?? 'submitted';
+        final totalHours = (data['totalHours'] ?? 0.0).toDouble();
+        final totalAmount = (data['totalAmount'] ?? 0.0).toDouble();
+        final timesheetCount = data['timesheetCount'] ?? 0;
+        final submittedAt = data['submittedAt'] != null
+            ? (data['submittedAt'] as Timestamp).toDate()
+            : null;
+
+        Color statusColor;
+        IconData statusIcon;
+        switch (status) {
+          case 'approved':
+            statusColor = Colors.green;
+            statusIcon = Icons.check_circle;
+            break;
+          case 'rejected':
+            statusColor = Colors.red;
+            statusIcon = Icons.cancel;
+            break;
+          case 'paid':
+            statusColor = Colors.blue;
+            statusIcon = Icons.payment;
+            break;
+          default:
+            statusColor = Colors.orange;
+            statusIcon = Icons.pending;
         }
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: reports.length,
-          itemBuilder: (context, index) {
-            final data = reports[index].data() as Map<String, dynamic>;
-            final monthDisplay = data['monthDisplay'] ?? '';
-            final status = data['status'] ?? 'submitted';
-            final totalHours = (data['totalHours'] ?? 0.0).toDouble();
-            final totalAmount = (data['totalAmount'] ?? 0.0).toDouble();
-            final timesheetCount = data['timesheetCount'] ?? 0;
-            final submittedAt = data['submittedAt'] != null
-                ? (data['submittedAt'] as Timestamp).toDate()
-                : null;
-
-            Color statusColor;
-            IconData statusIcon;
-            switch (status) {
-              case 'approved':
-                statusColor = Colors.green;
-                statusIcon = Icons.check_circle;
-                break;
-              case 'rejected':
-                statusColor = Colors.red;
-                statusIcon = Icons.cancel;
-                break;
-              case 'paid':
-                statusColor = Colors.blue;
-                statusIcon = Icons.payment;
-                break;
-              default:
-                statusColor = Colors.orange;
-                statusIcon = Icons.pending;
-            }
-
-            return Card(
-              margin: const EdgeInsets.only(bottom: 12),
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: () {
-                  // Navigate to the detailed report screen
-                  context.go(
-                    '/student-monthly-report-detail',
-                    extra: {
-                      'reportId': reports[index].id,
-                      'month': data['month'] ?? '',
-                      'monthDisplay': monthDisplay,
-                    },
-                  );
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          elevation: 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () {
+              // Navigate to the detailed report screen
+              context.go(
+                '/student-monthly-report-detail',
+                extra: {
+                  'reportId': reportId,
+                  'month': data['month'] ?? '',
+                  'monthDisplay': monthDisplay,
                 },
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Colors.orange.shade400,
-                                      Colors.orange.shade600,
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Icon(
-                                  Icons.calendar_month,
-                                  color: Colors.white,
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    monthDisplay,
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  if (submittedAt != null)
-                                    Text(
-                                      'Submitted ${DateFormat('MMM d, y').format(submittedAt)}',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.orange.shade400,
+                                  Colors.orange.shade600,
                                 ],
                               ),
-                            ],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.calendar_month,
+                              color: Colors.white,
+                              size: 20,
+                            ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: statusColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(statusIcon, size: 16, color: statusColor),
-                                const SizedBox(width: 4),
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                monthDisplay,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              if (submittedAt != null)
                                 Text(
-                                  status.toUpperCase(),
+                                  'Submitted ${DateFormat('MMM d, y').format(submittedAt)}',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: statusColor,
+                                    color: Colors.grey.shade600,
                                   ),
                                 ),
-                              ],
-                            ),
+                            ],
                           ),
                         ],
                       ),
-                      const Divider(height: 24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          _buildStatItem(
-                            Icons.event_note,
-                            '$timesheetCount',
-                            'Entries',
-                          ),
-                          _buildStatItem(
-                            Icons.access_time,
-                            '${totalHours.toStringAsFixed(1)}h',
-                            'Hours',
-                          ),
-                          _buildStatItem(
-                            Icons.attach_money,
-                            '฿${totalAmount.toStringAsFixed(2)}',
-                            'Amount',
-                          ),
-                        ],
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(statusIcon, size: 16, color: statusColor),
+                            const SizedBox(width: 4),
+                            Text(
+                              status.toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: statusColor,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
-                ),
+                  const Divider(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildStatItem(
+                        Icons.event_note,
+                        '$timesheetCount',
+                        'Entries',
+                      ),
+                      _buildStatItem(
+                        Icons.access_time,
+                        '${totalHours.toStringAsFixed(1)}h',
+                        'Hours',
+                      ),
+                      _buildStatItem(
+                        Icons.attach_money,
+                        '฿${totalAmount.toStringAsFixed(2)}',
+                        'Amount',
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            );
-          },
+            ),
+          ),
         );
       },
     );

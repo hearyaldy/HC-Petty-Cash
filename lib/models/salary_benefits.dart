@@ -82,21 +82,31 @@ class SalaryBenefits {
     return baseSalary;
   }
 
-  // Calculate total compensation (gross + allowances)
+  // Calculate total compensation (gross + monthly allowances)
+  // Note: Equipment and Education allowances are annual, not included in monthly total
   double get totalCompensation {
     double total = grossSalary;
     total += allowances ?? 0;
     total += phoneAllowance ?? 0;
-    total += continueEducationAllowance ?? 0;
-    total += equipmentAllowance ?? 0;
+    // Equipment and Education allowances are annual (once a year), not monthly
+    // total += continueEducationAllowance ?? 0;
+    // total += equipmentAllowance ?? 0;
     total += housingAllowance ?? 0;
+    return total;
+  }
+
+  // Calculate annual total compensation including yearly allowances
+  double get annualTotalCompensation {
+    double total = totalCompensation * 12; // Monthly total x 12
+    total += continueEducationAllowance ?? 0; // Add annual education allowance
+    total += equipmentAllowance ?? 0; // Add annual equipment allowance
     return total;
   }
 
   // Calculate net salary (Gross Salary - All Deductions, excluding Housing Allowance)
   double get netSalary {
-    double total = grossSalary; // Start with gross salary only, not total compensation
-    total -= deductions ?? 0;
+    double total =
+        grossSalary; // Start with gross salary only, not total compensation
     total -= titheAmount;
     total -= providentFundAmount;
     total -= socialSecurityAmount;
@@ -194,9 +204,7 @@ class SalaryBenefits {
       overtimeRate: data['overtimeRate'] != null
           ? (data['overtimeRate'] as num).toDouble()
           : null,
-      bonus: data['bonus'] != null
-          ? (data['bonus'] as num).toDouble()
-          : null,
+      bonus: data['bonus'] != null ? (data['bonus'] as num).toDouble() : null,
       commission: data['commission'] != null
           ? (data['commission'] as num).toDouble()
           : null,
@@ -309,9 +317,12 @@ class SalaryBenefits {
       commission: commission ?? this.commission,
       allowances: allowances ?? this.allowances,
       deductions: deductions ?? this.deductions,
-      providentFundPercentage: providentFundPercentage ?? this.providentFundPercentage,
-      healthInsurancePercentage: healthInsurancePercentage ?? this.healthInsurancePercentage,
-      socialSecurityPercentage: socialSecurityPercentage ?? this.socialSecurityPercentage,
+      providentFundPercentage:
+          providentFundPercentage ?? this.providentFundPercentage,
+      healthInsurancePercentage:
+          healthInsurancePercentage ?? this.healthInsurancePercentage,
+      socialSecurityPercentage:
+          socialSecurityPercentage ?? this.socialSecurityPercentage,
       salaryGrade: salaryGrade ?? this.salaryGrade,
       payGrade: payGrade ?? this.payGrade,
       currency: currency ?? this.currency,
@@ -325,7 +336,8 @@ class SalaryBenefits {
       wageFactor: wageFactor ?? this.wageFactor,
       salaryPercentage: salaryPercentage ?? this.salaryPercentage,
       phoneAllowance: phoneAllowance ?? this.phoneAllowance,
-      continueEducationAllowance: continueEducationAllowance ?? this.continueEducationAllowance,
+      continueEducationAllowance:
+          continueEducationAllowance ?? this.continueEducationAllowance,
       equipmentAllowance: equipmentAllowance ?? this.equipmentAllowance,
       tithePercentage: tithePercentage ?? this.tithePercentage,
       // Health Benefits
@@ -334,7 +346,8 @@ class SalaryBenefits {
       annualLeaveDays: annualLeaveDays ?? this.annualLeaveDays,
       housingAllowance: housingAllowance ?? this.housingAllowance,
       // House Rental
-      houseRentalPercentage: houseRentalPercentage ?? this.houseRentalPercentage,
+      houseRentalPercentage:
+          houseRentalPercentage ?? this.houseRentalPercentage,
     );
   }
 }

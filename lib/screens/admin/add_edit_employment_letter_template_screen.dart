@@ -48,7 +48,20 @@ class _AddEditEmploymentLetterTemplateScreenState
   ];
 
   // Available font sizes
-  final List<double> _fontSizes = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32];
+  final List<double> _fontSizes = [
+    8,
+    9,
+    10,
+    11,
+    12,
+    14,
+    16,
+    18,
+    20,
+    24,
+    28,
+    32,
+  ];
 
   @override
   void initState() {
@@ -86,27 +99,29 @@ HOPE CHANNEL EMPLOYEE SALARY AND BENEFIT {{year}}
 
 New Year's greetings from Hope Channel Southeast Asia!
 
-On behalf of Hope Channel SEA and its Board of Directors, I would like to express our sincere gratitude and appreciation for your dedicated services rendered, serving as {{position}}. May God continue to bless you in all your evangelistic endeavors through media ministry. We truly believe that God has been working through you as you channel His love and hope to our viewers and HC communities at large. On January 8, 2025, the Hope Channel Board has approved the Operating Budget and Workers Remunerations for the year {{year}}. Please take note of the following salary and benefits that you will be receiving this year.
+On behalf of Hope Channel SEA and its Board of Directors, I would like to express our sincere gratitude and appreciation for your dedicated services rendered, serving as {{position}}. May God continue to bless you in all your evangelistic endeavors through media ministry. We truly believe that God has been working through you as you channel His love and hope to our viewers and HC communities at large. On January 8, {{year}}, the Hope Channel Board has approved the Operating Budget and Workers Remunerations for the year {{year}}. Please take note of the following salary and benefits that you will be receiving this year.
 
-SEUM Wage Factor {{year}}:THB{{seumWageFactor}}
-Your Salary Scale:{{salaryScale}}%
-Your Gross Salary:THB{{grossSalary}}
-Health Benefits:{{healthBenefitsOutpatient}}% (Out-Patient)
+SEUM Wage Factor {{year}}: THB {{seumWageFactor}}
+Your Salary Scale: {{salaryScale}}%
+Your Gross Salary: THB {{grossSalary}}
+Health Benefits: {{healthBenefitsOutpatient}}% (Out-Patient)
 {{healthBenefitsInpatient}}% (In-Patient)
-Annual Leave:{{annualLeave}} Working Days
-Housing Allowance:Up to THB{{housingAllowance}} ({{housingAllowancePercent}}%)
+Annual Leave: {{annualLeave}} Working Days
+Housing Allowance: Up to THB {{housingAllowance}} ({{housingAllowancePercent}}%)
 
 Deductions:
-Tithe (10%):THB{{titheAmount}}
-Social Security:THB{{socialSecurityAmount}}
-Provident Fund (10%):THB{{providentFundAmount}}
-Housing Rental and Excess:THB{{housingRentalAmount}}
+Tithe ({{tithePercentage}}%): THB {{titheAmount}}
+Social Security: THB {{socialSecurityAmount}}
+Provident Fund ({{providentFundPercentage}}%): THB {{providentFundAmount}}
+Housing Rental and Excess: THB {{housingRentalAmount}}
 
 Once again thank you so much for your dedication and commitment serving the Lord through Hope Channel. Looking forward to a blessed and fruitful year ahead! Thank you.
 
 In the Lord's Service,
-{{signatureName}}
-...………………………
+
+
+
+................................
 {{signatureName}}
 {{signatureTitle}}
 Hope Channel Southeast Asia''';
@@ -273,10 +288,7 @@ Hope Channel Southeast Asia''';
           ),
           title: Text(
             title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           trailing: trailing,
           children: children,
@@ -416,7 +428,7 @@ Hope Channel Southeast Asia''';
                         icon: Icons.info_outline,
                         iconGradient: [
                           Colors.blue.shade400,
-                          Colors.blue.shade600
+                          Colors.blue.shade600,
                         ],
                         children: [
                           TextFormField(
@@ -451,7 +463,8 @@ Hope Channel Southeast Asia''';
                             child: SwitchListTile(
                               title: const Text('Active'),
                               subtitle: const Text(
-                                  'Make this template available for use'),
+                                'Make this template available for use',
+                              ),
                               value: _isActive,
                               onChanged: (value) {
                                 setState(() {
@@ -472,7 +485,7 @@ Hope Channel Southeast Asia''';
                         icon: Icons.text_format,
                         iconGradient: [
                           Colors.purple.shade400,
-                          Colors.purple.shade600
+                          Colors.purple.shade600,
                         ],
                         children: [
                           // Font Family and Size Row
@@ -615,7 +628,7 @@ Hope Channel Southeast Asia''';
                         icon: Icons.space_bar,
                         iconGradient: [
                           Colors.teal.shade400,
-                          Colors.teal.shade600
+                          Colors.teal.shade600,
                         ],
                         initiallyExpanded: false,
                         children: [
@@ -671,14 +684,13 @@ Hope Channel Southeast Asia''';
                         icon: Icons.code,
                         iconGradient: [
                           Colors.indigo.shade400,
-                          Colors.indigo.shade600
+                          Colors.indigo.shade600,
                         ],
                         initiallyExpanded: false,
                         children: [
                           const Text(
                             'Click on a placeholder to insert it into your template content.',
-                            style: TextStyle(
-                                fontSize: 14, color: Colors.grey),
+                            style: TextStyle(fontSize: 14, color: Colors.grey),
                           ),
                           const SizedBox(height: 12),
                           Wrap(
@@ -687,38 +699,95 @@ Hope Channel Southeast Asia''';
                             children: [
                               _buildPlaceholderChip('date', 'Current date'),
                               _buildPlaceholderChip(
-                                  'staffName', 'Staff member name'),
+                                'staffName',
+                                'Staff member name',
+                              ),
                               _buildPlaceholderChip(
-                                  'position', 'Staff position'),
+                                'position',
+                                'Staff position',
+                              ),
                               _buildPlaceholderChip('year', 'Current year'),
                               _buildPlaceholderChip(
-                                  'seumWageFactor', 'SEUM wage factor'),
+                                'seumWageFactor',
+                                'SEUM wage factor',
+                              ),
                               _buildPlaceholderChip(
-                                  'salaryScale', 'Salary scale %'),
+                                'salaryScale',
+                                'Salary scale %',
+                              ),
                               _buildPlaceholderChip(
-                                  'grossSalary', 'Gross salary'),
-                              _buildPlaceholderChip('healthBenefitsOutpatient',
-                                  'Outpatient %'),
+                                'grossSalary',
+                                'Gross salary',
+                              ),
+                              _buildPlaceholderChip('netSalary', 'Net salary'),
                               _buildPlaceholderChip(
-                                  'healthBenefitsInpatient', 'Inpatient %'),
+                                'totalCompensation',
+                                'Total compensation',
+                              ),
                               _buildPlaceholderChip(
-                                  'annualLeave', 'Annual leave days'),
+                                'healthBenefitsOutpatient',
+                                'Outpatient %',
+                              ),
                               _buildPlaceholderChip(
-                                  'housingAllowance', 'Housing allowance'),
-                              _buildPlaceholderChip('housingAllowancePercent',
-                                  'Housing allowance %'),
+                                'healthBenefitsInpatient',
+                                'Inpatient %',
+                              ),
                               _buildPlaceholderChip(
-                                  'titheAmount', 'Tithe amount'),
-                              _buildPlaceholderChip('socialSecurityAmount',
-                                  'Social security'),
+                                'annualLeave',
+                                'Annual leave days',
+                              ),
                               _buildPlaceholderChip(
-                                  'providentFundAmount', 'Provident fund'),
+                                'housingAllowance',
+                                'Housing allowance',
+                              ),
                               _buildPlaceholderChip(
-                                  'housingRentalAmount', 'Housing rental'),
+                                'housingAllowancePercent',
+                                'Housing allowance %',
+                              ),
                               _buildPlaceholderChip(
-                                  'signatureName', 'Signature name'),
+                                'equipmentAllowance',
+                                'Equipment allowance',
+                              ),
                               _buildPlaceholderChip(
-                                  'signatureTitle', 'Signature title'),
+                                'continueEducationAllowance',
+                                'Continuing education',
+                              ),
+                              _buildPlaceholderChip(
+                                'titheAmount',
+                                'Tithe amount',
+                              ),
+                              _buildPlaceholderChip(
+                                'tithePercentage',
+                                'Tithe %',
+                              ),
+                              _buildPlaceholderChip(
+                                'socialSecurityAmount',
+                                'Social security',
+                              ),
+                              _buildPlaceholderChip(
+                                'providentFundAmount',
+                                'Provident fund',
+                              ),
+                              _buildPlaceholderChip(
+                                'providentFundPercentage',
+                                'Provident fund %',
+                              ),
+                              _buildPlaceholderChip(
+                                'housingRentalAmount',
+                                'Housing rental',
+                              ),
+                              _buildPlaceholderChip(
+                                'houseRentalPercentage',
+                                'House rental %',
+                              ),
+                              _buildPlaceholderChip(
+                                'signatureName',
+                                'Signature name',
+                              ),
+                              _buildPlaceholderChip(
+                                'signatureTitle',
+                                'Signature title',
+                              ),
                             ],
                           ),
                         ],
@@ -730,7 +799,7 @@ Hope Channel Southeast Asia''';
                         icon: Icons.edit_document,
                         iconGradient: [
                           Colors.orange.shade400,
-                          Colors.orange.shade600
+                          Colors.orange.shade600,
                         ],
                         children: [
                           // Preview of formatting settings
@@ -743,8 +812,11 @@ Hope Channel Southeast Asia''';
                             ),
                             child: Row(
                               children: [
-                                Icon(Icons.info_outline,
-                                    color: Colors.blue.shade700, size: 20),
+                                Icon(
+                                  Icons.info_outline,
+                                  color: Colors.blue.shade700,
+                                  size: 20,
+                                ),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
@@ -813,7 +885,8 @@ Hope Channel Southeast Asia''';
                                 ),
                                 const Spacer(),
                                 Tooltip(
-                                  message: 'Use tags like <b>bold</b>, <i>italic</i>, <bi>bold italic</bi>, <u>underline</u>',
+                                  message:
+                                      'Use tags like <b>bold</b>, <i>italic</i>, <bi>bold italic</bi>, <u>underline</u>',
                                   child: Icon(
                                     Icons.help_outline,
                                     size: 18,
@@ -902,7 +975,9 @@ Hope Channel Southeast Asia''';
             children: [
               Icon(
                 icon,
-                color: isSelected ? Colors.purple.shade700 : Colors.grey.shade600,
+                color: isSelected
+                    ? Colors.purple.shade700
+                    : Colors.grey.shade600,
                 size: 24,
               ),
               const SizedBox(height: 4),
@@ -955,10 +1030,7 @@ Hope Channel Southeast Asia''';
         avatar: const Icon(Icons.add, size: 16),
         label: Text('{{$placeholder}}'),
         backgroundColor: Colors.indigo.shade50,
-        labelStyle: TextStyle(
-          color: Colors.indigo.shade700,
-          fontSize: 12,
-        ),
+        labelStyle: TextStyle(color: Colors.indigo.shade700, fontSize: 12),
         onPressed: () => _insertPlaceholder(placeholder),
       ),
     );
@@ -1009,8 +1081,9 @@ Hope Channel Southeast Asia''';
                 fontStyle: isItalic || isBoldItalic
                     ? FontStyle.italic
                     : FontStyle.normal,
-                decoration:
-                    isUnderline ? TextDecoration.underline : TextDecoration.none,
+                decoration: isUnderline
+                    ? TextDecoration.underline
+                    : TextDecoration.none,
                 fontSize: 14,
                 color: Colors.grey.shade800,
               ),
@@ -1036,16 +1109,18 @@ Hope Channel Southeast Asia''';
       _contentController.text = newText;
       // Position cursor after the closing tag
       _contentController.selection = TextSelection.collapsed(
-        offset: selection.start + tag.length + 2 + selectedText.length + tag.length + 3,
+        offset:
+            selection.start +
+            tag.length +
+            2 +
+            selectedText.length +
+            tag.length +
+            3,
       );
     } else {
       // If no selection, insert empty tags and position cursor between them
       final cursorPos = selection.isValid ? selection.start : text.length;
-      final newText = text.replaceRange(
-        cursorPos,
-        cursorPos,
-        '<$tag></$tag>',
-      );
+      final newText = text.replaceRange(cursorPos, cursorPos, '<$tag></$tag>');
       _contentController.text = newText;
       // Position cursor between the tags
       _contentController.selection = TextSelection.collapsed(

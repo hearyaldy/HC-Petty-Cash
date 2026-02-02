@@ -332,11 +332,20 @@ service cloud.firestore {
     // Staff collection - HR records
     match /staff/{staffId} {
       // All authenticated users can read staff records (for salary/benefits management, directory, etc.)
-      // Write operations are still restricted to admins
       allow read: if isAuthenticated();
 
-      // Only admins can create, update, or delete staff records
-      allow create, update, delete: if isAdmin();
+      // Users can create their own staff record (when submitting HR data)
+      // userId must match their auth UID
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid;
+
+      // Users can update their own staff record, admins can update any
+      allow update: if isAuthenticated() &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+
+      // Users can delete their own staff record, admins can delete any
+      allow delete: if isAuthenticated() &&
+        (resource.data.userId == request.auth.uid || isAdmin());
     }
 
     // Staff Documents collection
@@ -391,8 +400,14 @@ service cloud.firestore {
          isManager() ||
          isFinance());
 
-      // Only admins can update or delete HR data submissions
-      allow update, delete: if isAdmin();
+      // Users can update their own submissions (for auto-sync status updates)
+      // Admins can update any submission
+      allow update: if isAuthenticated() &&
+        (request.auth.uid == resource.data.submittedBy || isAdmin());
+
+      // Users can delete their own submissions, admins can delete any
+      allow delete: if isAuthenticated() &&
+        (request.auth.uid == resource.data.submittedBy || isAdmin());
     }
   }
 }

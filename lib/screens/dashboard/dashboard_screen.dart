@@ -64,6 +64,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<TravelingReport> _travelingReports = [];
   List<PurchaseRequisition> _purchaseRequisitions = [];
 
+  // Store student reports and HR data to avoid Firestore web stream issues
+  List<Map<String, dynamic>> _studentReports = [];
+  List<Map<String, dynamic>> _hrDataSubmissions = [];
+  Map<String, dynamic>? _myHrData;
+
   @override
   void initState() {
     super.initState();
@@ -82,9 +87,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _loadAllData() {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (mounted) {
-        context.read<ReportProvider>().loadReports();
-        context.read<ProjectReportProvider>().loadProjectReports();
-        context.read<TransactionProvider>().loadTransactions();
+        // Get all context-dependent data before any async operations
+        final reportProvider = context.read<ReportProvider>();
+        final projectReportProvider = context.read<ProjectReportProvider>();
+        final transactionProvider = context.read<TransactionProvider>();
+        final authProvider = context.read<AuthProvider>();
+        final user = authProvider.currentUser;
+        final isAdmin = user?.role == 'admin' || user?.role == 'manager' || user?.role == 'finance';
+
+        reportProvider.loadReports();
+        projectReportProvider.loadProjectReports();
+        transactionProvider.loadTransactions();
 
         // Load income, traveling, and purchase data using one-time fetches to avoid web stream issues
         try {
@@ -103,6 +116,64 @@ class _DashboardScreenState extends State<DashboardScreen> {
           debugPrint('DEBUG DASHBOARD: Loaded ${incomeReports.length} income, ${travelingReports.length} traveling, ${purchaseRequisitions.length} purchase requisitions');
         } catch (e) {
           debugPrint('DEBUG DASHBOARD: Error loading extra data: $e');
+        }
+
+        // Load student reports, HR submissions using one-time fetches to avoid Firestore web stream issues
+
+        try {
+          final firestore = FirebaseFirestore.instance;
+
+          // Load student reports
+          final studentReportsSnapshot = await firestore
+              .collection('student_monthly_reports')
+              .orderBy('month', descending: true)
+              .limit(5)
+              .get();
+
+          final studentReports = studentReportsSnapshot.docs
+              .map<Map<String, dynamic>>((doc) => <String, dynamic>{'id': doc.id, ...doc.data()})
+              .toList();
+
+          // Load HR data submissions
+          Query<Map<String, dynamic>> hrQuery = firestore
+              .collection('hr_data_submissions')
+              .orderBy('submittedAt', descending: true);
+
+          if (!isAdmin && user != null) {
+            hrQuery = hrQuery.where('submittedBy', isEqualTo: user.id);
+          }
+
+          final hrSubmissionsSnapshot = await hrQuery.limit(5).get();
+          final hrSubmissions = hrSubmissionsSnapshot.docs
+              .map<Map<String, dynamic>>((doc) => <String, dynamic>{'id': doc.id, ...doc.data()})
+              .toList();
+
+          // Load my HR data
+          Map<String, dynamic>? myHrData;
+          if (user != null) {
+            final myDataSnapshot = await firestore
+                .collection('hr_data_submissions')
+                .where('submittedBy', isEqualTo: user.id)
+                .orderBy('submittedAt', descending: true)
+                .limit(1)
+                .get();
+
+            if (myDataSnapshot.docs.isNotEmpty) {
+              final doc = myDataSnapshot.docs.first;
+              myHrData = <String, dynamic>{'id': doc.id, ...doc.data()};
+            }
+          }
+
+          if (mounted) {
+            setState(() {
+              _studentReports = studentReports;
+              _hrDataSubmissions = hrSubmissions;
+              _myHrData = myHrData;
+            });
+          }
+          debugPrint('DEBUG DASHBOARD: Loaded ${studentReports.length} student reports, ${hrSubmissions.length} HR submissions');
+        } catch (e) {
+          debugPrint('DEBUG DASHBOARD: Error loading student/HR data: $e');
         }
 
         _dataLoaded = true;
@@ -1677,8 +1748,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _showReportSelectionDialog(BuildContext context) {
+    final authProvider = context.read<AuthProvider>();
     final reportProvider = context.read<ReportProvider>();
     final projectReportProvider = context.read<ProjectReportProvider>();
+    final user = authProvider.currentUser;
+    final canViewAll = authProvider.canViewAllReports();
+
+    // Filter reports - only show user's own reports unless admin/manager
+    final pettyCashReports = canViewAll
+        ? reportProvider.reports
+        : reportProvider.reports.where((r) => r.custodianId == user?.id).toList();
+    final projectReports = canViewAll
+        ? projectReportProvider.projectReports
+        : projectReportProvider.projectReports.where((r) => r.custodianId == user?.id).toList();
 
     showDialog(
       context: context,
@@ -1712,7 +1794,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(height: 16),
                 // Petty Cash Reports
-                if (reportProvider.reports.isNotEmpty) ...[
+                if (pettyCashReports.isNotEmpty) ...[
                   Text(
                     'Petty Cash Reports',
                     style: TextStyle(
@@ -1722,7 +1804,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  ...reportProvider.reports.map((report) {
+                  ...pettyCashReports.map((report) {
                     final statusColor = report.status == 'approved'
                         ? Colors.green
                         : report.status == 'pending'
@@ -1774,7 +1856,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 16),
                 ],
                 // Project Reports
-                if (projectReportProvider.projectReports.isNotEmpty) ...[
+                if (projectReports.isNotEmpty) ...[
                   Text(
                     'Project Reports',
                     style: TextStyle(
@@ -1784,7 +1866,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  ...projectReportProvider.projectReports.map((report) {
+                  ...projectReports.map((report) {
                     final statusColor = report.status == 'active'
                         ? Colors.green
                         : report.status == 'completed'
@@ -1831,8 +1913,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     );
                   }),
                 ],
-                if (reportProvider.reports.isEmpty &&
-                    projectReportProvider.projectReports.isEmpty)
+                if (pettyCashReports.isEmpty &&
+                    projectReports.isEmpty)
                   Padding(
                     padding: const EdgeInsets.all(24),
                     child: Center(
@@ -3997,88 +4079,76 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildStudentReports(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('student_monthly_reports')
-          .orderBy('month', descending: true)
-          .limit(5)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const SizedBox.shrink();
-        }
+    // Use state-based data instead of StreamBuilder to avoid Firestore web stream issues
+    if (_studentReports.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
-        final reports = snapshot.data!.docs;
+    final currencyFormat = NumberFormat.currency(
+      symbol: '${AppConstants.currencySymbol} ',
+    );
+    final dateFormat = DateFormat('MMMM yyyy');
 
-        if (reports.isEmpty) {
-          return const SizedBox.shrink();
-        }
-
-        final currencyFormat = NumberFormat.currency(
-          symbol: '${AppConstants.currencySymbol} ',
-        );
-        final dateFormat = DateFormat('MMMM yyyy');
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.orange.shade50, Colors.orange.shade100],
-                ),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.orange.shade50, Colors.orange.shade100],
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.orange,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.assignment,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Student Reports',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.orange.shade900,
-                        ),
-                      ),
-                    ],
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.orange,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.assignment,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
-                  TextButton.icon(
-                    onPressed: () => context.push('/admin/student-reports'),
-                    icon: const Icon(Icons.arrow_forward),
-                    label: const Text('View All'),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Student Reports',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange.shade900,
+                    ),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 16),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: reports.length,
-              itemBuilder: (context, index) {
-                final reportDoc = reports[index];
-                final reportData = reportDoc.data() as Map<String, dynamic>;
-                final studentName = reportData['studentName'] ?? 'Unknown';
-                final month = reportData['month'] ?? '';
-                final status = reportData['status'] ?? 'draft';
-                final totalHours = (reportData['totalHours'] ?? 0.0).toDouble();
-                final totalAmount = (reportData['totalAmount'] ?? 0.0)
-                    .toDouble();
+              TextButton.icon(
+                onPressed: () => context.push('/admin/student-reports'),
+                icon: const Icon(Icons.arrow_forward),
+                label: const Text('View All'),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _studentReports.length,
+          itemBuilder: (context, index) {
+            final reportData = _studentReports[index];
+            final reportId = reportData['id'] as String;
+            final studentName = reportData['studentName'] ?? 'Unknown';
+            final month = reportData['month'] ?? '';
+            final status = reportData['status'] ?? 'draft';
+            final totalHours = (reportData['totalHours'] ?? 0.0).toDouble();
+            final totalAmount = (reportData['totalAmount'] ?? 0.0)
+                .toDouble();
 
                 // Format month display (YYYY-MM to Month Year)
                 String monthDisplay = month;
@@ -4143,26 +4213,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           onSelected: (String choice) {
                             if (choice == 'view') {
                               context.push(
-                                '/admin/student-reports/${reportDoc.id}?month=$month&monthDisplay=${Uri.encodeComponent(monthDisplay)}',
+                                '/admin/student-reports/$reportId?month=$month&monthDisplay=${Uri.encodeComponent(monthDisplay)}',
                               );
                             } else if (choice == 'approve') {
                               _approveStudentReport(
                                 context,
-                                reportDoc.id,
+                                reportId,
                                 studentName,
                                 monthDisplay,
                               );
                             } else if (choice == 'reject') {
                               _rejectStudentReport(
                                 context,
-                                reportDoc.id,
+                                reportId,
                                 studentName,
                                 monthDisplay,
                               );
                             } else if (choice == 'delete') {
                               _deleteStudentReport(
                                 context,
-                                reportDoc.id,
+                                reportId,
                                 studentName,
                                 monthDisplay,
                               );
@@ -4237,7 +4307,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ],
                     ),
                     onTap: () => context.push(
-                      '/admin/student-reports/${reportDoc.id}?month=$month&monthDisplay=${Uri.encodeComponent(monthDisplay)}',
+                      '/admin/student-reports/$reportId?month=$month&monthDisplay=${Uri.encodeComponent(monthDisplay)}',
                     ),
                   ),
                 );
@@ -4245,42 +4315,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         );
-      },
-    );
   }
 
   Widget _buildHrDataSubmissions(BuildContext context, bool isAdmin) {
-    final authProvider = context.watch<AuthProvider>();
-    final user = authProvider.currentUser;
     final dateFormat = DateFormat('MMM dd, yyyy');
 
-    // Build query based on user role
-    Query query = FirebaseFirestore.instance
-        .collection('hr_data_submissions')
-        .orderBy('submittedAt', descending: true);
+    // Use state-based data instead of StreamBuilder to avoid Firestore web stream issues
+    final submissions = _hrDataSubmissions;
 
-    // If not admin, only show user's own submissions
-    if (!isAdmin && user != null) {
-      query = query.where('submittedBy', isEqualTo: user.id);
-    }
+    // Count pending submissions for badge
+    final pendingCount = submissions.where((data) {
+      return data['status'] == 'pending';
+    }).length;
 
-    return StreamBuilder<QuerySnapshot>(
-      stream: query.limit(5).snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        final submissions = snapshot.data!.docs;
-
-        // Count pending submissions for badge
-        final pendingCount = submissions.where((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          return data['status'] == 'pending';
-        }).length;
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header
             Container(
@@ -4395,8 +4444,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: submissions.length,
                 itemBuilder: (context, index) {
-                  final doc = submissions[index];
-                  final data = doc.data() as Map<String, dynamic>;
+                  final data = submissions[index];
+                  final docId = data['id'] as String;
                   final fullName = data['fullName'] ?? 'Unknown';
                   final department = data['department'] ?? 'N/A';
                   final position = data['position'] ?? 'N/A';
@@ -4491,21 +4540,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 if (choice == 'approve') {
                                   _updateHrSubmissionStatus(
                                     context,
-                                    doc.id,
+                                    docId,
                                     'approved',
                                     fullName,
                                   );
                                 } else if (choice == 'reject') {
                                   _updateHrSubmissionStatus(
                                     context,
-                                    doc.id,
+                                    docId,
                                     'rejected',
                                     fullName,
                                   );
                                 } else if (choice == 'process') {
                                   _updateHrSubmissionStatus(
                                     context,
-                                    doc.id,
+                                    docId,
                                     'processed',
                                     fullName,
                                   );
@@ -4574,8 +4623,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
           ],
         );
-      },
-    );
   }
 
   Future<void> _updateHrSubmissionStatus(
@@ -4632,128 +4679,114 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return const SizedBox.shrink();
     }
 
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('hr_data_submissions')
-          .where('submittedBy', isEqualTo: user.id)
-          .orderBy('submittedAt', descending: true)
-          .limit(1)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    // Use state-based data instead of StreamBuilder to avoid Firestore web stream issues
+    final hasData = _myHrData != null;
 
-        final hasData = snapshot.hasData && snapshot.data!.docs.isNotEmpty;
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.cyan.shade50, Colors.cyan.shade100],
-                ),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.cyan.shade50, Colors.cyan.shade100],
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.cyan,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.badge,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        'My Data',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.cyan.shade900,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (hasData)
-                    TextButton.icon(
-                      onPressed: () => context.go('/hr/my-data'),
-                      icon: const Icon(Icons.visibility),
-                      label: const Text('View All'),
-                    )
-                  else
-                    TextButton.icon(
-                      onPressed: () => context.go('/hr/data-submission'),
-                      icon: const Icon(Icons.add),
-                      label: const Text('Submit'),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.cyan,
+                      borderRadius: BorderRadius.circular(8),
                     ),
+                    child: const Icon(
+                      Icons.badge,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'My Data',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.cyan.shade900,
+                    ),
+                  ),
+                ],
+              ),
+              if (hasData)
+                TextButton.icon(
+                  onPressed: () => context.go('/hr/my-data'),
+                  icon: const Icon(Icons.visibility),
+                  label: const Text('View All'),
+                )
+              else
+                TextButton.icon(
+                  onPressed: () => context.go('/hr/data-submission'),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Submit'),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        if (!hasData)
+          Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Center(
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.person_outline,
+                    size: 48,
+                    color: Colors.grey.shade300,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No HR data submitted yet',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () => context.go('/hr/data-submission'),
+                    child: const Text('Submit your HR information'),
+                  ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-
-            if (!hasData)
-              Container(
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
-                child: Center(
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.person_outline,
-                        size: 48,
-                        color: Colors.grey.shade300,
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'No HR data submitted yet',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade600,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextButton(
-                        onPressed: () => context.go('/hr/data-submission'),
-                        child: const Text('Submit your HR information'),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            else
-              _buildMyDataCard(
-                context,
-                snapshot.data!.docs.first,
-                currencyFormat,
-              ),
-          ],
-        );
-      },
+          )
+        else
+          _buildMyDataCard(
+            context,
+            _myHrData!,
+            currencyFormat,
+          ),
+      ],
     );
   }
 
   Widget _buildMyDataCard(
     BuildContext context,
-    DocumentSnapshot doc,
+    Map<String, dynamic> data,
     NumberFormat currencyFormat,
   ) {
-    final data = doc.data() as Map<String, dynamic>;
     final fullName = data['fullName'] ?? 'Unknown';
     final position = data['position'] ?? 'N/A';
     final department = data['department'] ?? 'N/A';

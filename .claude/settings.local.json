@@ -14,7 +14,14 @@
       "Bash(grep:*)",
       "Bash(find:*)",
       "mcp__ide__getDiagnostics",
-      "Bash(flutter build:*)"
+      "Bash(flutter build:*)",
+      "Bash(pkill:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)",
+      "Bash(firebase hosting:releases:list:*)",
+      "Bash(git stash drop:*)",
+      "Bash(git reset:*)",
+      "Bash(nc:*)"
     ]
   }
 }

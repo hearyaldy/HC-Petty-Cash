@@ -22,6 +22,8 @@ class AdminScreen extends StatefulWidget {
 class _AdminScreenState extends State<AdminScreen> {
   List<User> _users = [];
   bool _isLoading = false;
+  // Store student profiles in state to avoid Firestore web stream issues
+  Map<String, StudentProfile> _studentProfiles = {};
 
   @override
   void initState() {
@@ -41,6 +43,9 @@ class _AdminScreenState extends State<AdminScreen> {
       for (var user in _users) {
         debugPrint('DEBUG ADMIN: User: ${user.name} (${user.role})');
       }
+
+      // Load student profiles for student workers
+      await _loadStudentProfiles();
     } catch (e, stackTrace) {
       debugPrint('DEBUG ADMIN: Error loading users: $e');
       debugPrint('DEBUG ADMIN: Stack trace: $stackTrace');
@@ -49,6 +54,36 @@ class _AdminScreenState extends State<AdminScreen> {
     setState(() {
       _isLoading = false;
     });
+  }
+
+  Future<void> _loadStudentProfiles() async {
+    try {
+      final students = _users.where((u) => u.role == 'studentWorker').toList();
+      final profiles = <String, StudentProfile>{};
+
+      for (final student in students) {
+        try {
+          final doc = await FirebaseFirestore.instance
+              .collection('student_profiles')
+              .doc(student.id)
+              .get(const GetOptions(source: Source.server));
+
+          if (doc.exists) {
+            profiles[student.id] = StudentProfile.fromFirestore(doc);
+          }
+        } catch (e) {
+          debugPrint('DEBUG ADMIN: Error loading profile for ${student.id}: $e');
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _studentProfiles = profiles;
+        });
+      }
+    } catch (e) {
+      debugPrint('DEBUG ADMIN: Error loading student profiles: $e');
+    }
   }
 
   @override
@@ -183,19 +218,7 @@ class _AdminScreenState extends State<AdminScreen> {
             students.length,
           ),
           ...students.map(
-            (user) => StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('student_profiles')
-                  .doc(user.id)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                StudentProfile? profile;
-                if (snapshot.hasData && snapshot.data!.exists) {
-                  profile = StudentProfile.fromFirestore(snapshot.data!);
-                }
-                return _buildStudentCard(user, profile);
-              },
-            ),
+            (user) => _buildStudentCard(user, _studentProfiles[user.id]),
           ),
         ],
         if (others.isNotEmpty) ...[

@@ -137,12 +137,12 @@ class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
             : null,
         emergencyContactName:
             _emergencyContactNameController.text.trim().isNotEmpty
-                ? _emergencyContactNameController.text.trim()
-                : null,
+            ? _emergencyContactNameController.text.trim()
+            : null,
         emergencyContactPhone:
             _emergencyContactPhoneController.text.trim().isNotEmpty
-                ? _emergencyContactPhoneController.text.trim()
-                : null,
+            ? _emergencyContactPhoneController.text.trim()
+            : null,
         dateOfBirth: _dateOfBirth,
         gender: _gender,
         department: _departmentController.text.trim(),
@@ -297,7 +297,7 @@ class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
                     ),
                   ),
                 ),
-                if (trailing != null) trailing,
+                ?trailing,
               ],
             ),
           ),
@@ -351,7 +351,9 @@ class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
                             ],
                           )
                         : null,
-                    color: isActive || isCompleted ? null : Colors.grey.shade200,
+                    color: isActive || isCompleted
+                        ? null
+                        : Colors.grey.shade200,
                     shape: BoxShape.circle,
                     boxShadow: isActive
                         ? [
@@ -623,21 +625,18 @@ class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
                       colors: [Colors.blue.shade100, Colors.blue.shade50],
                     ),
                     shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.blue.shade200,
-                      width: 3,
-                    ),
+                    border: Border.all(color: Colors.blue.shade200, width: 3),
                     image: _selectedPhotoBytes != null
                         ? DecorationImage(
                             image: MemoryImage(_selectedPhotoBytes!),
                             fit: BoxFit.cover,
                           )
                         : _selectedPhoto != null
-                            ? DecorationImage(
-                                image: FileImage(_selectedPhoto!),
-                                fit: BoxFit.cover,
-                              )
-                            : null,
+                        ? DecorationImage(
+                            image: FileImage(_selectedPhoto!),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
                   ),
                   child: _selectedPhoto == null && _selectedPhotoBytes == null
                       ? Icon(
@@ -675,9 +674,7 @@ class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
           child: TextButton.icon(
             onPressed: _pickPhoto,
             icon: const Icon(Icons.photo_camera),
-            label: Text(
-              _selectedPhoto != null ? 'Change Photo' : 'Add Photo',
-            ),
+            label: Text(_selectedPhoto != null ? 'Change Photo' : 'Add Photo'),
           ),
         ),
         const SizedBox(height: 16),
@@ -789,10 +786,7 @@ class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
         const SizedBox(height: 16),
         TextFormField(
           controller: _addressController,
-          decoration: _buildInputDecoration(
-            label: 'Address',
-            icon: Icons.home,
-          ),
+          decoration: _buildInputDecoration(label: 'Address', icon: Icons.home),
           maxLines: 2,
         ),
         const SizedBox(height: 24),
@@ -876,10 +870,7 @@ class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
             icon: Icons.security,
           ),
           items: UserRole.values.map((role) {
-            return DropdownMenuItem(
-              value: role,
-              child: Text(role.displayName),
-            );
+            return DropdownMenuItem(value: role, child: Text(role.displayName));
           }).toList(),
           onChanged: (value) {
             if (value != null) setState(() => _role = value);
@@ -891,9 +882,7 @@ class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
             Expanded(
               child: DropdownButtonFormField<EmploymentType>(
                 value: _employmentType,
-                decoration: _buildInputDecoration(
-                  label: 'Employment Type',
-                ),
+                decoration: _buildInputDecoration(label: 'Employment Type'),
                 items: EmploymentType.values.map((type) {
                   return DropdownMenuItem(
                     value: type,
@@ -911,9 +900,7 @@ class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
             Expanded(
               child: DropdownButtonFormField<EmploymentStatus>(
                 value: _employmentStatus,
-                decoration: _buildInputDecoration(
-                  label: 'Status',
-                ),
+                decoration: _buildInputDecoration(label: 'Status'),
                 items: EmploymentStatus.values.map((status) {
                   return DropdownMenuItem(
                     value: status,
@@ -977,9 +964,7 @@ class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
             Expanded(
               child: TextFormField(
                 controller: _bankNameController,
-                decoration: _buildInputDecoration(
-                  label: 'Bank Name',
-                ),
+                decoration: _buildInputDecoration(label: 'Bank Name'),
               ),
             ),
           ],
@@ -1131,10 +1116,7 @@ class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
               Expanded(
                 child: Text(
                   'By clicking "Complete Onboarding", you agree that the information provided is accurate and complete.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.amber.shade900,
-                  ),
+                  style: TextStyle(fontSize: 14, color: Colors.amber.shade900),
                 ),
               ),
             ],
@@ -1165,10 +1147,7 @@ class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
             flex: 2,
             child: Text(
               value,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
           ),
         ],

@@ -10,16 +10,15 @@ import '../../utils/responsive_helper.dart';
 class AddEditSalaryBenefitsScreen extends StatefulWidget {
   final String? salaryBenefitsId;
 
-  const AddEditSalaryBenefitsScreen({
-    super.key,
-    this.salaryBenefitsId,
-  });
+  const AddEditSalaryBenefitsScreen({super.key, this.salaryBenefitsId});
 
   @override
-  State<AddEditSalaryBenefitsScreen> createState() => _AddEditSalaryBenefitsScreenState();
+  State<AddEditSalaryBenefitsScreen> createState() =>
+      _AddEditSalaryBenefitsScreenState();
 }
 
-class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScreen> {
+class _AddEditSalaryBenefitsScreenState
+    extends State<AddEditSalaryBenefitsScreen> {
   final _formKey = GlobalKey<FormState>();
   final _salaryBenefitsService = SalaryBenefitsService();
   final _staffService = StaffService();
@@ -87,19 +86,24 @@ class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScree
         _staff = args['staff'] as Staff?;
         debugPrint('Debug: _staff = ${_staff?.fullName}');
 
-        final existingSalaryBenefits = args['salaryBenefits'] as SalaryBenefits?;
+        final existingSalaryBenefits =
+            args['salaryBenefits'] as SalaryBenefits?;
         debugPrint('Debug: existingSalaryBenefits = $existingSalaryBenefits');
-        debugPrint('Debug: existingSalaryBenefits id = ${existingSalaryBenefits?.id}');
-        debugPrint('Debug: existingSalaryBenefits baseSalary = ${existingSalaryBenefits?.baseSalary}');
+        debugPrint(
+          'Debug: existingSalaryBenefits id = ${existingSalaryBenefits?.id}',
+        );
+        debugPrint(
+          'Debug: existingSalaryBenefits baseSalary = ${existingSalaryBenefits?.baseSalary}',
+        );
 
         if (existingSalaryBenefits != null) {
           debugPrint('Debug: Populating form with existing salary benefits');
           _editingSalaryBenefitsId = existingSalaryBenefits.id;
           _existingCreatedAt = existingSalaryBenefits.createdAt;
           _populateForm(existingSalaryBenefits);
-          if (_staff == null) {
-            _staff = await _staffService.getStaffById(existingSalaryBenefits.staffId);
-          }
+          _staff ??= await _staffService.getStaffById(
+            existingSalaryBenefits.staffId,
+          );
         } else {
           debugPrint('Debug: No existing salary benefits to populate');
         }
@@ -111,13 +115,16 @@ class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScree
       if (_staff == null && widget.salaryBenefitsId != null) {
         // Try to load the salary benefits record to get the staff ID, then load the staff
         // This is a fallback for cases where staff wasn't passed in the arguments
-        debugPrint('Debug: Staff not provided, attempting to load from salary benefits ID');
+        debugPrint(
+          'Debug: Staff not provided, attempting to load from salary benefits ID',
+        );
       }
     } catch (e, stackTrace) {
       debugPrint('Debug: Error in _loadInitialData: $e');
       debugPrint('Debug: Stack trace: $stackTrace');
     } finally {
-      if (mounted) {  // Add mounted check
+      if (mounted) {
+        // Add mounted check
         setState(() {
           _isInitialized = true;
         });
@@ -132,14 +139,18 @@ class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScree
     debugPrint('Debug: salaryPercentage = ${salaryBenefits.salaryPercentage}');
 
     _baseSalaryController.text = salaryBenefits.baseSalary.toString();
-    _overtimeRateController.text = salaryBenefits.overtimeRate?.toString() ?? '';
+    _overtimeRateController.text =
+        salaryBenefits.overtimeRate?.toString() ?? '';
     _bonusController.text = salaryBenefits.bonus?.toString() ?? '';
     _commissionController.text = salaryBenefits.commission?.toString() ?? '';
     _allowancesController.text = salaryBenefits.allowances?.toString() ?? '';
     _deductionsController.text = salaryBenefits.deductions?.toString() ?? '';
-    _providentFundPercentageController.text = salaryBenefits.providentFundPercentage?.toString() ?? '';
-    _healthInsurancePercentageController.text = salaryBenefits.healthInsurancePercentage?.toString() ?? '';
-    _socialSecurityPercentageController.text = salaryBenefits.socialSecurityPercentage?.toString() ?? '';
+    _providentFundPercentageController.text =
+        salaryBenefits.providentFundPercentage?.toString() ?? '';
+    _healthInsurancePercentageController.text =
+        salaryBenefits.healthInsurancePercentage?.toString() ?? '';
+    _socialSecurityPercentageController.text =
+        salaryBenefits.socialSecurityPercentage?.toString() ?? '';
     _salaryGradeController.text = salaryBenefits.salaryGrade ?? '';
     _payGradeController.text = salaryBenefits.payGrade ?? '';
     _notesController.text = salaryBenefits.notes ?? '';
@@ -147,29 +158,45 @@ class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScree
     _isActive = salaryBenefits.isActive;
 
     _effectiveDate = salaryBenefits.effectiveDate;
-    _effectiveDateController.text = DateFormat('dd/MM/yyyy').format(salaryBenefits.effectiveDate);
+    _effectiveDateController.text = DateFormat(
+      'dd/MM/yyyy',
+    ).format(salaryBenefits.effectiveDate);
 
     _endDate = salaryBenefits.endDate;
 
     // Populate new fields
     _wageFactorController.text = salaryBenefits.wageFactor?.toString() ?? '';
-    _salaryPercentageController.text = salaryBenefits.salaryPercentage?.toString() ?? '';
-    _phoneAllowanceController.text = salaryBenefits.phoneAllowance?.toString() ?? '';
-    _continueEducationAllowanceController.text = salaryBenefits.continueEducationAllowance?.toString() ?? '';
-    _equipmentAllowanceController.text = salaryBenefits.equipmentAllowance?.toString() ?? '';
-    _tithePercentageController.text = salaryBenefits.tithePercentage?.toString() ?? '10';
+    _salaryPercentageController.text =
+        salaryBenefits.salaryPercentage?.toString() ?? '';
+    _phoneAllowanceController.text =
+        salaryBenefits.phoneAllowance?.toString() ?? '';
+    _continueEducationAllowanceController.text =
+        salaryBenefits.continueEducationAllowance?.toString() ?? '';
+    _equipmentAllowanceController.text =
+        salaryBenefits.equipmentAllowance?.toString() ?? '';
+    _tithePercentageController.text =
+        salaryBenefits.tithePercentage?.toString() ?? '10';
 
     // Populate health benefits fields
-    _outPatientPercentageController.text = salaryBenefits.outPatientPercentage?.toString() ?? '75';
-    _inPatientPercentageController.text = salaryBenefits.inPatientPercentage?.toString() ?? '90';
-    _annualLeaveDaysController.text = salaryBenefits.annualLeaveDays?.toString() ?? '';
-    _housingAllowanceController.text = salaryBenefits.housingAllowance?.toString() ?? '';
+    _outPatientPercentageController.text =
+        salaryBenefits.outPatientPercentage?.toString() ?? '75';
+    _inPatientPercentageController.text =
+        salaryBenefits.inPatientPercentage?.toString() ?? '90';
+    _annualLeaveDaysController.text =
+        salaryBenefits.annualLeaveDays?.toString() ?? '';
+    _housingAllowanceController.text =
+        salaryBenefits.housingAllowance?.toString() ?? '';
 
     // Populate house rental field
-    _houseRentalPercentageController.text = salaryBenefits.houseRentalPercentage?.toString() ?? '10';
+    _houseRentalPercentageController.text =
+        salaryBenefits.houseRentalPercentage?.toString() ?? '10';
 
-    debugPrint('Debug: Form populated - wageFactor field = ${_wageFactorController.text}');
-    debugPrint('Debug: Form populated - salaryPercentage field = ${_salaryPercentageController.text}');
+    debugPrint(
+      'Debug: Form populated - wageFactor field = ${_wageFactorController.text}',
+    );
+    debugPrint(
+      'Debug: Form populated - salaryPercentage field = ${_salaryPercentageController.text}',
+    );
 
     // Force setState to update UI
     if (mounted) {
@@ -212,7 +239,9 @@ class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScree
   Future<void> _selectDate({required bool isEffectiveDate}) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: isEffectiveDate ? _effectiveDate ?? DateTime.now() : _endDate,
+      initialDate: isEffectiveDate
+          ? _effectiveDate ?? DateTime.now()
+          : _endDate,
       firstDate: DateTime(2000),
       lastDate: DateTime(2101),
     );
@@ -230,21 +259,24 @@ class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScree
   // Calculate Gross Salary from Wage Factor and Salary Percentage
   double _calculateGrossSalary() {
     final wageFactor = double.tryParse(_wageFactorController.text) ?? 0;
-    final salaryPercentage = double.tryParse(_salaryPercentageController.text) ?? 0;
+    final salaryPercentage =
+        double.tryParse(_salaryPercentageController.text) ?? 0;
     return wageFactor * (salaryPercentage / 100);
   }
 
   // Calculate Tithe from Gross Salary
   double _calculateTithe() {
     final grossSalary = _calculateGrossSalary();
-    final tithePercentage = double.tryParse(_tithePercentageController.text) ?? 0;
+    final tithePercentage =
+        double.tryParse(_tithePercentageController.text) ?? 0;
     return grossSalary * (tithePercentage / 100);
   }
 
   // Calculate Provident Fund from Gross Salary
   double _calculateProvidentFund() {
     final grossSalary = _calculateGrossSalary();
-    final providentFundPercentage = double.tryParse(_providentFundPercentageController.text) ?? 0;
+    final providentFundPercentage =
+        double.tryParse(_providentFundPercentageController.text) ?? 0;
     return grossSalary * (providentFundPercentage / 100);
   }
 
@@ -256,13 +288,17 @@ class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScree
   // Calculate House Rental (from Gross Salary, excluded from net salary)
   double _calculateHouseRental() {
     final grossSalary = _calculateGrossSalary();
-    final houseRentalPercentage = double.tryParse(_houseRentalPercentageController.text) ?? 0;
+    final houseRentalPercentage =
+        double.tryParse(_houseRentalPercentageController.text) ?? 0;
     return grossSalary * (houseRentalPercentage / 100);
   }
 
   // Calculate Total Deductions (including house rental)
   double _calculateTotalDeductions() {
-    return _calculateTithe() + _calculateProvidentFund() + _calculateSocialSecurity() + _calculateHouseRental();
+    return _calculateTithe() +
+        _calculateProvidentFund() +
+        _calculateSocialSecurity() +
+        _calculateHouseRental();
   }
 
   // Calculate Net Salary (Gross Salary - All Deductions, excluding Housing Allowance)
@@ -286,7 +322,9 @@ class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScree
     try {
       // Check if staff is loaded
       if (_staff == null) {
-        print('Debug: Staff is null, cannot save salary benefits'); // Debug message
+        print(
+          'Debug: Staff is null, cannot save salary benefits',
+        ); // Debug message
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -300,11 +338,13 @@ class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScree
 
       print('Debug: Preparing SalaryBenefits object'); // Debug message
       final salaryBenefits = SalaryBenefits(
-        id: _editingSalaryBenefitsId ??
+        id:
+            _editingSalaryBenefitsId ??
             widget.salaryBenefitsId ??
             DateTime.now().millisecondsSinceEpoch.toString(),
         staffId: _staff!.id,
-        baseSalary: _calculateGrossSalary(), // Use calculated gross salary as base
+        baseSalary:
+            _calculateGrossSalary(), // Use calculated gross salary as base
         overtimeRate: _overtimeRateController.text.isNotEmpty
             ? double.parse(_overtimeRateController.text)
             : null,
@@ -317,14 +357,18 @@ class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScree
         allowances: _allowancesController.text.isNotEmpty
             ? double.parse(_allowancesController.text)
             : null,
-        deductions: _calculateTotalDeductions(), // Use calculated total deductions
-        providentFundPercentage: _providentFundPercentageController.text.isNotEmpty
+        deductions:
+            _calculateTotalDeductions(), // Use calculated total deductions
+        providentFundPercentage:
+            _providentFundPercentageController.text.isNotEmpty
             ? double.parse(_providentFundPercentageController.text)
             : null,
-        healthInsurancePercentage: _healthInsurancePercentageController.text.isNotEmpty
+        healthInsurancePercentage:
+            _healthInsurancePercentageController.text.isNotEmpty
             ? double.parse(_healthInsurancePercentageController.text)
             : null,
-        socialSecurityPercentage: _socialSecurityPercentageController.text.isNotEmpty
+        socialSecurityPercentage:
+            _socialSecurityPercentageController.text.isNotEmpty
             ? double.parse(_socialSecurityPercentageController.text)
             : null,
         salaryGrade: _salaryGradeController.text.isNotEmpty
@@ -350,7 +394,8 @@ class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScree
         phoneAllowance: _phoneAllowanceController.text.isNotEmpty
             ? double.parse(_phoneAllowanceController.text)
             : null,
-        continueEducationAllowance: _continueEducationAllowanceController.text.isNotEmpty
+        continueEducationAllowance:
+            _continueEducationAllowanceController.text.isNotEmpty
             ? double.parse(_continueEducationAllowanceController.text)
             : null,
         equipmentAllowance: _equipmentAllowanceController.text.isNotEmpty
@@ -378,11 +423,17 @@ class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScree
             : null,
       );
 
-      print('Debug: Created SalaryBenefits object for staff: ${salaryBenefits.staffId}'); // Debug message
-      print('Debug: Base salary: ${salaryBenefits.baseSalary}'); // Debug message
+      print(
+        'Debug: Created SalaryBenefits object for staff: ${salaryBenefits.staffId}',
+      ); // Debug message
+      print(
+        'Debug: Base salary: ${salaryBenefits.baseSalary}',
+      ); // Debug message
 
       if (_editingSalaryBenefitsId != null || widget.salaryBenefitsId != null) {
-        print('Debug: Updating existing salary benefits record'); // Debug message
+        print(
+          'Debug: Updating existing salary benefits record',
+        ); // Debug message
         // Update existing
         await _salaryBenefitsService.updateSalaryBenefits(salaryBenefits);
       } else {
@@ -501,7 +552,7 @@ class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScree
                     ),
                   ),
                 ),
-                if (trailing != null) trailing,
+                ?trailing,
               ],
             ),
           ),
@@ -610,7 +661,9 @@ class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScree
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      isEditing ? 'Edit Salary & Benefits' : 'Add Salary & Benefits',
+                                      isEditing
+                                          ? 'Edit Salary & Benefits'
+                                          : 'Add Salary & Benefits',
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 24,
@@ -726,7 +779,9 @@ class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScree
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    isEditing ? 'Edit Salary & Benefits' : 'Add Salary & Benefits',
+                                    isEditing
+                                        ? 'Edit Salary & Benefits'
+                                        : 'Add Salary & Benefits',
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 24,
@@ -798,12 +853,24 @@ class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScree
                       _buildSectionCard(
                         title: 'Staff Information',
                         icon: Icons.person,
-                        iconGradient: [Colors.blue.shade400, Colors.blue.shade600],
+                        iconGradient: [
+                          Colors.blue.shade400,
+                          Colors.blue.shade600,
+                        ],
                         children: [
                           _buildStaffInfoRow('Name', _staff?.fullName ?? ''),
-                          _buildStaffInfoRow('Employee ID', _staff?.employeeId ?? ''),
-                          _buildStaffInfoRow('Position', _staff?.position ?? ''),
-                          _buildStaffInfoRow('Department', _staff?.department ?? ''),
+                          _buildStaffInfoRow(
+                            'Employee ID',
+                            _staff?.employeeId ?? '',
+                          ),
+                          _buildStaffInfoRow(
+                            'Position',
+                            _staff?.position ?? '',
+                          ),
+                          _buildStaffInfoRow(
+                            'Department',
+                            _staff?.department ?? '',
+                          ),
                         ],
                       ),
 
@@ -811,11 +878,16 @@ class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScree
                       _buildSectionCard(
                         title: 'Basic Salary Information',
                         icon: Icons.attach_money,
-                        iconGradient: [Colors.green.shade400, Colors.green.shade600],
+                        iconGradient: [
+                          Colors.green.shade400,
+                          Colors.green.shade600,
+                        ],
                         children: [
                           TextFormField(
                             controller: _wageFactorController,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
                             decoration: _buildInputDecoration(
                               label: 'Wage Factor (THB) *',
                               icon: Icons.attach_money,
@@ -839,7 +911,9 @@ class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScree
                           const SizedBox(height: 16),
                           TextFormField(
                             controller: _salaryPercentageController,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
                             decoration: _buildInputDecoration(
                               label: 'Salary Scale (%) *',
                               icon: Icons.percent,
@@ -890,14 +964,20 @@ class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScree
                       _buildSectionCard(
                         title: 'Health Benefits',
                         icon: Icons.health_and_safety,
-                        iconGradient: [Colors.pink.shade400, Colors.pink.shade600],
+                        iconGradient: [
+                          Colors.pink.shade400,
+                          Colors.pink.shade600,
+                        ],
                         children: [
                           Row(
                             children: [
                               Expanded(
                                 child: TextFormField(
                                   controller: _outPatientPercentageController,
-                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
                                   decoration: _buildInputDecoration(
                                     label: 'Out-Patient (%)',
                                     icon: Icons.local_hospital,
@@ -909,7 +989,10 @@ class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScree
                               Expanded(
                                 child: TextFormField(
                                   controller: _inPatientPercentageController,
-                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
                                   decoration: _buildInputDecoration(
                                     label: 'In-Patient (%)',
                                     icon: Icons.bed,
@@ -936,10 +1019,149 @@ class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScree
                               Expanded(
                                 child: TextFormField(
                                   controller: _housingAllowanceController,
-                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
                                   decoration: _buildInputDecoration(
                                     label: 'Housing Allowance (THB)',
                                     icon: Icons.home,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+
+                      // Monthly Allowances Section
+                      _buildSectionCard(
+                        title: 'Monthly Allowances',
+                        icon: Icons.account_balance_wallet,
+                        iconGradient: [
+                          Colors.orange.shade400,
+                          Colors.orange.shade600,
+                        ],
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            margin: const EdgeInsets.only(bottom: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.orange.shade200),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  color: Colors.orange.shade700,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'These allowances are paid every month.',
+                                    style: TextStyle(
+                                      color: Colors.orange.shade700,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _phoneAllowanceController,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                  decoration: _buildInputDecoration(
+                                    label: 'Phone Allowance (THB/Month)',
+                                    icon: Icons.phone_android,
+                                    helperText: 'Monthly amount',
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              const Expanded(
+                                child: SizedBox(),
+                              ), // Placeholder for future fields
+                            ],
+                          ),
+                        ],
+                      ),
+
+                      // Annual Allowances Section
+                      _buildSectionCard(
+                        title: 'Annual Allowances',
+                        icon: Icons.card_giftcard,
+                        iconGradient: [
+                          Colors.teal.shade400,
+                          Colors.teal.shade600,
+                        ],
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            margin: const EdgeInsets.only(bottom: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.teal.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.teal.shade200),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  color: Colors.teal.shade700,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'These allowances are paid once a year, not monthly.',
+                                    style: TextStyle(
+                                      color: Colors.teal.shade700,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _equipmentAllowanceController,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                  decoration: _buildInputDecoration(
+                                    label: 'Equipment Allowance (THB/Year)',
+                                    icon: Icons.computer,
+                                    helperText: 'Annual amount',
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: TextFormField(
+                                  controller:
+                                      _continueEducationAllowanceController,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                  decoration: _buildInputDecoration(
+                                    label: 'Continuing Education (THB/Year)',
+                                    icon: Icons.school,
+                                    helperText: 'Annual amount',
                                   ),
                                 ),
                               ),
@@ -952,7 +1174,10 @@ class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScree
                       _buildSectionCard(
                         title: 'Deductions',
                         icon: Icons.remove_circle_outline,
-                        iconGradient: [Colors.red.shade400, Colors.red.shade600],
+                        iconGradient: [
+                          Colors.red.shade400,
+                          Colors.red.shade600,
+                        ],
                         children: [
                           // Tithe
                           Row(
@@ -961,16 +1186,20 @@ class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScree
                                 flex: 2,
                                 child: TextFormField(
                                   controller: _tithePercentageController,
-                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
                                   decoration: _buildInputDecoration(
                                     label: 'Tithe (%)',
                                     icon: Icons.volunteer_activism,
                                     hintText: '10',
                                   ),
                                   onChanged: (_) {
-                                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                                      if (mounted) setState(() {});
-                                    });
+                                    WidgetsBinding.instance
+                                        .addPostFrameCallback((_) {
+                                          if (mounted) setState(() {});
+                                        });
                                   },
                                 ),
                               ),
@@ -989,7 +1218,9 @@ class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScree
                           // Social Security (Fixed Amount)
                           TextFormField(
                             controller: _socialSecurityPercentageController,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
                             decoration: _buildInputDecoration(
                               label: 'Social Security (THB)',
                               icon: Icons.security,
@@ -1007,17 +1238,22 @@ class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScree
                               Expanded(
                                 flex: 2,
                                 child: TextFormField(
-                                  controller: _providentFundPercentageController,
-                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  controller:
+                                      _providentFundPercentageController,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
                                   decoration: _buildInputDecoration(
                                     label: 'Provident Fund (%)',
                                     icon: Icons.savings,
                                     hintText: '10',
                                   ),
                                   onChanged: (_) {
-                                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                                      if (mounted) setState(() {});
-                                    });
+                                    WidgetsBinding.instance
+                                        .addPostFrameCallback((_) {
+                                          if (mounted) setState(() {});
+                                        });
                                   },
                                 ),
                               ),
@@ -1040,16 +1276,20 @@ class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScree
                                 flex: 2,
                                 child: TextFormField(
                                   controller: _houseRentalPercentageController,
-                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
                                   decoration: _buildInputDecoration(
                                     label: 'House Rental (%)',
                                     icon: Icons.house,
                                     hintText: '10',
                                   ),
                                   onChanged: (_) {
-                                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                                      if (mounted) setState(() {});
-                                    });
+                                    WidgetsBinding.instance
+                                        .addPostFrameCallback((_) {
+                                          if (mounted) setState(() {});
+                                        });
                                   },
                                 ),
                               ),
@@ -1079,7 +1319,10 @@ class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScree
                       _buildSectionCard(
                         title: 'Additional Information',
                         icon: Icons.info_outline,
-                        iconGradient: [Colors.indigo.shade400, Colors.indigo.shade600],
+                        iconGradient: [
+                          Colors.indigo.shade400,
+                          Colors.indigo.shade600,
+                        ],
                         children: [
                           DropdownButtonFormField<String>(
                             value: _currency,
@@ -1088,10 +1331,22 @@ class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScree
                               icon: Icons.currency_exchange,
                             ),
                             items: const [
-                              DropdownMenuItem(value: 'THB', child: Text('THB (Thai Baht)')),
-                              DropdownMenuItem(value: 'USD', child: Text('USD (US Dollar)')),
-                              DropdownMenuItem(value: 'EUR', child: Text('EUR (Euro)')),
-                              DropdownMenuItem(value: 'GBP', child: Text('GBP (British Pound)')),
+                              DropdownMenuItem(
+                                value: 'THB',
+                                child: Text('THB (Thai Baht)'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'USD',
+                                child: Text('USD (US Dollar)'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'EUR',
+                                child: Text('EUR (Euro)'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'GBP',
+                                child: Text('GBP (British Pound)'),
+                              ),
                             ],
                             onChanged: (value) {
                               if (value != null) {
@@ -1110,7 +1365,9 @@ class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScree
                             ),
                             child: SwitchListTile(
                               title: const Text('Active'),
-                              subtitle: const Text('Is this salary record currently active?'),
+                              subtitle: const Text(
+                                'Is this salary record currently active?',
+                              ),
                               value: _isActive,
                               onChanged: (value) {
                                 setState(() {
@@ -1228,9 +1485,7 @@ class _AddEditSalaryBenefitsScreenState extends State<AddEditSalaryBenefitsScree
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
         ],

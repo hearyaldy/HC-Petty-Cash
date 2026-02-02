@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
@@ -131,9 +130,7 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
           children: [
             _buildFilterBar(),
             const SizedBox(height: 16),
-            Expanded(
-              child: _buildReportsList(),
-            ),
+            Expanded(child: _buildReportsList()),
           ],
         ),
       ),

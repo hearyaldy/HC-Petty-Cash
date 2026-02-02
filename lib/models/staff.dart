@@ -61,6 +61,9 @@ class Staff {
   // Documents
   final int documentsCount; // Count of uploaded documents (managed separately)
 
+  // HR Data Link
+  final String? hrSubmissionId; // Reference to the original HR data submission
+
   // Metadata
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -108,6 +111,7 @@ class Staff {
     this.approvalLimit,
     this.permissions = const [],
     this.documentsCount = 0,
+    this.hrSubmissionId,
     required this.createdAt,
     this.updatedAt,
     this.notes,
@@ -155,6 +159,7 @@ class Staff {
     this.approvalLimit,
     this.permissions = const [],
     this.documentsCount = 0,
+    this.hrSubmissionId,
     DateTime? createdAt,
     this.updatedAt,
     this.notes,
@@ -220,6 +225,7 @@ class Staff {
       'approvalLimit': approvalLimit,
       'permissions': permissions,
       'documentsCount': documentsCount,
+      'hrSubmissionId': hrSubmissionId,
       'createdAt': firestore.Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt != null
           ? firestore.Timestamp.fromDate(updatedAt!)
@@ -319,6 +325,7 @@ class Staff {
           ? List<String>.from(data['permissions'] as List)
           : [],
       documentsCount: data['documentsCount'] as int? ?? 0,
+      hrSubmissionId: data['hrSubmissionId'] as String?,
       createdAt: createdAt,
       updatedAt: data['updatedAt'] != null && data['updatedAt'] is firestore.Timestamp
           ? (data['updatedAt'] as firestore.Timestamp).toDate()
@@ -368,6 +375,7 @@ class Staff {
     double? providentFundAmount,
     double? approvalLimit,
     int? documentsCount,
+    String? hrSubmissionId,
     DateTime? updatedAt,
     String? notes,
   }) {
@@ -416,6 +424,7 @@ class Staff {
       approvalLimit: approvalLimit ?? this.approvalLimit,
       permissions: permissions,
       documentsCount: documentsCount ?? this.documentsCount,
+      hrSubmissionId: hrSubmissionId ?? this.hrSubmissionId,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       notes: notes ?? this.notes,

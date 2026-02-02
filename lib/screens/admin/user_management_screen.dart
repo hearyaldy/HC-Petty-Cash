@@ -22,6 +22,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   final FirestoreService _firestoreService = FirestoreService();
   List<User> _users = [];
   bool _isLoading = true;
+  // Store student profiles in state to avoid Firestore web stream issues
+  Map<String, StudentProfile> _studentProfiles = {};
 
   @override
   void initState() {
@@ -38,10 +40,16 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       for (final user in users) {
         debugPrint('  - User: ${user.name} (${user.email}), role: ${user.role}');
       }
-      setState(() {
-        _users = users;
-        _isLoading = false;
-      });
+      _users = users;
+
+      // Load student profiles for student workers
+      await _loadStudentProfiles();
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     } catch (e, stackTrace) {
       debugPrint('UserManagement: Error loading users: $e');
       debugPrint('Stack trace: $stackTrace');
@@ -51,6 +59,36 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           context,
         ).showSnackBar(SnackBar(content: Text('Error loading users: $e')));
       }
+    }
+  }
+
+  Future<void> _loadStudentProfiles() async {
+    try {
+      final students = _users.where((u) => u.role == 'studentWorker').toList();
+      final profiles = <String, StudentProfile>{};
+
+      for (final student in students) {
+        try {
+          final doc = await FirebaseFirestore.instance
+              .collection('student_profiles')
+              .doc(student.id)
+              .get(const GetOptions(source: Source.server));
+
+          if (doc.exists) {
+            profiles[student.id] = StudentProfile.fromFirestore(doc);
+          }
+        } catch (e) {
+          debugPrint('UserManagement: Error loading profile for ${student.id}: $e');
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _studentProfiles = profiles;
+        });
+      }
+    } catch (e) {
+      debugPrint('UserManagement: Error loading student profiles: $e');
     }
   }
 
@@ -268,19 +306,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         ],
         if (students.isNotEmpty) ...[
           _buildSectionHeader('Student Workers', Icons.school, Colors.orange, students.length),
-          ...students.map((user) => StreamBuilder<DocumentSnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('student_profiles')
-                .doc(user.id)
-                .snapshots(),
-            builder: (context, snapshot) {
-              StudentProfile? profile;
-              if (snapshot.hasData && snapshot.data!.exists) {
-                profile = StudentProfile.fromFirestore(snapshot.data!);
-              }
-              return _buildStudentCard(user, profile);
-            },
-          )),
+          ...students.map((user) => _buildStudentCard(user, _studentProfiles[user.id])),
         ],
         // Show users with unknown roles (for debugging)
         if (others.isNotEmpty) ...[

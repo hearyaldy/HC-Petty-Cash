@@ -8,6 +8,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'dart:io' show File;
 import 'package:path_provider/path_provider.dart';
 import 'package:printing/printing.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../providers/report_provider.dart';
 import '../../models/transaction.dart';
@@ -122,9 +123,27 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
     final transactionProvider = context.watch<TransactionProvider>();
     final reportProvider = context.watch<ReportProvider>();
-    final allTransactions = transactionProvider.transactions;
+    final user = authProvider.currentUser;
+    final canViewAll = authProvider.canViewAllReports();
+
+    // Filter transactions based on user role
+    // Regular users only see transactions from their own reports
+    final userReportIds = canViewAll
+        ? null // null means show all
+        : reportProvider.reports
+            .where((r) => r.custodianId == user?.id)
+            .map((r) => r.id)
+            .toSet();
+
+    final allTransactions = canViewAll
+        ? transactionProvider.transactions
+        : transactionProvider.transactions
+            .where((t) => userReportIds?.contains(t.reportId) ?? false)
+            .toList();
+
     final filteredTransactions = _getFilteredTransactions(allTransactions);
 
     final totalAmount = filteredTransactions.fold<double>(

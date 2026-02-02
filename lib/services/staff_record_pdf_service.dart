@@ -5,23 +5,36 @@ import 'package:pdf/pdf.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import '../models/staff.dart';
+import '../models/salary_benefits.dart';
 import '../utils/constants.dart';
 
 class StaffRecordPdfService {
-  final currencyFormat = NumberFormat.currency(symbol: 'THB ', decimalDigits: 0);
+  final currencyFormat = NumberFormat.currency(
+    symbol: 'THB ',
+    decimalDigits: 0,
+  );
   final dateFormat = DateFormat('MMMM d, yyyy');
 
-  Future<Uint8List> generateStaffRecordPdf(Staff staff) async {
+  Future<Uint8List> generateStaffRecordPdf(
+    Staff staff, {
+    SalaryBenefits? salaryBenefits,
+  }) async {
     // Load fonts
-    final fontData = await rootBundle.load('assets/fonts/NotoSansThai-Regular.ttf');
+    final fontData = await rootBundle.load(
+      'assets/fonts/NotoSansThai-Regular.ttf',
+    );
     final ttf = pw.Font.ttf(fontData);
-    final boldFontData = await rootBundle.load('assets/fonts/NotoSansThai-Bold.ttf');
+    final boldFontData = await rootBundle.load(
+      'assets/fonts/NotoSansThai-Bold.ttf',
+    );
     final boldTtf = pw.Font.ttf(boldFontData);
 
     // Load logo
     pw.ImageProvider? logoImage;
     try {
-      final logoData = await rootBundle.load('assets/images/hope_channel_logo.png');
+      final logoData = await rootBundle.load(
+        'assets/images/hope_channel_logo.png',
+      );
       logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
     } catch (e) {
       // Logo loading failed
@@ -57,6 +70,10 @@ class StaffRecordPdfService {
             _buildEmploymentSection(staff),
             pw.SizedBox(height: 16),
             _buildFinancialSection(staff),
+            if (salaryBenefits != null) ...[
+              pw.SizedBox(height: 16),
+              _buildSalaryBenefitsSection(salaryBenefits),
+            ],
             if (staff.notes != null) ...[
               pw.SizedBox(height: 16),
               _buildNotesSection(staff),
@@ -69,7 +86,11 @@ class StaffRecordPdfService {
     return await pdf.save();
   }
 
-  pw.Widget _buildHeader(Staff staff, pw.ImageProvider? logoImage, pw.ImageProvider? staffPhoto) {
+  pw.Widget _buildHeader(
+    Staff staff,
+    pw.ImageProvider? logoImage,
+    pw.ImageProvider? staffPhoto,
+  ) {
     return pw.Column(
       children: [
         pw.Row(
@@ -91,11 +112,14 @@ class StaffRecordPdfService {
                   borderRadius: pw.BorderRadius.circular(8),
                 ),
                 child: pw.Center(
-                  child: pw.Text('HC', style: pw.TextStyle(
-                    fontSize: 18,
-                    fontWeight: pw.FontWeight.bold,
-                    color: PdfColors.indigo700,
-                  )),
+                  child: pw.Text(
+                    'HC',
+                    style: pw.TextStyle(
+                      fontSize: 18,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.indigo700,
+                    ),
+                  ),
                 ),
               ),
             pw.SizedBox(width: 12),
@@ -106,26 +130,39 @@ class StaffRecordPdfService {
                 children: [
                   pw.Text(
                     AppConstants.organizationName,
-                    style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+                    style: pw.TextStyle(
+                      fontSize: 14,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
                   ),
                   pw.SizedBox(height: 2),
                   pw.Text(
                     AppConstants.organizationAddress,
-                    style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
+                    style: const pw.TextStyle(
+                      fontSize: 9,
+                      color: PdfColors.grey700,
+                    ),
                   ),
                 ],
               ),
             ),
             // Staff Record badge
             pw.Container(
-              padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const pw.EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 6,
+              ),
               decoration: pw.BoxDecoration(
                 color: PdfColors.indigo700,
                 borderRadius: pw.BorderRadius.circular(4),
               ),
               child: pw.Text(
                 'STAFF RECORD',
-                style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+                style: pw.TextStyle(
+                  fontSize: 10,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.white,
+                ),
               ),
             ),
           ],
@@ -143,12 +180,18 @@ class StaffRecordPdfService {
               children: [
                 pw.Text(
                   staff.fullName,
-                  style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+                  style: pw.TextStyle(
+                    fontSize: 18,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
                 ),
                 pw.SizedBox(height: 2),
                 pw.Text(
                   '${staff.position} | ${staff.department}',
-                  style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700),
+                  style: const pw.TextStyle(
+                    fontSize: 10,
+                    color: PdfColors.grey700,
+                  ),
                 ),
               ],
             ),
@@ -164,7 +207,10 @@ class StaffRecordPdfService {
                   pw.SizedBox(width: 8),
                 ],
                 pw.Container(
-                  padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const pw.EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: pw.BoxDecoration(
                     color: PdfColors.blue50,
                     borderRadius: pw.BorderRadius.circular(4),
@@ -172,19 +218,30 @@ class StaffRecordPdfService {
                   ),
                   child: pw.Text(
                     staff.employeeId,
-                    style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.blue800),
+                    style: pw.TextStyle(
+                      fontSize: 10,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.blue800,
+                    ),
                   ),
                 ),
                 pw.SizedBox(width: 8),
                 pw.Container(
-                  padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const pw.EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: pw.BoxDecoration(
                     color: _getStatusColor(staff.employmentStatus),
                     borderRadius: pw.BorderRadius.circular(4),
                   ),
                   child: pw.Text(
                     staff.employmentStatus.displayName,
-                    style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+                    style: pw.TextStyle(
+                      fontSize: 9,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.white,
+                    ),
                   ),
                 ),
               ],
@@ -254,7 +311,11 @@ class StaffRecordPdfService {
       ),
       child: pw.Text(
         title,
-        style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: PdfColors.grey800),
+        style: pw.TextStyle(
+          fontSize: 11,
+          fontWeight: pw.FontWeight.bold,
+          color: PdfColors.grey800,
+        ),
       ),
     );
   }
@@ -265,9 +326,15 @@ class StaffRecordPdfService {
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          pw.Text(label, style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
+          pw.Text(
+            label,
+            style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
+          ),
           pw.SizedBox(height: 1),
-          pw.Text(value, style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+          pw.Text(
+            value,
+            style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+          ),
         ],
       ),
     );
@@ -292,7 +359,10 @@ class StaffRecordPdfService {
                     _buildInfoItem('Full Name', staff.fullName),
                     _buildInfoItem('Email', staff.email),
                     if (staff.dateOfBirth != null)
-                      _buildInfoItem('Date of Birth', dateFormat.format(staff.dateOfBirth!)),
+                      _buildInfoItem(
+                        'Date of Birth',
+                        dateFormat.format(staff.dateOfBirth!),
+                      ),
                     if (staff.gender != null)
                       _buildInfoItem('Gender', staff.gender!.displayName),
                   ],
@@ -330,12 +400,21 @@ class StaffRecordPdfService {
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
-                            pw.Text('Emergency Contact',
-                              style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.red700)),
+                            pw.Text(
+                              'Emergency Contact',
+                              style: pw.TextStyle(
+                                fontSize: 8,
+                                fontWeight: pw.FontWeight.bold,
+                                color: PdfColors.red700,
+                              ),
+                            ),
                             pw.SizedBox(height: 4),
                             _buildInfoItem('Name', staff.emergencyContactName!),
                             if (staff.emergencyContactPhone != null)
-                              _buildInfoItem('Phone', staff.emergencyContactPhone!),
+                              _buildInfoItem(
+                                'Phone',
+                                staff.emergencyContactPhone!,
+                              ),
                           ],
                         ),
                       ),
@@ -403,11 +482,23 @@ class StaffRecordPdfService {
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    _buildInfoItem('Employment Type', staff.employmentType.displayName),
-                    _buildInfoItem('Employment Status', staff.employmentStatus.displayName),
-                    _buildInfoItem('Date of Joining', dateFormat.format(staff.dateOfJoining)),
+                    _buildInfoItem(
+                      'Employment Type',
+                      staff.employmentType.displayName,
+                    ),
+                    _buildInfoItem(
+                      'Employment Status',
+                      staff.employmentStatus.displayName,
+                    ),
+                    _buildInfoItem(
+                      'Date of Joining',
+                      dateFormat.format(staff.dateOfJoining),
+                    ),
                     if (staff.dateOfLeaving != null)
-                      _buildInfoItem('Date of Leaving', dateFormat.format(staff.dateOfLeaving!)),
+                      _buildInfoItem(
+                        'Date of Leaving',
+                        dateFormat.format(staff.dateOfLeaving!),
+                      ),
                   ],
                 ),
               ),
@@ -415,9 +506,15 @@ class StaffRecordPdfService {
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    _buildInfoItem('Years of Service', '${staff.yearsOfService} years'),
+                    _buildInfoItem(
+                      'Years of Service',
+                      '${staff.yearsOfService} years',
+                    ),
                     if (staff.approvalLimit != null)
-                      _buildInfoItem('Approval Limit', currencyFormat.format(staff.approvalLimit!)),
+                      _buildInfoItem(
+                        'Approval Limit',
+                        currencyFormat.format(staff.approvalLimit!),
+                      ),
                   ],
                 ),
               ),
@@ -429,7 +526,8 @@ class StaffRecordPdfService {
   }
 
   pw.Widget _buildFinancialSection(Staff staff) {
-    final hasFinancialInfo = staff.bankAccountNumber != null ||
+    final hasFinancialInfo =
+        staff.bankAccountNumber != null ||
         staff.bankName != null ||
         staff.taxId != null ||
         staff.monthlySalary != null;
@@ -458,12 +556,22 @@ class StaffRecordPdfService {
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      pw.Text('Banking', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
+                      pw.Text(
+                        'Banking',
+                        style: pw.TextStyle(
+                          fontSize: 9,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.grey700,
+                        ),
+                      ),
                       pw.SizedBox(height: 4),
                       if (staff.bankName != null)
                         _buildInfoItem('Bank Name', staff.bankName!),
                       if (staff.bankAccountNumber != null)
-                        _buildInfoItem('Account Number', staff.bankAccountNumber!),
+                        _buildInfoItem(
+                          'Account Number',
+                          staff.bankAccountNumber!,
+                        ),
                       if (staff.taxId != null)
                         _buildInfoItem('Tax ID', staff.taxId!),
                     ],
@@ -474,12 +582,25 @@ class StaffRecordPdfService {
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      pw.Text('Compensation', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
+                      pw.Text(
+                        'Compensation',
+                        style: pw.TextStyle(
+                          fontSize: 9,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.grey700,
+                        ),
+                      ),
                       pw.SizedBox(height: 4),
                       if (staff.monthlySalary != null)
-                        _buildInfoItem('Monthly Salary', currencyFormat.format(staff.monthlySalary!)),
+                        _buildInfoItem(
+                          'Monthly Salary',
+                          currencyFormat.format(staff.monthlySalary!),
+                        ),
                       if (staff.allowances != null)
-                        _buildInfoItem('Allowances', currencyFormat.format(staff.allowances!)),
+                        _buildInfoItem(
+                          'Allowances',
+                          currencyFormat.format(staff.allowances!),
+                        ),
                     ],
                   ),
                 ),
@@ -488,20 +609,290 @@ class StaffRecordPdfService {
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      pw.Text('Deductions', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
+                      pw.Text(
+                        'Deductions',
+                        style: pw.TextStyle(
+                          fontSize: 9,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.grey700,
+                        ),
+                      ),
                       pw.SizedBox(height: 4),
                       if (staff.tithePercentage != null)
-                        _buildInfoItem('Tithe', '${staff.tithePercentage!.toStringAsFixed(1)}%'),
+                        _buildInfoItem(
+                          'Tithe',
+                          '${staff.tithePercentage!.toStringAsFixed(1)}%',
+                        ),
                       if (staff.socialSecurityAmount != null)
-                        _buildInfoItem('Social Security', currencyFormat.format(staff.socialSecurityAmount!)),
+                        _buildInfoItem(
+                          'Social Security',
+                          currencyFormat.format(staff.socialSecurityAmount!),
+                        ),
                       if (staff.providentFundPercentage != null)
-                        _buildInfoItem('Provident Fund', '${staff.providentFundPercentage!.toStringAsFixed(1)}%'),
+                        _buildInfoItem(
+                          'Provident Fund',
+                          '${staff.providentFundPercentage!.toStringAsFixed(1)}%',
+                        ),
                     ],
                   ),
                 ),
               ],
             ),
           ),
+      ],
+    );
+  }
+
+  pw.Widget _buildSalaryBenefitsSection(SalaryBenefits salaryBenefits) {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Salary & Benefits Details'),
+        pw.SizedBox(height: 8),
+        pw.Padding(
+          padding: const pw.EdgeInsets.symmetric(horizontal: 8),
+          child: pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Salary Structure
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'Salary Structure',
+                      style: pw.TextStyle(
+                        fontSize: 9,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.grey700,
+                      ),
+                    ),
+                    pw.SizedBox(height: 4),
+                    if (salaryBenefits.wageFactor != null)
+                      _buildInfoItem(
+                        'Wage Factor',
+                        currencyFormat.format(salaryBenefits.wageFactor!),
+                      ),
+                    if (salaryBenefits.salaryPercentage != null)
+                      _buildInfoItem(
+                        'Salary Scale',
+                        '${salaryBenefits.salaryPercentage!.toStringAsFixed(0)}%',
+                      ),
+                    _buildInfoItem(
+                      'Gross Salary',
+                      currencyFormat.format(salaryBenefits.grossSalary),
+                    ),
+                    _buildInfoItem(
+                      'Net Salary',
+                      currencyFormat.format(salaryBenefits.netSalary),
+                    ),
+                    _buildInfoItem(
+                      'Effective Date',
+                      dateFormat.format(salaryBenefits.effectiveDate),
+                    ),
+                  ],
+                ),
+              ),
+              // Monthly Allowances
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'Monthly Allowances',
+                      style: pw.TextStyle(
+                        fontSize: 9,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.grey700,
+                      ),
+                    ),
+                    pw.SizedBox(height: 4),
+                    if (salaryBenefits.phoneAllowance != null)
+                      _buildInfoItem(
+                        'Phone Allowance',
+                        currencyFormat.format(salaryBenefits.phoneAllowance!),
+                      ),
+                    if (salaryBenefits.housingAllowance != null)
+                      _buildInfoItem(
+                        'Housing Allowance',
+                        currencyFormat.format(salaryBenefits.housingAllowance!),
+                      ),
+                    pw.SizedBox(height: 8),
+                    pw.Text(
+                      'Annual Allowances',
+                      style: pw.TextStyle(
+                        fontSize: 9,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.grey700,
+                      ),
+                    ),
+                    pw.SizedBox(height: 4),
+                    if (salaryBenefits.equipmentAllowance != null)
+                      _buildInfoItem(
+                        'Equipment (Yearly)',
+                        currencyFormat.format(
+                          salaryBenefits.equipmentAllowance!,
+                        ),
+                      ),
+                    if (salaryBenefits.continueEducationAllowance != null)
+                      _buildInfoItem(
+                        'Education (Yearly)',
+                        currencyFormat.format(
+                          salaryBenefits.continueEducationAllowance!,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              // Deductions
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'Deductions',
+                      style: pw.TextStyle(
+                        fontSize: 9,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.grey700,
+                      ),
+                    ),
+                    pw.SizedBox(height: 4),
+                    if (salaryBenefits.tithePercentage != null)
+                      _buildInfoItem(
+                        'Tithe (${salaryBenefits.tithePercentage!.toStringAsFixed(0)}%)',
+                        currencyFormat.format(salaryBenefits.titheAmount),
+                      ),
+                    if (salaryBenefits.socialSecurityPercentage != null)
+                      _buildInfoItem(
+                        'Social Security',
+                        currencyFormat.format(
+                          salaryBenefits.socialSecurityAmount,
+                        ),
+                      ),
+                    if (salaryBenefits.providentFundPercentage != null)
+                      _buildInfoItem(
+                        'Provident Fund (${salaryBenefits.providentFundPercentage!.toStringAsFixed(0)}%)',
+                        currencyFormat.format(
+                          salaryBenefits.providentFundAmount,
+                        ),
+                      ),
+                    if (salaryBenefits.houseRentalPercentage != null &&
+                        salaryBenefits.houseRentalPercentage! > 0)
+                      _buildInfoItem(
+                        'House Rental (${salaryBenefits.houseRentalPercentage!.toStringAsFixed(0)}%)',
+                        currencyFormat.format(salaryBenefits.houseRentalAmount),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        pw.SizedBox(height: 8),
+        pw.Padding(
+          padding: const pw.EdgeInsets.symmetric(horizontal: 8),
+          child: pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Health Benefits
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'Health Benefits',
+                      style: pw.TextStyle(
+                        fontSize: 9,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.grey700,
+                      ),
+                    ),
+                    pw.SizedBox(height: 4),
+                    if (salaryBenefits.outPatientPercentage != null)
+                      _buildInfoItem(
+                        'Out-Patient Coverage',
+                        '${salaryBenefits.outPatientPercentage!.toStringAsFixed(0)}%',
+                      ),
+                    if (salaryBenefits.inPatientPercentage != null)
+                      _buildInfoItem(
+                        'In-Patient Coverage',
+                        '${salaryBenefits.inPatientPercentage!.toStringAsFixed(0)}%',
+                      ),
+                    if (salaryBenefits.annualLeaveDays != null)
+                      _buildInfoItem(
+                        'Annual Leave',
+                        '${salaryBenefits.annualLeaveDays} days',
+                      ),
+                  ],
+                ),
+              ),
+              // Totals
+              pw.Expanded(
+                flex: 2,
+                child: pw.Container(
+                  padding: const pw.EdgeInsets.all(10),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColors.green50,
+                    borderRadius: pw.BorderRadius.circular(4),
+                    border: pw.Border.all(color: PdfColors.green200),
+                  ),
+                  child: pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
+                    children: [
+                      pw.Column(
+                        children: [
+                          pw.Text(
+                            'Monthly Total',
+                            style: pw.TextStyle(
+                              fontSize: 8,
+                              fontWeight: pw.FontWeight.bold,
+                              color: PdfColors.green700,
+                            ),
+                          ),
+                          pw.SizedBox(height: 2),
+                          pw.Text(
+                            currencyFormat.format(
+                              salaryBenefits.totalCompensation,
+                            ),
+                            style: pw.TextStyle(
+                              fontSize: 12,
+                              fontWeight: pw.FontWeight.bold,
+                              color: PdfColors.green800,
+                            ),
+                          ),
+                        ],
+                      ),
+                      pw.Column(
+                        children: [
+                          pw.Text(
+                            'Annual Total',
+                            style: pw.TextStyle(
+                              fontSize: 8,
+                              fontWeight: pw.FontWeight.bold,
+                              color: PdfColors.green700,
+                            ),
+                          ),
+                          pw.SizedBox(height: 2),
+                          pw.Text(
+                            currencyFormat.format(
+                              salaryBenefits.annualTotalCompensation,
+                            ),
+                            style: pw.TextStyle(
+                              fontSize: 12,
+                              fontWeight: pw.FontWeight.bold,
+                              color: PdfColors.green800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -522,7 +913,10 @@ class StaffRecordPdfService {
               borderRadius: pw.BorderRadius.circular(4),
               border: pw.Border.all(color: PdfColors.amber200),
             ),
-            child: pw.Text(staff.notes!, style: const pw.TextStyle(fontSize: 10)),
+            child: pw.Text(
+              staff.notes!,
+              style: const pw.TextStyle(fontSize: 10),
+            ),
           ),
         ),
       ],
@@ -542,11 +936,17 @@ class StaffRecordPdfService {
             children: [
               pw.Text(
                 'Generated on ${DateFormat('MMMM d, yyyy HH:mm').format(DateTime.now())}',
-                style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey500),
+                style: const pw.TextStyle(
+                  fontSize: 8,
+                  color: PdfColors.grey500,
+                ),
               ),
               pw.Text(
                 'Page ${context.pageNumber} of ${context.pagesCount}',
-                style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey500),
+                style: const pw.TextStyle(
+                  fontSize: 8,
+                  color: PdfColors.grey500,
+                ),
               ),
             ],
           ),

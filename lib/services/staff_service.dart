@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
@@ -73,15 +72,15 @@ class StaffService {
   }
 
   // Update staff employee ID only
-  Future<void> updateStaffEmployeeId(String staffId, String newEmployeeId) async {
+  Future<void> updateStaffEmployeeId(
+    String staffId,
+    String newEmployeeId,
+  ) async {
     try {
-      await _firestore
-          .collection(collectionName)
-          .doc(staffId)
-          .update({
-            'employeeId': newEmployeeId,
-            'updatedAt': Timestamp.now(),
-          });
+      await _firestore.collection(collectionName).doc(staffId).update({
+        'employeeId': newEmployeeId,
+        'updatedAt': Timestamp.now(),
+      });
     } catch (e) {
       throw Exception('Failed to update staff employee ID: $e');
     }
@@ -168,7 +167,9 @@ class StaffService {
         .collection(collectionName)
         .snapshots()
         .map((snapshot) {
-          print('Debug: Got ${snapshot.docs.length} staff documents from Firestore');
+          print(
+            'Debug: Got ${snapshot.docs.length} staff documents from Firestore',
+          );
           final List<Staff> staffList = [];
           for (final doc in snapshot.docs) {
             try {
@@ -182,7 +183,10 @@ class StaffService {
           }
           print('Debug: Successfully parsed ${staffList.length} staff records');
           // Sort locally instead of using Firestore orderBy
-          staffList.sort((a, b) => a.fullName.toLowerCase().compareTo(b.fullName.toLowerCase()));
+          staffList.sort(
+            (a, b) =>
+                a.fullName.toLowerCase().compareTo(b.fullName.toLowerCase()),
+          );
           return staffList;
         })
         .handleError((error) {

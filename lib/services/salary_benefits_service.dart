@@ -61,6 +61,17 @@ class SalaryBenefitsService {
   // Sync salary data to staff record
   Future<void> _syncSalaryDataToStaff(SalaryBenefits salaryBenefits) async {
     try {
+      // Get the staff record to find the userId for HR data sync
+      final staffDoc = await _firestore
+          .collection(StaffService.collectionName)
+          .doc(salaryBenefits.staffId)
+          .get();
+
+      final staffData = staffDoc.data();
+      final staffUserId = staffData?['userId'] as String?;
+      final staffEmail = staffData?['email'] as String?;
+
+      // Update the staff record
       await _firestore
           .collection(StaffService.collectionName)
           .doc(salaryBenefits.staffId)
@@ -82,8 +93,179 @@ class SalaryBenefitsService {
             'updatedAt': FieldValue.serverTimestamp(),
           });
       print('Debug: Staff record synced with salary data'); // Debug message
+
+      // Also sync to HR data submissions if user has submitted HR data
+      await _syncSalaryDataToHrSubmission(
+        salaryBenefits,
+        staffUserId,
+        staffEmail,
+      );
     } catch (e) {
       print('Warning: Failed to sync salary data to staff record: $e');
+    }
+  }
+
+  // Sync salary data to HR data submissions
+  Future<void> _syncSalaryDataToHrSubmission(
+    SalaryBenefits salaryBenefits,
+    String? staffUserId,
+    String? staffEmail,
+  ) async {
+    try {
+      if (staffUserId == null && staffEmail == null) {
+        print('Debug: No userId or email found for HR submission sync');
+        return;
+      }
+
+      // Find HR data submission by userId or email
+      QuerySnapshot<Map<String, dynamic>>? hrSubmissionQuery;
+
+      if (staffUserId != null) {
+        hrSubmissionQuery = await _firestore
+            .collection('hr_data_submissions')
+            .where('submittedBy', isEqualTo: staffUserId)
+            .orderBy('submittedAt', descending: true)
+            .limit(1)
+            .get();
+      }
+
+      // If not found by userId, try by email
+      if ((hrSubmissionQuery == null || hrSubmissionQuery.docs.isEmpty) &&
+          staffEmail != null) {
+        hrSubmissionQuery = await _firestore
+            .collection('hr_data_submissions')
+            .where('email', isEqualTo: staffEmail)
+            .orderBy('submittedAt', descending: true)
+            .limit(1)
+            .get();
+      }
+
+      if (hrSubmissionQuery != null && hrSubmissionQuery.docs.isNotEmpty) {
+        final hrDoc = hrSubmissionQuery.docs.first;
+
+        // Update the HR submission with salary data
+        await _firestore
+            .collection('hr_data_submissions')
+            .doc(hrDoc.id)
+            .update({
+              // Salary Structure
+              'baseSalary': salaryBenefits.baseSalary,
+              'wageFactor': salaryBenefits.wageFactor,
+              'salaryPercentage': salaryBenefits.salaryPercentage,
+              'calculatedSalary': salaryBenefits.grossSalary,
+              'netSalary': salaryBenefits.netSalary,
+              'totalCompensation': salaryBenefits.totalCompensation,
+
+              // Allowances
+              'phoneAllowance': salaryBenefits.phoneAllowance ?? 0,
+              'educationAllowance':
+                  salaryBenefits.continueEducationAllowance ?? 0,
+              'houseAllowance': salaryBenefits.housingAllowance ?? 0,
+              'equipmentAllowance': salaryBenefits.equipmentAllowance ?? 0,
+              'totalAllowances':
+                  (salaryBenefits.phoneAllowance ?? 0) +
+                  (salaryBenefits.housingAllowance ?? 0) +
+                  (salaryBenefits.continueEducationAllowance ?? 0) +
+                  (salaryBenefits.equipmentAllowance ?? 0),
+
+              // Deductions
+              'tithePercentage': salaryBenefits.tithePercentage ?? 0,
+              'titheAmount': salaryBenefits.titheAmount,
+              'providentFundPercentage':
+                  salaryBenefits.providentFundPercentage ?? 0,
+              'providentFundAmount': salaryBenefits.providentFundAmount,
+              'socialSecurityAmount': salaryBenefits.socialSecurityAmount,
+              'houseRentalPercentage':
+                  salaryBenefits.houseRentalPercentage ?? 0,
+              'houseRentalAmount': salaryBenefits.houseRentalAmount,
+
+              // Health Benefits
+              'outPatientPercentage':
+                  salaryBenefits.outPatientPercentage ?? 75,
+              'inPatientPercentage': salaryBenefits.inPatientPercentage ?? 90,
+              'annualLeaveDays': salaryBenefits.annualLeaveDays ?? 10,
+
+              // Metadata
+              'salaryUpdatedAt': FieldValue.serverTimestamp(),
+              'salaryUpdatedBy': 'admin_sync',
+            });
+
+        print(
+          'Debug: HR submission synced with salary data for doc ${hrDoc.id}',
+        );
+      } else {
+        print('Debug: No HR submission found to sync salary data');
+      }
+    } catch (e) {
+      print('Warning: Failed to sync salary data to HR submission: $e');
+    }
+  }
+
+  // Public method to manually sync salary data to HR submission for a staff member
+  Future<bool> syncStaffDataToHrSubmission(String staffId) async {
+    try {
+      // Get the current salary benefits for this staff
+      final salaryBenefits = await getCurrentSalaryBenefitsOnce(staffId);
+
+      if (salaryBenefits == null) {
+        print('Debug: No salary benefits found for staff $staffId');
+        return false;
+      }
+
+      // Get staff record to find userId and email
+      final staffDoc = await _firestore
+          .collection(StaffService.collectionName)
+          .doc(staffId)
+          .get();
+
+      if (!staffDoc.exists) {
+        print('Debug: Staff record not found for $staffId');
+        return false;
+      }
+
+      final staffData = staffDoc.data();
+      String? staffUserId = staffData?['userId'] as String?;
+      final staffEmail = staffData?['email'] as String?;
+
+      // If userId is not set in staff record, try to find user by email
+      if (staffUserId == null && staffEmail != null) {
+        print(
+          'Debug: Staff userId not set, looking up user by email: $staffEmail',
+        );
+        final userQuery = await _firestore
+            .collection('users')
+            .where('email', isEqualTo: staffEmail)
+            .limit(1)
+            .get();
+
+        if (userQuery.docs.isNotEmpty) {
+          staffUserId = userQuery.docs.first.id;
+          print('Debug: Found user ID by email: $staffUserId');
+
+          // Update staff record with the found userId
+          await _firestore
+              .collection(StaffService.collectionName)
+              .doc(staffId)
+              .update({'userId': staffUserId});
+          print('Debug: Updated staff record with userId');
+        }
+      }
+
+      // Sync salary data to HR submission
+      await _syncSalaryDataToHrSubmission(
+        salaryBenefits,
+        staffUserId,
+        staffEmail,
+      );
+
+      // Also update staff record
+      await _syncSalaryDataToStaff(salaryBenefits);
+
+      print('Debug: Successfully synced staff data for $staffId');
+      return true;
+    } catch (e) {
+      print('Error syncing staff data to HR submission: $e');
+      return false;
     }
   }
 
@@ -163,7 +345,9 @@ class SalaryBenefitsService {
   }
 
   // Prefer active record, but fall back to latest if the active query fails (e.g. missing index)
-  Stream<SalaryBenefits?> getCurrentOrLatestSalaryBenefitsForStaff(String staffId) {
+  Stream<SalaryBenefits?> getCurrentOrLatestSalaryBenefitsForStaff(
+    String staffId,
+  ) {
     final controller = StreamController<SalaryBenefits?>();
     StreamSubscription<SalaryBenefits?>? subscription;
 

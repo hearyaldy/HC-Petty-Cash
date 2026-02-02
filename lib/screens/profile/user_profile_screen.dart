@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -78,7 +77,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             _phoneController.text = userData['phoneNumber'] ?? '';
             _departmentController.text = userData['department'] ?? '';
             _positionController.text = userData['position'] ?? '';
-            _photoUrl = userData['photoUrl'] ?? userData['photo_url']; // Handle both naming conventions
+            _photoUrl =
+                userData['photoUrl'] ??
+                userData['photo_url']; // Handle both naming conventions
           });
         } else {
           // Fallback to auth user data if no profile exists
@@ -93,9 +94,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading profile: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading profile: $e')));
       }
     } finally {
       setState(() => _isLoading = false);
@@ -189,9 +190,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error picking image: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error picking image: $e')));
       }
     }
   }
@@ -242,10 +243,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           imageFile: _pickedFile,
           bytes: _pickedBytes,
         );
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.id)
-            .set({'photoUrl': photoUrl}, SetOptions(merge: true));
+        await FirebaseFirestore.instance.collection('users').doc(user.id).set({
+          'photoUrl': photoUrl,
+        }, SetOptions(merge: true));
         _photoUrl = photoUrl;
       }
 
@@ -263,9 +263,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving profile: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error saving profile: $e')));
       }
     } finally {
       setState(() => _isSaving = false);
@@ -337,13 +337,19 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               children: [
                 CircleAvatar(
                   radius: 60,
-                  backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+                  backgroundColor: Theme.of(
+                    context,
+                  ).primaryColor.withOpacity(0.1),
                   backgroundImage: _pickedBytes != null
                       ? MemoryImage(_pickedBytes!)
                       : _pickedFile != null
-                          ? FileImage(_pickedFile!)
-                          : (_photoUrl != null ? NetworkImage(_photoUrl!) : null) as ImageProvider?,
-                  child: _pickedFile == null && _photoUrl == null && _pickedBytes == null
+                      ? FileImage(_pickedFile!)
+                      : (_photoUrl != null ? NetworkImage(_photoUrl!) : null)
+                            as ImageProvider?,
+                  child:
+                      _pickedFile == null &&
+                          _photoUrl == null &&
+                          _pickedBytes == null
                       ? Icon(
                           Icons.person,
                           size: 60,
@@ -366,17 +372,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             const SizedBox(height: 16),
             Text(
               _nameController.text,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             Text(
               _emailController.text,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
             ),
           ],
         ),
@@ -515,7 +515,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: salary.isActive ? Colors.green : Colors.grey,
                     borderRadius: BorderRadius.circular(12),
@@ -534,44 +537,69 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             const SizedBox(height: 16),
 
             // Basic Salary Info
-            _buildSalaryInfoCard(
-              'Basic Salary Information',
-              Colors.blue,
-              [
-                _buildSalaryRow('Wage Factor', '${salary.currency ?? "THB"} ${currencyFormat.format(salary.wageFactor ?? 0)}'),
-                _buildSalaryRow('Salary Scale', '${salary.salaryPercentage ?? 0}%'),
-                _buildSalaryRow('Gross Salary', '${salary.currency ?? "THB"} ${currencyFormat.format(salary.grossSalary)}', isBold: true),
-                _buildSalaryRow('Effective Date', DateFormat('dd/MM/yyyy').format(salary.effectiveDate)),
-              ],
-            ),
+            _buildSalaryInfoCard('Basic Salary Information', Colors.blue, [
+              _buildSalaryRow(
+                'Wage Factor',
+                '${salary.currency ?? "THB"} ${currencyFormat.format(salary.wageFactor ?? 0)}',
+              ),
+              _buildSalaryRow(
+                'Salary Scale',
+                '${salary.salaryPercentage ?? 0}%',
+              ),
+              _buildSalaryRow(
+                'Gross Salary',
+                '${salary.currency ?? "THB"} ${currencyFormat.format(salary.grossSalary)}',
+                isBold: true,
+              ),
+              _buildSalaryRow(
+                'Effective Date',
+                DateFormat('dd/MM/yyyy').format(salary.effectiveDate),
+              ),
+            ]),
 
             const SizedBox(height: 12),
 
             // Health Benefits
-            _buildSalaryInfoCard(
-              'Health Benefits',
-              Colors.green,
-              [
-                _buildSalaryRow('Out-Patient Coverage', '${salary.outPatientPercentage ?? 75}%'),
-                _buildSalaryRow('In-Patient Coverage', '${salary.inPatientPercentage ?? 90}%'),
-                _buildSalaryRow('Annual Leave', '${salary.annualLeaveDays ?? 0} days'),
-                _buildSalaryRow('Housing Allowance', '${salary.currency ?? "THB"} ${currencyFormat.format(salary.housingAllowance ?? 0)}'),
-              ],
-            ),
+            _buildSalaryInfoCard('Health Benefits', Colors.green, [
+              _buildSalaryRow(
+                'Out-Patient Coverage',
+                '${salary.outPatientPercentage ?? 75}%',
+              ),
+              _buildSalaryRow(
+                'In-Patient Coverage',
+                '${salary.inPatientPercentage ?? 90}%',
+              ),
+              _buildSalaryRow(
+                'Annual Leave',
+                '${salary.annualLeaveDays ?? 0} days',
+              ),
+              _buildSalaryRow(
+                'Housing Allowance',
+                '${salary.currency ?? "THB"} ${currencyFormat.format(salary.housingAllowance ?? 0)}',
+              ),
+            ]),
 
             const SizedBox(height: 12),
 
             // Deductions
-            _buildSalaryInfoCard(
-              'Deductions',
-              Colors.orange,
-              [
-                _buildSalaryRow('Tithe (${salary.tithePercentage ?? 10}%)', '${salary.currency ?? "THB"} ${currencyFormat.format(salary.titheAmount)}'),
-                _buildSalaryRow('Social Security', '${salary.currency ?? "THB"} ${currencyFormat.format(salary.socialSecurityAmount)}'),
-                _buildSalaryRow('Provident Fund (${salary.providentFundPercentage ?? 0}%)', '${salary.currency ?? "THB"} ${currencyFormat.format(salary.providentFundAmount)}'),
-                _buildSalaryRow('House Rental (${salary.houseRentalPercentage ?? 10}%)', '${salary.currency ?? "THB"} ${currencyFormat.format(salary.houseRentalAmount)}'),
-              ],
-            ),
+            _buildSalaryInfoCard('Deductions', Colors.orange, [
+              _buildSalaryRow(
+                'Tithe (${salary.tithePercentage ?? 10}%)',
+                '${salary.currency ?? "THB"} ${currencyFormat.format(salary.titheAmount)}',
+              ),
+              _buildSalaryRow(
+                'Social Security',
+                '${salary.currency ?? "THB"} ${currencyFormat.format(salary.socialSecurityAmount)}',
+              ),
+              _buildSalaryRow(
+                'Provident Fund (${salary.providentFundPercentage ?? 0}%)',
+                '${salary.currency ?? "THB"} ${currencyFormat.format(salary.providentFundAmount)}',
+              ),
+              _buildSalaryRow(
+                'House Rental (${salary.houseRentalPercentage ?? 10}%)',
+                '${salary.currency ?? "THB"} ${currencyFormat.format(salary.houseRentalAmount)}',
+              ),
+            ]),
 
             const SizedBox(height: 16),
 
@@ -587,10 +615,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 children: [
                   const Text(
                     'Net Salary:',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   Text(
                     '${salary.currency ?? "THB"} ${currencyFormat.format(salary.netSalary)}',
@@ -609,7 +634,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
-  Widget _buildSalaryInfoCard(String title, Color color, List<Widget> children) {
+  Widget _buildSalaryInfoCard(
+    String title,
+    Color color,
+    List<Widget> children,
+  ) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -641,12 +670,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.grey[700],
-            ),
-          ),
+          Text(label, style: TextStyle(color: Colors.grey[700])),
           Text(
             value,
             style: TextStyle(

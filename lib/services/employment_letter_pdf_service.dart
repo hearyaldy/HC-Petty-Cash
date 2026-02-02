@@ -16,6 +16,13 @@ class EmploymentLetterPdfService {
     // Use custom content if provided, otherwise use template content
     String content = customContent ?? templateContent;
 
+    // Sanitize content - replace special Unicode characters that Helvetica can't render
+    content = _sanitizeContent(content);
+
+    // Remove duplicate date and greeting headers if present
+    // This handles cases where template has both hardcoded and placeholder versions
+    content = _removeDuplicateHeaders(content, staff.fullName, date);
+
     // Replace placeholders with actual values
     content = _replacePlaceholders(
       content: content,
@@ -23,6 +30,10 @@ class EmploymentLetterPdfService {
       salaryBenefits: salaryBenefits,
       date: date,
     );
+
+    // Run duplicate removal again after placeholder replacement
+    // to catch any remaining duplicates
+    content = _removeDuplicateHeaders(content, staff.fullName, date);
 
     // Create the PDF document
     final pdf = pw.Document();
@@ -47,22 +58,7 @@ class EmploymentLetterPdfService {
               pw.Divider(thickness: 1),
               pw.SizedBox(height: 20),
 
-              // Date
-              pw.Text(
-                date ??
-                    '${DateTime.now().day} ${_getMonthName(DateTime.now().month)} ${DateTime.now().year}',
-                style: pw.TextStyle(fontSize: 12),
-              ),
-              pw.SizedBox(height: 20),
-
-              // Recipient
-              pw.Text(
-                'Dear ${staff.fullName},',
-                style: pw.TextStyle(fontSize: 12),
-              ),
-              pw.SizedBox(height: 20),
-
-              // Content - using RichText to preserve formatting
+              // Content - using RichText to preserve formatting (date and greeting are in the template)
               pw.Expanded(
                 child: pw.Padding(
                   padding: const pw.EdgeInsets.only(top: 10),
@@ -109,11 +105,18 @@ class EmploymentLetterPdfService {
       content = content
           .replaceAll(
             '{{seumWageFactor}}',
-            salaryBenefits.baseSalary.toInt().toString(),
+            (salaryBenefits.wageFactor ?? salaryBenefits.baseSalary)
+                .toInt()
+                .toString(),
           )
           .replaceAll(
             '{{salaryScale}}',
-            ((salaryBenefits.baseSalary / 41000) * 100).round().toString(),
+            (salaryBenefits.salaryPercentage ??
+                    ((salaryBenefits.baseSalary /
+                            (salaryBenefits.wageFactor ?? 41000)) *
+                        100))
+                .round()
+                .toString(),
           )
           .replaceAll(
             '{{grossSalary}}',
@@ -121,50 +124,81 @@ class EmploymentLetterPdfService {
           )
           .replaceAll(
             '{{healthBenefitsOutpatient}}',
-            (salaryBenefits.healthInsurancePercentage ?? 75).toInt().toString(),
+            (salaryBenefits.outPatientPercentage ?? 75).toInt().toString(),
           )
           .replaceAll(
             '{{healthBenefitsInpatient}}',
-            (salaryBenefits.healthInsurancePercentage ?? 90).toInt().toString(),
+            (salaryBenefits.inPatientPercentage ?? 90).toInt().toString(),
           )
-          .replaceAll('{{annualLeave}}', '10') // Could be made configurable
+          .replaceAll(
+            '{{annualLeave}}',
+            (salaryBenefits.annualLeaveDays ?? 10).toString(),
+          )
           .replaceAll(
             '{{housingAllowance}}',
-            (salaryBenefits.allowances?.toInt() ?? 4000).toString(),
+            (salaryBenefits.housingAllowance ??
+                    salaryBenefits.allowances ??
+                    4000)
+                .toInt()
+                .toString(),
           )
           .replaceAll(
             '{{housingAllowancePercent}}',
-            '50',
-          ); // Could be made configurable
+            (salaryBenefits.houseRentalPercentage ?? 50).toInt().toString(),
+          )
+          .replaceAll(
+            '{{equipmentAllowance}}',
+            (salaryBenefits.equipmentAllowance ?? 0).toInt().toString(),
+          )
+          .replaceAll(
+            '{{continueEducationAllowance}}',
+            (salaryBenefits.continueEducationAllowance ?? 0).toInt().toString(),
+          );
 
-      // Use actual deduction values from salary benefits or staff
+      // Use actual deduction values from salary benefits
       content = content
           .replaceAll(
             '{{titheAmount}}',
-            (staff.titheAmount ?? (salaryBenefits.baseSalary * 0.1))
-                .toInt()
-                .toString(),
+            salaryBenefits.titheAmount.toInt().toString(),
+          )
+          .replaceAll(
+            '{{tithePercentage}}',
+            (salaryBenefits.tithePercentage ?? 10).toInt().toString(),
           )
           .replaceAll(
             '{{socialSecurityAmount}}',
-            (staff.socialSecurityAmount ?? 750).toInt().toString(),
+            salaryBenefits.socialSecurityAmount.toInt().toString(),
           )
           .replaceAll(
             '{{providentFundAmount}}',
-            (staff.providentFundAmount ?? (salaryBenefits.baseSalary * 0.1))
-                .toInt()
-                .toString(),
+            salaryBenefits.providentFundAmount.toInt().toString(),
+          )
+          .replaceAll(
+            '{{providentFundPercentage}}',
+            (salaryBenefits.providentFundPercentage ?? 10).toInt().toString(),
           )
           .replaceAll(
             '{{housingRentalAmount}}',
-            '4500',
-          ); // Could be made configurable
+            salaryBenefits.houseRentalAmount.toInt().toString(),
+          )
+          .replaceAll(
+            '{{houseRentalPercentage}}',
+            (salaryBenefits.houseRentalPercentage ?? 0).toInt().toString(),
+          )
+          .replaceAll(
+            '{{netSalary}}',
+            salaryBenefits.netSalary.toInt().toString(),
+          )
+          .replaceAll(
+            '{{totalCompensation}}',
+            salaryBenefits.totalCompensation.toInt().toString(),
+          );
     } else {
       // Use staff-level values if no salary benefits available
       content = content
           .replaceAll(
             '{{seumWageFactor}}',
-            (staff.monthlySalary ?? 41000).toInt().toString(),
+            '41000', // Default SEUM wage factor
           )
           .replaceAll('{{salaryScale}}', '65') // Default value
           .replaceAll(
@@ -179,10 +213,13 @@ class EmploymentLetterPdfService {
             (staff.allowances?.toInt() ?? 4000).toString(),
           )
           .replaceAll('{{housingAllowancePercent}}', '50')
+          .replaceAll('{{equipmentAllowance}}', '0')
+          .replaceAll('{{continueEducationAllowance}}', '0')
           .replaceAll(
             '{{titheAmount}}',
             (staff.titheAmount ?? 2665).toInt().toString(),
           )
+          .replaceAll('{{tithePercentage}}', '10')
           .replaceAll(
             '{{socialSecurityAmount}}',
             (staff.socialSecurityAmount ?? 750).toInt().toString(),
@@ -191,10 +228,77 @@ class EmploymentLetterPdfService {
             '{{providentFundAmount}}',
             (staff.providentFundAmount ?? 2665).toInt().toString(),
           )
-          .replaceAll('{{housingRentalAmount}}', '4500');
+          .replaceAll('{{providentFundPercentage}}', '10')
+          .replaceAll('{{housingRentalAmount}}', '0')
+          .replaceAll('{{houseRentalPercentage}}', '0')
+          .replaceAll(
+            '{{netSalary}}',
+            (staff.monthlySalary ?? 26650).toInt().toString(),
+          )
+          .replaceAll(
+            '{{totalCompensation}}',
+            ((staff.monthlySalary ?? 26650) + (staff.allowances ?? 0))
+                .toInt()
+                .toString(),
+          );
     }
 
     return content;
+  }
+
+  // Remove duplicate date and greeting headers from content
+  // This handles cases where a template might have both hardcoded values and placeholders
+  String _removeDuplicateHeaders(
+    String content,
+    String staffName,
+    String? date,
+  ) {
+    // Pattern to match date lines (e.g., "2 February 2026" or "24 March 2025")
+    final datePattern = RegExp(
+      r'^\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}\s*$',
+      multiLine: true,
+      caseSensitive: false,
+    );
+
+    // Pattern to match greeting lines (e.g., "Dear John Doe," or "Dear {{staffName}},")
+    final greetingPattern = RegExp(
+      r'^Dear\s+.+,?\s*$',
+      multiLine: true,
+      caseSensitive: false,
+    );
+
+    // Find all matches
+    final dateMatches = datePattern.allMatches(content).toList();
+    final greetingMatches = greetingPattern.allMatches(content).toList();
+
+    // If there are multiple date lines, remove the first one
+    if (dateMatches.length > 1) {
+      content = content.replaceFirst(datePattern, '');
+      // Clean up any resulting double newlines
+      content = content.replaceAll(RegExp(r'^\n+'), '');
+    }
+
+    // If there are multiple greeting lines, remove the first one
+    if (greetingMatches.length > 1) {
+      content = content.replaceFirst(greetingPattern, '');
+      // Clean up any resulting double newlines
+      content = content.replaceAll(RegExp(r'\n{3,}'), '\n\n');
+    }
+
+    return content.trim();
+  }
+
+  // Sanitize content to replace special Unicode characters that Helvetica font can't render
+  String _sanitizeContent(String content) {
+    return content
+        .replaceAll('…', '...') // Replace ellipsis with three dots
+        .replaceAll('–', '-') // Replace en-dash with hyphen
+        .replaceAll('—', '-') // Replace em-dash with hyphen
+        .replaceAll(''', "'")    // Replace smart single quotes
+        .replaceAll(''', "'")
+        .replaceAll('"', '"') // Replace smart double quotes
+        .replaceAll('"', '"')
+        .replaceAll('•', '-'); // Replace bullet with hyphen
   }
 
   String _getMonthName(int month) {
@@ -220,10 +324,7 @@ class EmploymentLetterPdfService {
     final List<pw.InlineSpan> spans = [];
 
     // Regular expression to match formatting tags: <b>, <i>, <bi>, <u>
-    final RegExp tagPattern = RegExp(
-      r'<(b|i|bi|u)>(.*?)</\1>',
-      dotAll: true,
-    );
+    final RegExp tagPattern = RegExp(r'<(b|i|bi|u)>(.*?)</\1>', dotAll: true);
 
     int lastEnd = 0;
 
@@ -267,16 +368,10 @@ class EmploymentLetterPdfService {
       if (nestedSpans.length == 1 && nestedSpans.first is pw.TextSpan) {
         final nestedSpan = nestedSpans.first as pw.TextSpan;
         // Merge styles for simple content
-        spans.add(pw.TextSpan(
-          text: nestedSpan.text,
-          style: style,
-        ));
+        spans.add(pw.TextSpan(text: nestedSpan.text, style: style));
       } else {
         // For complex nested content, wrap in a styled span
-        spans.add(pw.TextSpan(
-          style: style,
-          children: nestedSpans,
-        ));
+        spans.add(pw.TextSpan(style: style, children: nestedSpans));
       }
 
       lastEnd = match.end;
@@ -419,7 +514,10 @@ class EmploymentLetterPdfService {
                   fontWeight: pw.FontWeight.bold,
                 ),
               ),
-              pw.Text('...………………………', style: pw.TextStyle(fontSize: 12)),
+              pw.Text(
+                '................................',
+                style: pw.TextStyle(fontSize: 12),
+              ),
               pw.Text(
                 'Heary Healdy Sairin',
                 style: pw.TextStyle(
