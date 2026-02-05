@@ -19,6 +19,8 @@ class ProjectReport {
   final DateTime createdAt;
   final DateTime? updatedAt;
   final String? description;
+  final String? language;
+  final String? languageCode;
 
   ProjectReport({
     required this.id,
@@ -37,6 +39,8 @@ class ProjectReport {
     required this.createdAt,
     this.updatedAt,
     this.description,
+    this.language,
+    this.languageCode,
   });
 
   // Get ReportStatus enum from string
@@ -82,6 +86,8 @@ class ProjectReport {
       'startDate': firestore.Timestamp.fromDate(startDate),
       'endDate': firestore.Timestamp.fromDate(endDate),
       'description': description,
+      'language': language,
+      'languageCode': languageCode,
       'createdAt': firestore.Timestamp.fromDate(createdAt),
       'updatedAt':
           updatedAt != null ? firestore.Timestamp.fromDate(updatedAt!) : null,
@@ -106,6 +112,8 @@ class ProjectReport {
       startDate: (data['startDate'] as firestore.Timestamp).toDate(),
       endDate: (data['endDate'] as firestore.Timestamp).toDate(),
       description: data['description'] as String?,
+      language: data['language'] as String?,
+      languageCode: data['languageCode'] as String?,
       createdAt: (data['createdAt'] as firestore.Timestamp).toDate(),
       updatedAt: data['updatedAt'] != null
           ? (data['updatedAt'] as firestore.Timestamp).toDate()
@@ -132,6 +140,8 @@ class ProjectReport {
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
       'description': description,
+      'language': language,
+      'languageCode': languageCode,
     };
   }
 
@@ -151,6 +161,8 @@ class ProjectReport {
       startDate: DateTime.parse(json['startDate'] as String),
       endDate: DateTime.parse(json['endDate'] as String),
       description: json['description'] as String?,
+      language: json['language'] as String?,
+      languageCode: json['languageCode'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: json['updatedAt'] != null
           ? DateTime.parse(json['updatedAt'] as String)
@@ -174,6 +186,8 @@ class ProjectReport {
     DateTime? endDate,
     DateTime? updatedAt,
     String? description,
+    String? language,
+    String? languageCode,
   }) {
     return ProjectReport(
       id: id,
@@ -190,6 +204,8 @@ class ProjectReport {
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
       description: description ?? this.description,
+      language: language ?? this.language,
+      languageCode: languageCode ?? this.languageCode,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

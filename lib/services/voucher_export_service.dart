@@ -383,7 +383,7 @@ class VoucherExportService {
               pw.Expanded(
                 child: _buildInfoRow(
                   'Category:',
-                  transaction.category.toExpenseCategory().displayName,
+                  transaction.categoryDisplayName,
                   font,
                   fontBold,
                 ),

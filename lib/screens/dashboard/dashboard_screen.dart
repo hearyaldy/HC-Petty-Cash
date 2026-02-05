@@ -2515,7 +2515,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   title: Text(transaction.description),
                   subtitle: Text(
-                    '${transaction.category.expenseCategoryDisplayName} • ${transaction.receiptNo}',
+                    '${transaction.categoryDisplayName} • ${transaction.receiptNo}',
                   ),
                   trailing: Text(
                     '${AppConstants.currencySymbol}${transaction.amount.toStringAsFixed(2)}',
@@ -4920,7 +4920,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Expanded(
                   child: _buildMiniStatCard(
                     icon: Icons.card_giftcard,
-                    label: 'Allowances',
+                    label: 'Monthly Allow.',
                     value: '฿${currencyFormat.format(totalAllowances)}',
                     color: Colors.pink,
                   ),
@@ -4929,7 +4929,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Expanded(
                   child: _buildMiniStatCard(
                     icon: Icons.account_balance_wallet,
-                    label: 'Total',
+                    label: 'Monthly Total',
                     value:
                         '฿${currencyFormat.format(calculatedSalary + totalAllowances)}',
                     color: Colors.blue,

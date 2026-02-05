@@ -7,9 +7,19 @@ import '../utils/logger.dart';
 import '../utils/validation.dart';
 
 class FirebaseAuthService {
-  final firebase_auth.FirebaseAuth _auth = firebase_auth.FirebaseAuth.instance;
-  final firestore.FirebaseFirestore _firestore =
-      firestore.FirebaseFirestore.instance;
+  // Use late initialization to avoid accessing Firebase before it's initialized
+  firebase_auth.FirebaseAuth? _authInstance;
+  firestore.FirebaseFirestore? _firestoreInstance;
+
+  firebase_auth.FirebaseAuth get _auth {
+    _authInstance ??= firebase_auth.FirebaseAuth.instance;
+    return _authInstance!;
+  }
+
+  firestore.FirebaseFirestore get _firestore {
+    _firestoreInstance ??= firestore.FirebaseFirestore.instance;
+    return _firestoreInstance!;
+  }
 
   User? _currentUser;
 
@@ -152,7 +162,9 @@ class FirebaseAuthService {
   Future<bool> tryLoadUserData() async {
     // Don't interfere if login or registration is in progress
     if (_isAuthOperationInProgress) {
-      debugPrint('DEBUG AUTH: Skipping tryLoadUserData - auth operation in progress');
+      debugPrint(
+        'DEBUG AUTH: Skipping tryLoadUserData - auth operation in progress',
+      );
       return false;
     }
 
@@ -176,6 +188,31 @@ class FirebaseAuthService {
     } catch (e) {
       AppLogger.severe('Update user error: $e');
       return false;
+    }
+  }
+
+  // Change password (requires current password for reauthentication)
+  Future<void> changePassword(
+    String currentPassword,
+    String newPassword,
+  ) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null || user.email == null) {
+        throw 'No authenticated user found';
+      }
+
+      // Reauthenticate with current password
+      final credential = firebase_auth.EmailAuthProvider.credential(
+        email: user.email!,
+        password: currentPassword,
+      );
+      await user.reauthenticateWithCredential(credential);
+
+      // Update to new password
+      await user.updatePassword(newPassword);
+    } on firebase_auth.FirebaseAuthException catch (e) {
+      throw _handleAuthException(e);
     }
   }
 
@@ -206,8 +243,8 @@ class FirebaseAuthService {
     if (_currentUser == null) return false;
     // Only allow certain roles to create purchase requisitions
     return _currentUser!.roleEnum == UserRole.manager ||
-           _currentUser!.roleEnum == UserRole.finance ||
-           _currentUser!.roleEnum == UserRole.admin;
+        _currentUser!.roleEnum == UserRole.finance ||
+        _currentUser!.roleEnum == UserRole.admin;
   }
 
   bool canCreateTravelingReports() {

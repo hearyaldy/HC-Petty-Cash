@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
 import '../services/firestore_service.dart';
 import '../models/project_report.dart';
 import '../models/user.dart';
@@ -44,6 +45,8 @@ class ProjectReportProvider extends ChangeNotifier {
     required DateTime endDate,
     required User custodian,
     String? description,
+    String? language,
+    String? languageCode,
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -57,6 +60,8 @@ class ProjectReportProvider extends ChangeNotifier {
         endDate: endDate,
         custodian: custodian,
         description: description,
+        language: language,
+        languageCode: languageCode,
       );
 
       await loadProjectReports();
@@ -104,6 +109,56 @@ class ProjectReportProvider extends ChangeNotifier {
     } catch (e) {
       _errorMessage = 'Failed to delete project report: ${e.toString()}';
       AppLogger.severe('Error deleting project report: $e');
+      _isLoading = false;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<ProjectReport> updateProjectReportLanguage({
+    required String projectReportId,
+    required String newLanguage,
+    required String newLanguageCode,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final report = await _firestoreService.getProjectReport(projectReportId);
+      if (report == null) {
+        throw Exception('Project report not found');
+      }
+
+      // Regenerate report number with new language code
+      final now = report.createdAt;
+      final formatter = DateFormat('yyyyMM');
+      final monthStr = formatter.format(now);
+      final allReports = await _firestoreService.getAllProjectReports();
+      final prefix = 'PROJ-$newLanguageCode-$monthStr';
+      final count =
+          allReports
+              .where((r) => r.reportNumber.startsWith(prefix) && r.id != projectReportId)
+              .length +
+          1;
+      final newReportNumber =
+          '$prefix-${count.toString().padLeft(3, '0')}';
+
+      final updated = report.copyWith(
+        language: newLanguage,
+        languageCode: newLanguageCode,
+        reportNumber: newReportNumber,
+        updatedAt: DateTime.now(),
+      );
+
+      await _firestoreService.updateProjectReport(updated);
+      await loadProjectReports();
+      _isLoading = false;
+      notifyListeners();
+      return updated;
+    } catch (e) {
+      _errorMessage = 'Failed to update project report language: ${e.toString()}';
+      AppLogger.severe('Error updating project report language: $e');
       _isLoading = false;
       notifyListeners();
       rethrow;

@@ -52,3 +52,14 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Node.js
+node_modules/
+package-lock.json
+
+# Import scripts with Firebase config (security)
+import_equipment*.html
+import_equipment*.js
+generate_import_html.js
+equipment_import.json
+equipment_firestore.json

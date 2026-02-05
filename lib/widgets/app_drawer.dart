@@ -63,6 +63,16 @@ class AppDrawer extends StatelessWidget {
               iconColor: Colors.purple,
             ),
 
+            // INVENTORY MANAGEMENT
+            _buildSectionHeader('Studio'),
+            _buildDrawerItem(
+              context,
+              icon: Icons.inventory_2,
+              title: 'Equipment Inventory',
+              route: '/inventory',
+              iconColor: Colors.blueGrey,
+            ),
+
             // TRANSACTIONS & APPROVALS
             if (canApprove) ...[
               _buildSectionHeader('Management'),

@@ -6,12 +6,20 @@ import '../utils/logger.dart';
 import '../utils/validation.dart';
 
 class AuthProvider extends ChangeNotifier {
-  final FirebaseAuthService _authService = FirebaseAuthService();
+  FirebaseAuthService? _authServiceInstance;
   String? _errorMessage;
+  bool _isInitialized = false;
 
-  User? get currentUser => _authService.currentUser;
-  bool get isAuthenticated => _authService.isAuthenticated;
+  // Lazy initialization of auth service
+  FirebaseAuthService get _authService {
+    _authServiceInstance ??= FirebaseAuthService();
+    return _authServiceInstance!;
+  }
+
+  User? get currentUser => _isInitialized ? _authService.currentUser : null;
+  bool get isAuthenticated => _isInitialized && _authService.isAuthenticated;
   String? get errorMessage => _errorMessage;
+  bool get isInitialized => _isInitialized;
 
   void clearError() {
     _errorMessage = null;
@@ -20,19 +28,27 @@ class AuthProvider extends ChangeNotifier {
 
   // Initialize and listen to auth state changes
   Future<void> initialize() async {
-    await _authService.initialize();
+    try {
+      await _authService.initialize();
+      _isInitialized = true;
 
-    // Listen to auth state changes
-    _authService.authStateChanges.listen((firebaseUser) async {
-      if (firebaseUser != null) {
-        // Use tryLoadUserData which doesn't throw if document doesn't exist yet
-        // This handles the race condition during user registration
-        await _authService.tryLoadUserData();
-      }
+      // Listen to auth state changes
+      _authService.authStateChanges.listen((firebaseUser) async {
+        if (firebaseUser != null) {
+          // Use tryLoadUserData which doesn't throw if document doesn't exist yet
+          // This handles the race condition during user registration
+          await _authService.tryLoadUserData();
+        }
+        notifyListeners();
+      });
+
       notifyListeners();
-    });
-
-    notifyListeners();
+    } catch (e) {
+      debugPrint('AuthProvider initialization error: $e');
+      _isInitialized =
+          true; // Mark as initialized anyway to prevent infinite loading
+      notifyListeners();
+    }
   }
 
   Future<bool> login(String email, String password) async {
@@ -98,6 +114,20 @@ class AuthProvider extends ChangeNotifier {
       return userId;
     } catch (e) {
       AppLogger.severe('Registration error in provider: $e');
+      rethrow;
+    }
+  }
+
+  // Change password
+  Future<void> changePassword(
+    String currentPassword,
+    String newPassword,
+  ) async {
+    try {
+      await _authService.changePassword(currentPassword, newPassword);
+      notifyListeners();
+    } catch (e) {
+      AppLogger.severe('Change password error in provider: $e');
       rethrow;
     }
   }

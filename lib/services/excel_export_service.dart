@@ -131,7 +131,7 @@ class ExcelExportService {
         sheet,
         3,
         currentRow,
-        transaction.category.expenseCategoryDisplayName,
+        transaction.categoryDisplayName,
       );
       _setCellValue(
         sheet,

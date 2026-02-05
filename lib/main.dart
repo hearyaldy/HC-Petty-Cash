@@ -58,6 +58,9 @@ import 'screens/income/new_income_report_screen.dart';
 import 'screens/income/income_report_detail_screen.dart';
 import 'screens/purchase_requisition/purchase_requisitions_screen.dart';
 import 'screens/purchase_requisition/purchase_requisition_detail_screen.dart';
+import 'screens/inventory/inventory_screen.dart';
+import 'screens/inventory/add_edit_equipment_screen.dart';
+import 'screens/inventory/equipment_detail_screen.dart';
 import 'providers/income_report_provider.dart';
 import 'utils/constants.dart';
 import 'utils/logger.dart';
@@ -69,11 +72,13 @@ void main() async {
   // Initialize logger
   AppLogger.init();
 
-  // Initialize Firebase
+  // Initialize Firebase - must complete before app starts
+  bool firebaseInitialized = false;
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    firebaseInitialized = true;
 
     // Configure Firestore persistence per platform to avoid web assertion crash
     if (kIsWeb) {
@@ -89,19 +94,61 @@ void main() async {
         cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
       );
     }
+    debugPrint('DEBUG: Firebase initialized successfully');
   } catch (e) {
     AppLogger.severe('Firebase initialization error: $e');
+    debugPrint('DEBUG: Firebase initialization error: $e');
     // Continue anyway for demo purposes
   }
 
-  runApp(const MyApp());
+  runApp(MyApp(firebaseInitialized: firebaseInitialized));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final bool firebaseInitialized;
+
+  const MyApp({super.key, this.firebaseInitialized = false});
 
   @override
   Widget build(BuildContext context) {
+    // Show error screen if Firebase failed to initialize
+    if (!firebaseInitialized) {
+      return MaterialApp(
+        title: AppConstants.appName,
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange),
+        ),
+        home: Scaffold(
+          body: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                const SizedBox(height: 16),
+                const Text(
+                  'Firebase Initialization Failed',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Please check your internet connection and try again.',
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () {
+                    // Restart app
+                    main();
+                  },
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        debugShowCheckedModeBanner: false,
+      );
+    }
+
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()..initialize()),
@@ -321,7 +368,8 @@ class MyApp extends StatelessWidget {
         ),
         GoRoute(
           path: '/admin/employment-letter-template/edit',
-          builder: (context, state) => const AddEditEmploymentLetterTemplateScreen(),
+          builder: (context, state) =>
+              const AddEditEmploymentLetterTemplateScreen(),
         ),
         GoRoute(
           path: '/admin/employment-letter/send',
@@ -475,6 +523,29 @@ class MyApp extends StatelessWidget {
             return PurchaseRequisitionDetailScreen(
               requisitionId: requisitionId,
             );
+          },
+        ),
+        // Equipment Inventory Routes
+        GoRoute(
+          path: '/inventory',
+          builder: (context, state) => const InventoryScreen(),
+        ),
+        GoRoute(
+          path: '/inventory/add',
+          builder: (context, state) => const AddEditEquipmentScreen(),
+        ),
+        GoRoute(
+          path: '/inventory/edit/:equipmentId',
+          builder: (context, state) {
+            final equipmentId = state.pathParameters['equipmentId']!;
+            return AddEditEquipmentScreen(equipmentId: equipmentId);
+          },
+        ),
+        GoRoute(
+          path: '/inventory/:equipmentId',
+          builder: (context, state) {
+            final equipmentId = state.pathParameters['equipmentId']!;
+            return EquipmentDetailScreen(equipmentId: equipmentId);
           },
         ),
       ],

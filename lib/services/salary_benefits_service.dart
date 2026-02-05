@@ -78,8 +78,9 @@ class SalaryBenefitsService {
           .update({
             'monthlySalary': salaryBenefits.grossSalary,
             'allowances':
-                (salaryBenefits.housingAllowance ?? 0) +
                 (salaryBenefits.phoneAllowance ?? 0) +
+                (salaryBenefits.housingAllowance ?? 0),
+            'annualAllowances':
                 (salaryBenefits.continueEducationAllowance ?? 0) +
                 (salaryBenefits.equipmentAllowance ?? 0),
             'tithePercentage': salaryBenefits.tithePercentage,
@@ -164,7 +165,8 @@ class SalaryBenefitsService {
               'equipmentAllowance': salaryBenefits.equipmentAllowance ?? 0,
               'totalAllowances':
                   (salaryBenefits.phoneAllowance ?? 0) +
-                  (salaryBenefits.housingAllowance ?? 0) +
+                  (salaryBenefits.housingAllowance ?? 0),
+              'annualAllowances':
                   (salaryBenefits.continueEducationAllowance ?? 0) +
                   (salaryBenefits.equipmentAllowance ?? 0),
 

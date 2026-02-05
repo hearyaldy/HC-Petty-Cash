@@ -612,7 +612,7 @@ class _HrDataSubmissionsScreenState extends State<HrDataSubmissionsScreen> {
                         _formatCurrency(data['equipmentAllowance']),
                       ),
                       _buildInfoRow(
-                        'Total Allowances',
+                        'Monthly Allowances',
                         _formatCurrency(data['totalAllowances']),
                       ),
                     ],

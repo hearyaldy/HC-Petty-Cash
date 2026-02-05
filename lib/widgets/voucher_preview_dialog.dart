@@ -440,7 +440,7 @@ class VoucherPreviewDialog extends StatelessWidget {
               Expanded(
                 child: _buildInfoRow(
                   'Category:',
-                  transaction.category.toExpenseCategory().displayName,
+                  transaction.categoryDisplayName,
                 ),
               ),
               const SizedBox(width: 20),

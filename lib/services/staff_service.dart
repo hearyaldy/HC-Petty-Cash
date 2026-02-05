@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
@@ -419,6 +420,60 @@ class StaffService {
 
       // Get file size and mime type
       final fileSizeBytes = await file.length();
+      final mimeType = _getMimeType(fileName);
+
+      // Create document record
+      final document = StaffDocument(
+        id: '', // Will be set by Firestore
+        staffId: staffId,
+        type: documentType,
+        fileName: fileName,
+        fileUrl: fileUrl,
+        description: description,
+        fileSizeBytes: fileSizeBytes,
+        mimeType: mimeType,
+        uploadedAt: DateTime.now(),
+        uploadedBy: uploadedBy,
+      );
+
+      // Save to Firestore
+      final docRef = await _firestore
+          .collection(documentsCollectionName)
+          .add(document.toFirestore());
+
+      // Update staff documents count
+      await _updateStaffDocumentsCount(staffId);
+
+      return docRef.id;
+    } catch (e) {
+      throw Exception('Failed to upload document: $e');
+    }
+  }
+
+  // Upload staff document from bytes (web-compatible)
+  Future<String> uploadStaffDocumentBytes({
+    required String staffId,
+    required Uint8List bytes,
+    required String fileName,
+    required DocumentType documentType,
+    String? description,
+    String? uploadedBy,
+  }) async {
+    try {
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final storagePath = 'staff_documents/$staffId/${timestamp}_$fileName';
+
+      // Upload bytes to Firebase Storage
+      final ref = _storage.ref().child(storagePath);
+      final uploadTask = ref.putData(
+        bytes,
+        SettableMetadata(contentType: _getMimeType(fileName)),
+      );
+      final snapshot = await uploadTask.whenComplete(() {});
+      final fileUrl = await snapshot.ref.getDownloadURL();
+
+      // Get file size and mime type
+      final fileSizeBytes = bytes.length;
       final mimeType = _getMimeType(fileName);
 
       // Create document record

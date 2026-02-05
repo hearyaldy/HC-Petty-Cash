@@ -1122,45 +1122,59 @@ class _StudentMonthlyReportDetailScreenState
                                                 ),
                                               ),
                                             ),
-                                            // Edit/Delete menu - only show when report is draft
-                                            if ((_reportData?['status'] ?? 'draft') == 'draft')
-                                              PopupMenuButton<String>(
-                                                icon: Icon(
-                                                  Icons.more_vert,
-                                                  size: 20,
-                                                  color: Colors.grey[600],
+                                            // View/Edit/Delete menu
+                                            PopupMenuButton<String>(
+                                              icon: Icon(
+                                                Icons.more_vert,
+                                                size: 20,
+                                                color: Colors.grey[600],
+                                              ),
+                                              padding: EdgeInsets.zero,
+                                              onSelected: (value) {
+                                                if (value == 'view') {
+                                                  _showViewTimesheetDialog(ts);
+                                                } else if (value == 'edit') {
+                                                  _showEditTimesheetDialog(ts);
+                                                } else if (value == 'delete') {
+                                                  _showDeleteTimesheetDialog(ts);
+                                                }
+                                              },
+                                              itemBuilder: (context) => [
+                                                const PopupMenuItem(
+                                                  value: 'view',
+                                                  child: Row(
+                                                    children: [
+                                                      Icon(Icons.visibility, size: 18, color: Colors.green),
+                                                      SizedBox(width: 8),
+                                                      Text('View Details'),
+                                                    ],
+                                                  ),
                                                 ),
-                                                padding: EdgeInsets.zero,
-                                                onSelected: (value) {
-                                                  if (value == 'edit') {
-                                                    _showEditTimesheetDialog(ts);
-                                                  } else if (value == 'delete') {
-                                                    _showDeleteTimesheetDialog(ts);
-                                                  }
-                                                },
-                                                itemBuilder: (context) => [
-                                                  PopupMenuItem(
+                                                // Only show Edit/Delete when report is draft
+                                                if ((_reportData?['status'] ?? 'draft') == 'draft') ...[
+                                                  const PopupMenuItem(
                                                     value: 'edit',
                                                     child: Row(
                                                       children: [
                                                         Icon(Icons.edit, size: 18, color: Colors.blue),
-                                                        const SizedBox(width: 8),
-                                                        const Text('Edit'),
+                                                        SizedBox(width: 8),
+                                                        Text('Edit'),
                                                       ],
                                                     ),
                                                   ),
-                                                  PopupMenuItem(
+                                                  const PopupMenuItem(
                                                     value: 'delete',
                                                     child: Row(
                                                       children: [
                                                         Icon(Icons.delete, size: 18, color: Colors.red),
-                                                        const SizedBox(width: 8),
-                                                        const Text('Delete', style: TextStyle(color: Colors.red)),
+                                                        SizedBox(width: 8),
+                                                        Text('Delete', style: TextStyle(color: Colors.red)),
                                                       ],
                                                     ),
                                                   ),
                                                 ],
-                                              ),
+                                              ],
+                                            ),
                                           ],
                                         ),
                                       ],
@@ -1484,48 +1498,62 @@ class _StudentMonthlyReportDetailScreenState
                                             ),
                                           ),
                                         ),
-                                        // Actions - only show when draft
-                                        if ((_reportData?['status'] ?? 'draft') == 'draft')
-                                          SizedBox(
-                                            width: 50,
-                                            child: PopupMenuButton<String>(
-                                              icon: Icon(
-                                                Icons.more_vert,
-                                                size: 20,
-                                                color: Colors.grey[600],
+                                        // Actions menu
+                                        SizedBox(
+                                          width: 50,
+                                          child: PopupMenuButton<String>(
+                                            icon: Icon(
+                                              Icons.more_vert,
+                                              size: 20,
+                                              color: Colors.grey[600],
+                                            ),
+                                            padding: EdgeInsets.zero,
+                                            onSelected: (value) {
+                                              if (value == 'view') {
+                                                _showViewTimesheetDialog(ts);
+                                              } else if (value == 'edit') {
+                                                _showEditTimesheetDialog(ts);
+                                              } else if (value == 'delete') {
+                                                _showDeleteTimesheetDialog(ts);
+                                              }
+                                            },
+                                            itemBuilder: (context) => [
+                                              const PopupMenuItem(
+                                                value: 'view',
+                                                child: Row(
+                                                  children: [
+                                                    Icon(Icons.visibility, size: 18, color: Colors.green),
+                                                    SizedBox(width: 8),
+                                                    Text('View Details'),
+                                                  ],
+                                                ),
                                               ),
-                                              padding: EdgeInsets.zero,
-                                              onSelected: (value) {
-                                                if (value == 'edit') {
-                                                  _showEditTimesheetDialog(ts);
-                                                } else if (value == 'delete') {
-                                                  _showDeleteTimesheetDialog(ts);
-                                                }
-                                              },
-                                              itemBuilder: (context) => [
-                                                PopupMenuItem(
+                                              // Only show Edit/Delete when report is draft
+                                              if ((_reportData?['status'] ?? 'draft') == 'draft') ...[
+                                                const PopupMenuItem(
                                                   value: 'edit',
                                                   child: Row(
                                                     children: [
                                                       Icon(Icons.edit, size: 18, color: Colors.blue),
-                                                      const SizedBox(width: 8),
-                                                      const Text('Edit'),
+                                                      SizedBox(width: 8),
+                                                      Text('Edit'),
                                                     ],
                                                   ),
                                                 ),
-                                                PopupMenuItem(
+                                                const PopupMenuItem(
                                                   value: 'delete',
                                                   child: Row(
                                                     children: [
                                                       Icon(Icons.delete, size: 18, color: Colors.red),
-                                                      const SizedBox(width: 8),
-                                                      const Text('Delete', style: TextStyle(color: Colors.red)),
+                                                      SizedBox(width: 8),
+                                                      Text('Delete', style: TextStyle(color: Colors.red)),
                                                     ],
                                                   ),
                                                 ),
                                               ],
-                                            ),
+                                            ],
                                           ),
+                                        ),
                                       ],
                                     ),
                                   ),
@@ -1721,6 +1749,7 @@ class _StudentMonthlyReportDetailScreenState
     TimeOfDay? startTime;
     TimeOfDay? endTime;
     TaskType selectedTaskType = TaskType.other;
+    final customTaskTypeController = TextEditingController();
     final taskTitleController = TextEditingController();
     final taskDescriptionController = TextEditingController();
     int taskProgress = 0;
@@ -1946,6 +1975,27 @@ class _StudentMonthlyReportDetailScreenState
                         }
                       },
                     ),
+                    // Custom Task Type field (shown when "Other" is selected)
+                    if (selectedTaskType == TaskType.other) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        'Specify Task Type *',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: customTaskTypeController,
+                        decoration: InputDecoration(
+                          hintText: 'Enter custom task type name',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 16),
 
                     // Task Title
@@ -1970,7 +2020,7 @@ class _StudentMonthlyReportDetailScreenState
 
                     // Task Description
                     Text(
-                      'Description',
+                      'Description *',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.grey[700],
@@ -1991,7 +2041,7 @@ class _StudentMonthlyReportDetailScreenState
 
                     // Progress Slider
                     Text(
-                      'Progress: $taskProgress%',
+                      'Progress *: $taskProgress%',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.grey[700],
@@ -2021,7 +2071,7 @@ class _StudentMonthlyReportDetailScreenState
 
                     // Task Status Dropdown
                     Text(
-                      'Status',
+                      'Status *',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.grey[700],
@@ -2086,13 +2136,27 @@ class _StudentMonthlyReportDetailScreenState
               ),
               ElevatedButton(
                 onPressed: () async {
+                  // Validate required fields
                   if (selectedDate == null ||
                       startTime == null ||
                       endTime == null ||
-                      taskTitleController.text.trim().isEmpty) {
+                      taskTitleController.text.trim().isEmpty ||
+                      taskDescriptionController.text.trim().isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('Please fill in all required fields'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+
+                  // Validate custom task type when "Other" is selected
+                  if (selectedTaskType == TaskType.other &&
+                      customTaskTypeController.text.trim().isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please specify the task type'),
                         backgroundColor: Colors.red,
                       ),
                     );
@@ -2149,6 +2213,9 @@ class _StudentMonthlyReportDetailScreenState
                     status: 'draft',
                     task: taskTitleController.text.trim(), // For backward compatibility
                     taskType: selectedTaskType.value,
+                    customTaskType: selectedTaskType == TaskType.other
+                        ? customTaskTypeController.text.trim()
+                        : null,
                     taskTitle: taskTitleController.text.trim(),
                     taskDescription: taskDescriptionController.text.isNotEmpty
                         ? taskDescriptionController.text.trim()
@@ -2222,6 +2289,7 @@ class _StudentMonthlyReportDetailScreenState
     TimeOfDay? startTime = TimeOfDay.fromDateTime(timesheet.startTime);
     TimeOfDay? endTime = TimeOfDay.fromDateTime(timesheet.endTime);
     TaskType selectedTaskType = timesheet.taskTypeEnum;
+    final customTaskTypeController = TextEditingController(text: timesheet.customTaskType ?? '');
     final taskTitleController = TextEditingController(text: timesheet.taskTitle ?? timesheet.task);
     final taskDescriptionController = TextEditingController(text: timesheet.taskDescription ?? '');
     int taskProgress = timesheet.taskProgress;
@@ -2418,6 +2486,27 @@ class _StudentMonthlyReportDetailScreenState
                         }
                       },
                     ),
+                    // Custom Task Type field (shown when "Other" is selected)
+                    if (selectedTaskType == TaskType.other) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        'Specify Task Type *',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: customTaskTypeController,
+                        decoration: InputDecoration(
+                          hintText: 'Enter custom task type name',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 16),
 
                     // Task Title
@@ -2442,7 +2531,7 @@ class _StudentMonthlyReportDetailScreenState
 
                     // Task Description
                     Text(
-                      'Description',
+                      'Description *',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.grey[700],
@@ -2463,7 +2552,7 @@ class _StudentMonthlyReportDetailScreenState
 
                     // Progress Slider
                     Text(
-                      'Progress: $taskProgress%',
+                      'Progress *: $taskProgress%',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.grey[700],
@@ -2493,7 +2582,7 @@ class _StudentMonthlyReportDetailScreenState
 
                     // Task Status Dropdown
                     Text(
-                      'Status',
+                      'Status *',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.grey[700],
@@ -2558,13 +2647,27 @@ class _StudentMonthlyReportDetailScreenState
               ),
               ElevatedButton(
                 onPressed: () async {
+                  // Validate required fields
                   if (selectedDate == null ||
                       startTime == null ||
                       endTime == null ||
-                      taskTitleController.text.trim().isEmpty) {
+                      taskTitleController.text.trim().isEmpty ||
+                      taskDescriptionController.text.trim().isEmpty) {
                     ScaffoldMessenger.of(dialogContext).showSnackBar(
                       const SnackBar(
                         content: Text('Please fill in all required fields'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+
+                  // Validate custom task type when "Other" is selected
+                  if (selectedTaskType == TaskType.other &&
+                      customTaskTypeController.text.trim().isEmpty) {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please specify the task type'),
                         backgroundColor: Colors.red,
                       ),
                     );
@@ -2612,6 +2715,9 @@ class _StudentMonthlyReportDetailScreenState
                         'totalAmount': hours * hourlyRate,
                         'task': taskTitleController.text.trim(),
                         'taskType': selectedTaskType.value,
+                        'customTaskType': selectedTaskType == TaskType.other
+                            ? customTaskTypeController.text.trim()
+                            : null,
                         'taskTitle': taskTitleController.text.trim(),
                         'taskDescription': taskDescriptionController.text.isNotEmpty
                             ? taskDescriptionController.text.trim()
@@ -2647,6 +2753,283 @@ class _StudentMonthlyReportDetailScreenState
             ],
           );
         },
+      ),
+    );
+  }
+
+  void _showViewTimesheetDialog(StudentTimesheet timesheet) {
+    final dateFormat = DateFormat('EEEE, MMMM d, yyyy');
+    final timeFormat = DateFormat('HH:mm');
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.visibility, color: Colors.green.shade700),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(child: Text('Time Entry Details')),
+          ],
+        ),
+        content: SizedBox(
+          width: MediaQuery.of(dialogContext).size.width * 0.8,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Date Section
+                _buildViewSection(
+                  'Date',
+                  dateFormat.format(timesheet.date),
+                  Icons.calendar_today,
+                  Colors.blue,
+                ),
+                const SizedBox(height: 16),
+
+                // Time Section
+                _buildViewSection(
+                  'Time',
+                  '${timeFormat.format(timesheet.startTime)} - ${timeFormat.format(timesheet.endTime)}',
+                  Icons.access_time,
+                  Colors.orange,
+                ),
+                const SizedBox(height: 16),
+
+                // Hours & Earnings Row
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildViewSection(
+                        'Total Hours',
+                        '${timesheet.totalHours.toStringAsFixed(2)} hrs',
+                        Icons.timelapse,
+                        Colors.purple,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildViewSection(
+                        'Earnings',
+                        '฿${timesheet.totalAmount.toStringAsFixed(2)}',
+                        Icons.attach_money,
+                        Colors.green,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                const Divider(),
+                const SizedBox(height: 16),
+
+                // Task Type Section
+                _buildViewSection(
+                  'Task Type',
+                  timesheet.taskTypeDisplayName,
+                  Icons.category,
+                  Colors.indigo,
+                ),
+                const SizedBox(height: 16),
+
+                // Task Title Section
+                if (timesheet.taskTitle != null && timesheet.taskTitle!.isNotEmpty) ...[
+                  _buildViewSection(
+                    'Task Title',
+                    timesheet.taskTitle!,
+                    Icons.title,
+                    Colors.teal,
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // Task Description Section
+                if (timesheet.taskDescription != null && timesheet.taskDescription!.isNotEmpty) ...[
+                  _buildViewSection(
+                    'Description',
+                    timesheet.taskDescription!,
+                    Icons.description,
+                    Colors.blueGrey,
+                    isMultiLine: true,
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // Progress & Status Row
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildViewSection(
+                        'Progress',
+                        '${timesheet.taskProgress}%',
+                        Icons.trending_up,
+                        Colors.amber,
+                        showProgressBar: true,
+                        progressValue: timesheet.taskProgress,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildViewSection(
+                        'Task Status',
+                        timesheet.taskStatusEnum.displayName,
+                        _getTaskStatusIcon(timesheet.taskStatusEnum),
+                        _getTaskStatusColor(timesheet.taskStatusEnum),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Notes Section
+                if (timesheet.notes != null && timesheet.notes!.isNotEmpty) ...[
+                  const Divider(),
+                  const SizedBox(height: 16),
+                  _buildViewSection(
+                    'Notes',
+                    timesheet.notes!,
+                    Icons.note,
+                    Colors.grey,
+                    isMultiLine: true,
+                  ),
+                ],
+
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 8),
+
+                // Status Badge
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _getStatusColor(timesheet.status).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: _getStatusColor(timesheet.status)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _getStatusIcon(timesheet.status),
+                            size: 16,
+                            color: _getStatusColor(timesheet.status),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            timesheet.status.toUpperCase(),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: _getStatusColor(timesheet.status),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Close'),
+          ),
+          // Show Edit button if report is draft
+          if ((_reportData?['status'] ?? 'draft') == 'draft')
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                _showEditTimesheetDialog(timesheet);
+              },
+              icon: const Icon(Icons.edit, size: 18),
+              label: const Text('Edit'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildViewSection(
+    String label,
+    String value,
+    IconData icon,
+    Color color, {
+    bool isMultiLine = false,
+    bool showProgressBar = false,
+    int progressValue = 0,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (showProgressBar) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: progressValue / 100,
+                      backgroundColor: Colors.grey[200],
+                      valueColor: AlwaysStoppedAnimation<Color>(color),
+                      minHeight: 8,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ] else
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: isMultiLine ? 14 : 16,
+                fontWeight: isMultiLine ? FontWeight.normal : FontWeight.bold,
+                color: Colors.grey[800],
+              ),
+            ),
+        ],
       ),
     );
   }

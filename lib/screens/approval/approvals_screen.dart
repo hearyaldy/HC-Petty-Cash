@@ -215,7 +215,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                     style: const TextStyle(fontWeight: FontWeight.w500),
                   ),
                   Text(
-                    '${transaction.category.expenseCategoryDisplayName} • ${DateFormat('MMM d, y').format(transaction.date)}',
+                    '${transaction.categoryDisplayName} • ${DateFormat('MMM d, y').format(transaction.date)}',
                   ),
                   Text(
                     'Receipt: ${transaction.receiptNo}',
@@ -249,7 +249,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                       _buildDetailRow('Receipt Number', transaction.receiptNo),
                       _buildDetailRow(
                         'Category',
-                        transaction.category.expenseCategoryDisplayName,
+                        transaction.categoryDisplayName,
                       ),
                       _buildDetailRow(
                         'Date',

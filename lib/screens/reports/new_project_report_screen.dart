@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/project_report_provider.dart';
+import '../../models/app_settings.dart';
+import '../../services/settings_service.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
 
@@ -19,9 +22,26 @@ class _NewProjectReportScreenState extends State<NewProjectReportScreen> {
   final _projectNameController = TextEditingController();
   final _budgetController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final SettingsService _settingsService = SettingsService();
 
   DateTime _startDate = DateTime.now();
   DateTime _endDate = DateTime.now().add(const Duration(days: 30));
+
+  List<ProjectLanguage> _languages = [];
+  ProjectLanguage? _selectedLanguage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLanguages();
+  }
+
+  Future<void> _loadLanguages() async {
+    final languages = await _settingsService.getProjectLanguages();
+    setState(() {
+      _languages = languages;
+    });
+  }
 
   @override
   void dispose() {
@@ -99,6 +119,49 @@ class _NewProjectReportScreenState extends State<NewProjectReportScreen> {
                               }
                               if (double.parse(value) <= 0) {
                                 return 'Budget must be greater than zero';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          DropdownButtonFormField<String>(
+                            value: _selectedLanguage?.code,
+                            decoration: const InputDecoration(
+                              labelText: 'Project Language',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.language),
+                              helperText:
+                                  'Select the language for this project report',
+                            ),
+                            items: [
+                              ..._languages.map((lang) => DropdownMenuItem(
+                                    value: lang.code,
+                                    child: Text('${lang.name} (${lang.code})'),
+                                  )),
+                              const DropdownMenuItem(
+                                value: '__add_new__',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.add, size: 18),
+                                    SizedBox(width: 8),
+                                    Text('Add Language...'),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            onChanged: (value) {
+                              if (value == '__add_new__') {
+                                _showAddLanguageDialog();
+                              } else if (value != null) {
+                                setState(() {
+                                  _selectedLanguage = _languages
+                                      .firstWhere((l) => l.code == value);
+                                });
+                              }
+                            },
+                            validator: (value) {
+                              if (value == null || value.isEmpty || value == '__add_new__') {
+                                return 'Please select a language';
                               }
                               return null;
                             },
@@ -243,6 +306,92 @@ class _NewProjectReportScreenState extends State<NewProjectReportScreen> {
     );
   }
 
+  Future<void> _showAddLanguageDialog() async {
+    final nameController = TextEditingController();
+    final codeController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final result = await showDialog<ProjectLanguage>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Custom Language'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Language Name',
+                  border: OutlineInputBorder(),
+                  hintText: 'e.g. Japanese',
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter a language name';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: codeController,
+                decoration: const InputDecoration(
+                  labelText: '3-Letter Code',
+                  border: OutlineInputBorder(),
+                  hintText: 'e.g. JPN',
+                ),
+                maxLength: 3,
+                textCapitalization: TextCapitalization.characters,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter a 3-letter code';
+                  }
+                  if (value.trim().length != 3) {
+                    return 'Code must be exactly 3 letters';
+                  }
+                  if (!RegExp(r'^[A-Za-z]{3}$').hasMatch(value.trim())) {
+                    return 'Code must contain only letters';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                final lang = ProjectLanguage(
+                  id: const Uuid().v4(),
+                  name: nameController.text.trim(),
+                  code: codeController.text.trim().toUpperCase(),
+                  createdAt: DateTime.now(),
+                );
+                Navigator.of(context).pop(lang);
+              }
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null) {
+      await _settingsService.addProjectLanguage(result);
+      await _loadLanguages();
+      setState(() {
+        _selectedLanguage = result;
+      });
+    }
+  }
+
   Future<void> _createProjectReport() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -282,6 +431,8 @@ class _NewProjectReportScreenState extends State<NewProjectReportScreen> {
         description: _descriptionController.text.isEmpty
             ? null
             : _descriptionController.text,
+        language: _selectedLanguage?.name,
+        languageCode: _selectedLanguage?.code,
       );
 
       if (mounted) {

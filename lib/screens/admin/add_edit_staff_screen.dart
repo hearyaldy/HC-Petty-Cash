@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
@@ -213,10 +214,26 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
         type: FileType.custom,
         allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'],
         allowMultiple: false,
+        withData: true, // Required for web support
       );
 
-      if (result != null && result.files.single.path != null) {
-        _showDocumentTypeDialog(File(result.files.single.path!));
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.single;
+        final bytes = file.bytes;
+        final fileName = file.name;
+
+        if (bytes != null) {
+          _showDocumentTypeDialog(bytes, fileName);
+        } else if (file.path != null) {
+          // Fallback for mobile when bytes is null
+          final fileObj = File(file.path!);
+          final fileBytes = await fileObj.readAsBytes();
+          _showDocumentTypeDialog(fileBytes, fileName);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not read file data')),
+          );
+        }
       }
     } catch (e) {
       ScaffoldMessenger.of(
@@ -225,7 +242,7 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
     }
   }
 
-  void _showDocumentTypeDialog(File file) {
+  void _showDocumentTypeDialog(Uint8List bytes, String fileName) {
     DocumentType selectedType = DocumentType.other;
     final descriptionController = TextEditingController();
 
@@ -252,6 +269,7 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
           children: [
             DropdownButtonFormField<DocumentType>(
               value: selectedType,
+              isExpanded: true,
               decoration: InputDecoration(
                 labelText: 'Document Type',
                 border: OutlineInputBorder(
@@ -267,7 +285,12 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
                     children: [
                       Text(type.icon, style: const TextStyle(fontSize: 20)),
                       const SizedBox(width: 8),
-                      Text(type.displayName),
+                      Flexible(
+                        child: Text(
+                          type.displayName,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ],
                   ),
                 );
@@ -304,7 +327,8 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
               setState(() {
                 _pendingDocuments.add(
                   PendingDocument(
-                    file: file,
+                    bytes: bytes,
+                    fileName: fileName,
                     type: selectedType,
                     description: descriptionController.text.isNotEmpty
                         ? descriptionController.text
@@ -608,9 +632,10 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
 
       // Upload pending documents
       for (final doc in _pendingDocuments) {
-        await _staffService.uploadStaffDocument(
+        await _staffService.uploadStaffDocumentBytes(
           staffId: staffId,
-          file: doc.file,
+          bytes: doc.bytes,
+          fileName: doc.fileName,
           documentType: doc.type,
           description: doc.description,
           uploadedBy: currentUserId,
@@ -1531,7 +1556,6 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
             itemCount: _pendingDocuments.length,
             itemBuilder: (context, index) {
               final doc = _pendingDocuments[index];
-              final fileName = doc.file.path.split('/').last;
               return Container(
                 margin: const EdgeInsets.only(bottom: 8),
                 decoration: BoxDecoration(
@@ -1552,7 +1576,7 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
                     ),
                   ),
                   title: Text(
-                    fileName,
+                    doc.fileName,
                     style: TextStyle(
                       fontWeight: FontWeight.w500,
                       color: Colors.orange.shade900,
@@ -1660,9 +1684,15 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
 }
 
 class PendingDocument {
-  final File file;
+  final Uint8List bytes;
+  final String fileName;
   final DocumentType type;
   final String? description;
 
-  PendingDocument({required this.file, required this.type, this.description});
+  PendingDocument({
+    required this.bytes,
+    required this.fileName,
+    required this.type,
+    this.description,
+  });
 }

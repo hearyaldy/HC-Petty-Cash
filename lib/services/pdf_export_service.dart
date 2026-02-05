@@ -150,7 +150,7 @@ class PdfExportService {
             dateFormat.format(transaction.date),
             transaction.receiptNo,
             transaction.description,
-            transaction.category.expenseCategoryDisplayName,
+            transaction.categoryDisplayName,
             currencyFormat.format(transaction.amount),
           ],
         )

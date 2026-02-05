@@ -391,15 +391,43 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
+          "fieldPath": "staffId",
+          "order": "ASCENDING"
+        },
+        {
           "fieldPath": "isActive",
           "order": "ASCENDING"
         },
+        {
+          "fieldPath": "effectiveDate",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "salary_benefits",
+      "queryScope": "COLLECTION",
+      "fields": [
         {
           "fieldPath": "staffId",
           "order": "ASCENDING"
         },
         {
           "fieldPath": "effectiveDate",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "equipment_checkouts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "equipmentId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "checkedOutAt",
           "order": "DESCENDING"
         }
       ]

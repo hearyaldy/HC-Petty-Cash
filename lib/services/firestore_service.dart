@@ -476,19 +476,36 @@ class FirestoreService {
     required DateTime endDate,
     required User custodian,
     String? description,
+    String? language,
+    String? languageCode,
   }) async {
     try {
       // Generate project report number
       final now = DateTime.now();
       final formatter = DateFormat('yyyyMM');
+      final monthStr = formatter.format(now);
       final existingReports = await getAllProjectReports();
-      final count =
-          existingReports
-              .where((r) => r.id.startsWith('PROJ-${formatter.format(now)}'))
-              .length +
-          1;
-      final projectNumber =
-          'PROJ-${formatter.format(now)}-${count.toString().padLeft(3, '0')}';
+
+      String projectNumber;
+      if (languageCode != null && languageCode.isNotEmpty) {
+        final prefix = 'PROJ-$languageCode-$monthStr';
+        final count =
+            existingReports
+                .where((r) => r.reportNumber.startsWith(prefix))
+                .length +
+            1;
+        projectNumber =
+            '$prefix-${count.toString().padLeft(3, '0')}';
+      } else {
+        final prefix = 'PROJ-$monthStr';
+        final count =
+            existingReports
+                .where((r) => r.reportNumber.startsWith(prefix))
+                .length +
+            1;
+        projectNumber =
+            '$prefix-${count.toString().padLeft(3, '0')}';
+      }
 
       final projectReport = ProjectReport(
         id: const Uuid().v4(),
@@ -504,6 +521,8 @@ class FirestoreService {
         status: 'draft',
         createdAt: now,
         description: description,
+        language: language,
+        languageCode: languageCode,
       );
 
       await _projectReportsCollection

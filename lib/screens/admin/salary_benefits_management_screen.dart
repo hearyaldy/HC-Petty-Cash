@@ -369,374 +369,136 @@ class _SalaryBenefitsManagementScreenState extends State<SalaryBenefitsManagemen
           ),
         ],
       ),
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          childrenPadding: EdgeInsets.zero,
-          title: Row(
-            children: [
-              Hero(
-                tag: 'salary_avatar_${staff.id}',
-                child: Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: [Colors.green.shade300, Colors.green.shade500],
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.green.withOpacity(0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => _navigateToSalaryHistory(staff),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Row(
+              children: [
+                Hero(
+                  tag: 'salary_avatar_${staff.id}',
+                  child: Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: [Colors.green.shade300, Colors.green.shade500],
                       ),
-                    ],
-                    image: staff.photoUrl != null
-                        ? DecorationImage(
-                            image: NetworkImage(staff.photoUrl!),
-                            fit: BoxFit.cover,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.green.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                      image: staff.photoUrl != null
+                          ? DecorationImage(
+                              image: NetworkImage(staff.photoUrl!),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
+                    ),
+                    child: staff.photoUrl == null
+                        ? Center(
+                            child: Text(
+                              staff.fullName.isNotEmpty
+                                  ? staff.fullName[0].toUpperCase()
+                                  : '?',
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
                           )
                         : null,
                   ),
-                  child: staff.photoUrl == null
-                      ? Center(
-                          child: Text(
-                            staff.fullName.isNotEmpty
-                                ? staff.fullName[0].toUpperCase()
-                                : '?',
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        )
-                      : null,
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      staff.fullName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade50,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            staff.employeeId,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.blue.shade700,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            staff.position,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade600,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          children: [
-            _buildSalaryBenefitsSection(staff),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSalaryBenefitsSection(Staff staff) {
-    return StreamBuilder<SalaryBenefits?>(
-      stream: _salaryBenefitsService.getCurrentOrLatestSalaryBenefitsForStaff(staff.id),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Padding(
-            padding: EdgeInsets.all(24),
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        if (snapshot.hasError) {
-          debugPrint(
-            'Salary benefits stream error: ${snapshot.error}\n'
-            'If this is a Firestore index error, create this composite index:\n'
-            'Collection: salary_benefits\n'
-            'Fields: staffId (ASC), isActive (ASC), effectiveDate (DESC)',
-          );
-          return Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(
-              'Error loading salary info: ${snapshot.error}\n\n'
-              'If this is a Firestore index error, create this composite index:\n'
-              'Collection: salary_benefits\n'
-              'Fields: staffId (ASC), isActive (ASC), effectiveDate (DESC)',
-              style: TextStyle(color: Colors.red.shade700),
-            ),
-          );
-        }
-
-        final salaryBenefits = snapshot.data;
-
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.grey.shade50,
-            borderRadius: const BorderRadius.only(
-              bottomLeft: Radius.circular(16),
-              bottomRight: Radius.circular(16),
-            ),
-          ),
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Current Salary Benefits Display
-              if (salaryBenefits != null) _buildCurrentSalaryBenefitsCard(salaryBenefits),
-
-              if (salaryBenefits == null)
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.orange.shade200),
-                  ),
-                  child: Row(
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.info_outline, color: Colors.orange.shade600),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'No salary information set for this employee',
-                          style: TextStyle(color: Colors.orange.shade800),
+                      Text(
+                        staff.fullName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
                         ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              staff.employeeId,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.blue.shade700,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              staff.position,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      // Brief salary summary
+                      StreamBuilder<SalaryBenefits?>(
+                        stream: _salaryBenefitsService.getCurrentOrLatestSalaryBenefitsForStaff(staff.id),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return Text(
+                              'Loading...',
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                            );
+                          }
+                          final sb = snapshot.data;
+                          if (sb == null) {
+                            return Text(
+                              'No salary record',
+                              style: TextStyle(fontSize: 12, color: Colors.orange.shade600),
+                            );
+                          }
+                          return Text(
+                            'Gross: ${sb.currency ?? "THB"} ${NumberFormat('#,##0').format(sb.grossSalary)}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.green.shade700,
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),
                 ),
-
-              // Action Buttons
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: salaryBenefits != null
-                              ? [Colors.blue.shade400, Colors.blue.shade600]
-                              : [Colors.green.shade400, Colors.green.shade600],
-                        ),
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: [
-                          BoxShadow(
-                            color: (salaryBenefits != null ? Colors.blue : Colors.green).withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () => _navigateToAddEditSalaryBenefits(staff, salaryBenefits),
-                          borderRadius: BorderRadius.circular(10),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.edit, color: Colors.white, size: 20),
-                                const SizedBox(width: 8),
-                                Text(
-                                  salaryBenefits != null ? 'Edit Salary & Benefits' : 'Add Salary & Benefits',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (salaryBenefits != null) ...[
-                    const SizedBox(width: 12),
-                    Container(
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () => _navigateToSalaryHistory(staff),
-                          borderRadius: BorderRadius.circular(10),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            child: Row(
-                              children: [
-                                Icon(Icons.history, color: Colors.grey.shade700, size: 20),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'History',
-                                  style: TextStyle(
-                                    color: Colors.grey.shade700,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ],
+                Icon(Icons.chevron_right, color: Colors.grey.shade400),
+              ],
+            ),
           ),
-        );
-      },
-    );
-  }
-
-  Widget _buildCurrentSalaryBenefitsCard(SalaryBenefits salaryBenefits) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.green.shade50, Colors.teal.shade50],
         ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.green.shade200),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.green.shade400, Colors.green.shade600],
-                      ),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.account_balance_wallet, color: Colors.white, size: 18),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Current Salary & Benefits',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green.shade700,
-                    ),
-                  ),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: salaryBenefits.isActive ? Colors.green : Colors.grey,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  salaryBenefits.isActive ? 'Active' : 'Inactive',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildInfoRow('Base Salary', '${salaryBenefits.currency} ${NumberFormat('#,##0').format(salaryBenefits.baseSalary)}'),
-          if (salaryBenefits.overtimeRate != null)
-            _buildInfoRow('Overtime Rate', '${salaryBenefits.currency} ${NumberFormat('#,##0').format(salaryBenefits.overtimeRate)}'),
-          if (salaryBenefits.bonus != null)
-            _buildInfoRow('Bonus', '${salaryBenefits.currency} ${NumberFormat('#,##0').format(salaryBenefits.bonus)}'),
-          if (salaryBenefits.allowances != null)
-            _buildInfoRow('Allowances', '${salaryBenefits.currency} ${NumberFormat('#,##0').format(salaryBenefits.allowances)}'),
-          if (salaryBenefits.deductions != null)
-            _buildInfoRow('Deductions', '${salaryBenefits.currency} ${NumberFormat('#,##0').format(salaryBenefits.deductions)}'),
-          const Divider(height: 24),
-          _buildInfoRow('Gross Salary', '${salaryBenefits.currency} ${NumberFormat('#,##0').format(salaryBenefits.grossSalary)}', isBold: true),
-          _buildInfoRow('Net Salary', '${salaryBenefits.currency} ${NumberFormat('#,##0').format(salaryBenefits.netSalary)}', isBold: true, isHighlighted: true),
-          const SizedBox(height: 8),
-          _buildInfoRow('Effective Date', DateFormat('dd/MM/yyyy').format(salaryBenefits.effectiveDate)),
-          if (salaryBenefits.salaryGrade != null)
-            _buildInfoRow('Salary Grade', salaryBenefits.salaryGrade!),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value, {bool isBold = false, bool isHighlighted = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.grey.shade700,
-              fontWeight: isBold ? FontWeight.w600 : FontWeight.normal,
-            ),
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
-              color: isHighlighted ? Colors.green.shade700 : Colors.grey.shade900,
-              fontSize: isHighlighted ? 16 : 14,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _navigateToAddEditSalaryBenefits(Staff staff, SalaryBenefits? currentSalaryBenefits) {
-    context.push(
-      '/admin/salary-benefits/edit',
-      extra: {'staff': staff, 'salaryBenefits': currentSalaryBenefits},
     );
   }
 

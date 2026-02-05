@@ -91,6 +91,7 @@ class StudentTimesheet {
   final String status; // 'draft', 'submitted', 'approved', 'rejected', 'paid'
   final String task; // Task/work done description (required) - kept for backward compatibility
   final String? taskType; // Task type from dropdown (e.g., 'videoEditing', 'contentCreation')
+  final String? customTaskType; // Custom task type name when 'other' is selected
   final String? taskTitle; // Specific title for the work
   final String? taskDescription; // Detailed description of the task
   final int taskProgress; // Progress percentage (0-100)
@@ -118,6 +119,7 @@ class StudentTimesheet {
     this.status = 'draft',
     required this.task,
     this.taskType,
+    this.customTaskType,
     this.taskTitle,
     this.taskDescription,
     this.taskProgress = 0,
@@ -133,6 +135,14 @@ class StudentTimesheet {
   // Helper getters for enums
   TaskType get taskTypeEnum => TaskTypeExtension.fromString(taskType);
   TaskStatus get taskStatusEnum => TaskStatusExtension.fromString(taskStatus);
+
+  // Get task type display name (uses custom name if "other" is selected)
+  String get taskTypeDisplayName {
+    if (taskTypeEnum == TaskType.other && customTaskType != null && customTaskType!.isNotEmpty) {
+      return customTaskType!;
+    }
+    return taskTypeEnum.displayName;
+  }
 
   Map<String, dynamic> toFirestore() {
     return {
@@ -151,6 +161,7 @@ class StudentTimesheet {
       'status': status,
       'task': task,
       'taskType': taskType,
+      'customTaskType': customTaskType,
       'taskTitle': taskTitle,
       'taskDescription': taskDescription,
       'taskProgress': taskProgress,
@@ -192,6 +203,7 @@ class StudentTimesheet {
       status: data['status'] ?? 'draft',
       task: data['task'] ?? '',
       taskType: data['taskType'],
+      customTaskType: data['customTaskType'],
       taskTitle: data['taskTitle'],
       taskDescription: data['taskDescription'],
       taskProgress: (data['taskProgress'] ?? 0).toInt(),
@@ -223,6 +235,7 @@ class StudentTimesheet {
     String? status,
     String? task,
     String? taskType,
+    String? customTaskType,
     String? taskTitle,
     String? taskDescription,
     int? taskProgress,
@@ -250,6 +263,7 @@ class StudentTimesheet {
       status: status ?? this.status,
       task: task ?? this.task,
       taskType: taskType ?? this.taskType,
+      customTaskType: customTaskType ?? this.customTaskType,
       taskTitle: taskTitle ?? this.taskTitle,
       taskDescription: taskDescription ?? this.taskDescription,
       taskProgress: taskProgress ?? this.taskProgress,

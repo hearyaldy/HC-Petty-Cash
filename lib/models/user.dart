@@ -7,6 +7,7 @@ class User {
   final String email;
   final String role; // Store as string: 'requester', 'manager', 'finance', 'admin'
   final String department;
+  final String? photoUrl;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -16,6 +17,7 @@ class User {
     required this.email,
     required this.role,
     required this.department,
+    this.photoUrl,
     required this.createdAt,
     this.updatedAt,
   });
@@ -34,6 +36,7 @@ class User {
       'email': email,
       'role': role,
       'department': department,
+      'photoUrl': photoUrl,
       'createdAt': firestore.Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt != null ? firestore.Timestamp.fromDate(updatedAt!) : null,
     };
@@ -69,6 +72,7 @@ class User {
       email: data['email'] as String? ?? '',
       role: data['role'] as String? ?? 'requester',
       department: data['department'] as String? ?? 'Unknown',
+      photoUrl: data['photoUrl'] as String?,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );
@@ -82,6 +86,7 @@ class User {
       'email': email,
       'role': role,
       'department': department,
+      'photoUrl': photoUrl,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
     };
@@ -94,6 +99,7 @@ class User {
       email: json['email'] as String,
       role: json['role'] as String,
       department: json['department'] as String,
+      photoUrl: json['photoUrl'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: json['updatedAt'] != null
           ? DateTime.parse(json['updatedAt'] as String)
@@ -107,6 +113,7 @@ class User {
     String? email,
     String? role,
     String? department,
+    String? photoUrl,
     DateTime? updatedAt,
   }) {
     return User(
@@ -115,6 +122,7 @@ class User {
       email: email ?? this.email,
       role: role ?? this.role,
       department: department ?? this.department,
+      photoUrl: photoUrl ?? this.photoUrl,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

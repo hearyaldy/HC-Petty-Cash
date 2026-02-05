@@ -1,11 +1,18 @@
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../models/app_settings.dart';
 import '../../services/settings_service.dart';
 import '../../utils/responsive_helper.dart';
+import '../../utils/validation.dart';
 import '../../widgets/enhanced_category_management_dialog.dart';
 import '../../widgets/paid_to_management_dialog.dart';
 
@@ -21,6 +28,12 @@ class _SettingsScreenImplState extends State<SettingsScreenImpl> {
   AppSettings? _settings;
   bool _isLoading = true;
 
+  // Profile photo state
+  File? _pickedFile;
+  Uint8List? _pickedBytes;
+  String? _photoUrl;
+  bool _isUploadingPhoto = false;
+
   @override
   void initState() {
     super.initState();
@@ -31,6 +44,18 @@ class _SettingsScreenImplState extends State<SettingsScreenImpl> {
     setState(() => _isLoading = true);
     try {
       final settings = await _settingsService.getSettings();
+      // Load photoUrl from current user
+      final authProvider = context.read<AuthProvider>();
+      final currentUser = authProvider.currentUser;
+      if (currentUser != null) {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(currentUser.id)
+            .get();
+        if (userDoc.exists) {
+          _photoUrl = userDoc.data()?['photoUrl'] as String?;
+        }
+      }
       setState(() {
         _settings = settings;
         _isLoading = false;
@@ -68,6 +93,121 @@ class _SettingsScreenImplState extends State<SettingsScreenImpl> {
     }
   }
 
+  Future<void> _pickAndUploadPhoto() async {
+    try {
+      final source = await showDialog<ImageSource>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Choose Image Source'),
+          content: const Text('Select where to get your profile picture from'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, ImageSource.camera),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.camera_alt),
+                  SizedBox(width: 8),
+                  Text('Camera'),
+                ],
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, ImageSource.gallery),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.image),
+                  SizedBox(width: 8),
+                  Text('Gallery'),
+                ],
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
+      );
+
+      if (source == null) return;
+
+      final pickedFile = await ImagePicker().pickImage(
+        source: source,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+
+      if (pickedFile == null) return;
+
+      Uint8List? bytes;
+      File? file;
+
+      if (kIsWeb) {
+        bytes = await pickedFile.readAsBytes();
+        setState(() {
+          _pickedBytes = bytes;
+          _pickedFile = null;
+        });
+      } else {
+        file = File(pickedFile.path);
+        setState(() {
+          _pickedFile = file;
+          _pickedBytes = null;
+        });
+      }
+
+      // Upload to Firebase Storage
+      setState(() => _isUploadingPhoto = true);
+
+      final authProvider = context.read<AuthProvider>();
+      final userId = authProvider.currentUser?.id;
+      if (userId == null) throw 'User not authenticated';
+
+      final storagePath = 'user_photos/$userId.jpg';
+      final ref = FirebaseStorage.instance.ref().child(storagePath);
+
+      String downloadUrl;
+      if (kIsWeb && bytes != null) {
+        final snapshot = await ref.putData(bytes);
+        downloadUrl = await snapshot.ref.getDownloadURL();
+      } else if (file != null) {
+        final snapshot = await ref.putFile(file);
+        downloadUrl = await snapshot.ref.getDownloadURL();
+      } else {
+        throw 'No image data available';
+      }
+
+      // Update Firestore
+      await FirebaseFirestore.instance.collection('users').doc(userId).set({
+        'photoUrl': downloadUrl,
+      }, SetOptions(merge: true));
+
+      setState(() {
+        _photoUrl = downloadUrl;
+        _isUploadingPhoto = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile photo updated successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() => _isUploadingPhoto = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating photo: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
@@ -101,6 +241,22 @@ class _SettingsScreenImplState extends State<SettingsScreenImpl> {
             _buildProfileCard(
               currentUser?.name ?? 'User',
               currentUser?.email ?? '',
+            ),
+            const SizedBox(height: 16),
+
+            // Account & Security Section
+            _buildSectionCard(
+              title: 'Account & Security',
+              icon: Icons.security,
+              gradientColors: [Colors.indigo.shade400, Colors.indigo.shade600],
+              children: [
+                _buildSettingTile(
+                  icon: Icons.lock_outline,
+                  title: 'Change Password',
+                  subtitle: 'Update your account password',
+                  onTap: () => _showChangePasswordDialog(),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
 
@@ -334,6 +490,16 @@ class _SettingsScreenImplState extends State<SettingsScreenImpl> {
   }
 
   Widget _buildProfileCard(String name, String email) {
+    // Determine avatar image
+    ImageProvider? avatarImage;
+    if (_pickedBytes != null) {
+      avatarImage = MemoryImage(_pickedBytes!);
+    } else if (_pickedFile != null && !kIsWeb) {
+      avatarImage = FileImage(_pickedFile!);
+    } else if (_photoUrl != null && _photoUrl!.isNotEmpty) {
+      avatarImage = NetworkImage(_photoUrl!);
+    }
+
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -353,16 +519,57 @@ class _SettingsScreenImplState extends State<SettingsScreenImpl> {
       padding: const EdgeInsets.all(20),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 30,
-            backgroundColor: Colors.white.withOpacity(0.3),
-            child: Text(
-              name.isNotEmpty ? name[0].toUpperCase() : 'U',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
+          GestureDetector(
+            onTap: _isUploadingPhoto ? null : _pickAndUploadPhoto,
+            child: Stack(
+              children: [
+                CircleAvatar(
+                  radius: 30,
+                  backgroundColor: Colors.white.withOpacity(0.3),
+                  backgroundImage: avatarImage,
+                  child: _isUploadingPhoto
+                      ? const SizedBox(
+                          width: 30,
+                          height: 30,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : avatarImage == null
+                          ? Text(
+                              name.isNotEmpty ? name[0].toUpperCase() : 'U',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
+                          : null,
+                ),
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.camera_alt,
+                      size: 14,
+                      color: Colors.blue.shade600,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(width: 16),
@@ -1133,6 +1340,169 @@ class _SettingsScreenImplState extends State<SettingsScreenImpl> {
             child: const Text('Clear'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showChangePasswordDialog() {
+    final currentPasswordController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool isLoading = false;
+    bool obscureCurrent = true;
+    bool obscureNew = true;
+    bool obscureConfirm = true;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          return AlertDialog(
+            title: const Text('Change Password'),
+            content: SingleChildScrollView(
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: currentPasswordController,
+                      decoration: InputDecoration(
+                        labelText: 'Current Password',
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            obscureCurrent
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                          ),
+                          onPressed: () {
+                            setDialogState(() {
+                              obscureCurrent = !obscureCurrent;
+                            });
+                          },
+                        ),
+                      ),
+                      obscureText: obscureCurrent,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter your current password';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: newPasswordController,
+                      decoration: InputDecoration(
+                        labelText: 'New Password',
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.lock_reset),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            obscureNew
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                          ),
+                          onPressed: () {
+                            setDialogState(() {
+                              obscureNew = !obscureNew;
+                            });
+                          },
+                        ),
+                      ),
+                      obscureText: obscureNew,
+                      validator: ValidationUtils.validatePassword,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: confirmPasswordController,
+                      decoration: InputDecoration(
+                        labelText: 'Confirm New Password',
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.lock_reset),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            obscureConfirm
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                          ),
+                          onPressed: () {
+                            setDialogState(() {
+                              obscureConfirm = !obscureConfirm;
+                            });
+                          },
+                        ),
+                      ),
+                      obscureText: obscureConfirm,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please confirm your new password';
+                        }
+                        if (value != newPasswordController.text) {
+                          return 'Passwords do not match';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isLoading ? null : () => Navigator.pop(dialogContext),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: isLoading
+                    ? null
+                    : () async {
+                        if (!formKey.currentState!.validate()) return;
+
+                        setDialogState(() => isLoading = true);
+
+                        final authProvider = context.read<AuthProvider>();
+                        final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+                        try {
+                          await authProvider.changePassword(
+                            currentPasswordController.text,
+                            newPasswordController.text,
+                          );
+
+                          if (!mounted) return;
+                          Navigator.pop(dialogContext);
+                          scaffoldMessenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('Password changed successfully'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        } catch (e) {
+                          setDialogState(() => isLoading = false);
+                          if (!mounted) return;
+                          scaffoldMessenger.showSnackBar(
+                            SnackBar(
+                              content: Text('Error: ${e.toString()}'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      },
+                child: isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Change Password'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

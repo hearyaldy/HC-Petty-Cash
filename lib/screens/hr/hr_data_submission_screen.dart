@@ -590,6 +590,7 @@ class _HrDataSubmissionScreenState extends State<HrDataSubmissionScreen> {
         'houseAllowance': 0.0,
         'equipmentAllowance': 0.0,
         'totalAllowances': 0.0,
+        'annualAllowances': 0.0,
         // Photo
         'photoUrl': photoUrl,
         // Metadata

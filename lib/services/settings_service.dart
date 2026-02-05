@@ -6,6 +6,7 @@ class SettingsService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static const String SETTINGS_DOC_ID = 'app_settings';
   static const String CATEGORIES_DOC_ID = 'custom_categories';
+  static const String PROJECT_LANGUAGES_DOC_ID = 'project_languages';
 
   CollectionReference<Map<String, dynamic>> get _settingsCollection =>
       _firestore.collection('settings');
@@ -121,6 +122,47 @@ class SettingsService {
       await saveCustomCategories(categories);
     } catch (e) {
       AppLogger.severe('Error deleting custom category: $e');
+      rethrow;
+    }
+  }
+
+  // Get project languages (defaults + custom from Firestore)
+  Future<List<ProjectLanguage>> getProjectLanguages() async {
+    try {
+      final defaults = ProjectLanguage.defaults;
+      final doc = await _settingsCollection.doc(PROJECT_LANGUAGES_DOC_ID).get();
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+        final customList = data['languages'] as List<dynamic>? ?? [];
+        final customLanguages = customList
+            .map((item) => ProjectLanguage.fromMap(item as Map<String, dynamic>))
+            .toList();
+        return [...defaults, ...customLanguages];
+      }
+      return defaults;
+    } catch (e) {
+      AppLogger.severe('Error getting project languages: $e');
+      return ProjectLanguage.defaults;
+    }
+  }
+
+  // Add a custom project language
+  Future<void> addProjectLanguage(ProjectLanguage language) async {
+    try {
+      final doc = await _settingsCollection.doc(PROJECT_LANGUAGES_DOC_ID).get();
+      List<Map<String, dynamic>> existing = [];
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+        final list = data['languages'] as List<dynamic>? ?? [];
+        existing = list.cast<Map<String, dynamic>>();
+      }
+      existing.add(language.toMap());
+      await _settingsCollection.doc(PROJECT_LANGUAGES_DOC_ID).set({
+        'languages': existing,
+        'updatedAt': Timestamp.now(),
+      });
+    } catch (e) {
+      AppLogger.severe('Error adding project language: $e');
       rethrow;
     }
   }

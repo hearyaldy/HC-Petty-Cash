@@ -397,9 +397,9 @@ class StudentPdfExportService {
     DateFormat dateFormat,
     DateFormat timeFormat,
   ) {
-    // Get display values for task type and status
+    // Get display values for task type and status (uses custom name if "Other" is selected)
     final taskTypeDisplay = ts.taskType != null
-        ? ts.taskTypeEnum.displayName
+        ? ts.taskTypeDisplayName
         : '-';
     final taskStatusDisplay = ts.taskStatus != null
         ? ts.taskStatusEnum.displayName

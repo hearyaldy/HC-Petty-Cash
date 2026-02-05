@@ -88,6 +88,7 @@ class _AddEditSalaryBenefitsScreenState
 
         final existingSalaryBenefits =
             args['salaryBenefits'] as SalaryBenefits?;
+        final isNewYearRecord = args['isNewYearRecord'] as bool? ?? false;
         debugPrint('Debug: existingSalaryBenefits = $existingSalaryBenefits');
         debugPrint(
           'Debug: existingSalaryBenefits id = ${existingSalaryBenefits?.id}',
@@ -95,12 +96,25 @@ class _AddEditSalaryBenefitsScreenState
         debugPrint(
           'Debug: existingSalaryBenefits baseSalary = ${existingSalaryBenefits?.baseSalary}',
         );
+        debugPrint('Debug: isNewYearRecord = $isNewYearRecord');
 
         if (existingSalaryBenefits != null) {
           debugPrint('Debug: Populating form with existing salary benefits');
-          _editingSalaryBenefitsId = existingSalaryBenefits.id;
-          _existingCreatedAt = existingSalaryBenefits.createdAt;
+          if (isNewYearRecord) {
+            // Pre-fill form from previous record but create a new record
+            _editingSalaryBenefitsId = null;
+            _existingCreatedAt = null;
+          } else {
+            _editingSalaryBenefitsId = existingSalaryBenefits.id;
+            _existingCreatedAt = existingSalaryBenefits.createdAt;
+          }
           _populateForm(existingSalaryBenefits);
+          if (isNewYearRecord) {
+            // Set effective date to Jan 1 of next year
+            final nextYear = DateTime(existingSalaryBenefits.effectiveDate.year + 1, 1, 1);
+            _effectiveDate = nextYear;
+            _effectiveDateController.text = DateFormat('dd/MM/yyyy').format(nextYear);
+          }
           _staff ??= await _staffService.getStaffById(
             existingSalaryBenefits.staffId,
           );

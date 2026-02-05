@@ -1324,6 +1324,7 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
   late TimeOfDay _startTime;
   late TimeOfDay _endTime;
   late TaskType _selectedTaskType;
+  late TextEditingController _customTaskTypeController;
   late TextEditingController _taskTitleController;
   late TextEditingController _taskDescriptionController;
   late int _taskProgress;
@@ -1338,6 +1339,9 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
     _startTime = TimeOfDay.fromDateTime(widget.timesheet.startTime);
     _endTime = TimeOfDay.fromDateTime(widget.timesheet.endTime);
     _selectedTaskType = widget.timesheet.taskTypeEnum;
+    _customTaskTypeController = TextEditingController(
+      text: widget.timesheet.customTaskType ?? '',
+    );
     _taskTitleController = TextEditingController(
       text: widget.timesheet.taskTitle ?? widget.timesheet.task,
     );
@@ -1353,6 +1357,7 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
 
   @override
   void dispose() {
+    _customTaskTypeController.dispose();
     _taskTitleController.dispose();
     _taskDescriptionController.dispose();
     _notesController.dispose();
@@ -1417,6 +1422,29 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
         return;
       }
 
+      // Validate task description
+      if (_taskDescriptionController.text.trim().isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Description is required')),
+          );
+        }
+        setState(() => _isSaving = false);
+        return;
+      }
+
+      // Validate custom task type when "Other" is selected
+      if (_selectedTaskType == TaskType.other &&
+          _customTaskTypeController.text.trim().isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please specify the task type')),
+          );
+        }
+        setState(() => _isSaving = false);
+        return;
+      }
+
       // Update timesheet
       await FirebaseFirestore.instance
           .collection('student_timesheets')
@@ -1429,6 +1457,9 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
             'totalAmount': totalAmount,
             'task': _taskTitleController.text.trim(),
             'taskType': _selectedTaskType.value,
+            'customTaskType': _selectedTaskType == TaskType.other
+                ? _customTaskTypeController.text.trim()
+                : null,
             'taskTitle': _taskTitleController.text.trim(),
             'taskDescription': _taskDescriptionController.text.isNotEmpty
                 ? _taskDescriptionController.text.trim()
@@ -1664,6 +1695,27 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
                   }
                 },
               ),
+              // Custom Task Type field (shown when "Other" is selected)
+              if (_selectedTaskType == TaskType.other) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'Specify Task Type *',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[700],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _customTaskTypeController,
+                  decoration: InputDecoration(
+                    hintText: 'Enter custom task type name',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
 
               // Task Title
@@ -1688,7 +1740,7 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
 
               // Task Description
               Text(
-                'Description',
+                'Description *',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Colors.grey[700],
@@ -1709,7 +1761,7 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
 
               // Progress Slider
               Text(
-                'Progress: $_taskProgress%',
+                'Progress *: $_taskProgress%',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Colors.grey[700],
@@ -1739,7 +1791,7 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
 
               // Task Status Dropdown
               Text(
-                'Status',
+                'Status *',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Colors.grey[700],

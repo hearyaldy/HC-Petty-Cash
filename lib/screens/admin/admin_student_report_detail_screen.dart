@@ -844,7 +844,7 @@ class _AdminStudentReportDetailScreenState
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'Task: ${timesheet.taskTypeEnum.displayName}',
+                          'Task: ${timesheet.taskTypeDisplayName}',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,

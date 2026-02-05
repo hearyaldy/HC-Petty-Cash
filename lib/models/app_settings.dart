@@ -169,6 +169,48 @@ class AppSettings {
   }
 }
 
+class ProjectLanguage {
+  final String id;
+  final String name;
+  final String code; // 3-letter code e.g. THA, ENG
+  final DateTime createdAt;
+
+  ProjectLanguage({
+    required this.id,
+    required this.name,
+    required this.code,
+    required this.createdAt,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'code': code,
+      'createdAt': firestore.Timestamp.fromDate(createdAt),
+    };
+  }
+
+  factory ProjectLanguage.fromMap(Map<String, dynamic> map) {
+    return ProjectLanguage(
+      id: map['id'] as String,
+      name: map['name'] as String,
+      code: map['code'] as String,
+      createdAt: (map['createdAt'] as firestore.Timestamp).toDate(),
+    );
+  }
+
+  static List<ProjectLanguage> get defaults => [
+        ProjectLanguage(id: 'may', name: 'Malay', code: 'MAY', createdAt: DateTime(2024)),
+        ProjectLanguage(id: 'tha', name: 'Thai', code: 'THA', createdAt: DateTime(2024)),
+        ProjectLanguage(id: 'khm', name: 'Khmer', code: 'KHM', createdAt: DateTime(2024)),
+        ProjectLanguage(id: 'lao', name: 'Lao', code: 'LAO', createdAt: DateTime(2024)),
+        ProjectLanguage(id: 'vie', name: 'Vietnamese', code: 'VIE', createdAt: DateTime(2024)),
+        ProjectLanguage(id: 'eng', name: 'English', code: 'ENG', createdAt: DateTime(2024)),
+        ProjectLanguage(id: 'cni', name: 'Chinese', code: 'CNI', createdAt: DateTime(2024)),
+      ];
+}
+
 class CustomCategory {
   final String id;
   final String name;

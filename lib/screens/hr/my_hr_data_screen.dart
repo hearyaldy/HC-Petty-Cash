@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -6,11 +8,14 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/responsive_helper.dart';
 import '../../widgets/app_drawer.dart';
 import '../../models/staff.dart';
 import '../../models/salary_benefits.dart';
+import '../../models/staff_document.dart';
 import '../../services/staff_service.dart';
 import '../../services/salary_benefits_service.dart';
 
@@ -670,29 +675,32 @@ class _MyHrDataScreenState extends State<MyHrDataScreen> {
                           const SizedBox(height: 8),
                           _buildCompactInfoRow(
                             'Phone',
-                            'THB ${currencyFormat.format(data['phoneAllowance'] ?? 0)}',
+                            'THB ${currencyFormat.format(data['phoneAllowance'] ?? 0)}/month',
                             Icons.phone_android,
                           ),
                           _buildCompactInfoRow(
-                            'Education',
-                            'THB ${currencyFormat.format(data['educationAllowance'] ?? 0)}',
-                            Icons.school,
-                          ),
-                          _buildCompactInfoRow(
                             'Housing',
-                            'THB ${currencyFormat.format(data['houseAllowance'] ?? 0)}',
+                            'THB ${currencyFormat.format(data['houseAllowance'] ?? 0)}/month',
                             Icons.home,
                           ),
                           _buildCompactInfoRow(
-                            'Equipment',
-                            'THB ${currencyFormat.format(data['equipmentAllowance'] ?? 0)}',
-                            Icons.computer,
-                          ),
-                          _buildCompactInfoRow(
-                            'Total Allowances',
+                            'Monthly Allowances',
                             'THB ${currencyFormat.format(data['totalAllowances'] ?? 0)}',
                             Icons.attach_money,
                             isHighlighted: true,
+                          ),
+                          const SizedBox(height: 8),
+                          _buildSectionSubtitle('Annual Allowances'),
+                          const SizedBox(height: 8),
+                          _buildCompactInfoRow(
+                            'Education',
+                            'THB ${currencyFormat.format(data['educationAllowance'] ?? 0)}/year',
+                            Icons.school,
+                          ),
+                          _buildCompactInfoRow(
+                            'Equipment',
+                            'THB ${currencyFormat.format(data['equipmentAllowance'] ?? 0)}/year',
+                            Icons.computer,
                           ),
                         ],
                       ),
@@ -731,44 +739,30 @@ class _MyHrDataScreenState extends State<MyHrDataScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                // Net Salary Highlight
+                const SizedBox(height: 12),
+                // Note about official salary
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.green.shade50, Colors.green.shade100],
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.green.shade200),
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue.shade200),
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.account_balance_wallet,
-                            color: Colors.green.shade700,
-                            size: 24,
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Net Salary',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.green.shade700,
-                            ),
-                          ),
-                        ],
+                      Icon(
+                        Icons.info_outline,
+                        color: Colors.blue.shade600,
+                        size: 20,
                       ),
-                      Text(
-                        'THB ${currencyFormat.format(data['netSalary'] ?? (data['calculatedSalary'] ?? 0))}',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green.shade700,
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'See "Official Salary & Benefits" section below for your confirmed net salary.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.blue.shade700,
+                          ),
                         ),
                       ),
                     ],
@@ -858,6 +852,10 @@ class _MyHrDataScreenState extends State<MyHrDataScreen> {
               ),
             if (data['notes'] != null && data['notes'].toString().isNotEmpty)
               const SizedBox(height: 16),
+
+            // My Documents Section
+            _buildMyDocumentsSection(),
+            const SizedBox(height: 16),
 
             // Admin-managed Salary & Benefits Section (Real-time from salary_benefits collection)
             _buildAdminManagedSalarySection(currencyFormat),
@@ -1126,6 +1124,575 @@ class _MyHrDataScreenState extends State<MyHrDataScreen> {
     );
   }
 
+  // My Documents Section - Shows documents uploaded by admin for this staff
+  Widget _buildMyDocumentsSection() {
+    if (_staffRecord == null) {
+      return const SizedBox.shrink(); // Don't show if no staff record linked
+    }
+
+    return _buildSectionCard(
+      title: 'My Documents',
+      icon: Icons.folder,
+      iconGradient: [Colors.blue.shade400, Colors.cyan.shade500],
+      trailing: IconButton(
+        icon: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(Icons.add, color: Colors.blue.shade700, size: 20),
+        ),
+        onPressed: _pickAndUploadDocument,
+        tooltip: 'Upload Document',
+      ),
+      children: [
+        StreamBuilder<List<StaffDocument>>(
+          stream: _staffService.getStaffDocuments(_staffRecord!.id),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: CircularProgressIndicator(),
+                ),
+              );
+            }
+
+            if (snapshot.hasError) {
+              return Center(
+                child: Text(
+                  'Error loading documents',
+                  style: TextStyle(color: Colors.red.shade700),
+                ),
+              );
+            }
+
+            final documents = snapshot.data ?? [];
+
+            if (documents.isEmpty) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.file_present,
+                          size: 40,
+                          color: Colors.grey.shade400,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No documents uploaded yet',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Tap + to upload your documents',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            return Column(
+              children: documents
+                  .map((doc) => _buildDocumentCard(doc))
+                  .toList(),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Future<void> _pickAndUploadDocument() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'],
+        allowMultiple: false,
+        withData: true,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.single;
+        final bytes = file.bytes;
+        final fileName = file.name;
+
+        if (bytes != null) {
+          _showDocumentTypeDialog(bytes, fileName);
+        } else if (file.path != null) {
+          final fileObj = File(file.path!);
+          final fileBytes = await fileObj.readAsBytes();
+          _showDocumentTypeDialog(fileBytes, fileName);
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Could not read file data')),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error picking document: $e')));
+      }
+    }
+  }
+
+  void _showDocumentTypeDialog(Uint8List bytes, String fileName) {
+    DocumentType selectedType = DocumentType.other;
+    final descriptionController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.upload_file, color: Colors.blue.shade600),
+            ),
+            const SizedBox(width: 12),
+            const Text('Upload Document'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'File: $fileName',
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<DocumentType>(
+              value: selectedType,
+              isExpanded: true,
+              decoration: InputDecoration(
+                labelText: 'Document Type',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                filled: true,
+                fillColor: Colors.grey.shade50,
+              ),
+              items: DocumentType.values.map((type) {
+                return DropdownMenuItem(
+                  value: type,
+                  child: Row(
+                    children: [
+                      Text(type.icon, style: const TextStyle(fontSize: 20)),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          type.displayName,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+              onChanged: (value) {
+                if (value != null) selectedType = value;
+              },
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: descriptionController,
+              decoration: InputDecoration(
+                labelText: 'Description (optional)',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                filled: true,
+                fillColor: Colors.grey.shade50,
+              ),
+              maxLines: 2,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: Colors.grey.shade600),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _uploadDocument(
+                bytes,
+                fileName,
+                selectedType,
+                descriptionController.text,
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade600,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Upload'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _uploadDocument(
+    Uint8List bytes,
+    String fileName,
+    DocumentType documentType,
+    String? description,
+  ) async {
+    if (_staffRecord == null) return;
+
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Uploading document...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      final authProvider = context.read<AuthProvider>();
+      final currentUserId = authProvider.currentUser?.id;
+
+      await _staffService.uploadStaffDocumentBytes(
+        staffId: _staffRecord!.id,
+        bytes: bytes,
+        fileName: fileName,
+        documentType: documentType,
+        description: description?.isNotEmpty == true ? description : null,
+        uploadedBy: currentUserId,
+      );
+
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Document uploaded successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error uploading document: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildDocumentCard(StaffDocument doc) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        leading: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: _getDocumentColor(doc.type).withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Center(
+            child: Text(doc.type.icon, style: const TextStyle(fontSize: 22)),
+          ),
+        ),
+        title: Text(
+          doc.fileName,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: _getDocumentColor(doc.type).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                doc.type.displayName,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: _getDocumentColor(doc.type),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${doc.formattedFileSize} • ${DateFormat('MMM d, y').format(doc.uploadedAt)}',
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: Icon(Icons.download, color: Colors.blue.shade600, size: 22),
+              onPressed: () => _openDocument(doc.fileUrl),
+              tooltip: 'Download',
+            ),
+            IconButton(
+              icon: Icon(
+                Icons.delete_outline,
+                color: Colors.red.shade400,
+                size: 22,
+              ),
+              onPressed: () => _confirmDeleteDocument(doc),
+              tooltip: 'Delete',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _getDocumentColor(DocumentType type) {
+    switch (type) {
+      case DocumentType.idCard:
+        return Colors.blue;
+      case DocumentType.passport:
+        return Colors.indigo;
+      case DocumentType.drivingLicense:
+        return Colors.green;
+      case DocumentType.certificate:
+        return Colors.amber.shade700;
+      case DocumentType.contract:
+        return Colors.purple;
+      case DocumentType.resume:
+        return Colors.teal;
+      case DocumentType.other:
+        return Colors.grey;
+    }
+  }
+
+  Future<void> _openDocument(String url) async {
+    try {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not open document')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error opening document: $e')));
+      }
+    }
+  }
+
+  Future<void> _confirmDeleteDocument(StaffDocument doc) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.delete_outline, color: Colors.red.shade600),
+            ),
+            const SizedBox(width: 12),
+            const Text('Delete Document'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Are you sure you want to delete this document?'),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Text(doc.type.icon, style: const TextStyle(fontSize: 24)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          doc.fileName,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          doc.type.displayName,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'This action cannot be undone.',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.red.shade600,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: Colors.grey.shade600),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade600,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _deleteDocument(doc);
+    }
+  }
+
+  Future<void> _deleteDocument(StaffDocument doc) async {
+    if (_staffRecord == null) return;
+
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Deleting document...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      await _staffService.deleteStaffDocument(doc.id, _staffRecord!.id);
+
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Document deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting document: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Widget _buildSalaryCard(String title, Color color, List<Widget> children) {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -1278,7 +1845,7 @@ class _MyHrDataScreenState extends State<MyHrDataScreen> {
               _buildActionButton(
                 icon: Icons.print,
                 label: 'Print',
-                onPressed: () => _printHrData(context, data),
+                onPressed: () => _printHrData(context, data, _salaryBenefits),
               ),
               const SizedBox(height: 8),
               _buildActionButton(
@@ -1663,45 +2230,115 @@ class _MyHrDataScreenState extends State<MyHrDataScreen> {
   Future<void> _printHrData(
     BuildContext context,
     Map<String, dynamic> data,
+    SalaryBenefits? salary,
   ) async {
     final dateFormat = DateFormat('dd MMM yyyy');
     final currencyFormat = NumberFormat('#,##0.00', 'en_US');
 
+    // Use salary data if available, otherwise fall back to HR submission data
+    final baseSalary = salary?.baseSalary ?? (data['baseSalary'] ?? 0);
+    final grossSalary = salary?.grossSalary ?? (data['calculatedSalary'] ?? 0);
+    final wageFactor = salary?.wageFactor ?? (data['wageFactor'] ?? 1.0);
+    final salaryPercentage =
+        salary?.salaryPercentage ?? (data['salaryPercentage'] ?? 100);
+    final phoneAllowance =
+        salary?.phoneAllowance ?? (data['phoneAllowance'] ?? 0);
+    final housingAllowance =
+        salary?.housingAllowance ?? (data['houseAllowance'] ?? 0);
+    final totalAllowances = phoneAllowance + housingAllowance;
+    final tithePercentage =
+        salary?.tithePercentage ?? (data['tithePercentage'] ?? 10);
+    final titheAmount = salary?.titheAmount ?? (data['titheAmount'] ?? 0);
+    final socialSecurityAmount =
+        salary?.socialSecurityAmount ?? (data['socialSecurityAmount'] ?? 0);
+    final providentFundPercentage =
+        salary?.providentFundPercentage ??
+        (data['providentFundPercentage'] ?? 0);
+    final providentFundAmount =
+        salary?.providentFundAmount ?? (data['providentFundAmount'] ?? 0);
+    final houseRentalPercentage =
+        salary?.houseRentalPercentage ?? (data['houseRentalPercentage'] ?? 10);
+    final houseRentalAmount =
+        salary?.houseRentalAmount ?? (data['houseRentalAmount'] ?? 0);
+    final netSalary =
+        salary?.netSalary ??
+        ((grossSalary + phoneAllowance + housingAllowance) -
+            (titheAmount +
+                socialSecurityAmount +
+                providentFundAmount +
+                houseRentalAmount));
+    final totalDeductions =
+        titheAmount +
+        socialSecurityAmount +
+        providentFundAmount +
+        houseRentalAmount;
+    final currency = salary?.currency ?? 'THB';
+
+    // Load Google Font for Unicode support
+    final font = await PdfGoogleFonts.notoSansRegular();
+    final fontBold = await PdfGoogleFonts.notoSansBold();
+
     final pdf = pw.Document();
+
+    // Try to load photo if available
+    pw.ImageProvider? photoImage;
+    final photoUrl = data['photoUrl'] as String?;
+    if (photoUrl != null && photoUrl.isNotEmpty) {
+      try {
+        photoImage = await networkImage(photoUrl);
+      } catch (e) {
+        debugPrint('Could not load photo for PDF: $e');
+      }
+    }
 
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(40),
+        margin: const pw.EdgeInsets.all(30),
+        theme: pw.ThemeData.withFont(base: font, bold: fontBold),
         build: (pw.Context context) => [
-          // Header
+          // Header with Photo
           pw.Container(
-            padding: const pw.EdgeInsets.all(20),
+            padding: const pw.EdgeInsets.all(16),
             decoration: pw.BoxDecoration(
               color: PdfColors.blue100,
               borderRadius: pw.BorderRadius.circular(8),
             ),
             child: pw.Row(
               children: [
-                pw.Container(
-                  width: 60,
-                  height: 60,
-                  decoration: pw.BoxDecoration(
-                    shape: pw.BoxShape.circle,
-                    color: PdfColors.blue,
-                  ),
-                  child: pw.Center(
-                    child: pw.Text(
-                      (data['fullName'] ?? 'U')[0].toUpperCase(),
-                      style: pw.TextStyle(
-                        fontSize: 28,
-                        fontWeight: pw.FontWeight.bold,
-                        color: PdfColors.white,
+                // Photo or initials
+                if (photoImage != null)
+                  pw.Container(
+                    width: 70,
+                    height: 70,
+                    decoration: pw.BoxDecoration(
+                      shape: pw.BoxShape.circle,
+                      border: pw.Border.all(color: PdfColors.blue300, width: 2),
+                    ),
+                    child: pw.ClipOval(
+                      child: pw.Image(photoImage, fit: pw.BoxFit.cover),
+                    ),
+                  )
+                else
+                  pw.Container(
+                    width: 70,
+                    height: 70,
+                    decoration: pw.BoxDecoration(
+                      shape: pw.BoxShape.circle,
+                      color: PdfColors.blue,
+                    ),
+                    child: pw.Center(
+                      child: pw.Text(
+                        (data['fullName'] ?? 'U')[0].toUpperCase(),
+                        style: pw.TextStyle(
+                          fontSize: 28,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                pw.SizedBox(width: 20),
+                pw.SizedBox(width: 16),
                 pw.Expanded(
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -1709,7 +2346,7 @@ class _MyHrDataScreenState extends State<MyHrDataScreen> {
                       pw.Text(
                         data['fullName'] ?? 'Unknown',
                         style: pw.TextStyle(
-                          fontSize: 22,
+                          fontSize: 20,
                           fontWeight: pw.FontWeight.bold,
                         ),
                       ),
@@ -1720,7 +2357,10 @@ class _MyHrDataScreenState extends State<MyHrDataScreen> {
                       ),
                       pw.Text(
                         'Employee ID: ${data['employeeId'] ?? 'N/A'}',
-                        style: const pw.TextStyle(fontSize: 10),
+                        style: const pw.TextStyle(
+                          fontSize: 10,
+                          color: PdfColors.grey700,
+                        ),
                       ),
                     ],
                   ),
@@ -1728,125 +2368,411 @@ class _MyHrDataScreenState extends State<MyHrDataScreen> {
               ],
             ),
           ),
+          pw.SizedBox(height: 16),
+
+          // Section 1: Personal Information
+          _buildPdfSectionHeader('Personal Information'),
+          pw.SizedBox(height: 8),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'Full Name',
+                  data['fullName'] ?? 'N/A',
+                ),
+              ),
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'Gender',
+                  _formatGender(data['gender']),
+                ),
+              ),
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'Date of Birth',
+                  data['dateOfBirth'] != null
+                      ? dateFormat.format(
+                          (data['dateOfBirth'] as Timestamp).toDate(),
+                        )
+                      : 'N/A',
+                ),
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 12),
+
+          // Section 2: Contact Information
+          _buildPdfSectionHeader('Contact Information'),
+          pw.SizedBox(height: 8),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                child: _buildPdfRowCompact('Email', data['email'] ?? 'N/A'),
+              ),
+              pw.Expanded(
+                child: _buildPdfRowCompact('Phone', data['phone'] ?? 'N/A'),
+              ),
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'Emergency Contact',
+                  data['emergencyContactName'] ?? 'N/A',
+                ),
+              ),
+            ],
+          ),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'Emergency Phone',
+                  data['emergencyContactPhone'] ?? 'N/A',
+                ),
+              ),
+              pw.Expanded(child: pw.SizedBox()),
+              pw.Expanded(child: pw.SizedBox()),
+            ],
+          ),
+          pw.SizedBox(height: 12),
+
+          // Section 3: Education
+          _buildPdfSectionHeader('Education'),
+          pw.SizedBox(height: 8),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'Education Level',
+                  _formatEducationLevel(data['educationLevel']),
+                ),
+              ),
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'Highest Degree',
+                  data['highestDegree'] ?? 'N/A',
+                ),
+              ),
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'Field of Study',
+                  data['fieldOfStudy'] ?? 'N/A',
+                ),
+              ),
+            ],
+          ),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'Institution',
+                  data['institution'] ?? 'N/A',
+                ),
+              ),
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'Graduation Year',
+                  data['graduationYear'] ?? 'N/A',
+                ),
+              ),
+              pw.Expanded(child: pw.SizedBox()),
+            ],
+          ),
+          pw.SizedBox(height: 12),
+
+          // Section 4: Employment Information
+          _buildPdfSectionHeader('Employment Information'),
+          pw.SizedBox(height: 8),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'Department',
+                  data['department'] ?? 'N/A',
+                ),
+              ),
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'Position',
+                  data['position'] ?? 'N/A',
+                ),
+              ),
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'Employment Type',
+                  _formatEmploymentType(data['employmentType']),
+                ),
+              ),
+            ],
+          ),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'Employment Status',
+                  _formatEmploymentStatus(data['employmentStatus']),
+                ),
+              ),
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'Start Date',
+                  data['startDate'] != null
+                      ? dateFormat.format(
+                          (data['startDate'] as Timestamp).toDate(),
+                        )
+                      : 'N/A',
+                ),
+              ),
+              pw.Expanded(child: pw.SizedBox()),
+            ],
+          ),
+          pw.SizedBox(height: 12),
+
+          // Section 5: Salary & Benefits
+          _buildPdfSectionHeader('Salary & Benefits'),
+          pw.SizedBox(height: 8),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'Base Salary',
+                  '$currency ${currencyFormat.format(baseSalary)}',
+                ),
+              ),
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'Wage Factor',
+                  wageFactor.toString(),
+                ),
+              ),
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'Salary Percentage',
+                  '${salaryPercentage.toStringAsFixed(0)}%',
+                ),
+              ),
+            ],
+          ),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'Gross Salary',
+                  '$currency ${currencyFormat.format(grossSalary)}',
+                ),
+              ),
+              pw.Expanded(child: pw.SizedBox()),
+              pw.Expanded(child: pw.SizedBox()),
+            ],
+          ),
+          pw.SizedBox(height: 12),
+
+          // Section 6: Allowances
+          _buildPdfSectionHeader('Allowances'),
+          pw.SizedBox(height: 8),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'Phone Allowance',
+                  '$currency ${currencyFormat.format(phoneAllowance)}/month',
+                ),
+              ),
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'Housing Allowance',
+                  '$currency ${currencyFormat.format(housingAllowance)}/month',
+                ),
+              ),
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'Total Monthly Allowances',
+                  '$currency ${currencyFormat.format(totalAllowances)}',
+                ),
+              ),
+            ],
+          ),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'Education Allowance',
+                  'THB ${currencyFormat.format(data['educationAllowance'] ?? 0)}/year',
+                ),
+              ),
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'Equipment Allowance',
+                  'THB ${currencyFormat.format(data['equipmentAllowance'] ?? 0)}/year',
+                ),
+              ),
+              pw.Expanded(child: pw.SizedBox()),
+            ],
+          ),
+          pw.SizedBox(height: 12),
+
+          // Section 7: Bank Information
+          _buildPdfSectionHeader('Bank Information'),
+          pw.SizedBox(height: 8),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'Bank Name',
+                  data['bankName'] ?? 'N/A',
+                ),
+              ),
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'Account Number',
+                  _maskAccountNumber(data['bankAccount']),
+                ),
+              ),
+              pw.Expanded(
+                child: _buildPdfRowCompact('Tax ID', data['taxId'] ?? 'N/A'),
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 12),
+
+          // Section 8: Deductions
+          _buildPdfSectionHeader('Deductions'),
+          pw.SizedBox(height: 8),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'Tithe (${tithePercentage.toStringAsFixed(0)}%)',
+                  '$currency ${currencyFormat.format(titheAmount)}',
+                ),
+              ),
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'Social Security',
+                  '$currency ${currencyFormat.format(socialSecurityAmount)}',
+                ),
+              ),
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'Provident Fund (${providentFundPercentage.toStringAsFixed(0)}%)',
+                  '$currency ${currencyFormat.format(providentFundAmount)}',
+                ),
+              ),
+            ],
+          ),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'House Rental (${houseRentalPercentage.toStringAsFixed(0)}%)',
+                  '$currency ${currencyFormat.format(houseRentalAmount)}',
+                ),
+              ),
+              pw.Expanded(
+                child: _buildPdfRowCompact(
+                  'Total Deductions',
+                  '$currency ${currencyFormat.format(totalDeductions)}',
+                ),
+              ),
+              pw.Expanded(child: pw.SizedBox()),
+            ],
+          ),
+          pw.SizedBox(height: 16),
+
+          // Compensation Summary Box
+          pw.Container(
+            padding: const pw.EdgeInsets.all(12),
+            decoration: pw.BoxDecoration(
+              color: PdfColors.green50,
+              border: pw.Border.all(color: PdfColors.green300),
+              borderRadius: pw.BorderRadius.circular(8),
+            ),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  'Total Compensation Summary',
+                  style: pw.TextStyle(
+                    fontSize: 12,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.green800,
+                  ),
+                ),
+                pw.SizedBox(height: 8),
+                pw.Row(
+                  children: [
+                    pw.Expanded(
+                      child: _buildPdfRowCompact(
+                        'Gross Salary',
+                        '$currency ${currencyFormat.format(grossSalary)}',
+                      ),
+                    ),
+                    pw.Expanded(
+                      child: _buildPdfRowCompact(
+                        'Total Deductions',
+                        '$currency ${currencyFormat.format(totalDeductions)}',
+                      ),
+                    ),
+                    pw.Expanded(
+                      child: _buildPdfRowCompact(
+                        'Monthly Allowances',
+                        '$currency ${currencyFormat.format(totalAllowances)}',
+                      ),
+                    ),
+                  ],
+                ),
+                pw.SizedBox(height: 8),
+                pw.Container(
+                  width: double.infinity,
+                  padding: const pw.EdgeInsets.all(10),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColors.green200,
+                    borderRadius: pw.BorderRadius.circular(6),
+                  ),
+                  child: pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text(
+                        'Net Salary (After Deductions)',
+                        style: pw.TextStyle(
+                          fontSize: 11,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.green900,
+                        ),
+                      ),
+                      pw.Text(
+                        '$currency ${currencyFormat.format(netSalary)}',
+                        style: pw.TextStyle(
+                          fontSize: 14,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.green900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           pw.SizedBox(height: 20),
-
-          // Personal Information
-          _buildPdfSection('Personal Information', [
-            _buildPdfRow('Full Name', data['fullName'] ?? 'N/A'),
-            _buildPdfRow('Gender', _formatGender(data['gender'])),
-            _buildPdfRow(
-              'Date of Birth',
-              data['dateOfBirth'] != null
-                  ? dateFormat.format(
-                      (data['dateOfBirth'] as Timestamp).toDate(),
-                    )
-                  : 'N/A',
-            ),
-          ]),
-
-          // Contact Information
-          _buildPdfSection('Contact Information', [
-            _buildPdfRow('Email', data['email'] ?? 'N/A'),
-            _buildPdfRow('Phone', data['phone'] ?? 'N/A'),
-            _buildPdfRow(
-              'Emergency Contact',
-              data['emergencyContactName'] ?? 'N/A',
-            ),
-            _buildPdfRow(
-              'Emergency Phone',
-              data['emergencyContactPhone'] ?? 'N/A',
-            ),
-          ]),
-
-          // Education Information
-          _buildPdfSection('Education Information', [
-            _buildPdfRow(
-              'Education Level',
-              _formatEducationLevel(data['educationLevel']),
-            ),
-            _buildPdfRow('Degree', data['highestDegree'] ?? 'N/A'),
-            _buildPdfRow('Field of Study', data['fieldOfStudy'] ?? 'N/A'),
-            _buildPdfRow('Institution', data['institution'] ?? 'N/A'),
-            _buildPdfRow('Graduation Year', data['graduationYear'] ?? 'N/A'),
-          ]),
-
-          // Employment Information
-          _buildPdfSection('Employment Information', [
-            _buildPdfRow('Department', data['department'] ?? 'N/A'),
-            _buildPdfRow('Position', data['position'] ?? 'N/A'),
-            _buildPdfRow(
-              'Employment Type',
-              _formatEmploymentType(data['employmentType']),
-            ),
-            _buildPdfRow(
-              'Employment Status',
-              _formatEmploymentStatus(data['employmentStatus']),
-            ),
-            _buildPdfRow(
-              'Start Date',
-              data['startDate'] != null
-                  ? dateFormat.format((data['startDate'] as Timestamp).toDate())
-                  : 'N/A',
-            ),
-          ]),
-
-          // Salary & Benefits
-          _buildPdfSection('Salary & Benefits', [
-            _buildPdfRow(
-              'Base Salary',
-              'THB ${currencyFormat.format(data['baseSalary'] ?? 0)}',
-            ),
-            _buildPdfRow('Wage Factor', (data['wageFactor'] ?? 1.0).toString()),
-            _buildPdfRow(
-              'Salary Percentage',
-              '${data['salaryPercentage'] ?? 100}%',
-            ),
-            _buildPdfRow(
-              'Calculated Salary',
-              'THB ${currencyFormat.format(data['calculatedSalary'] ?? 0)}',
-            ),
-          ]),
-
-          // Allowances
-          _buildPdfSection('Benefits & Allowances', [
-            _buildPdfRow(
-              'Phone Allowance',
-              'THB ${currencyFormat.format(data['phoneAllowance'] ?? 0)}',
-            ),
-            _buildPdfRow(
-              'Education Allowance',
-              'THB ${currencyFormat.format(data['educationAllowance'] ?? 0)}',
-            ),
-            _buildPdfRow(
-              'House Allowance',
-              'THB ${currencyFormat.format(data['houseAllowance'] ?? 0)}',
-            ),
-            _buildPdfRow(
-              'Equipment Allowance',
-              'THB ${currencyFormat.format(data['equipmentAllowance'] ?? 0)}',
-            ),
-            _buildPdfRow(
-              'Total Allowances',
-              'THB ${currencyFormat.format(data['totalAllowances'] ?? 0)}',
-            ),
-          ]),
-
-          // Bank Information
-          _buildPdfSection('Bank Information', [
-            _buildPdfRow('Bank Name', data['bankName'] ?? 'N/A'),
-            _buildPdfRow(
-              'Account Number',
-              _maskAccountNumber(data['bankAccount']),
-            ),
-            _buildPdfRow('Tax ID', data['taxId'] ?? 'N/A'),
-          ]),
-
-          pw.SizedBox(height: 30),
-          pw.Divider(),
-          pw.SizedBox(height: 10),
+          pw.Divider(color: PdfColors.grey300),
+          pw.SizedBox(height: 8),
           pw.Text(
             'Generated on ${DateFormat('dd MMM yyyy HH:mm').format(DateTime.now())}',
-            style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
+            style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600),
           ),
         ],
       ),
@@ -1858,46 +2784,32 @@ class _MyHrDataScreenState extends State<MyHrDataScreen> {
     );
   }
 
-  pw.Widget _buildPdfSection(String title, List<pw.Widget> rows) {
+  pw.Widget _buildPdfSectionHeader(String title) {
     return pw.Container(
-      margin: const pw.EdgeInsets.only(bottom: 15),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          pw.Container(
-            padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: const pw.BoxDecoration(
-              color: PdfColors.grey200,
-              borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
-            ),
-            child: pw.Text(
-              title,
-              style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
-            ),
-          ),
-          pw.SizedBox(height: 8),
-          ...rows,
-        ],
+      width: double.infinity,
+      padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: pw.BoxDecoration(
+        color: PdfColors.grey200,
+        borderRadius: pw.BorderRadius.circular(4),
+      ),
+      child: pw.Text(
+        title,
+        style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
       ),
     );
   }
 
-  pw.Widget _buildPdfRow(String label, String value) {
+  pw.Widget _buildPdfRowCompact(String label, String value) {
     return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(vertical: 3),
-      child: pw.Row(
+      padding: const pw.EdgeInsets.symmetric(vertical: 2),
+      child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          pw.SizedBox(
-            width: 150,
-            child: pw.Text(
-              label,
-              style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700),
-            ),
+          pw.Text(
+            label,
+            style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
           ),
-          pw.Expanded(
-            child: pw.Text(value, style: const pw.TextStyle(fontSize: 10)),
-          ),
+          pw.Text(value, style: const pw.TextStyle(fontSize: 9), maxLines: 2),
         ],
       ),
     );

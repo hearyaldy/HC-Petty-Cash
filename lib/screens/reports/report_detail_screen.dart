@@ -1959,6 +1959,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       text: transaction.paidTo ?? '',
     );
     DateTime selectedDate = transaction.date;
+    String? selectedProjectId = transaction.projectId;
+    final projectReports = context.read<ProjectReportProvider>().projectReports;
     final settingsService = SettingsService();
     final customCategories = await settingsService.getCustomCategories();
     List<CustomCategory> enabledCustomCategories = customCategories
@@ -2046,6 +2048,33 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                             DateFormat('MMM d, y').format(selectedDate),
                           ),
                         ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Project selection dropdown
+                      DropdownButtonFormField<String?>(
+                        value: selectedProjectId,
+                        decoration: const InputDecoration(
+                          labelText: 'Project (Optional)',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.work),
+                        ),
+                        items: [
+                          const DropdownMenuItem(
+                            value: null,
+                            child: Text('No Project'),
+                          ),
+                          ...projectReports.map(
+                            (project) => DropdownMenuItem(
+                              value: project.id,
+                              child: Text(project.projectName),
+                            ),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            selectedProjectId = value;
+                          });
+                        },
                       ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<String>(
@@ -2204,6 +2233,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 customCategory: customCategoryName,
                 amount: double.parse(amountController.text),
                 paymentMethod: selectedPaymentMethod.name,
+                projectId: selectedProjectId,
                 paidTo: paidToController.text.isEmpty
                     ? null
                     : paidToController.text,

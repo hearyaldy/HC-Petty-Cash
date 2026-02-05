@@ -27,6 +27,12 @@ service cloud.firestore {
       return isManager() || isFinance() || isAdmin();
     }
 
+    // Check if user owns a staff record (staff.userId == auth.uid)
+    function isStaffOwner(staffId) {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/staff/$(staffId)).data.userId == request.auth.uid;
+    }
+
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
@@ -120,8 +126,9 @@ service cloud.firestore {
       // All authenticated users can read settings
       allow read: if isAuthenticated();
 
-      // Only admins can update settings
-      allow create, update: if canApprove();
+      // All authenticated users can create/update settings
+      // (admin-only features like org settings are gated in the UI)
+      allow create, update: if isAuthenticated();
 
       // Only admins can delete settings
       allow delete: if isAdmin();
@@ -353,8 +360,16 @@ service cloud.firestore {
       // All authenticated users can read staff documents
       allow read: if isAuthenticated();
 
-      // Only admins can create or delete staff documents
-      allow create, delete: if isAdmin();
+      // Admins can create/delete any, staff can create/delete their own documents
+      allow create: if isAuthenticated() && (
+        isAdmin() || 
+        isStaffOwner(request.resource.data.staffId)
+      );
+      
+      allow delete: if isAuthenticated() && (
+        isAdmin() || 
+        isStaffOwner(resource.data.staffId)
+      );
 
       // Admins can update document descriptions
       allow update: if isAdmin() &&
@@ -408,6 +423,36 @@ service cloud.firestore {
       // Users can delete their own submissions, admins can delete any
       allow delete: if isAuthenticated() &&
         (request.auth.uid == resource.data.submittedBy || isAdmin());
+    }
+
+    // Equipment Inventory collection
+    match /equipment/{equipmentId} {
+      // All authenticated users can read equipment
+      allow read: if isAuthenticated();
+
+      // All authenticated users can create equipment
+      allow create: if isAuthenticated();
+
+      // All authenticated users can update equipment (for check-in/out)
+      allow update: if isAuthenticated();
+
+      // Only admins can delete equipment
+      allow delete: if isAdmin();
+    }
+
+    // Equipment Checkouts collection
+    match /equipment_checkouts/{checkoutId} {
+      // All authenticated users can read checkouts
+      allow read: if isAuthenticated();
+
+      // All authenticated users can create checkouts (when checking out)
+      allow create: if isAuthenticated();
+
+      // All authenticated users can update checkouts (when returning)
+      allow update: if isAuthenticated();
+
+      // Only admins can delete checkout records
+      allow delete: if isAdmin();
     }
   }
 }
