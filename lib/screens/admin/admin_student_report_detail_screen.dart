@@ -5,6 +5,7 @@ import 'package:printing/printing.dart';
 import '../../models/student_timesheet.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
+import '../../utils/student_rate_config.dart';
 import '../../services/student_pdf_export_service.dart';
 
 enum TimesheetSortOption { dateNewest, dateOldest, hoursHighest, hoursLowest }
@@ -56,9 +57,11 @@ class _AdminStudentReportDetailScreenState
     extends State<AdminStudentReportDetailScreen> {
   bool _isLoading = true;
   Map<String, dynamic>? _reportData;
+  Map<String, dynamic>? _studentProfile;
   List<StudentTimesheet> _timesheets = [];
   TimesheetSortOption _sortOption = TimesheetSortOption.dateNewest;
   bool _isApproving = false;
+  bool _isUpdatingRate = false;
 
   @override
   void initState() {
@@ -78,6 +81,18 @@ class _AdminStudentReportDetailScreenState
 
       if (reportDoc.exists) {
         _reportData = reportDoc.data() as Map<String, dynamic>;
+
+        // Load student profile
+        final studentId = _reportData!['studentId'];
+        if (studentId != null) {
+          final profileDoc = await FirebaseFirestore.instance
+              .collection('student_profiles')
+              .doc(studentId)
+              .get();
+          if (profileDoc.exists) {
+            _studentProfile = profileDoc.data() as Map<String, dynamic>;
+          }
+        }
 
         // Load associated timesheets
         final timesheetsQuery = await FirebaseFirestore.instance
@@ -271,6 +286,382 @@ class _AdminStudentReportDetailScreenState
     }
   }
 
+  void _showRateAndGradeDialog() {
+    final currentRate = (_reportData?['hourlyRate'] ?? 0.0).toDouble();
+    final currentGrade = _studentProfile?['grade'] as String?;
+    final studentRole = _studentProfile?['role'] as String? ?? 'Other';
+    final totalHours = (_reportData?['totalHours'] ?? 0.0).toDouble();
+
+    final rateController = TextEditingController(text: currentRate.toStringAsFixed(2));
+    String? selectedGrade = currentGrade;
+    bool overrideRate = false;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          // Calculate total based on entered rate
+          double displayRate = double.tryParse(rateController.text) ?? currentRate;
+          double newTotal = totalHours * displayRate;
+
+          return AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.settings, color: Colors.orange.shade600),
+                const SizedBox(width: 8),
+                const Text('Rate & Grade Settings'),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Current Info Card
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Current Report Info',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Role:'),
+                            Text(
+                              studentRole,
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Total Hours:'),
+                            Text(
+                              '${totalHours.toStringAsFixed(2)}h',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Current Rate:'),
+                            Text(
+                              '${AppConstants.currencySymbol}${currentRate.toStringAsFixed(2)}/h',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Current Grade:'),
+                            Text(
+                              currentGrade ?? 'Not Set',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: currentGrade != null ? Colors.blue : Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Grade Selection with rates
+                  const Text(
+                    'Select Grade (auto-calculates rate)',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  ...StudentRateConfig.grades.map((grade) {
+                    final gradeRate = StudentRateConfig.getRate(studentRole, grade);
+                    final isSelected = selectedGrade == grade;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: InkWell(
+                        onTap: () {
+                          setDialogState(() {
+                            selectedGrade = grade;
+                            if (!overrideRate) {
+                              rateController.text = gradeRate.toStringAsFixed(2);
+                            }
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: isSelected ? _getGradeColor(grade) : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isSelected ? _getGradeColor(grade) : Colors.grey.shade300,
+                              width: isSelected ? 2 : 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Grade $grade',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: isSelected ? Colors.white : Colors.black,
+                                ),
+                              ),
+                              Text(
+                                '${AppConstants.currencySymbol}${gradeRate.toStringAsFixed(2)}/h',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  color: isSelected ? Colors.white : Colors.grey.shade700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                  const SizedBox(height: 12),
+
+                  // Override checkbox
+                  CheckboxListTile(
+                    value: overrideRate,
+                    onChanged: (value) {
+                      setDialogState(() {
+                        overrideRate = value ?? false;
+                        if (!overrideRate && selectedGrade != null) {
+                          final gradeRate = StudentRateConfig.getRate(studentRole, selectedGrade);
+                          rateController.text = gradeRate.toStringAsFixed(2);
+                        }
+                      });
+                    },
+                    title: const Text('Override rate manually'),
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    dense: true,
+                  ),
+
+                  // Hourly Rate Input (only editable if override is checked)
+                  TextField(
+                    controller: rateController,
+                    enabled: overrideRate,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: 'Hourly Rate',
+                      prefixText: '${AppConstants.currencySymbol} ',
+                      suffixText: '/hour',
+                      border: const OutlineInputBorder(),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      filled: !overrideRate,
+                      fillColor: Colors.grey.shade100,
+                    ),
+                    onChanged: (_) => setDialogState(() {}),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // New Total Amount
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.green.shade200),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('New Total Amount:'),
+                        Text(
+                          '${AppConstants.currencySymbol}${newTotal.toStringAsFixed(2)}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade700,
+                            fontSize: 18,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Info note
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, size: 16, color: Colors.blue.shade700),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Changes will update this report and the student\'s profile for future reports.',
+                            style: TextStyle(fontSize: 12, color: Colors.blue.shade700),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: _isUpdatingRate
+                    ? null
+                    : () {
+                        Navigator.of(context).pop();
+                        _updateRateAndGrade(
+                          newRate: double.tryParse(rateController.text) ?? currentRate,
+                          newGrade: selectedGrade,
+                        );
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Save Changes'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Color _getGradeColor(String grade) {
+    switch (grade) {
+      case 'A':
+        return Colors.green;
+      case 'B':
+        return Colors.blue;
+      case 'C':
+        return Colors.orange;
+      case 'D':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  Future<void> _updateRateAndGrade({
+    required double newRate,
+    String? newGrade,
+  }) async {
+    setState(() => _isUpdatingRate = true);
+
+    try {
+      final batch = FirebaseFirestore.instance.batch();
+      final studentId = _reportData?['studentId'];
+      final totalHours = (_reportData?['totalHours'] ?? 0.0).toDouble();
+      final newTotalAmount = totalHours * newRate;
+
+      // Update the monthly report
+      final reportRef = FirebaseFirestore.instance
+          .collection('student_monthly_reports')
+          .doc(widget.reportId);
+
+      batch.update(reportRef, {
+        'hourlyRate': newRate,
+        'totalAmount': newTotalAmount,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      // Update all timesheets in this report
+      for (final timesheet in _timesheets) {
+        final timesheetRef = FirebaseFirestore.instance
+            .collection('student_timesheets')
+            .doc(timesheet.id);
+
+        final timesheetAmount = timesheet.totalHours * newRate;
+        batch.update(timesheetRef, {
+          'hourlyRate': newRate,
+          'totalAmount': timesheetAmount,
+        });
+      }
+
+      // Update student profile - always update rate and grade
+      if (studentId != null) {
+        final profileRef = FirebaseFirestore.instance
+            .collection('student_profiles')
+            .doc(studentId);
+
+        Map<String, dynamic> profileUpdates = {
+          'hourlyRate': newRate, // Always update the rate
+        };
+
+        if (newGrade != null) {
+          profileUpdates['grade'] = newGrade;
+        }
+
+        batch.update(profileRef, profileUpdates);
+      }
+
+      await batch.commit();
+
+      // Reload to get updated data
+      await _loadReportDetails();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Updated: Rate ${AppConstants.currencySymbol}${newRate.toStringAsFixed(2)}/h'
+                    '${newGrade != null ? ", Grade $newGrade" : ""}',
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() => _isUpdatingRate = false);
+    }
+  }
+
   Future<void> _generatePdf() async {
     final timesheetCount = _timesheets.length;
     final totalHours = _timesheets.fold<double>(
@@ -388,6 +779,11 @@ class _AdminStudentReportDetailScreenState
             icon: const Icon(Icons.print),
             onPressed: _generatePdf,
             tooltip: 'Print Report',
+          ),
+          IconButton(
+            icon: const Icon(Icons.tune),
+            onPressed: _showRateAndGradeDialog,
+            tooltip: 'Rate & Grade Settings',
           ),
           IconButton(
             icon: const Icon(Icons.payment),
@@ -617,6 +1013,27 @@ class _AdminStudentReportDetailScreenState
                       ),
                     ),
                   ),
+                  if (_studentProfile?['grade'] != null) ...[
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _getGradeColor(_studentProfile!['grade']),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        'GRADE ${_studentProfile!['grade']}',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ],
