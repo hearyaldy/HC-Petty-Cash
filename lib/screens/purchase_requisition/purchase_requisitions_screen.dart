@@ -439,11 +439,59 @@ class _PurchaseRequisitionsScreenState
           const SizedBox(height: 12),
           _buildStatCardsMobile(context),
           const SizedBox(height: 12),
-          _buildSummaryBar(),
-          const SizedBox(height: 12),
-          _buildFilterBar(),
+          _buildFilterBarMobile(),
           const SizedBox(height: 12),
           _buildRequisitionListMobile(context, isAdmin),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterBarMobile() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.filter_list, color: Colors.purple.shade600, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _selectedStatus ?? 'all',
+                isExpanded: true,
+                isDense: true,
+                icon: Icon(Icons.arrow_drop_down, color: Colors.purple.shade600),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade800,
+                ),
+                items: _statusOptions.map((status) {
+                  return DropdownMenuItem(
+                    value: status,
+                    child: Text(
+                      status == 'all' ? 'All Statuses' : status.toUpperCase(),
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedStatus = value;
+                  });
+                },
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -895,95 +943,241 @@ class _PurchaseRequisitionsScreenState
           itemBuilder: (context, index) {
             final requisition = requisitions[index];
             final statusColor = _getStatusColor(requisition.status);
+            final authProvider = Provider.of<AuthProvider>(context, listen: false);
+            final isAdmin = authProvider.canManageUsers();
 
-            return Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+            return Dismissible(
+              key: Key(requisition.id),
+              direction: DismissDirection.horizontal,
+              confirmDismiss: (direction) async {
+                if (direction == DismissDirection.endToStart) {
+                  // Delete action
+                  if (['draft', 'submitted'].contains(requisition.status)) {
+                    await _deleteRequisition(requisition);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Cannot delete approved/rejected requisitions'),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
+                  }
+                } else if (direction == DismissDirection.startToEnd) {
+                  // Approve/View action
+                  if (isAdmin && requisition.status == 'submitted') {
+                    await _approveRequisition(requisition);
+                  } else {
+                    context.push('/purchase-requisitions/${requisition.id}');
+                  }
+                }
+                return false; // Don't actually dismiss
+              },
+              background: Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: isAdmin && requisition.status == 'submitted'
+                      ? Colors.green
+                      : Colors.blue,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                alignment: Alignment.centerLeft,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  children: [
+                    Icon(
+                      isAdmin && requisition.status == 'submitted'
+                          ? Icons.check
+                          : Icons.visibility,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      isAdmin && requisition.status == 'submitted'
+                          ? 'Approve'
+                          : 'View',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              child: InkWell(
-                onTap: () =>
-                    context.push('/purchase-requisitions/${requisition.id}'),
-                borderRadius: BorderRadius.circular(10),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              requisition.requisitionNumber,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: statusColor.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              requisition.status.toUpperCase(),
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: statusColor,
-                              ),
-                            ),
-                          ),
-                        ],
+              secondaryBackground: Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: ['draft', 'submitted'].contains(requisition.status)
+                      ? Colors.red
+                      : Colors.grey,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      ['draft', 'submitted'].contains(requisition.status)
+                          ? 'Delete'
+                          : 'Cannot Delete',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
                       ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.person,
-                            size: 14,
-                            color: Colors.grey.shade500,
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              requisition.requestedBy,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade600,
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.delete, color: Colors.white),
+                  ],
+                ),
+              ),
+              child: Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: InkWell(
+                  onTap: () =>
+                      context.push('/purchase-requisitions/${requisition.id}'),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                requisition.requisitionNumber,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            dateFormat.format(requisition.requisitionDate),
-                            style: TextStyle(
-                              fontSize: 11,
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: statusColor.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                requisition.status.toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: statusColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.person,
+                              size: 14,
                               color: Colors.grey.shade500,
                             ),
-                          ),
-                          Text(
-                            '฿${currencyFormat.format(requisition.totalAmount)}',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                              color: Colors.purple.shade700,
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                requisition.requestedBy,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
+                            Icon(
+                              Icons.business,
+                              size: 14,
+                              color: Colors.grey.shade500,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                requisition.chargeToDepartment,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.calendar_today,
+                                  size: 12,
+                                  color: Colors.grey.shade500,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  dateFormat.format(requisition.requisitionDate),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey.shade500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.purple.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '฿${currencyFormat.format(requisition.totalAmount)}',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: Colors.purple.shade700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        // Quick action hint
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.swipe,
+                                size: 12,
+                                color: Colors.grey.shade400,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Swipe for actions',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey.shade400,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
