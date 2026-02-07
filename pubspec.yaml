@@ -70,6 +70,10 @@ dependencies:
   # HTTP (for future API integration)
   http: ^1.2.2
 
+  # AI Integration
+  google_generative_ai: ^0.4.6
+  flutter_dotenv: ^5.1.0
+
   # Logging
   logging: ^1.2.0
 
@@ -121,6 +125,7 @@ flutter:
     - assets/images/
     - assets/fonts/NotoSansThai-Regular.ttf
     - assets/fonts/NotoSansThai-Bold.ttf
+    - .env
 
   # To add custom fonts to your application, add a fonts section here,
   # in this "flutter" section. Each entry in this list should have a

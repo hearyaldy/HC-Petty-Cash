@@ -12,7 +12,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/responsive_helper.dart';
-import '../../widgets/app_drawer.dart';
 import '../../models/staff.dart';
 import '../../models/salary_benefits.dart';
 import '../../models/staff_document.dart';
@@ -147,85 +146,281 @@ class _MyHrDataScreenState extends State<MyHrDataScreen> {
 
     if (user == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('My HR Data')),
+        backgroundColor: Colors.grey[50],
         body: const Center(child: Text('Please login to view your data')),
       );
     }
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        elevation: ResponsiveHelper.isDesktop(context) ? 1 : 0,
-        title: const Text('My HR Data'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              setState(() {
-                _isLoadingSalary = true;
-              });
-              _loadStaffAndSalaryData();
-            },
-            tooltip: 'Refresh Data',
-          ),
-          IconButton(
-            icon: const Icon(Icons.home_outlined),
-            onPressed: () => context.go('/dashboard'),
-            tooltip: 'Home',
+      body: SafeArea(
+        child: StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('hr_data_submissions')
+              .where('submittedBy', isEqualTo: user.id)
+              .snapshots(),
+          builder: (context, snapshot) {
+            print(
+              'MyHrDataScreen: Connection state = ${snapshot.connectionState}',
+            ); // Debug
+            if (snapshot.hasError) {
+              print('MyHrDataScreen: Error = ${snapshot.error}'); // Debug
+              return _buildPageWithHeader(
+                child: Center(child: Text('Error: ${snapshot.error}')),
+              );
+            }
+
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              print('MyHrDataScreen: Loading...'); // Debug
+              return _buildPageWithHeader(
+                child: const Expanded(
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              );
+            }
+
+            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              print(
+                'MyHrDataScreen: No data found for user ${user.id}',
+              ); // Debug
+              print(
+                'MyHrDataScreen: Query tried to find documents where submittedBy = ${user.id}',
+              ); // Debug
+              return _buildNoDataView(context);
+            }
+
+            // Sort documents by submittedAt in descending order and get the first one
+            var docs = snapshot.data!.docs.toList();
+            docs.sort((a, b) {
+              final aData = a.data() as Map<String, dynamic>;
+              final bData = b.data() as Map<String, dynamic>;
+              final aTimestamp = aData['submittedAt'] as Timestamp?;
+              final bTimestamp = bData['submittedAt'] as Timestamp?;
+
+              if (aTimestamp == null && bTimestamp == null) return 0;
+              if (aTimestamp == null) return 1;
+              if (bTimestamp == null) return -1;
+
+              return bTimestamp.compareTo(aTimestamp); // Descending order
+            });
+
+            print('MyHrDataScreen: Found ${docs.length} documents'); // Debug
+            final doc = docs.first;
+            print('MyHrDataScreen: First document ID = ${doc.id}'); // Debug
+            final data = doc.data() as Map<String, dynamic>;
+            print('MyHrDataScreen: Document data keys = ${data.keys}'); // Debug
+
+            return _buildDataView(context, data, doc.id);
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPageWithHeader({required Widget child}) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: _buildWelcomeHeader(),
+        ),
+        child,
+      ],
+    );
+  }
+
+  Widget _buildWelcomeHeader() {
+    final isMobile = ResponsiveHelper.isMobile(context);
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.teal.shade600, Colors.cyan.shade400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.teal.shade200.withOpacity(0.5),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      drawer: const AppDrawer(),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('hr_data_submissions')
-            .where('submittedBy', isEqualTo: user.id)
-            .snapshots(),
-        builder: (context, snapshot) {
-          print(
-            'MyHrDataScreen: Connection state = ${snapshot.connectionState}',
-          ); // Debug
-          if (snapshot.hasError) {
-            print('MyHrDataScreen: Error = ${snapshot.error}'); // Debug
-            return Center(child: Text('Error: ${snapshot.error}'));
-          }
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildHeaderActionButton(
+                icon: Icons.arrow_back,
+                tooltip: 'Back to Dashboard',
+                onPressed: () => context.go('/admin-hub'),
+              ),
+              Row(
+                children: [
+                  _buildHeaderActionButton(
+                    icon: Icons.refresh,
+                    tooltip: 'Refresh Data',
+                    onPressed: () {
+                      setState(() {
+                        _isLoadingSalary = true;
+                      });
+                      _loadStaffAndSalaryData();
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  _buildHeaderActionButton(
+                    icon: Icons.home_outlined,
+                    tooltip: 'Home',
+                    onPressed: () => context.go('/admin-hub'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          SizedBox(height: isMobile ? 16 : 20),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.badge_outlined,
+                  color: Colors.white,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'My HR Data',
+                      style: TextStyle(
+                        fontSize: isMobile ? 20 : 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'View your HR information and benefits',
+                      style: TextStyle(
+                        fontSize: isMobile ? 12 : 14,
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            print('MyHrDataScreen: Loading...'); // Debug
-            return const Center(child: CircularProgressIndicator());
-          }
+  Widget _buildHeaderActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
+      ),
+    );
+  }
 
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            print('MyHrDataScreen: No data found for user ${user.id}'); // Debug
-            print(
-              'MyHrDataScreen: Query tried to find documents where submittedBy = ${user.id}',
-            ); // Debug
-            return _buildNoDataView(context);
-          }
+  Widget _buildActionButtonsRow(Map<String, dynamic> data, String docId) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          _buildDataActionButton(
+            icon: Icons.print,
+            label: 'Print',
+            color: Colors.blue,
+            onPressed: () => _printHrData(context, data, _salaryBenefits),
+          ),
+          const SizedBox(width: 12),
+          _buildDataActionButton(
+            icon: Icons.edit,
+            label: 'Edit',
+            color: Colors.orange,
+            onPressed: () => context.go('/hr/data-submission'),
+          ),
+          const SizedBox(width: 12),
+          _buildDataActionButton(
+            icon: Icons.delete_outline,
+            label: 'Delete',
+            color: Colors.red,
+            onPressed: () => _confirmDeleteHrData(context, docId),
+          ),
+        ],
+      ),
+    );
+  }
 
-          // Sort documents by submittedAt in descending order and get the first one
-          var docs = snapshot.data!.docs.toList();
-          docs.sort((a, b) {
-            final aData = a.data() as Map<String, dynamic>;
-            final bData = b.data() as Map<String, dynamic>;
-            final aTimestamp = aData['submittedAt'] as Timestamp?;
-            final bTimestamp = bData['submittedAt'] as Timestamp?;
-
-            if (aTimestamp == null && bTimestamp == null) return 0;
-            if (aTimestamp == null) return 1;
-            if (bTimestamp == null) return -1;
-
-            return bTimestamp.compareTo(aTimestamp); // Descending order
-          });
-
-          print('MyHrDataScreen: Found ${docs.length} documents'); // Debug
-          final doc = docs.first;
-          print('MyHrDataScreen: First document ID = ${doc.id}'); // Debug
-          final data = doc.data() as Map<String, dynamic>;
-          print('MyHrDataScreen: Document data keys = ${data.keys}'); // Debug
-
-          return _buildDataView(context, data, doc.id);
-        },
+  Widget _buildDataActionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
+    return Material(
+      color: color.withOpacity(0.1),
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: color, size: 18),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -238,6 +433,9 @@ class _MyHrDataScreenState extends State<MyHrDataScreen> {
         padding: ResponsiveHelper.getScreenPadding(context),
         child: Column(
           children: [
+            // Welcome header
+            _buildWelcomeHeader(),
+            const SizedBox(height: 24),
             // No HR submission notice
             Container(
               padding: const EdgeInsets.all(32),
@@ -320,8 +518,12 @@ class _MyHrDataScreenState extends State<MyHrDataScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header with actions
-            _buildHeader(context, data, docId),
+            // Welcome header
+            _buildWelcomeHeader(),
+            const SizedBox(height: 16),
+
+            // Action buttons row
+            _buildActionButtonsRow(data, docId),
             const SizedBox(height: 24),
 
             // Status Badge
@@ -1748,156 +1950,6 @@ class _MyHrDataScreenState extends State<MyHrDataScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildHeader(
-    BuildContext context,
-    Map<String, dynamic> data,
-    String docId,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.blue.shade600, Colors.blue.shade400],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.blue.withValues(alpha: 0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Profile Avatar
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withValues(alpha: 0.2),
-              border: Border.all(color: Colors.white, width: 3),
-              image:
-                  data['photoUrl'] != null &&
-                      (data['photoUrl'] as String).isNotEmpty
-                  ? DecorationImage(
-                      image: NetworkImage(data['photoUrl'] as String),
-                      fit: BoxFit.cover,
-                    )
-                  : null,
-            ),
-            child:
-                data['photoUrl'] == null || (data['photoUrl'] as String).isEmpty
-                ? Center(
-                    child: Text(
-                      (data['fullName'] ?? 'U')[0].toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 36,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  )
-                : null,
-          ),
-          const SizedBox(width: 20),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  data['fullName'] ?? 'Unknown',
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${data['position'] ?? 'N/A'} • ${data['department'] ?? 'N/A'}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white.withValues(alpha: 0.9),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Employee ID: ${data['employeeId'] ?? 'N/A'}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.white.withValues(alpha: 0.8),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Action Buttons
-          Column(
-            children: [
-              _buildActionButton(
-                icon: Icons.print,
-                label: 'Print',
-                onPressed: () => _printHrData(context, data, _salaryBenefits),
-              ),
-              const SizedBox(height: 8),
-              _buildActionButton(
-                icon: Icons.edit,
-                label: 'Edit',
-                onPressed: () => context.go('/hr/data-submission'),
-              ),
-              const SizedBox(height: 8),
-              _buildActionButton(
-                icon: Icons.delete_outline,
-                label: 'Delete',
-                onPressed: () => _confirmDeleteHrData(context, docId),
-                color: Colors.red.shade300,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onPressed,
-    Color? color,
-  }) {
-    final buttonColor = color ?? Colors.white;
-    return Material(
-      color: buttonColor.withValues(alpha: 0.2),
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, color: buttonColor, size: 18),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  color: buttonColor,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

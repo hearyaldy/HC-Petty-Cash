@@ -46,69 +46,160 @@ class _AdminTravelingReportsScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Traveling Reports Management'),
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Colors.orange.shade400, Colors.orange.shade600],
-            ),
+      backgroundColor: Colors.grey[50],
+      body: SafeArea(
+        child: ResponsiveContainer(
+          padding: EdgeInsets.zero,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: _buildWelcomeHeader(),
+              ),
+              _buildFilterBar(),
+              Expanded(
+                child: StreamBuilder<List<TravelingReport>>(
+                  stream: _firestoreService.travelingReportsStream(),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return Center(child: Text('Error: ${snapshot.error}'));
+                    }
+                    if (!snapshot.hasData) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    var reports = snapshot.data!;
+                    // Apply status filter
+                    if (_selectedStatus != null && _selectedStatus != 'all') {
+                      reports = reports
+                          .where((report) => report.status == _selectedStatus)
+                          .toList();
+                    }
+                    if (reports.isEmpty) {
+                      return _buildEmptyState();
+                    }
+                    return Center(
+                      child: Container(
+                        constraints: const BoxConstraints(maxWidth: 1200),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: ListView.builder(
+                          padding: const EdgeInsets.only(top: 16, bottom: 16),
+                          itemCount: reports.length,
+                          itemBuilder: (context, index) {
+                            final report = reports[index];
+                            return _buildReportCard(report);
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.home_outlined),
-            onPressed: () => context.go('/dashboard'),
-            tooltip: 'Home',
+      ),
+    );
+  }
+
+  Widget _buildWelcomeHeader() {
+    final isMobile = ResponsiveHelper.isMobile(context);
+
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.orange.shade600, Colors.orange.shade400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      backgroundColor: Colors.grey[50],
-      body: ResponsiveContainer(
-        padding: EdgeInsets.zero,
-        child: Column(
-          children: [
-            _buildFilterBar(),
-            Expanded(
-              child: StreamBuilder<List<TravelingReport>>(
-                stream: _firestoreService.travelingReportsStream(),
-                builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    return Center(child: Text('Error: ${snapshot.error}'));
-                  }
-                  if (!snapshot.hasData) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  var reports = snapshot.data!;
-                  // Apply status filter
-                  if (_selectedStatus != null && _selectedStatus != 'all') {
-                    reports = reports
-                        .where((report) => report.status == _selectedStatus)
-                        .toList();
-                  }
-                  if (reports.isEmpty) {
-                    return _buildEmptyState();
-                  }
-                  return Center(
-                    child: Container(
-                      constraints: const BoxConstraints(maxWidth: 1200),
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: ListView.builder(
-                        padding: const EdgeInsets.only(top: 16, bottom: 16),
-                        itemCount: reports.length,
-                        itemBuilder: (context, index) {
-                          final report = reports[index];
-                          return _buildReportCard(report);
-                        },
+      child: Column(
+        children: [
+          // Top action bar
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Back/Home button
+              _buildHeaderActionButton(
+                icon: Icons.arrow_back,
+                tooltip: 'Back to Dashboard',
+                onPressed: () => context.go('/admin-hub'),
+              ),
+              // Placeholder for future action buttons
+              const SizedBox.shrink(),
+            ],
+          ),
+          SizedBox(height: isMobile ? 16 : 20),
+          // Content row
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Traveling Reports Management',
+                      style: TextStyle(
+                        fontSize: isMobile ? 24 : 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
                     ),
-                  );
-                },
+                    const SizedBox(height: 8),
+                    Text(
+                      'Review and manage all traveling reports',
+                      style: TextStyle(
+                        fontSize: isMobile ? 12 : 14,
+                        color: Colors.white.withOpacity(0.8),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+              Container(
+                padding: EdgeInsets.all(isMobile ? 12 : 16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.flight_takeoff,
+                  size: isMobile ? 36 : 48,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
         ),
       ),
     );

@@ -276,51 +276,151 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('My Profile')),
+        backgroundColor: Colors.grey[50],
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text('My Profile'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.save),
-            onPressed: _isSaving ? null : _saveProfile,
-            tooltip: 'Save Profile',
-          ),
-          IconButton(
-            icon: const Icon(Icons.home_outlined),
-            onPressed: () => context.go('/dashboard'),
-            tooltip: 'Home',
-          ),
-        ],
-      ),
-      body: ResponsiveContainer(
-        child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Padding(
-              padding: ResponsiveHelper.getScreenPadding(context),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildProfileHeader(),
-                  const SizedBox(height: 24),
-                  _buildPersonalInfoSection(),
-                  const SizedBox(height: 24),
-                  _buildContactInfoSection(),
-                  const SizedBox(height: 24),
-                  _buildWorkInfoSection(),
-                  const SizedBox(height: 24),
-                  if (_salaryBenefits != null) _buildSalaryBenefitsSection(),
-                  const SizedBox(height: 32),
-                ],
+      body: SafeArea(
+        child: ResponsiveContainer(
+          child: SingleChildScrollView(
+            child: Form(
+              key: _formKey,
+              child: Padding(
+                padding: ResponsiveHelper.getScreenPadding(context),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildWelcomeHeader(),
+                    const SizedBox(height: 24),
+                    _buildProfileHeader(),
+                    const SizedBox(height: 24),
+                    _buildPersonalInfoSection(),
+                    const SizedBox(height: 24),
+                    _buildContactInfoSection(),
+                    const SizedBox(height: 24),
+                    _buildWorkInfoSection(),
+                    const SizedBox(height: 24),
+                    if (_salaryBenefits != null) _buildSalaryBenefitsSection(),
+                    const SizedBox(height: 32),
+                  ],
+                ),
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWelcomeHeader() {
+    final isMobile = ResponsiveHelper.isMobile(context);
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.purple.shade600, Colors.purple.shade400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.purple.shade200.withOpacity(0.5),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildHeaderActionButton(
+                icon: Icons.arrow_back,
+                tooltip: 'Back to Dashboard',
+                onPressed: () => context.go('/admin-hub'),
+              ),
+              Row(
+                children: [
+                  _buildHeaderActionButton(
+                    icon: Icons.save,
+                    tooltip: 'Save Profile',
+                    onPressed: _isSaving ? () {} : _saveProfile,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildHeaderActionButton(
+                    icon: Icons.home_outlined,
+                    tooltip: 'Home',
+                    onPressed: () => context.go('/admin-hub'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          SizedBox(height: isMobile ? 16 : 20),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.person, color: Colors.white, size: 28),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'My Profile',
+                      style: TextStyle(
+                        fontSize: isMobile ? 20 : 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Manage your personal information',
+                      style: TextStyle(
+                        fontSize: isMobile ? 12 : 14,
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
         ),
       ),
     );

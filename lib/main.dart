@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'package:go_router/go_router.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -61,6 +62,23 @@ import 'screens/purchase_requisition/purchase_requisition_detail_screen.dart';
 import 'screens/inventory/inventory_screen.dart';
 import 'screens/inventory/add_edit_equipment_screen.dart';
 import 'screens/inventory/equipment_detail_screen.dart';
+import 'screens/meetings/meetings_dashboard_screen.dart';
+import 'screens/meetings/meetings_list_screen.dart';
+import 'screens/meetings/new_meeting_screen.dart';
+import 'screens/meetings/meeting_detail_screen.dart';
+import 'screens/meetings/action_items_screen.dart';
+import 'screens/meetings/edit_agenda_screen.dart';
+import 'screens/meetings/edit_minutes_screen.dart';
+import 'screens/hub/admin_hub_screen.dart';
+import 'screens/hub/finance_dashboard_screen.dart';
+import 'screens/hub/student_labor_dashboard_screen.dart';
+import 'screens/hub/hr_dashboard_screen.dart';
+import 'screens/hub/inventory_dashboard_screen.dart';
+import 'screens/admin/adcom_agenda_list_screen.dart';
+import 'screens/admin/adcom_agenda_edit_screen.dart';
+import 'screens/admin/adcom_agenda_view_screen.dart';
+import 'screens/admin/adcom_minutes_edit_screen.dart';
+import 'screens/admin/adcom_minutes_view_screen.dart';
 import 'providers/income_report_provider.dart';
 import 'utils/constants.dart';
 import 'utils/logger.dart';
@@ -68,6 +86,11 @@ import 'utils/responsive_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (e) {
+    debugPrint('DEBUG: .env load failed: $e');
+  }
 
   // Initialize logger
   AppLogger.init();
@@ -209,7 +232,7 @@ class MyApp extends StatelessWidget {
             }
             return '/student-dashboard';
           }
-          return '/dashboard';
+          return '/admin-hub';
         }
 
         // If student is going to dashboard, let them through (no redirect)
@@ -319,6 +342,27 @@ class MyApp extends StatelessWidget {
         GoRoute(
           path: '/settings',
           builder: (context, state) => const SettingsScreenImpl(),
+        ),
+        // Hub Routes
+        GoRoute(
+          path: '/admin-hub',
+          builder: (context, state) => const AdminHubScreen(),
+        ),
+        GoRoute(
+          path: '/finance-dashboard',
+          builder: (context, state) => const FinanceDashboardScreen(),
+        ),
+        GoRoute(
+          path: '/student-labor-dashboard',
+          builder: (context, state) => const StudentLaborDashboardScreen(),
+        ),
+        GoRoute(
+          path: '/hr-dashboard',
+          builder: (context, state) => const HrDashboardScreen(),
+        ),
+        GoRoute(
+          path: '/inventory-dashboard',
+          builder: (context, state) => const InventoryDashboardScreen(),
         ),
         GoRoute(
           path: '/admin/users',
@@ -546,6 +590,128 @@ class MyApp extends StatelessWidget {
           builder: (context, state) {
             final equipmentId = state.pathParameters['equipmentId']!;
             return EquipmentDetailScreen(equipmentId: equipmentId);
+          },
+        ),
+        // Meeting Routes
+        GoRoute(
+          path: '/meetings-dashboard',
+          builder: (context, state) => const MeetingsDashboardScreen(),
+        ),
+        GoRoute(
+          path: '/meetings/list',
+          builder: (context, state) {
+            final type = state.uri.queryParameters['type'];
+            final status = state.uri.queryParameters['status'];
+            return MeetingsListScreen(filterType: type, filterStatus: status);
+          },
+        ),
+        GoRoute(
+          path: '/meetings/new',
+          builder: (context, state) {
+            final type = state.uri.queryParameters['type'];
+            return NewMeetingScreen(preselectedType: type);
+          },
+        ),
+        GoRoute(
+          path: '/meetings/action-items',
+          builder: (context, state) {
+            final meetingId = state.uri.queryParameters['meetingId'];
+            return ActionItemsScreen(meetingId: meetingId);
+          },
+        ),
+        GoRoute(
+          path: '/meetings/:meetingId/agenda/edit',
+          builder: (context, state) {
+            final meetingId = state.pathParameters['meetingId']!;
+            return EditAgendaScreen(meetingId: meetingId);
+          },
+        ),
+        GoRoute(
+          path: '/meetings/:meetingId/minutes/edit',
+          builder: (context, state) {
+            final meetingId = state.pathParameters['meetingId']!;
+            return EditMinutesScreen(meetingId: meetingId);
+          },
+        ),
+        GoRoute(
+          path: '/meetings/:meetingId',
+          builder: (context, state) {
+            final meetingId = state.pathParameters['meetingId']!;
+            return MeetingDetailScreen(meetingId: meetingId);
+          },
+        ),
+        // ADCOM Agenda Routes
+        GoRoute(
+          path: '/admin/adcom-agendas',
+          builder: (context, state) => const AdcomAgendaListScreen(),
+        ),
+        GoRoute(
+          path: '/admin/adcom-agenda/:id',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            final meetingId = state.uri.queryParameters['meetingId'];
+            return AdcomAgendaEditScreen(
+              agendaId: id,
+              returnToMeetingId: meetingId,
+            );
+          },
+        ),
+        GoRoute(
+          path: '/admin/adcom-agenda/:id/view',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            final meetingId = state.uri.queryParameters['meetingId'];
+            return AdcomAgendaViewScreen(
+              agendaId: id,
+              returnToMeetingId: meetingId,
+            );
+          },
+        ),
+        GoRoute(
+          path: '/admin/adcom-agenda/:id/print',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            final meetingId = state.uri.queryParameters['meetingId'];
+            return AdcomAgendaViewScreen(
+              agendaId: id,
+              isPrintMode: true,
+              returnToMeetingId: meetingId,
+            );
+          },
+        ),
+        // ADCOM Minutes Routes
+        GoRoute(
+          path: '/admin/adcom-minutes/:id',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            final meetingId = state.uri.queryParameters['meetingId'];
+            return AdcomMinutesEditScreen(
+              minutesId: id,
+              returnToMeetingId: meetingId,
+            );
+          },
+        ),
+        GoRoute(
+          path: '/admin/adcom-minutes/:id/view',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            final meetingId = state.uri.queryParameters['meetingId'];
+            return AdcomMinutesViewScreen(
+              minutesId: id,
+              returnToMeetingId: meetingId,
+            );
+          },
+        ),
+        GoRoute(
+          path: '/admin/adcom-minutes/:id/print',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            final meetingId = state.uri.queryParameters['meetingId'];
+            return AdcomMinutesViewScreen(
+              minutesId: id,
+              isPrintMode: true,
+              returnToMeetingId: meetingId,
+            );
           },
         ),
       ],

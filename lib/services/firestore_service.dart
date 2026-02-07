@@ -55,7 +55,9 @@ class FirestoreService {
   Future<List<User>> getAllUsers() async {
     try {
       final snapshot = await _usersCollection.get();
-      AppLogger.info('Found ${snapshot.docs.length} user documents in Firestore');
+      AppLogger.info(
+        'Found ${snapshot.docs.length} user documents in Firestore',
+      );
 
       final List<User> users = [];
       for (final doc in snapshot.docs) {
@@ -123,7 +125,9 @@ class FirestoreService {
       final snapshot = await _reportsCollection
           .orderBy('createdAt', descending: true)
           .get();
-      debugPrint('DEBUG FIRESTORE: Got ${snapshot.docs.length} report documents');
+      debugPrint(
+        'DEBUG FIRESTORE: Got ${snapshot.docs.length} report documents',
+      );
       return snapshot.docs
           .map((doc) => PettyCashReport.fromFirestore(doc))
           .toList();
@@ -342,6 +346,19 @@ class FirestoreService {
         );
   }
 
+  // Stream for pending transactions (status = submitted)
+  Stream<List<app.Transaction>> pendingTransactionsStream() {
+    return _transactionsCollection
+        .where('status', isEqualTo: 'submitted')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => app.Transaction.fromFirestore(doc))
+              .toList(),
+        );
+  }
+
   // ===== SEARCH OPERATIONS =====
 
   Future<List<PettyCashReport>> searchReports(String query) async {
@@ -494,8 +511,7 @@ class FirestoreService {
                 .where((r) => r.reportNumber.startsWith(prefix))
                 .length +
             1;
-        projectNumber =
-            '$prefix-${count.toString().padLeft(3, '0')}';
+        projectNumber = '$prefix-${count.toString().padLeft(3, '0')}';
       } else {
         final prefix = 'PROJ-$monthStr';
         final count =
@@ -503,8 +519,7 @@ class FirestoreService {
                 .where((r) => r.reportNumber.startsWith(prefix))
                 .length +
             1;
-        projectNumber =
-            '$prefix-${count.toString().padLeft(3, '0')}';
+        projectNumber = '$prefix-${count.toString().padLeft(3, '0')}';
       }
 
       final projectReport = ProjectReport(
@@ -1038,7 +1053,9 @@ class FirestoreService {
   /// Update an income report
   Future<void> updateIncomeReport(IncomeReport report) async {
     try {
-      await _incomeReportsCollection.doc(report.id).update(report.toFirestore());
+      await _incomeReportsCollection
+          .doc(report.id)
+          .update(report.toFirestore());
     } catch (e) {
       AppLogger.severe('Error updating income report: $e');
       rethrow;
@@ -1244,8 +1261,9 @@ class FirestoreService {
     String requisitionId,
   ) async {
     try {
-      final doc =
-          await _purchaseRequisitionsCollection.doc(requisitionId).get();
+      final doc = await _purchaseRequisitionsCollection
+          .doc(requisitionId)
+          .get();
       return doc.exists ? PurchaseRequisition.fromFirestore(doc) : null;
     } catch (e) {
       AppLogger.severe('Error getting purchase requisition: $e');
@@ -1317,9 +1335,7 @@ class FirestoreService {
           .map((doc) => PurchaseRequisition.fromFirestore(doc))
           .toList();
     } catch (e) {
-      AppLogger.severe(
-        'Error getting purchase requisitions by department: $e',
-      );
+      AppLogger.severe('Error getting purchase requisitions by department: $e');
       rethrow;
     }
   }
@@ -1353,10 +1369,9 @@ class FirestoreService {
 
   /// Stream a single purchase requisition by ID
   Stream<PurchaseRequisition?> purchaseRequisitionStream(String requisitionId) {
-    return _purchaseRequisitionsCollection
-        .doc(requisitionId)
-        .snapshots()
-        .map((doc) {
+    return _purchaseRequisitionsCollection.doc(requisitionId).snapshots().map((
+      doc,
+    ) {
       if (doc.exists) {
         return PurchaseRequisition.fromFirestore(doc);
       }
@@ -1444,9 +1459,9 @@ class FirestoreService {
       if (actionNo != null) {
         updateData['actionNo'] = actionNo;
       }
-      await _purchaseRequisitionsCollection.doc(requisitionId).update(
-        updateData,
-      );
+      await _purchaseRequisitionsCollection
+          .doc(requisitionId)
+          .update(updateData);
     } catch (e) {
       AppLogger.severe('Error approving purchase requisition: $e');
       rethrow;
@@ -1496,8 +1511,7 @@ class FirestoreService {
     String itemId,
   ) async {
     try {
-      final doc =
-          await _purchaseRequisitionItemsCollection.doc(itemId).get();
+      final doc = await _purchaseRequisitionItemsCollection.doc(itemId).get();
       return doc.exists ? PurchaseRequisitionItem.fromFirestore(doc) : null;
     } catch (e) {
       AppLogger.severe('Error getting purchase requisition item: $e');
@@ -1539,9 +1553,7 @@ class FirestoreService {
   }
 
   /// Save a new purchase requisition item
-  Future<void> savePurchaseRequisitionItem(
-    PurchaseRequisitionItem item,
-  ) async {
+  Future<void> savePurchaseRequisitionItem(PurchaseRequisitionItem item) async {
     try {
       await _purchaseRequisitionItemsCollection
           .doc(item.id)

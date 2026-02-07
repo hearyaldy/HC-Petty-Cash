@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
+import 'package:go_router/go_router.dart';
 import '../../models/student_timesheet.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
@@ -62,6 +63,386 @@ class _AdminStudentReportDetailScreenState
   TimesheetSortOption _sortOption = TimesheetSortOption.dateNewest;
   bool _isApproving = false;
   bool _isUpdatingRate = false;
+
+  Widget _buildHeaderActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+    bool isLoading = false,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: isLoading ? null : onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: isLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : Icon(icon, color: Colors.white, size: 20),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWelcomeHeader() {
+    final isMobile = ResponsiveHelper.isMobile(context);
+    final status = _reportData?['status'] ?? 'draft';
+    final paymentStatus = _reportData?['paymentStatus'] ?? 'not_paid';
+    final canApprove = status == 'submitted';
+
+    Color statusColor;
+    switch (status) {
+      case 'approved':
+        statusColor = Colors.green;
+        break;
+      case 'rejected':
+        statusColor = Colors.red;
+        break;
+      case 'submitted':
+        statusColor = Colors.blue;
+        break;
+      default:
+        statusColor = Colors.grey;
+    }
+
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.orange.shade600, Colors.orange.shade400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Top action bar
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildHeaderActionButton(
+                icon: Icons.arrow_back,
+                tooltip: 'Back',
+                onPressed: () => context.pop(),
+              ),
+              Row(
+                children: [
+                  if (canApprove && !_isApproving) ...[
+                    _buildHeaderActionButton(
+                      icon: Icons.check_circle,
+                      tooltip: 'Approve',
+                      onPressed: () => _showApprovalDialog('approve'),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildHeaderActionButton(
+                      icon: Icons.cancel,
+                      tooltip: 'Reject',
+                      onPressed: () => _showApprovalDialog('reject'),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  _buildHeaderActionButton(
+                    icon: Icons.print,
+                    tooltip: 'Print Report',
+                    onPressed: _generatePdf,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildHeaderActionButton(
+                    icon: Icons.tune,
+                    tooltip: 'Rate & Grade Settings',
+                    onPressed: _showRateAndGradeDialog,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildHeaderActionButton(
+                    icon: Icons.payment,
+                    tooltip: 'Update Payment Status',
+                    onPressed: _showPaymentStatusDialog,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildSortButton(),
+                ],
+              ),
+            ],
+          ),
+          SizedBox(height: isMobile ? 16 : 20),
+          // Content with icon and title
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.admin_panel_settings,
+                  size: 32,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Admin Report Review',
+                      style: TextStyle(
+                        fontSize: isMobile ? 20 : 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      widget.monthDisplay,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      status.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: statusColor,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      _formatPaymentStatus(paymentStatus).toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: _getPaymentStatusColor(paymentStatus),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSortButton() {
+    return PopupMenuButton<TimesheetSortOption>(
+      tooltip: 'Sort Options',
+      offset: const Offset(0, 40),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Icon(Icons.sort, color: Colors.white, size: 20),
+      ),
+      onSelected: (option) {
+        setState(() {
+          _sortOption = option;
+          _sortTimesheets();
+        });
+      },
+      itemBuilder: (context) => TimesheetSortOption.values
+          .map(
+            (option) => PopupMenuItem(
+              value: option,
+              child: Row(
+                children: [
+                  Icon(option.icon, size: 20),
+                  const SizedBox(width: 12),
+                  Text(option.displayName),
+                ],
+              ),
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  Widget _buildLoadingHeader() {
+    final isMobile = ResponsiveHelper.isMobile(context);
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.orange.shade600, Colors.orange.shade400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              _buildHeaderActionButton(
+                icon: Icons.arrow_back,
+                tooltip: 'Back',
+                onPressed: () => context.pop(),
+              ),
+            ],
+          ),
+          SizedBox(height: isMobile ? 16 : 20),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.admin_panel_settings,
+                  size: 32,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 16),
+              const Text(
+                'Loading...',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorHeader() {
+    final isMobile = ResponsiveHelper.isMobile(context);
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.orange.shade600, Colors.orange.shade400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              _buildHeaderActionButton(
+                icon: Icons.arrow_back,
+                tooltip: 'Back',
+                onPressed: () => context.pop(),
+              ),
+            ],
+          ),
+          SizedBox(height: isMobile ? 16 : 20),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.error_outline,
+                  size: 32,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 16),
+              const Text(
+                'Error',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getPaymentStatusColor(String status) {
+    switch (status) {
+      case 'paid':
+        return Colors.green;
+      case 'not_paid':
+        return Colors.red;
+      case 'review':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
 
   @override
   void initState() {
@@ -242,7 +623,6 @@ class _AdminStudentReportDetailScreenState
   }
 
   void _showPaymentStatusDialog() {
-    final currentStatus = _reportData?['status'] ?? 'draft';
     final paymentStatusOptions = ['paid', 'not_paid', 'review'];
 
     showDialog(
@@ -251,17 +631,21 @@ class _AdminStudentReportDetailScreenState
         title: const Text('Update Payment Status'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          children: paymentStatusOptions.map((status) => RadioListTile<String>(
-            title: Text(_formatPaymentStatus(status)),
-            value: status,
-            groupValue: _reportData?['paymentStatus'] ?? 'not_paid',
-            onChanged: (value) {
-              if (value != null) {
-                Navigator.of(context).pop();
-                _updatePaymentStatus(value);
-              }
-            },
-          )).toList(),
+          children: paymentStatusOptions
+              .map(
+                (status) => RadioListTile<String>(
+                  title: Text(_formatPaymentStatus(status)),
+                  value: status,
+                  groupValue: _reportData?['paymentStatus'] ?? 'not_paid',
+                  onChanged: (value) {
+                    if (value != null) {
+                      Navigator.of(context).pop();
+                      _updatePaymentStatus(value);
+                    }
+                  },
+                ),
+              )
+              .toList(),
         ),
         actions: [
           TextButton(
@@ -292,7 +676,9 @@ class _AdminStudentReportDetailScreenState
     final studentRole = _studentProfile?['role'] as String? ?? 'Other';
     final totalHours = (_reportData?['totalHours'] ?? 0.0).toDouble();
 
-    final rateController = TextEditingController(text: currentRate.toStringAsFixed(2));
+    final rateController = TextEditingController(
+      text: currentRate.toStringAsFixed(2),
+    );
     String? selectedGrade = currentGrade;
     bool overrideRate = false;
 
@@ -301,7 +687,8 @@ class _AdminStudentReportDetailScreenState
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
           // Calculate total based on entered rate
-          double displayRate = double.tryParse(rateController.text) ?? currentRate;
+          double displayRate =
+              double.tryParse(rateController.text) ?? currentRate;
           double newTotal = totalHours * displayRate;
 
           return AlertDialog(
@@ -341,7 +728,9 @@ class _AdminStudentReportDetailScreenState
                             const Text('Role:'),
                             Text(
                               studentRole,
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ],
                         ),
@@ -352,7 +741,9 @@ class _AdminStudentReportDetailScreenState
                             const Text('Total Hours:'),
                             Text(
                               '${totalHours.toStringAsFixed(2)}h',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ],
                         ),
@@ -363,7 +754,9 @@ class _AdminStudentReportDetailScreenState
                             const Text('Current Rate:'),
                             Text(
                               '${AppConstants.currencySymbol}${currentRate.toStringAsFixed(2)}/h',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ],
                         ),
@@ -376,7 +769,9 @@ class _AdminStudentReportDetailScreenState
                               currentGrade ?? 'Not Set',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: currentGrade != null ? Colors.blue : Colors.grey,
+                                color: currentGrade != null
+                                    ? Colors.blue
+                                    : Colors.grey,
                               ),
                             ),
                           ],
@@ -393,7 +788,10 @@ class _AdminStudentReportDetailScreenState
                   ),
                   const SizedBox(height: 8),
                   ...StudentRateConfig.grades.map((grade) {
-                    final gradeRate = StudentRateConfig.getRate(studentRole, grade);
+                    final gradeRate = StudentRateConfig.getRate(
+                      studentRole,
+                      grade,
+                    );
                     final isSelected = selectedGrade == grade;
                     return Container(
                       margin: const EdgeInsets.only(bottom: 8),
@@ -402,18 +800,27 @@ class _AdminStudentReportDetailScreenState
                           setDialogState(() {
                             selectedGrade = grade;
                             if (!overrideRate) {
-                              rateController.text = gradeRate.toStringAsFixed(2);
+                              rateController.text = gradeRate.toStringAsFixed(
+                                2,
+                              );
                             }
                           });
                         },
                         borderRadius: BorderRadius.circular(8),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
                           decoration: BoxDecoration(
-                            color: isSelected ? _getGradeColor(grade) : Colors.grey.shade100,
+                            color: isSelected
+                                ? _getGradeColor(grade)
+                                : Colors.grey.shade100,
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: isSelected ? _getGradeColor(grade) : Colors.grey.shade300,
+                              color: isSelected
+                                  ? _getGradeColor(grade)
+                                  : Colors.grey.shade300,
                               width: isSelected ? 2 : 1,
                             ),
                           ),
@@ -424,14 +831,18 @@ class _AdminStudentReportDetailScreenState
                                 'Grade $grade',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: isSelected ? Colors.white : Colors.black,
+                                  color: isSelected
+                                      ? Colors.white
+                                      : Colors.black,
                                 ),
                               ),
                               Text(
                                 '${AppConstants.currencySymbol}${gradeRate.toStringAsFixed(2)}/h',
                                 style: TextStyle(
                                   fontWeight: FontWeight.w500,
-                                  color: isSelected ? Colors.white : Colors.grey.shade700,
+                                  color: isSelected
+                                      ? Colors.white
+                                      : Colors.grey.shade700,
                                 ),
                               ),
                             ],
@@ -449,7 +860,10 @@ class _AdminStudentReportDetailScreenState
                       setDialogState(() {
                         overrideRate = value ?? false;
                         if (!overrideRate && selectedGrade != null) {
-                          final gradeRate = StudentRateConfig.getRate(studentRole, selectedGrade);
+                          final gradeRate = StudentRateConfig.getRate(
+                            studentRole,
+                            selectedGrade,
+                          );
                           rateController.text = gradeRate.toStringAsFixed(2);
                         }
                       });
@@ -464,13 +878,18 @@ class _AdminStudentReportDetailScreenState
                   TextField(
                     controller: rateController,
                     enabled: overrideRate,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     decoration: InputDecoration(
                       labelText: 'Hourly Rate',
                       prefixText: '${AppConstants.currencySymbol} ',
                       suffixText: '/hour',
                       border: const OutlineInputBorder(),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
                       filled: !overrideRate,
                       fillColor: Colors.grey.shade100,
                     ),
@@ -513,12 +932,19 @@ class _AdminStudentReportDetailScreenState
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.info_outline, size: 16, color: Colors.blue.shade700),
+                        Icon(
+                          Icons.info_outline,
+                          size: 16,
+                          color: Colors.blue.shade700,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'Changes will update this report and the student\'s profile for future reports.',
-                            style: TextStyle(fontSize: 12, color: Colors.blue.shade700),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.blue.shade700,
+                            ),
                           ),
                         ),
                       ],
@@ -538,7 +964,9 @@ class _AdminStudentReportDetailScreenState
                     : () {
                         Navigator.of(context).pop();
                         _updateRateAndGrade(
-                          newRate: double.tryParse(rateController.text) ?? currentRate,
+                          newRate:
+                              double.tryParse(rateController.text) ??
+                              currentRate,
                           newGrade: selectedGrade,
                         );
                       },
@@ -663,13 +1091,7 @@ class _AdminStudentReportDetailScreenState
   }
 
   Future<void> _generatePdf() async {
-    final timesheetCount = _timesheets.length;
-    final totalHours = _timesheets.fold<double>(
-      0.0,
-      (sum, ts) => sum + ts.totalHours,
-    );
     final hourlyRate = _reportData?['hourlyRate'] ?? 0.0;
-    final totalAmount = totalHours * hourlyRate;
 
     // Get student profile to get grade
     String? grade;
@@ -726,135 +1148,93 @@ class _AdminStudentReportDetailScreenState
     );
 
     // Show the PDF using the printing package
-    await Printing.layoutPdf(
-      onLayout: (format) async => pdfBytes,
-    );
+    await Printing.layoutPdf(onLayout: (format) async => pdfBytes);
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Loading...')),
-        body: const Center(child: CircularProgressIndicator()),
+        backgroundColor: Colors.grey[50],
+        body: SafeArea(
+          child: ResponsiveContainer(
+            child: Column(
+              children: [
+                const SizedBox(height: 16),
+                _buildLoadingHeader(),
+                const Expanded(
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              ],
+            ),
+          ),
+        ),
       );
     }
 
     if (_reportData == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Error')),
-        body: const Center(child: Text('Report not found')),
-      );
-    }
-
-    final status = _reportData!['status'] ?? 'draft';
-    final canApprove = status == 'submitted';
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Report - ${widget.monthDisplay}'),
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Colors.orange.shade400, Colors.orange.shade600],
+        backgroundColor: Colors.grey[50],
+        body: SafeArea(
+          child: ResponsiveContainer(
+            child: Column(
+              children: [
+                const SizedBox(height: 16),
+                _buildErrorHeader(),
+                const Expanded(child: Center(child: Text('Report not found'))),
+              ],
             ),
           ),
         ),
-        actions: [
-          if (canApprove && !_isApproving) ...[
-            IconButton(
-              icon: const Icon(Icons.check_circle),
-              onPressed: () => _showApprovalDialog('approve'),
-              tooltip: 'Approve',
-            ),
-            IconButton(
-              icon: const Icon(Icons.cancel),
-              onPressed: () => _showApprovalDialog('reject'),
-              tooltip: 'Reject',
-            ),
-          ],
-          IconButton(
-            icon: const Icon(Icons.print),
-            onPressed: _generatePdf,
-            tooltip: 'Print Report',
-          ),
-          IconButton(
-            icon: const Icon(Icons.tune),
-            onPressed: _showRateAndGradeDialog,
-            tooltip: 'Rate & Grade Settings',
-          ),
-          IconButton(
-            icon: const Icon(Icons.payment),
-            onPressed: _showPaymentStatusDialog,
-            tooltip: 'Update Payment Status',
-          ),
-          PopupMenuButton<TimesheetSortOption>(
-            icon: const Icon(Icons.sort),
-            onSelected: (option) {
-              setState(() {
-                _sortOption = option;
-                _sortTimesheets();
-              });
-            },
-            itemBuilder: (context) => TimesheetSortOption.values
-                .map(
-                  (option) => PopupMenuItem(
-                    value: option,
-                    child: Row(
-                      children: [
-                        Icon(option.icon, size: 20),
-                        const SizedBox(width: 12),
-                        Text(option.displayName),
-                      ],
-                    ),
-                  ),
-                )
-                .toList(),
-          ),
-        ],
-      ),
+      );
+    }
+
+    return Scaffold(
       backgroundColor: Colors.grey[50],
-      body: ResponsiveContainer(
-        child: Column(
-          children: [
-            _buildReportSummary(),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Time Entries (${_timesheets.length})',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  'Sorted by: ${_sortOption.displayName.split('(')[1].replaceAll(')', '')}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: _timesheets.isEmpty
-                  ? _buildEmptyState()
-                  : ListView.builder(
-                      itemCount: _timesheets.length,
-                      itemBuilder: (context, index) {
-                        return _buildTimesheetCard(_timesheets[index]);
-                      },
+      body: SafeArea(
+        child: ResponsiveContainer(
+          child: Column(
+            children: [
+              const SizedBox(height: 16),
+              _buildWelcomeHeader(),
+              const SizedBox(height: 16),
+              _buildReportSummaryCard(),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Time Entries (${_timesheets.length})',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
-            ),
-          ],
+                  ),
+                  Text(
+                    'Sorted by: ${_sortOption.displayName.split('(')[1].replaceAll(')', '')}',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: _timesheets.isEmpty
+                    ? _buildEmptyState()
+                    : ListView.builder(
+                        itemCount: _timesheets.length,
+                        itemBuilder: (context, index) {
+                          return _buildTimesheetCard(_timesheets[index]);
+                        },
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildReportSummary() {
+  Widget _buildReportSummaryCard() {
     final studentName = _reportData!['studentName'] ?? 'Unknown';
     final status = _reportData!['status'] ?? 'draft';
     final paymentStatus = _reportData!['paymentStatus'] ?? 'not_paid';
@@ -903,18 +1283,13 @@ class _AdminStudentReportDetailScreenState
     }
 
     return Container(
-      margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.orange.shade400, Colors.orange.shade600],
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.orange.shade200,
+            color: Colors.grey.withOpacity(0.2),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -929,14 +1304,14 @@ class _AdminStudentReportDetailScreenState
                 width: 60,
                 height: 60,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.orange.shade100,
                   shape: BoxShape.circle,
                 ),
                 child: Center(
                   child: Text(
                     studentName.isNotEmpty ? studentName[0].toUpperCase() : 'S',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: Colors.orange.shade700,
                       fontWeight: FontWeight.bold,
                       fontSize: 28,
                     ),
@@ -951,8 +1326,8 @@ class _AdminStudentReportDetailScreenState
                     Text(
                       studentName,
                       style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
+                        color: Colors.black87,
+                        fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -960,33 +1335,34 @@ class _AdminStudentReportDetailScreenState
                     Text(
                       widget.monthDisplay,
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
-                        fontSize: 16,
+                        color: Colors.grey.shade600,
+                        fontSize: 14,
                       ),
                     ),
                   ],
                 ),
               ),
               Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
-                      vertical: 8,
+                      vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: statusColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(statusIcon, size: 18, color: statusColor),
-                        const SizedBox(width: 6),
+                        Icon(statusIcon, size: 16, color: statusColor),
+                        const SizedBox(width: 4),
                         Text(
                           status.toUpperCase(),
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 11,
                             fontWeight: FontWeight.bold,
                             color: statusColor,
                           ),
@@ -997,12 +1373,12 @@ class _AdminStudentReportDetailScreenState
                   const SizedBox(height: 4),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
+                      horizontal: 10,
+                      vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
+                      color: paymentStatusColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(
                       _formatPaymentStatus(paymentStatus).toUpperCase(),
@@ -1017,12 +1393,12 @@ class _AdminStudentReportDetailScreenState
                     const SizedBox(height: 4),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
+                        horizontal: 10,
+                        vertical: 4,
                       ),
                       decoration: BoxDecoration(
                         color: _getGradeColor(_studentProfile!['grade']),
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(16),
                       ),
                       child: Text(
                         'GRADE ${_studentProfile!['grade']}',
@@ -1038,21 +1414,29 @@ class _AdminStudentReportDetailScreenState
               ),
             ],
           ),
-          const Divider(height: 32, color: Colors.white24),
+          const SizedBox(height: 16),
+          const Divider(height: 1),
+          const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildSummaryItem(
+              _buildSummaryItemLight(
                 'Total Hours',
                 '${totalHours.toStringAsFixed(1)}h',
+                Icons.access_time,
+                Colors.blue,
               ),
-              _buildSummaryItem(
+              _buildSummaryItemLight(
                 'Hourly Rate',
                 '${AppConstants.currencySymbol}${hourlyRate.toStringAsFixed(2)}',
+                Icons.attach_money,
+                Colors.green,
               ),
-              _buildSummaryItem(
+              _buildSummaryItemLight(
                 'Total Amount',
                 '${AppConstants.currencySymbol}${totalAmount.toStringAsFixed(2)}',
+                Icons.payments,
+                Colors.orange,
               ),
             ],
           ),
@@ -1061,22 +1445,25 @@ class _AdminStudentReportDetailScreenState
     );
   }
 
-  Widget _buildSummaryItem(String label, String value) {
+  Widget _buildSummaryItemLight(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Column(
       children: [
+        Icon(icon, color: color, size: 24),
+        const SizedBox(height: 4),
         Text(
           value,
           style: const TextStyle(
-            color: Colors.white,
-            fontSize: 20,
+            color: Colors.black87,
+            fontSize: 18,
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12),
-        ),
+        Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
       ],
     );
   }
@@ -1124,7 +1511,6 @@ class _AdminStudentReportDetailScreenState
         taskStatusIcon = Icons.pause_circle;
         break;
       case TaskStatus.notStarted:
-      default:
         taskStatusColor = Colors.grey;
         taskStatusIcon = Icons.radio_button_unchecked;
     }
@@ -1220,7 +1606,11 @@ class _AdminStudentReportDetailScreenState
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(taskStatusIcon, size: 12, color: taskStatusColor),
+                            Icon(
+                              taskStatusIcon,
+                              size: 12,
+                              color: taskStatusColor,
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               taskStatus.displayName,
@@ -1270,7 +1660,8 @@ class _AdminStudentReportDetailScreenState
                         ),
                       ],
                     ),
-                    if (timesheet.taskTitle != null && timesheet.taskTitle!.isNotEmpty) ...[
+                    if (timesheet.taskTitle != null &&
+                        timesheet.taskTitle!.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1289,12 +1680,17 @@ class _AdminStudentReportDetailScreenState
                         ],
                       ),
                     ],
-                    if (timesheet.taskDescription != null && timesheet.taskDescription!.isNotEmpty) ...[
+                    if (timesheet.taskDescription != null &&
+                        timesheet.taskDescription!.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.description, size: 16, color: Colors.grey[600]),
+                          Icon(
+                            Icons.description,
+                            size: 16,
+                            color: Colors.grey[600],
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -1313,7 +1709,11 @@ class _AdminStudentReportDetailScreenState
                       const SizedBox(height: 12),
                       Row(
                         children: [
-                          Icon(Icons.trending_up, size: 16, color: Colors.grey[600]),
+                          Icon(
+                            Icons.trending_up,
+                            size: 16,
+                            color: Colors.grey[600],
+                          ),
                           const SizedBox(width: 8),
                           Text(
                             'Progress:',
@@ -1334,8 +1734,8 @@ class _AdminStudentReportDetailScreenState
                                   timesheet.taskProgress >= 100
                                       ? Colors.green
                                       : timesheet.taskProgress >= 50
-                                          ? Colors.orange
-                                          : Colors.blue,
+                                      ? Colors.orange
+                                      : Colors.blue,
                                 ),
                               ),
                             ),

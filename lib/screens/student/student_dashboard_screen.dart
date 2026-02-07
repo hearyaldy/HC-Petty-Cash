@@ -307,71 +307,34 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Dashboard'),
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Colors.orange.shade400, Colors.orange.shade600],
-            ),
-          ),
-        ),
-        actions: [
-          // Settings button
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () => context.go('/settings'),
-            tooltip: 'Settings',
-          ),
-          // Visible Logout button
-          Container(
-            margin: const EdgeInsets.only(right: 8),
-            child: IconButton(
-              icon: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade100,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.logout,
-                  color: Colors.red.shade700,
-                  size: 20,
-                ),
-              ),
-              onPressed: _handleLogout,
-              tooltip: 'Logout',
-            ),
-          ),
-        ],
-      ),
       backgroundColor: Colors.grey[50],
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _loadDashboardData,
-              child: ResponsiveContainer(
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildWelcomeCard(),
-                      const SizedBox(height: 16),
-                      _buildStatsGrid(),
-                      const SizedBox(height: 24),
-                      _buildQuickActions(),
-                      const SizedBox(height: 24),
-                      _buildMonthlyReports(),
-                      const SizedBox(height: 24),
-                      _buildRecentTimesheets(),
-                    ],
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : RefreshIndicator(
+                onRefresh: _loadDashboardData,
+                child: ResponsiveContainer(
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 16),
+                        _buildWelcomeCard(),
+                        const SizedBox(height: 16),
+                        _buildStatsGrid(),
+                        const SizedBox(height: 24),
+                        _buildQuickActions(),
+                        const SizedBox(height: 24),
+                        _buildMonthlyReports(),
+                        const SizedBox(height: 24),
+                        _buildRecentTimesheets(),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
+      ),
     );
   }
 
@@ -399,6 +362,42 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Top action bar
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Student Dashboard',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.9),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Row(
+                children: [
+                  _buildHeaderActionButton(
+                    icon: Icons.refresh,
+                    tooltip: 'Refresh',
+                    onPressed: _loadDashboardData,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildHeaderActionButton(
+                    icon: Icons.settings,
+                    tooltip: 'Settings',
+                    onPressed: () => context.go('/settings'),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildHeaderActionButton(
+                    icon: Icons.logout,
+                    tooltip: 'Logout',
+                    onPressed: _handleLogout,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
           Row(
             children: [
               Container(
@@ -460,6 +459,28 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
       ),
     );
   }

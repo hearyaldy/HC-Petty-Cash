@@ -80,7 +80,8 @@ class _StudentReportScreenState extends State<StudentReportScreen>
     _availableMonths.sort((a, b) => b.compareTo(a));
 
     // Set selected month based on initialMonth parameter or current month
-    if (widget.initialMonth != null && _availableMonths.contains(widget.initialMonth)) {
+    if (widget.initialMonth != null &&
+        _availableMonths.contains(widget.initialMonth)) {
       _selectedMonth = widget.initialMonth;
     } else {
       // Fallback to current month if available
@@ -1131,128 +1132,197 @@ class _StudentReportScreenState extends State<StudentReportScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Working Hours'),
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Colors.orange.shade400, Colors.orange.shade600],
+      backgroundColor: Colors.grey[50],
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildWelcomeHeader(),
+            // Tab Bar
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: TabBar(
+                controller: _tabController,
+                indicatorColor: Colors.orange.shade600,
+                indicatorWeight: 3,
+                labelColor: Colors.orange.shade600,
+                unselectedLabelColor: Colors.grey.shade600,
+                indicatorSize: TabBarIndicatorSize.tab,
+                tabs: const [
+                  Tab(icon: Icon(Icons.access_time), text: 'Current Month'),
+                  Tab(icon: Icon(Icons.history), text: 'History'),
+                ],
+              ),
             ),
-          ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _studentProfile == null
+                  ? _buildNoProfileState()
+                  : ResponsiveContainer(
+                      child: TabBarView(
+                        controller: _tabController,
+                        children: [
+                          _buildCurrentMonthView(),
+                          _buildHistoryView(),
+                        ],
+                      ),
+                    ),
+            ),
+          ],
         ),
-        actions: [
-          // Submit Report Button (only show on Current Month tab)
-          if (_selectedTabIndex == 0 &&
-              _selectedMonth != null &&
-              _timesheetsByMonth[_selectedMonth]?.any(
-                    (t) => t.status == 'draft',
-                  ) ==
-                  true)
-            IconButton(
-              icon: const Icon(Icons.send),
-              tooltip: 'Submit Monthly Report',
-              onPressed: _submitTimesheetReport,
-            ),
-          // Settings/Profile Menu
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            onSelected: (value) {
-              if (value == 'settings') {
-                context.go('/settings');
-              } else if (value == 'logout') {
-                _handleLogout(context);
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'settings',
-                child: Row(
-                  children: [
-                    Icon(Icons.settings, size: 20),
-                    SizedBox(width: 12),
-                    Text('Settings'),
-                  ],
+      ),
+    );
+  }
+
+  Widget _buildWelcomeHeader() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userName = authProvider.currentUser?.name ?? 'Student';
+
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.orange.shade400, Colors.orange.shade600],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.shade200,
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'My Working Hours',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.9),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-              const PopupMenuItem(
-                value: 'logout',
-                child: Row(
+              Row(
+                children: [
+                  if (_studentProfile != null)
+                    _buildHeaderActionButton(
+                      icon: Icons.add,
+                      tooltip: 'Log Hours',
+                      onPressed: _showAddTimesheetDialog,
+                    ),
+                  if (_selectedTabIndex == 0 &&
+                      _selectedMonth != null &&
+                      _timesheetsByMonth[_selectedMonth]?.any(
+                            (t) => t.status == 'draft',
+                          ) ==
+                          true) ...[
+                    const SizedBox(width: 8),
+                    _buildHeaderActionButton(
+                      icon: Icons.send,
+                      tooltip: 'Submit Report',
+                      onPressed: _submitTimesheetReport,
+                    ),
+                  ],
+                  const SizedBox(width: 8),
+                  _buildHeaderActionButton(
+                    icon: Icons.settings,
+                    tooltip: 'Settings',
+                    onPressed: () => context.go('/settings'),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildHeaderActionButton(
+                    icon: Icons.logout,
+                    tooltip: 'Logout',
+                    onPressed: () => _handleLogout(context),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.access_time,
+                  color: Colors.white,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.logout, size: 20, color: Colors.red),
-                    SizedBox(width: 12),
-                    Text('Logout', style: TextStyle(color: Colors.red)),
+                    Text(
+                      'Welcome, $userName',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Rate: ฿${_studentProfile?.hourlyRate.toStringAsFixed(2) ?? '0.00'}/hr',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 14,
+                      ),
+                    ),
                   ],
                 ),
               ),
             ],
           ),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: Colors.white,
-          indicatorWeight: 3,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          tabs: const [
-            Tab(icon: Icon(Icons.access_time), text: 'Current Month'),
-            Tab(icon: Icon(Icons.history), text: 'History'),
-          ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
         ),
       ),
-      backgroundColor: Colors.grey[50],
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _studentProfile == null
-          ? _buildNoProfileState()
-          : ResponsiveContainer(
-              child: TabBarView(
-                controller: _tabController,
-                children: [_buildCurrentMonthView(), _buildHistoryView()],
-              ),
-            ),
-      floatingActionButton: _studentProfile != null
-          ? Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.orange.shade400, Colors.orange.shade600],
-                ),
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.orange.withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: _showAddTimesheetDialog,
-                  borderRadius: BorderRadius.circular(24),
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.add, color: Colors.white),
-                        SizedBox(width: 8),
-                        Text(
-                          'Log Hours',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            )
-          : null,
     );
   }
 

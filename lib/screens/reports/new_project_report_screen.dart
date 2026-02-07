@@ -59,7 +59,7 @@ class _NewProjectReportScreenState extends State<NewProjectReportScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.home_outlined),
-            onPressed: () => context.go('/dashboard'),
+            onPressed: () => context.go('/admin-hub'),
             tooltip: 'Home',
           ),
         ],

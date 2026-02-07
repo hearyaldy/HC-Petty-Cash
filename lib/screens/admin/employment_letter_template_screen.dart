@@ -72,159 +72,187 @@ class _EmploymentLetterTemplateScreenState
 
     return Scaffold(
       backgroundColor: Colors.grey[100],
-      body: CustomScrollView(
-        slivers: [
-          // Modern SliverAppBar with gradient
-          SliverAppBar(
-            expandedHeight: 200,
-            floating: false,
-            pinned: true,
-            elevation: 0,
-            backgroundColor: Colors.orange.shade600,
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.orange.shade700,
-                      Colors.orange.shade500,
-                      Colors.deepOrange.shade400,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: ResponsiveContainer(
+            child: Padding(
+              padding: ResponsiveHelper.getScreenPadding(context),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildWelcomeHeader(),
+                  const SizedBox(height: 24),
+
+                  // Stats Row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildStatCard(
+                          label: 'Total Templates',
+                          value: _templates.length.toString(),
+                          icon: Icons.folder,
+                          color: Colors.blue,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildStatCard(
+                          label: 'Active',
+                          value: activeCount.toString(),
+                          icon: Icons.check_circle,
+                          color: Colors.green,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildStatCard(
+                          label: 'Inactive',
+                          value: inactiveCount.toString(),
+                          icon: Icons.cancel,
+                          color: Colors.grey,
+                        ),
+                      ),
                     ],
                   ),
-                ),
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.description,
-                                color: Colors.white,
-                                size: 28,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Letter Templates',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Manage employment letter templates',
-                                    style: TextStyle(
-                                      color: Colors.white.withOpacity(0.9),
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+
+                  const SizedBox(height: 24),
+
+                  // Search Section
+                  _buildSearchSection(),
+
+                  const SizedBox(height: 24),
+
+                  // Templates List
+                  _buildTemplatesList(),
+
+                  const SizedBox(height: 32),
+                ],
               ),
             ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.home_outlined),
-                onPressed: () => context.go('/dashboard'),
-                tooltip: 'Home',
-              ),
-              IconButton(
-                icon: const Icon(Icons.add),
-                onPressed: () => _navigateToAddTemplate(),
-                tooltip: 'Add Template',
-              ),
-            ],
           ),
-          // Content
-          SliverToBoxAdapter(
-            child: ResponsiveContainer(
-              child: Padding(
-                padding: ResponsiveHelper.getScreenPadding(context),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 24),
+        ),
+      ),
+    );
+  }
 
-                    // Stats Row
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildStatCard(
-                            label: 'Total Templates',
-                            value: _templates.length.toString(),
-                            icon: Icons.folder,
-                            color: Colors.blue,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildStatCard(
-                            label: 'Active',
-                            value: activeCount.toString(),
-                            icon: Icons.check_circle,
-                            color: Colors.green,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildStatCard(
-                            label: 'Inactive',
-                            value: inactiveCount.toString(),
-                            icon: Icons.cancel,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Search Section
-                    _buildSearchSection(),
-
-                    const SizedBox(height: 24),
-
-                    // Templates List
-                    _buildTemplatesList(),
-
-                    const SizedBox(height: 32),
-                  ],
-                ),
-              ),
-            ),
+  Widget _buildWelcomeHeader() {
+    final isMobile = ResponsiveHelper.isMobile(context);
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.orange.shade600, Colors.deepOrange.shade400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _navigateToAddTemplate,
-        backgroundColor: Colors.orange.shade600,
-        icon: const Icon(Icons.add),
-        label: const Text('New Template'),
+      child: Column(
+        children: [
+          // Top action bar
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildHeaderActionButton(
+                icon: Icons.arrow_back,
+                tooltip: 'Back',
+                onPressed: () => context.go('/hr-dashboard'),
+              ),
+              Row(
+                children: [
+                  _buildHeaderActionButton(
+                    icon: Icons.add,
+                    tooltip: 'Add Template',
+                    onPressed: _navigateToAddTemplate,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildHeaderActionButton(
+                    icon: Icons.refresh,
+                    tooltip: 'Refresh',
+                    onPressed: _loadTemplates,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildHeaderActionButton(
+                    icon: Icons.home_outlined,
+                    tooltip: 'Home',
+                    onPressed: () => context.go('/admin-hub'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          SizedBox(height: isMobile ? 16 : 20),
+          // Content row
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.description,
+                  color: Colors.white,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Letter Templates',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: isMobile ? 20 : 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Manage employment letter templates',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: isMobile ? 12 : 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
       ),
     );
   }
@@ -271,10 +299,7 @@ class _EmploymentLetterTemplateScreenState
           const SizedBox(height: 4),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey.shade600,
-            ),
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
           ),
         ],
       ),
@@ -324,13 +349,17 @@ class _EmploymentLetterTemplateScreenState
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide:
-                        BorderSide(color: Colors.orange.shade400, width: 2),
+                    borderSide: BorderSide(
+                      color: Colors.orange.shade400,
+                      width: 2,
+                    ),
                   ),
                   filled: true,
                   fillColor: Colors.grey.shade50,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                 ),
                 onChanged: (value) {
                   setState(() {
@@ -417,8 +446,11 @@ class _EmploymentLetterTemplateScreenState
         child: Center(
           child: Column(
             children: [
-              Icon(Icons.description_outlined,
-                  size: 64, color: Colors.grey.shade300),
+              Icon(
+                Icons.description_outlined,
+                size: 64,
+                color: Colors.grey.shade300,
+              ),
               const SizedBox(height: 16),
               Text(
                 'No templates found',
@@ -450,7 +482,9 @@ class _EmploymentLetterTemplateScreenState
     }
 
     return Column(
-      children: templates.map((template) => _buildTemplateCard(template)).toList(),
+      children: templates
+          .map((template) => _buildTemplateCard(template))
+          .toList(),
     );
   }
 
@@ -536,22 +570,33 @@ class _EmploymentLetterTemplateScreenState
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.calendar_today,
-                          size: 14, color: Colors.grey.shade600),
+                      Icon(
+                        Icons.calendar_today,
+                        size: 14,
+                        color: Colors.grey.shade600,
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         'Created: ${_formatDate(template.createdAt)}',
-                        style:
-                            TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 12,
+                        ),
                       ),
                       if (template.updatedAt != null) ...[
                         const SizedBox(width: 16),
-                        Icon(Icons.update, size: 14, color: Colors.grey.shade600),
+                        Icon(
+                          Icons.update,
+                          size: 14,
+                          color: Colors.grey.shade600,
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           'Updated: ${_formatDate(template.updatedAt!)}',
                           style: TextStyle(
-                              color: Colors.grey.shade600, fontSize: 12),
+                            color: Colors.grey.shade600,
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ],
@@ -684,14 +729,18 @@ class _EmploymentLetterTemplateScreenState
   }
 
   void _navigateToAddTemplate() async {
-    await context.push('/admin/employment-letter-template/edit',
-        extra: {'template': null});
+    await context.push(
+      '/admin/employment-letter-template/edit',
+      extra: {'template': null},
+    );
     _loadTemplates();
   }
 
   void _navigateToEditTemplate(EmploymentLetterTemplate template) async {
-    await context.push('/admin/employment-letter-template/edit',
-        extra: {'template': template});
+    await context.push(
+      '/admin/employment-letter-template/edit',
+      extra: {'template': template},
+    );
     _loadTemplates();
   }
 
@@ -715,7 +764,8 @@ class _EmploymentLetterTemplateScreenState
           ],
         ),
         content: Text(
-            'Are you sure you want to delete "${template.title}"? This action cannot be undone.'),
+          'Are you sure you want to delete "${template.title}"? This action cannot be undone.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -776,8 +826,9 @@ class _EmploymentLetterTemplateScreenState
             const Text('Deactivate Template'),
           ],
         ),
-        content:
-            Text('Are you sure you want to deactivate "${template.title}"?'),
+        content: Text(
+          'Are you sure you want to deactivate "${template.title}"?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),

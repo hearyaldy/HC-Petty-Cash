@@ -33,6 +33,163 @@ class _StudentMonthlyReportDetailScreenState
   Map<String, dynamic>? _reportData;
   List<StudentTimesheet> _timesheets = [];
 
+  Widget _buildHeaderActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWelcomeHeader() {
+    final isMobile = ResponsiveHelper.isMobile(context);
+    final status = _reportData?['status'] ?? 'draft';
+
+    Color statusColor;
+    switch (status) {
+      case 'approved':
+        statusColor = Colors.green;
+        break;
+      case 'rejected':
+        statusColor = Colors.red;
+        break;
+      case 'submitted':
+        statusColor = Colors.blue;
+        break;
+      default:
+        statusColor = Colors.grey;
+    }
+
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.orange.shade600, Colors.orange.shade400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Top action bar
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildHeaderActionButton(
+                icon: Icons.arrow_back,
+                tooltip: 'Back',
+                onPressed: () => context.pop(),
+              ),
+              Row(
+                children: [
+                  _buildHeaderActionButton(
+                    icon: Icons.print,
+                    tooltip: 'Print Report',
+                    onPressed: _generatePdf,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildHeaderActionButton(
+                    icon: Icons.picture_as_pdf,
+                    tooltip: 'Export as PDF',
+                    onPressed: _generatePdf,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildHeaderActionButton(
+                    icon: Icons.table_chart,
+                    tooltip: 'Export as Excel',
+                    onPressed: _generateExcel,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          SizedBox(height: isMobile ? 16 : 20),
+          // Content with icon and title
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.description,
+                  size: 32,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Report Details',
+                      style: TextStyle(
+                        fontSize: isMobile ? 20 : 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      widget.monthDisplay,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  status.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: statusColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -565,67 +722,32 @@ class _StudentMonthlyReportDetailScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Report Details - ${widget.monthDisplay}'),
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Colors.orange.shade400, Colors.orange.shade600],
-            ),
-          ),
-        ),
-        actions: [
-          PopupMenuButton<String>(
-            icon: Icon(Icons.print),
-            onSelected: (value) {
-              if (value == 'print') {
-                _generatePdf();
-              } else if (value == 'pdf') {
-                _generatePdf();
-              } else if (value == 'excel') {
-                _generateExcel();
-              }
-            },
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: 'print',
-                child: Row(
+      body: SafeArea(
+        child: _isLoading
+            ? ResponsiveContainer(
+                child: Column(
                   children: [
-                    Icon(Icons.print, color: Colors.blue),
-                    SizedBox(width: 8),
-                    Text('Print Report'),
+                    const SizedBox(height: 16),
+                    _buildLoadingHeader(),
+                    const Expanded(
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
                   ],
                 ),
-              ),
-              PopupMenuItem(
-                value: 'pdf',
-                child: Row(
+              )
+            : _reportData == null
+            ? ResponsiveContainer(
+                child: Column(
                   children: [
-                    Icon(Icons.picture_as_pdf, color: Colors.red),
-                    SizedBox(width: 8),
-                    Text('Export as PDF'),
+                    const SizedBox(height: 16),
+                    _buildErrorHeader(),
+                    const Expanded(
+                      child: Center(child: Text('Report not found')),
+                    ),
                   ],
                 ),
-              ),
-              PopupMenuItem(
-                value: 'excel',
-                child: Row(
-                  children: [
-                    Icon(Icons.table_chart, color: Colors.green),
-                    SizedBox(width: 8),
-                    Text('Export as Excel'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          IconButton(
-            icon: Icon(Icons.arrow_back),
-            onPressed: () => context.pop(),
-          ),
-        ],
+              )
+            : _buildContent(),
       ),
       floatingActionButton: (_reportData?['status'] ?? 'draft') == 'draft'
           ? FloatingActionButton.extended(
@@ -635,11 +757,128 @@ class _StudentMonthlyReportDetailScreenState
               label: const Text('Add Time Entry'),
             )
           : null,
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _reportData == null
-          ? const Center(child: Text('Report not found'))
-          : _buildContent(),
+    );
+  }
+
+  Widget _buildLoadingHeader() {
+    final isMobile = ResponsiveHelper.isMobile(context);
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.orange.shade600, Colors.orange.shade400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              _buildHeaderActionButton(
+                icon: Icons.arrow_back,
+                tooltip: 'Back',
+                onPressed: () => context.pop(),
+              ),
+            ],
+          ),
+          SizedBox(height: isMobile ? 16 : 20),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.description,
+                  size: 32,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 16),
+              const Text(
+                'Loading...',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorHeader() {
+    final isMobile = ResponsiveHelper.isMobile(context);
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.orange.shade600, Colors.orange.shade400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              _buildHeaderActionButton(
+                icon: Icons.arrow_back,
+                tooltip: 'Back',
+                onPressed: () => context.pop(),
+              ),
+            ],
+          ),
+          SizedBox(height: isMobile ? 16 : 20),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.error_outline,
+                  size: 32,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 16),
+              const Text(
+                'Error',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -657,20 +896,20 @@ class _StudentMonthlyReportDetailScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Report Header - Extended with Student Information
+            const SizedBox(height: 16),
+            // Welcome Header with actions
+            _buildWelcomeHeader(),
+            const SizedBox(height: 16),
+            // Report Summary Card
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Colors.orange.shade400, Colors.orange.shade600],
-                ),
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.orange.shade200,
+                    color: Colors.grey.withOpacity(0.2),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
@@ -679,123 +918,43 @@ class _StudentMonthlyReportDetailScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Title Row with Status Badge
+                  // Title Row
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.description,
-                                  color: Colors.white,
-                                  size: 28,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    'Student Labour Report',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.calendar_month,
-                                  color: Colors.white70,
-                                  size: 18,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Period: ${widget.monthDisplay}',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          Icons.person,
+                          color: Colors.orange.shade600,
                         ),
                       ),
-                      // Status Badge
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              _getStatusIcon(_reportData?['status']),
-                              color: _getStatusColor(_reportData?['status']),
-                              size: 18,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              _reportData?['status']?.toUpperCase() ?? 'DRAFT',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: _getStatusColor(_reportData?['status']),
-                              ),
-                            ),
-                          ],
+                      const SizedBox(width: 16),
+                      const Text(
+                        'Student Information',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ],
                   ),
-
-                  const SizedBox(height: 20),
-
-                  // Divider
-                  Container(height: 1, color: Colors.white.withOpacity(0.3)),
-
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
+                  const Divider(height: 1),
+                  const SizedBox(height: 16),
 
                   // Student Information Grid
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Student Information',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
                       // Row 1: Name and Student Number
                       Row(
                         children: [
                           Expanded(
-                            child: _buildInfoRow(
+                            child: _buildInfoRowLight(
                               Icons.person,
                               'Student Name',
                               _reportData?['studentName'] ?? 'N/A',
@@ -803,7 +962,7 @@ class _StudentMonthlyReportDetailScreenState
                           ),
                           const SizedBox(width: 16),
                           Expanded(
-                            child: _buildInfoRow(
+                            child: _buildInfoRowLight(
                               Icons.badge,
                               'Student Number',
                               _reportData?['studentNumber'] ?? 'N/A',
@@ -818,7 +977,7 @@ class _StudentMonthlyReportDetailScreenState
                       Row(
                         children: [
                           Expanded(
-                            child: _buildInfoRow(
+                            child: _buildInfoRowLight(
                               Icons.email,
                               'Email',
                               _reportData?['studentEmail'] ?? 'N/A',
@@ -826,7 +985,7 @@ class _StudentMonthlyReportDetailScreenState
                           ),
                           const SizedBox(width: 16),
                           Expanded(
-                            child: _buildInfoRow(
+                            child: _buildInfoRowLight(
                               Icons.business,
                               'Department',
                               _reportData?['department'] ?? 'N/A',
@@ -841,7 +1000,7 @@ class _StudentMonthlyReportDetailScreenState
                       Row(
                         children: [
                           Expanded(
-                            child: _buildInfoRow(
+                            child: _buildInfoRowLight(
                               Icons.fingerprint,
                               'Report ID',
                               '${widget.reportId.substring(0, 8)}...',
@@ -849,7 +1008,7 @@ class _StudentMonthlyReportDetailScreenState
                           ),
                           const SizedBox(width: 16),
                           Expanded(
-                            child: _buildInfoRow(
+                            child: _buildInfoRowLight(
                               Icons.attach_money,
                               'Hourly Rate',
                               '฿${hourlyRate.toStringAsFixed(2)}/hr',
@@ -1109,16 +1268,17 @@ class _StudentMonthlyReportDetailScreenState
                                                 color: _getStatusColor(
                                                   ts.status,
                                                 ).withValues(alpha: 0.1),
-                                                borderRadius: BorderRadius.circular(
-                                                  20,
-                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
                                               ),
                                               child: Text(
                                                 ts.status.toUpperCase(),
                                                 style: TextStyle(
                                                   fontSize: 11,
                                                   fontWeight: FontWeight.bold,
-                                                  color: _getStatusColor(ts.status),
+                                                  color: _getStatusColor(
+                                                    ts.status,
+                                                  ),
                                                 ),
                                               ),
                                             ),
@@ -1136,7 +1296,9 @@ class _StudentMonthlyReportDetailScreenState
                                                 } else if (value == 'edit') {
                                                   _showEditTimesheetDialog(ts);
                                                 } else if (value == 'delete') {
-                                                  _showDeleteTimesheetDialog(ts);
+                                                  _showDeleteTimesheetDialog(
+                                                    ts,
+                                                  );
                                                 }
                                               },
                                               itemBuilder: (context) => [
@@ -1144,19 +1306,29 @@ class _StudentMonthlyReportDetailScreenState
                                                   value: 'view',
                                                   child: Row(
                                                     children: [
-                                                      Icon(Icons.visibility, size: 18, color: Colors.green),
+                                                      Icon(
+                                                        Icons.visibility,
+                                                        size: 18,
+                                                        color: Colors.green,
+                                                      ),
                                                       SizedBox(width: 8),
                                                       Text('View Details'),
                                                     ],
                                                   ),
                                                 ),
                                                 // Only show Edit/Delete when report is draft
-                                                if ((_reportData?['status'] ?? 'draft') == 'draft') ...[
+                                                if ((_reportData?['status'] ??
+                                                        'draft') ==
+                                                    'draft') ...[
                                                   const PopupMenuItem(
                                                     value: 'edit',
                                                     child: Row(
                                                       children: [
-                                                        Icon(Icons.edit, size: 18, color: Colors.blue),
+                                                        Icon(
+                                                          Icons.edit,
+                                                          size: 18,
+                                                          color: Colors.blue,
+                                                        ),
                                                         SizedBox(width: 8),
                                                         Text('Edit'),
                                                       ],
@@ -1166,9 +1338,18 @@ class _StudentMonthlyReportDetailScreenState
                                                     value: 'delete',
                                                     child: Row(
                                                       children: [
-                                                        Icon(Icons.delete, size: 18, color: Colors.red),
+                                                        Icon(
+                                                          Icons.delete,
+                                                          size: 18,
+                                                          color: Colors.red,
+                                                        ),
                                                         SizedBox(width: 8),
-                                                        Text('Delete', style: TextStyle(color: Colors.red)),
+                                                        Text(
+                                                          'Delete',
+                                                          style: TextStyle(
+                                                            color: Colors.red,
+                                                          ),
+                                                        ),
                                                       ],
                                                     ),
                                                   ),
@@ -1393,7 +1574,8 @@ class _StudentMonthlyReportDetailScreenState
                                       ),
                                     ),
                                     // Actions column - only show when draft
-                                    if ((_reportData?['status'] ?? 'draft') == 'draft')
+                                    if ((_reportData?['status'] ?? 'draft') ==
+                                        'draft')
                                       const SizedBox(
                                         width: 50,
                                         child: Text(
@@ -1522,19 +1704,29 @@ class _StudentMonthlyReportDetailScreenState
                                                 value: 'view',
                                                 child: Row(
                                                   children: [
-                                                    Icon(Icons.visibility, size: 18, color: Colors.green),
+                                                    Icon(
+                                                      Icons.visibility,
+                                                      size: 18,
+                                                      color: Colors.green,
+                                                    ),
                                                     SizedBox(width: 8),
                                                     Text('View Details'),
                                                   ],
                                                 ),
                                               ),
                                               // Only show Edit/Delete when report is draft
-                                              if ((_reportData?['status'] ?? 'draft') == 'draft') ...[
+                                              if ((_reportData?['status'] ??
+                                                      'draft') ==
+                                                  'draft') ...[
                                                 const PopupMenuItem(
                                                   value: 'edit',
                                                   child: Row(
                                                     children: [
-                                                      Icon(Icons.edit, size: 18, color: Colors.blue),
+                                                      Icon(
+                                                        Icons.edit,
+                                                        size: 18,
+                                                        color: Colors.blue,
+                                                      ),
                                                       SizedBox(width: 8),
                                                       Text('Edit'),
                                                     ],
@@ -1544,9 +1736,18 @@ class _StudentMonthlyReportDetailScreenState
                                                   value: 'delete',
                                                   child: Row(
                                                     children: [
-                                                      Icon(Icons.delete, size: 18, color: Colors.red),
+                                                      Icon(
+                                                        Icons.delete,
+                                                        size: 18,
+                                                        color: Colors.red,
+                                                      ),
                                                       SizedBox(width: 8),
-                                                      Text('Delete', style: TextStyle(color: Colors.red)),
+                                                      Text(
+                                                        'Delete',
+                                                        style: TextStyle(
+                                                          color: Colors.red,
+                                                        ),
+                                                      ),
                                                     ],
                                                   ),
                                                 ),
@@ -1679,10 +1880,10 @@ class _StudentMonthlyReportDetailScreenState
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value) {
+  Widget _buildInfoRowLight(IconData icon, String label, String value) {
     return Row(
       children: [
-        Icon(icon, color: Colors.white70, size: 18),
+        Icon(icon, color: Colors.orange.shade400, size: 18),
         const SizedBox(width: 8),
         Expanded(
           child: Column(
@@ -1691,7 +1892,7 @@ class _StudentMonthlyReportDetailScreenState
               Text(
                 label,
                 style: TextStyle(
-                  color: Colors.white70,
+                  color: Colors.grey.shade600,
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
                 ),
@@ -1699,8 +1900,8 @@ class _StudentMonthlyReportDetailScreenState
               const SizedBox(height: 4),
               Text(
                 value,
-                style: TextStyle(
-                  color: Colors.white,
+                style: const TextStyle(
+                  color: Colors.black87,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -1800,8 +2001,12 @@ class _StudentMonthlyReportDetailScreenState
                         } else {
                           final now = DateTime.now();
                           // If today is within the month range, use today
-                          if (now.isAfter(firstDay.subtract(const Duration(days: 1))) &&
-                              now.isBefore(lastDay.add(const Duration(days: 1)))) {
+                          if (now.isAfter(
+                                firstDay.subtract(const Duration(days: 1)),
+                              ) &&
+                              now.isBefore(
+                                lastDay.add(const Duration(days: 1)),
+                              )) {
                             initialDate = now;
                           } else {
                             // Otherwise use the first day of the month
@@ -1875,7 +2080,8 @@ class _StudentMonthlyReportDetailScreenState
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
                                         startTime == null
@@ -1921,7 +2127,8 @@ class _StudentMonthlyReportDetailScreenState
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
                                         endTime == null
@@ -2060,7 +2267,9 @@ class _StudentMonthlyReportDetailScreenState
                             activeColor: Colors.orange.shade600,
                             label: '$taskProgress%',
                             onChanged: (value) {
-                              setDialogState(() => taskProgress = value.toInt());
+                              setDialogState(
+                                () => taskProgress = value.toInt(),
+                              );
                             },
                           ),
                         ),
@@ -2211,7 +2420,8 @@ class _StudentMonthlyReportDetailScreenState
                     hourlyRate: hourlyRate,
                     totalAmount: hours * hourlyRate,
                     status: 'draft',
-                    task: taskTitleController.text.trim(), // For backward compatibility
+                    task: taskTitleController.text
+                        .trim(), // For backward compatibility
                     taskType: selectedTaskType.value,
                     customTaskType: selectedTaskType == TaskType.other
                         ? customTaskTypeController.text.trim()
@@ -2289,9 +2499,15 @@ class _StudentMonthlyReportDetailScreenState
     TimeOfDay? startTime = TimeOfDay.fromDateTime(timesheet.startTime);
     TimeOfDay? endTime = TimeOfDay.fromDateTime(timesheet.endTime);
     TaskType selectedTaskType = timesheet.taskTypeEnum;
-    final customTaskTypeController = TextEditingController(text: timesheet.customTaskType ?? '');
-    final taskTitleController = TextEditingController(text: timesheet.taskTitle ?? timesheet.task);
-    final taskDescriptionController = TextEditingController(text: timesheet.taskDescription ?? '');
+    final customTaskTypeController = TextEditingController(
+      text: timesheet.customTaskType ?? '',
+    );
+    final taskTitleController = TextEditingController(
+      text: timesheet.taskTitle ?? timesheet.task,
+    );
+    final taskDescriptionController = TextEditingController(
+      text: timesheet.taskDescription ?? '',
+    );
     int taskProgress = timesheet.taskProgress;
     TaskStatus selectedTaskStatus = timesheet.taskStatusEnum;
     final notesController = TextEditingController(text: timesheet.notes ?? '');
@@ -2354,7 +2570,9 @@ class _StudentMonthlyReportDetailScreenState
                             Text(
                               selectedDate == null
                                   ? 'Select date'
-                                  : DateFormat('MMM dd, yyyy').format(selectedDate!),
+                                  : DateFormat(
+                                      'MMM dd, yyyy',
+                                    ).format(selectedDate!),
                             ),
                             const Icon(Icons.calendar_today, size: 20),
                           ],
@@ -2395,9 +2613,13 @@ class _StudentMonthlyReportDetailScreenState
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text(startTime?.format(dialogContext) ?? 'Start'),
+                                      Text(
+                                        startTime?.format(dialogContext) ??
+                                            'Start',
+                                      ),
                                       const Icon(Icons.access_time, size: 18),
                                     ],
                                   ),
@@ -2436,9 +2658,12 @@ class _StudentMonthlyReportDetailScreenState
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text(endTime?.format(dialogContext) ?? 'End'),
+                                      Text(
+                                        endTime?.format(dialogContext) ?? 'End',
+                                      ),
                                       const Icon(Icons.access_time, size: 18),
                                     ],
                                   ),
@@ -2571,7 +2796,9 @@ class _StudentMonthlyReportDetailScreenState
                             activeColor: Colors.orange.shade600,
                             label: '$taskProgress%',
                             onChanged: (value) {
-                              setDialogState(() => taskProgress = value.toInt());
+                              setDialogState(
+                                () => taskProgress = value.toInt(),
+                              );
                             },
                           ),
                         ),
@@ -2719,7 +2946,8 @@ class _StudentMonthlyReportDetailScreenState
                             ? customTaskTypeController.text.trim()
                             : null,
                         'taskTitle': taskTitleController.text.trim(),
-                        'taskDescription': taskDescriptionController.text.isNotEmpty
+                        'taskDescription':
+                            taskDescriptionController.text.isNotEmpty
                             ? taskDescriptionController.text.trim()
                             : null,
                         'taskProgress': taskProgress,
@@ -2840,7 +3068,8 @@ class _StudentMonthlyReportDetailScreenState
                 const SizedBox(height: 16),
 
                 // Task Title Section
-                if (timesheet.taskTitle != null && timesheet.taskTitle!.isNotEmpty) ...[
+                if (timesheet.taskTitle != null &&
+                    timesheet.taskTitle!.isNotEmpty) ...[
                   _buildViewSection(
                     'Task Title',
                     timesheet.taskTitle!,
@@ -2851,7 +3080,8 @@ class _StudentMonthlyReportDetailScreenState
                 ],
 
                 // Task Description Section
-                if (timesheet.taskDescription != null && timesheet.taskDescription!.isNotEmpty) ...[
+                if (timesheet.taskDescription != null &&
+                    timesheet.taskDescription!.isNotEmpty) ...[
                   _buildViewSection(
                     'Description',
                     timesheet.taskDescription!,
@@ -2910,11 +3140,18 @@ class _StudentMonthlyReportDetailScreenState
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
-                        color: _getStatusColor(timesheet.status).withOpacity(0.1),
+                        color: _getStatusColor(
+                          timesheet.status,
+                        ).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: _getStatusColor(timesheet.status)),
+                        border: Border.all(
+                          color: _getStatusColor(timesheet.status),
+                        ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -3069,7 +3306,8 @@ class _StudentMonthlyReportDetailScreenState
                     '${DateFormat('HH:mm').format(timesheet.startTime)} - ${DateFormat('HH:mm').format(timesheet.endTime)}',
                     style: TextStyle(color: Colors.grey[600]),
                   ),
-                  if (timesheet.taskTitle != null || timesheet.task.isNotEmpty) ...[
+                  if (timesheet.taskTitle != null ||
+                      timesheet.task.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(
                       timesheet.taskTitle ?? timesheet.task,

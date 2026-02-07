@@ -30,259 +30,250 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        elevation: 0,
-        title: const Text('Settings'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.home_outlined),
-            onPressed: () => context.go('/dashboard'),
-            tooltip: 'Home',
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Center(
-          child: Container(
-            constraints: BoxConstraints(
-              maxWidth: ResponsiveHelper.getMaxContentWidth(context),
-            ),
-            padding: ResponsiveHelper.getScreenPadding(context),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildPageHeader(),
-                const SizedBox(height: 24),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Center(
+            child: Container(
+              constraints: BoxConstraints(
+                maxWidth: ResponsiveHelper.getMaxContentWidth(context),
+              ),
+              padding: ResponsiveHelper.getScreenPadding(context),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildWelcomeHeader(),
+                  const SizedBox(height: 24),
 
-                // User Profile Section
-                _buildSectionHeader('User Profile'),
-                _buildProfileTile(
-                  currentUser?.name ?? 'User',
-                  currentUser?.email ?? '',
-                ),
-                const Divider(height: 24),
-
-                // Account & Security
-                _buildSectionHeader('Account & Security'),
-                _buildListTile(
-                  icon: Icons.lock_outline,
-                  title: 'Change Password',
-                  subtitle: 'Update your account password',
-                  onTap: () => _showChangePasswordDialog(),
-                ),
-                const Divider(height: 24),
-
-                // App Preferences
-                _buildSectionHeader('App Preferences'),
-                _buildListTile(
-                  icon: Icons.palette_outlined,
-                  title: 'Theme',
-                  subtitle: 'Light',
-                  onTap: () => _showThemeDialog(),
-                ),
-                _buildListTile(
-                  icon: Icons.language,
-                  title: 'Language',
-                  subtitle: 'English',
-                  onTap: () => _showLanguageDialog(),
-                ),
-                _buildListTile(
-                  icon: Icons.attach_money,
-                  title: 'Currency',
-                  subtitle: _currency,
-                  onTap: () => _showCurrencyDialog(),
-                ),
-                _buildListTile(
-                  icon: Icons.calendar_today,
-                  title: 'Date Format',
-                  subtitle: _dateFormat,
-                  onTap: () => _showDateFormatDialog(),
-                ),
-                const Divider(height: 24),
-
-                // Notifications
-                _buildSectionHeader('Notifications'),
-                _buildSwitchListTile(
-                  icon: Icons.email_outlined,
-                  title: 'Email Notifications',
-                  subtitle: 'Receive updates via email',
-                  value: _emailNotifications,
-                  onChanged: (value) {
-                    setState(() {
-                      _emailNotifications = value;
-                    });
-                  },
-                ),
-                _buildSwitchListTile(
-                  icon: Icons.notifications_outlined,
-                  title: 'Push Notifications',
-                  subtitle: 'Receive push notifications',
-                  value: _pushNotifications,
-                  onChanged: (value) {
-                    setState(() {
-                      _pushNotifications = value;
-                    });
-                  },
-                ),
-                const Divider(height: 24),
-
-                // Report Settings
-                _buildSectionHeader('Report Settings'),
-                _buildListTile(
-                  icon: Icons.receipt_long,
-                  title: 'Default Report Type',
-                  subtitle: 'Petty Cash Report',
-                  onTap: () => _showReportTypeDialog(),
-                ),
-                _buildListTile(
-                  icon: Icons.format_list_numbered,
-                  title: 'Report Numbering',
-                  subtitle: 'Auto-generate',
-                  onTap: () {},
-                ),
-                const Divider(height: 24),
-
-                // Export Settings
-                _buildSectionHeader('Export & Backup'),
-                _buildListTile(
-                  icon: Icons.file_download_outlined,
-                  title: 'Default Export Format',
-                  subtitle: _defaultExportFormat,
-                  onTap: () => _showExportFormatDialog(),
-                ),
-                _buildSwitchListTile(
-                  icon: Icons.backup_outlined,
-                  title: 'Auto Backup',
-                  subtitle: 'Automatically backup data',
-                  value: _autoBackup,
-                  onChanged: (value) {
-                    setState(() {
-                      _autoBackup = value;
-                    });
-                  },
-                ),
-                _buildListTile(
-                  icon: Icons.cloud_upload_outlined,
-                  title: 'Backup Now',
-                  subtitle: 'Manually backup your data',
-                  onTap: () => _performBackup(),
-                ),
-                const Divider(height: 24),
-
-                // Admin Settings (only for admins)
-                if (authProvider.canApprove()) ...[
-                  _buildSectionHeader('Admin Settings'),
-                  _buildListTile(
-                    icon: Icons.people_outline,
-                    title: 'Manage Users',
-                    subtitle: 'Add, edit, or remove users',
-                    onTap: () => context.push('/admin/users'),
-                  ),
-                  _buildListTile(
-                    icon: Icons.badge_outlined,
-                    title: 'Manage Staff',
-                    subtitle: 'HR records and staff information',
-                    onTap: () => context.push('/admin/staff'),
-                  ),
-                  _buildListTile(
-                    icon: Icons.category_outlined,
-                    title: 'Manage Categories',
-                    subtitle: 'Edit expense categories',
-                    onTap: () => showDialog(
-                      context: context,
-                      builder: (context) => const CategoryManagementDialog(),
-                    ),
-                  ),
-                  _buildListTile(
-                    icon: Icons.account_balance_wallet_outlined,
-                    title: 'Manage Paid To Options',
-                    subtitle: 'Edit vendor list for paid to field',
-                    onTap: () => showDialog(
-                      context: context,
-                      builder: (context) => const PaidToManagementDialog(),
-                    ),
-                  ),
-                  _buildListTile(
-                    icon: Icons.business_outlined,
-                    title: 'Organization Settings',
-                    subtitle: 'Update organization details',
-                    onTap: () => _showOrganizationDialog(),
+                  // User Profile Section
+                  _buildSectionHeader('User Profile'),
+                  _buildProfileTile(
+                    currentUser?.name ?? 'User',
+                    currentUser?.email ?? '',
                   ),
                   const Divider(height: 24),
+
+                  // Account & Security
+                  _buildSectionHeader('Account & Security'),
+                  _buildListTile(
+                    icon: Icons.lock_outline,
+                    title: 'Change Password',
+                    subtitle: 'Update your account password',
+                    onTap: () => _showChangePasswordDialog(),
+                  ),
+                  const Divider(height: 24),
+
+                  // App Preferences
+                  _buildSectionHeader('App Preferences'),
+                  _buildListTile(
+                    icon: Icons.palette_outlined,
+                    title: 'Theme',
+                    subtitle: 'Light',
+                    onTap: () => _showThemeDialog(),
+                  ),
+                  _buildListTile(
+                    icon: Icons.language,
+                    title: 'Language',
+                    subtitle: 'English',
+                    onTap: () => _showLanguageDialog(),
+                  ),
+                  _buildListTile(
+                    icon: Icons.attach_money,
+                    title: 'Currency',
+                    subtitle: _currency,
+                    onTap: () => _showCurrencyDialog(),
+                  ),
+                  _buildListTile(
+                    icon: Icons.calendar_today,
+                    title: 'Date Format',
+                    subtitle: _dateFormat,
+                    onTap: () => _showDateFormatDialog(),
+                  ),
+                  const Divider(height: 24),
+
+                  // Notifications
+                  _buildSectionHeader('Notifications'),
+                  _buildSwitchListTile(
+                    icon: Icons.email_outlined,
+                    title: 'Email Notifications',
+                    subtitle: 'Receive updates via email',
+                    value: _emailNotifications,
+                    onChanged: (value) {
+                      setState(() {
+                        _emailNotifications = value;
+                      });
+                    },
+                  ),
+                  _buildSwitchListTile(
+                    icon: Icons.notifications_outlined,
+                    title: 'Push Notifications',
+                    subtitle: 'Receive push notifications',
+                    value: _pushNotifications,
+                    onChanged: (value) {
+                      setState(() {
+                        _pushNotifications = value;
+                      });
+                    },
+                  ),
+                  const Divider(height: 24),
+
+                  // Report Settings
+                  _buildSectionHeader('Report Settings'),
+                  _buildListTile(
+                    icon: Icons.receipt_long,
+                    title: 'Default Report Type',
+                    subtitle: 'Petty Cash Report',
+                    onTap: () => _showReportTypeDialog(),
+                  ),
+                  _buildListTile(
+                    icon: Icons.format_list_numbered,
+                    title: 'Report Numbering',
+                    subtitle: 'Auto-generate',
+                    onTap: () {},
+                  ),
+                  const Divider(height: 24),
+
+                  // Export Settings
+                  _buildSectionHeader('Export & Backup'),
+                  _buildListTile(
+                    icon: Icons.file_download_outlined,
+                    title: 'Default Export Format',
+                    subtitle: _defaultExportFormat,
+                    onTap: () => _showExportFormatDialog(),
+                  ),
+                  _buildSwitchListTile(
+                    icon: Icons.backup_outlined,
+                    title: 'Auto Backup',
+                    subtitle: 'Automatically backup data',
+                    value: _autoBackup,
+                    onChanged: (value) {
+                      setState(() {
+                        _autoBackup = value;
+                      });
+                    },
+                  ),
+                  _buildListTile(
+                    icon: Icons.cloud_upload_outlined,
+                    title: 'Backup Now',
+                    subtitle: 'Manually backup your data',
+                    onTap: () => _performBackup(),
+                  ),
+                  const Divider(height: 24),
+
+                  // Admin Settings (only for admins)
+                  if (authProvider.canApprove()) ...[
+                    _buildSectionHeader('Admin Settings'),
+                    _buildListTile(
+                      icon: Icons.people_outline,
+                      title: 'Manage Users',
+                      subtitle: 'Add, edit, or remove users',
+                      onTap: () => context.push('/admin/users'),
+                    ),
+                    _buildListTile(
+                      icon: Icons.badge_outlined,
+                      title: 'Manage Staff',
+                      subtitle: 'HR records and staff information',
+                      onTap: () => context.push('/admin/staff'),
+                    ),
+                    _buildListTile(
+                      icon: Icons.category_outlined,
+                      title: 'Manage Categories',
+                      subtitle: 'Edit expense categories',
+                      onTap: () => showDialog(
+                        context: context,
+                        builder: (context) => const CategoryManagementDialog(),
+                      ),
+                    ),
+                    _buildListTile(
+                      icon: Icons.account_balance_wallet_outlined,
+                      title: 'Manage Paid To Options',
+                      subtitle: 'Edit vendor list for paid to field',
+                      onTap: () => showDialog(
+                        context: context,
+                        builder: (context) => const PaidToManagementDialog(),
+                      ),
+                    ),
+                    _buildListTile(
+                      icon: Icons.business_outlined,
+                      title: 'Organization Settings',
+                      subtitle: 'Update organization details',
+                      onTap: () => _showOrganizationDialog(),
+                    ),
+                    const Divider(height: 24),
+                  ],
+
+                  // Data Management
+                  _buildSectionHeader('Data Management'),
+                  _buildListTile(
+                    icon: Icons.download_outlined,
+                    title: 'Export All Data',
+                    subtitle: 'Download all reports and transactions',
+                    onTap: () => _exportAllData(),
+                  ),
+                  _buildListTile(
+                    icon: Icons.delete_outline,
+                    title: 'Clear Cache',
+                    subtitle: 'Free up storage space',
+                    onTap: () => _clearCache(),
+                  ),
+                  const Divider(height: 24),
+
+                  // About
+                  _buildSectionHeader('About'),
+                  _buildListTile(
+                    icon: Icons.info_outline,
+                    title: 'App Version',
+                    subtitle: '1.0.0',
+                    onTap: () {},
+                  ),
+                  _buildListTile(
+                    icon: Icons.description_outlined,
+                    title: 'Terms & Conditions',
+                    subtitle: 'Read our terms',
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Terms & Conditions coming soon'),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildListTile(
+                    icon: Icons.privacy_tip_outlined,
+                    title: 'Privacy Policy',
+                    subtitle: 'Read our privacy policy',
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Privacy Policy coming soon'),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildListTile(
+                    icon: Icons.help_outline,
+                    title: 'Help & Support',
+                    subtitle: 'Get help or contact support',
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Help & Support coming soon'),
+                        ),
+                      );
+                    },
+                  ),
+                  const Divider(height: 24),
+
+                  // Logout
+                  _buildListTile(
+                    icon: Icons.logout,
+                    title: 'Logout',
+                    subtitle: 'Sign out of your account',
+                    textColor: Colors.red,
+                    onTap: () => _showLogoutDialog(),
+                  ),
+                  const SizedBox(height: 20),
                 ],
-
-                // Data Management
-                _buildSectionHeader('Data Management'),
-                _buildListTile(
-                  icon: Icons.download_outlined,
-                  title: 'Export All Data',
-                  subtitle: 'Download all reports and transactions',
-                  onTap: () => _exportAllData(),
-                ),
-                _buildListTile(
-                  icon: Icons.delete_outline,
-                  title: 'Clear Cache',
-                  subtitle: 'Free up storage space',
-                  onTap: () => _clearCache(),
-                ),
-                const Divider(height: 24),
-
-                // About
-                _buildSectionHeader('About'),
-                _buildListTile(
-                  icon: Icons.info_outline,
-                  title: 'App Version',
-                  subtitle: '1.0.0',
-                  onTap: () {},
-                ),
-                _buildListTile(
-                  icon: Icons.description_outlined,
-                  title: 'Terms & Conditions',
-                  subtitle: 'Read our terms',
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Terms & Conditions coming soon'),
-                      ),
-                    );
-                  },
-                ),
-                _buildListTile(
-                  icon: Icons.privacy_tip_outlined,
-                  title: 'Privacy Policy',
-                  subtitle: 'Read our privacy policy',
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Privacy Policy coming soon'),
-                      ),
-                    );
-                  },
-                ),
-                _buildListTile(
-                  icon: Icons.help_outline,
-                  title: 'Help & Support',
-                  subtitle: 'Get help or contact support',
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Help & Support coming soon'),
-                      ),
-                    );
-                  },
-                ),
-                const Divider(height: 24),
-
-                // Logout
-                _buildListTile(
-                  icon: Icons.logout,
-                  title: 'Logout',
-                  subtitle: 'Sign out of your account',
-                  textColor: Colors.red,
-                  onTap: () => _showLogoutDialog(),
-                ),
-                const SizedBox(height: 20),
-              ],
+              ),
             ),
           ),
         ),
@@ -290,58 +281,111 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildPageHeader() {
+  Widget _buildWelcomeHeader() {
+    final isMobile = ResponsiveHelper.isMobile(context);
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.blue.shade600, Colors.blue.shade400],
+          colors: [Colors.blueGrey.shade600, Colors.blueGrey.shade400],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withOpacity(0.3),
-            blurRadius: 8,
+            color: Colors.blueGrey.shade200.withOpacity(0.5),
+            blurRadius: 10,
             offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Settings',
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildHeaderActionButton(
+                icon: Icons.arrow_back,
+                tooltip: 'Back to Dashboard',
+                onPressed: () => context.go('/admin-hub'),
+              ),
+              Row(
+                children: [
+                  _buildHeaderActionButton(
+                    icon: Icons.home_outlined,
+                    tooltip: 'Home',
+                    onPressed: () => context.go('/admin-hub'),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Configure your app preferences',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white.withOpacity(0.8),
-                  ),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.settings, size: 48, color: Colors.white),
+          SizedBox(height: isMobile ? 16 : 20),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.settings,
+                  color: Colors.white,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Settings',
+                      style: TextStyle(
+                        fontSize: isMobile ? 20 : 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Configure your app preferences',
+                      style: TextStyle(
+                        fontSize: isMobile ? 12 : 14,
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
       ),
     );
   }
@@ -900,7 +944,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             actions: [
               TextButton(
-                onPressed: isLoading ? null : () => Navigator.pop(dialogContext),
+                onPressed: isLoading
+                    ? null
+                    : () => Navigator.pop(dialogContext),
                 child: const Text('Cancel'),
               ),
               ElevatedButton(

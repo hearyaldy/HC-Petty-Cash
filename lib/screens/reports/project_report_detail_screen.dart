@@ -98,7 +98,7 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
               ),
               const SizedBox(height: 24),
               ElevatedButton.icon(
-                onPressed: () => context.go('/dashboard'),
+                onPressed: () => context.go('/admin-hub'),
                 icon: const Icon(Icons.home),
                 label: const Text('Go to Dashboard'),
               ),
@@ -143,7 +143,7 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.home_outlined),
-            onPressed: () => context.go('/dashboard'),
+            onPressed: () => context.go('/admin-hub'),
             tooltip: 'Home',
           ),
           if (report.statusEnum != ReportStatus.closed)

@@ -253,31 +253,68 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Staff Details')),
-        body: const Center(child: CircularProgressIndicator()),
+        backgroundColor: Colors.grey[100],
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: ResponsiveContainer(
+              child: Padding(
+                padding: ResponsiveHelper.getScreenPadding(context),
+                child: Column(
+                  children: [
+                    _buildWelcomeHeader(isLoading: true),
+                    const SizedBox(height: 100),
+                    const Center(child: CircularProgressIndicator()),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
       );
     }
 
     if (_staff == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Staff Details')),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.person_off, size: 64, color: Colors.grey[400]),
-              const SizedBox(height: 16),
-              Text(
-                'Staff not found',
-                style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+        backgroundColor: Colors.grey[100],
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: ResponsiveContainer(
+              child: Padding(
+                padding: ResponsiveHelper.getScreenPadding(context),
+                child: Column(
+                  children: [
+                    _buildWelcomeHeader(isLoading: false, showError: true),
+                    const SizedBox(height: 100),
+                    Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.person_off,
+                            size: 64,
+                            color: Colors.grey[400],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Staff not found',
+                            style: TextStyle(
+                              fontSize: 18,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          ElevatedButton.icon(
+                            onPressed: () => context.go('/admin-hub'),
+                            icon: const Icon(Icons.home),
+                            label: const Text('Go to Dashboard'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: () => context.go('/dashboard'),
-                icon: const Icon(Icons.home),
-                label: const Text('Go to Dashboard'),
-              ),
-            ],
+            ),
           ),
         ),
       );
@@ -285,192 +322,244 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
 
     return Scaffold(
       backgroundColor: Colors.grey[100],
-      body: CustomScrollView(
-        slivers: [
-          _buildSliverAppBar(),
-          SliverToBoxAdapter(
-            child: ResponsiveContainer(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    _buildQuickStats(),
-                    const SizedBox(height: 20),
-                    _buildPersonalContactSection(),
-                    const SizedBox(height: 16),
-                    _buildEmploymentSection(),
-                    const SizedBox(height: 16),
-                    _buildFinancialSection(),
-                    const SizedBox(height: 16),
-                    _buildDocumentsSection(),
-                    if (_staff!.notes != null) ...[
-                      const SizedBox(height: 16),
-                      _buildNotesSection(),
-                    ],
-                    const SizedBox(height: 24),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSliverAppBar() {
-    return SliverAppBar(
-      expandedHeight: 280,
-      pinned: true,
-      stretch: true,
-      backgroundColor: Colors.indigo.shade700,
-      flexibleSpace: FlexibleSpaceBar(
-        background: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.indigo.shade800,
-                Colors.indigo.shade600,
-                Colors.blue.shade500,
-              ],
-            ),
-          ),
-          child: SafeArea(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: ResponsiveContainer(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 50, 24, 16),
+              padding: ResponsiveHelper.getScreenPadding(context),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Hero(
-                    tag: 'staff_avatar_${widget.staffId}',
-                    child: Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 3),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.3),
-                            blurRadius: 12,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      child: CircleAvatar(
-                        radius: 45,
-                        backgroundColor: Colors.white,
-                        child: _buildAvatarImage(size: 90),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    _staff!.fullName,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${_staff!.position} • ${_staff!.department}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.white.withValues(alpha: 0.9),
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 8),
-                  _buildStatusChip(_staff!.employmentStatus),
+                  _buildWelcomeHeader(),
+                  const SizedBox(height: 20),
+                  _buildQuickStats(),
+                  const SizedBox(height: 20),
+                  _buildPersonalContactSection(),
+                  const SizedBox(height: 16),
+                  _buildEmploymentSection(),
+                  const SizedBox(height: 16),
+                  _buildFinancialSection(),
+                  const SizedBox(height: 16),
+                  _buildDocumentsSection(),
+                  if (_staff!.notes != null) ...[
+                    const SizedBox(height: 16),
+                    _buildNotesSection(),
+                  ],
+                  const SizedBox(height: 24),
                 ],
               ),
             ),
           ),
         ),
       ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.print, color: Colors.white),
-          onPressed: _printStaffRecord,
-          tooltip: 'Print Staff Record',
+    );
+  }
+
+  Widget _buildWelcomeHeader({bool isLoading = false, bool showError = false}) {
+    final isMobile = ResponsiveHelper.isMobile(context);
+
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.indigo.shade700, Colors.blue.shade500],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert, color: Colors.white),
-          tooltip: 'More Options',
-          onSelected: (value) {
-            switch (value) {
-              case 'photo_adjust':
-                _showPhotoAdjustDialog();
-                break;
-              case 'edit':
-                context.push('/admin/staff/edit/${widget.staffId}');
-                break;
-              case 'edit_id':
-                _showEditStaffIdDialog();
-                break;
-              case 'sync_hr_data':
-                _syncHrData();
-                break;
-              case 'home':
-                context.go('/dashboard');
-                break;
-            }
-          },
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: 'photo_adjust',
-              child: ListTile(
-                leading: Icon(Icons.tune),
-                title: Text('Adjust Photo'),
-                contentPadding: EdgeInsets.zero,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.indigo.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Top action bar
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildHeaderActionButton(
+                icon: Icons.arrow_back,
+                tooltip: 'Back',
+                onPressed: () => context.pop(),
               ),
+              if (!isLoading && !showError && _staff != null)
+                Row(
+                  children: [
+                    _buildHeaderActionButton(
+                      icon: Icons.edit,
+                      tooltip: 'Edit Staff',
+                      onPressed: () =>
+                          context.push('/admin/staff/edit/${widget.staffId}'),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildHeaderActionButton(
+                      icon: Icons.tune,
+                      tooltip: 'Adjust Photo',
+                      onPressed: _showPhotoAdjustDialog,
+                    ),
+                    const SizedBox(width: 8),
+                    _buildHeaderActionButton(
+                      icon: Icons.badge,
+                      tooltip: 'Edit Staff ID',
+                      onPressed: _showEditStaffIdDialog,
+                    ),
+                    const SizedBox(width: 8),
+                    _buildHeaderActionButton(
+                      icon: Icons.sync,
+                      tooltip: 'Sync HR Data',
+                      onPressed: _syncHrData,
+                    ),
+                    const SizedBox(width: 8),
+                    _buildHeaderActionButton(
+                      icon: Icons.print,
+                      tooltip: 'Print Staff Record',
+                      onPressed: _printStaffRecord,
+                    ),
+                    const SizedBox(width: 8),
+                    _buildHeaderActionButton(
+                      icon: Icons.home_outlined,
+                      tooltip: 'Home',
+                      onPressed: () => context.go('/admin-hub'),
+                    ),
+                  ],
+                )
+              else
+                _buildHeaderActionButton(
+                  icon: Icons.home_outlined,
+                  tooltip: 'Home',
+                  onPressed: () => context.go('/admin-hub'),
+                ),
+            ],
+          ),
+          SizedBox(height: isMobile ? 16 : 20),
+          // Staff info content
+          if (!isLoading && !showError && _staff != null)
+            Row(
+              children: [
+                // Avatar
+                Hero(
+                  tag: 'staff_avatar_${widget.staffId}',
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 3),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.3),
+                          blurRadius: 12,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: CircleAvatar(
+                      radius: isMobile ? 35 : 45,
+                      backgroundColor: Colors.white,
+                      child: _buildAvatarImage(size: isMobile ? 70 : 90),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _staff!.fullName,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: isMobile ? 18 : 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${_staff!.position} • ${_staff!.department}',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: isMobile ? 12 : 14,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      _buildStatusChip(_staff!.employmentStatus),
+                    ],
+                  ),
+                ),
+              ],
+            )
+          else
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    showError ? Icons.person_off : Icons.person,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        showError ? 'Staff Not Found' : 'Staff Details',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: isMobile ? 18 : 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        showError
+                            ? 'The requested staff member could not be found'
+                            : 'Loading staff information...',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: isMobile ? 12 : 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const PopupMenuItem(
-              value: 'edit',
-              child: ListTile(
-                leading: Icon(Icons.edit),
-                title: Text('Edit Staff'),
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-            const PopupMenuItem(
-              value: 'edit_id',
-              child: ListTile(
-                leading: Icon(Icons.badge),
-                title: Text('Edit Staff ID'),
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-            const PopupMenuDivider(),
-            const PopupMenuItem(
-              value: 'sync_hr_data',
-              child: ListTile(
-                leading: Icon(Icons.sync, color: Colors.blue),
-                title: Text('Sync HR Data'),
-                subtitle: Text('Update user\'s HR submission'),
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-            const PopupMenuDivider(),
-            const PopupMenuItem(
-              value: 'home',
-              child: ListTile(
-                leading: Icon(Icons.home_outlined),
-                title: Text('Go to Dashboard'),
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
         ),
-      ],
+      ),
     );
   }
 
@@ -503,29 +592,29 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: bgColor.withOpacity(0.4),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: textColor, size: 18),
-          const SizedBox(width: 6),
+          Icon(icon, color: textColor, size: 14),
+          const SizedBox(width: 4),
           Text(
             status.displayName,
             style: TextStyle(
               color: textColor,
               fontWeight: FontWeight.w600,
-              fontSize: 14,
+              fontSize: 12,
             ),
           ),
         ],

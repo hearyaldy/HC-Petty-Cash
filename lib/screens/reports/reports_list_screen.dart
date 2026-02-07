@@ -33,6 +33,16 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
   ReportsViewMode _viewMode = ReportsViewMode.card;
 
   @override
+  void initState() {
+    super.initState();
+    // Load reports when screen opens
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ReportProvider>().loadReports();
+      context.read<ProjectReportProvider>().loadProjectReports();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
     final reportProvider = context.watch<ReportProvider>();
@@ -89,129 +99,34 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        elevation: 0,
-        title: const Text('Reports'),
-        actions: [
-          // View mode selector
-          PopupMenuButton<ReportsViewMode>(
-            icon: Icon(_getViewModeIcon()),
-            tooltip: 'Change View',
-            onSelected: (ReportsViewMode mode) {
-              setState(() {
-                _viewMode = mode;
-              });
-            },
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: ReportsViewMode.card,
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.grid_view,
-                      size: 20,
-                      color: _viewMode == ReportsViewMode.card
-                          ? Colors.blue
-                          : Colors.grey[600],
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Card View',
-                      style: TextStyle(
-                        fontWeight: _viewMode == ReportsViewMode.card
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                        color: _viewMode == ReportsViewMode.card
-                            ? Colors.blue
-                            : null,
-                      ),
-                    ),
-                  ],
-                ),
+      body: SafeArea(
+        child: ResponsiveContainer(
+          padding: EdgeInsets.zero,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: _buildPageHeader(context),
               ),
-              PopupMenuItem(
-                value: ReportsViewMode.tableRow,
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.table_rows_outlined,
-                      size: 20,
-                      color: _viewMode == ReportsViewMode.tableRow
-                          ? Colors.blue
-                          : Colors.grey[600],
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Table View (Row)',
-                      style: TextStyle(
-                        fontWeight: _viewMode == ReportsViewMode.tableRow
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                        color: _viewMode == ReportsViewMode.tableRow
-                            ? Colors.blue
-                            : null,
-                      ),
-                    ),
-                  ],
-                ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _buildFilters(),
               ),
-              PopupMenuItem(
-                value: ReportsViewMode.tableCategory,
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.category_outlined,
-                      size: 20,
-                      color: _viewMode == ReportsViewMode.tableCategory
-                          ? Colors.blue
-                          : Colors.grey[600],
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Table View (Category)',
-                      style: TextStyle(
-                        fontWeight: _viewMode == ReportsViewMode.tableCategory
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                        color: _viewMode == ReportsViewMode.tableCategory
-                            ? Colors.blue
-                            : null,
-                      ),
-                    ),
-                  ],
+              const SizedBox(height: 16),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: reports.isEmpty
+                      ? _buildEmptyState()
+                      : _buildReportsContent(
+                          reports,
+                          transactionProvider.transactions,
+                        ),
                 ),
               ),
             ],
           ),
-          IconButton(
-            icon: const Icon(Icons.home_outlined),
-            onPressed: () => context.go('/dashboard'),
-            tooltip: 'Home',
-          ),
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline),
-            onPressed: () => context.go('/reports/new'),
-            tooltip: 'Create New Report',
-          ),
-        ],
-      ),
-      body: ResponsiveContainer(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildPageHeader(context),
-            const SizedBox(height: 24),
-            _buildFilters(),
-            const SizedBox(height: 24),
-            Expanded(
-              child: reports.isEmpty
-                  ? _buildEmptyState()
-                  : _buildReportsContent(
-                      reports,
-                      transactionProvider.transactions,
-                    ),
-            ),
-          ],
         ),
       ),
     );
@@ -237,48 +152,198 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
           ),
         ],
       ),
-      child: Row(
+      child: Column(
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Reports Overview',
-                  style: TextStyle(
-                    fontSize: isMobile ? 18 : 24,
-                    fontWeight: FontWeight.bold,
+          // Top action bar
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Back/Home button
+              _buildHeaderActionButton(
+                icon: Icons.arrow_back,
+                tooltip: 'Back to Dashboard',
+                onPressed: () => context.go('/admin-hub'),
+              ),
+              // Action buttons
+              Row(
+                children: [
+                  // View mode selector
+                  _buildViewModeButton(),
+                  const SizedBox(width: 8),
+                  _buildHeaderActionButton(
+                    icon: Icons.add_circle_outline,
+                    tooltip: 'Create New Report',
+                    onPressed: () => context.go('/reports/new'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          SizedBox(height: isMobile ? 16 : 20),
+          // Content row
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Reports Overview',
+                      style: TextStyle(
+                        fontSize: isMobile ? 24 : 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      isMobile
+                          ? 'Manage your reports'
+                          : 'Manage and track all your reports',
+                      style: TextStyle(
+                        fontSize: isMobile ? 12 : 14,
+                        color: Colors.white.withOpacity(0.8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (!isMobile)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.description,
+                    size: 48,
                     color: Colors.white,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  isMobile
-                      ? 'Manage your reports'
-                      : 'Manage and track all your reports',
-                  style: TextStyle(
-                    fontSize: isMobile ? 12 : 14,
-                    color: Colors.white.withOpacity(0.8),
-                  ),
-                ),
-              ],
-            ),
+            ],
           ),
-          if (!isMobile)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.description,
-                size: 48,
-                color: Colors.white,
-              ),
-            ),
         ],
       ),
+    );
+  }
+
+  Widget _buildHeaderActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildViewModeButton() {
+    return PopupMenuButton<ReportsViewMode>(
+      tooltip: 'Change View',
+      onSelected: (ReportsViewMode mode) {
+        setState(() {
+          _viewMode = mode;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(_getViewModeIcon(), color: Colors.white, size: 20),
+      ),
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: ReportsViewMode.card,
+          child: Row(
+            children: [
+              Icon(
+                Icons.grid_view,
+                size: 20,
+                color: _viewMode == ReportsViewMode.card
+                    ? Colors.blue
+                    : Colors.grey[600],
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Card View',
+                style: TextStyle(
+                  fontWeight: _viewMode == ReportsViewMode.card
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                  color: _viewMode == ReportsViewMode.card ? Colors.blue : null,
+                ),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: ReportsViewMode.tableRow,
+          child: Row(
+            children: [
+              Icon(
+                Icons.table_rows_outlined,
+                size: 20,
+                color: _viewMode == ReportsViewMode.tableRow
+                    ? Colors.blue
+                    : Colors.grey[600],
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Table View (Row)',
+                style: TextStyle(
+                  fontWeight: _viewMode == ReportsViewMode.tableRow
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                  color: _viewMode == ReportsViewMode.tableRow
+                      ? Colors.blue
+                      : null,
+                ),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: ReportsViewMode.tableCategory,
+          child: Row(
+            children: [
+              Icon(
+                Icons.category_outlined,
+                size: 20,
+                color: _viewMode == ReportsViewMode.tableCategory
+                    ? Colors.blue
+                    : Colors.grey[600],
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Table View (Category)',
+                style: TextStyle(
+                  fontWeight: _viewMode == ReportsViewMode.tableCategory
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                  color: _viewMode == ReportsViewMode.tableCategory
+                      ? Colors.blue
+                      : null,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -750,7 +815,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                 double budget = 0;
 
                 if (isPettyCash) {
-                  final pc = report as PettyCashReport;
+                  final pc = report;
                   budget = pc.openingBalance;
                   expenses = pc.totalDisbursements;
                   remaining = pc.closingBalance;
@@ -838,7 +903,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                     DataCell(
                       Text(
                         isPettyCash
-                            ? (report as PettyCashReport).department
+                            ? (report).department
                             : (report as ProjectReport).projectName,
                         style: const TextStyle(fontSize: 13),
                       ),
@@ -854,7 +919,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                     DataCell(
                       Text(
                         isPettyCash
-                            ? '${DateFormat('MM/dd/yy').format((report as PettyCashReport).periodStart)} - ${DateFormat('MM/dd/yy').format(report.periodEnd)}'
+                            ? '${DateFormat('MM/dd/yy').format((report).periodStart)} - ${DateFormat('MM/dd/yy').format(report.periodEnd)}'
                             : '${DateFormat('MM/dd/yy').format((report as ProjectReport).startDate)} - ${DateFormat('MM/dd/yy').format(report.endDate)}',
                         style: const TextStyle(fontSize: 12),
                       ),
@@ -1210,13 +1275,17 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                   ),
                   DataCell(
                     Text(
-                      '${currencyFormat.format(isPettyCash ? (report as PettyCashReport).openingBalance : (report as ProjectReport).budget)}',
+                      currencyFormat.format(
+                        isPettyCash
+                            ? (report as PettyCashReport).openingBalance
+                            : (report as ProjectReport).budget,
+                      ),
                       style: const TextStyle(fontSize: 13),
                     ),
                   ),
                   DataCell(
                     Text(
-                      '${currencyFormat.format(expenses)}',
+                      currencyFormat.format(expenses),
                       style: TextStyle(
                         fontSize: 13,
                         color: Colors.red.shade700,
@@ -1225,7 +1294,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                   ),
                   DataCell(
                     Text(
-                      '${currencyFormat.format(remaining)}',
+                      currencyFormat.format(remaining),
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,

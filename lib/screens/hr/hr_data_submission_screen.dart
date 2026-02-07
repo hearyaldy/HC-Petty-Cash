@@ -8,7 +8,6 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../../providers/auth_provider.dart';
 import '../../utils/responsive_helper.dart';
-import '../../widgets/app_drawer.dart';
 import '../../models/staff.dart';
 import '../../models/enums.dart';
 import '../../services/staff_service.dart';
@@ -972,46 +971,36 @@ class _HrDataSubmissionScreenState extends State<HrDataSubmissionScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        elevation: ResponsiveHelper.isDesktop(context) ? 1 : 0,
-        title: const Text('HR Data Submission'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.home_outlined),
-            onPressed: () => context.go('/dashboard'),
-            tooltip: 'Home',
-          ),
-        ],
-      ),
-      drawer: const AppDrawer(),
-      body: ResponsiveContainer(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: ResponsiveHelper.getScreenPadding(context),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildHeaderSection(context),
-                  const SizedBox(height: 24),
-                  _buildPersonalInfoSection(),
-                  const SizedBox(height: 24),
-                  _buildContactInfoSection(),
-                  const SizedBox(height: 24),
-                  _buildEducationInfoSection(),
-                  const SizedBox(height: 24),
-                  _buildEmploymentInfoSection(),
-                  const SizedBox(height: 24),
-                  _buildFinancialInfoSection(),
-                  const SizedBox(height: 24),
-                  _buildDocumentsSection(),
-                  const SizedBox(height: 24),
-                  _buildNotesSection(),
-                  const SizedBox(height: 24),
-                  _buildSubmitButton(),
-                  const SizedBox(height: 32),
-                ],
+      body: SafeArea(
+        child: ResponsiveContainer(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: ResponsiveHelper.getScreenPadding(context),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHeaderSection(context),
+                    const SizedBox(height: 24),
+                    _buildPersonalInfoSection(),
+                    const SizedBox(height: 24),
+                    _buildContactInfoSection(),
+                    const SizedBox(height: 24),
+                    _buildEducationInfoSection(),
+                    const SizedBox(height: 24),
+                    _buildEmploymentInfoSection(),
+                    const SizedBox(height: 24),
+                    _buildFinancialInfoSection(),
+                    const SizedBox(height: 24),
+                    _buildDocumentsSection(),
+                    const SizedBox(height: 24),
+                    _buildNotesSection(),
+                    const SizedBox(height: 24),
+                    _buildSubmitButton(),
+                    const SizedBox(height: 32),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1020,9 +1009,32 @@ class _HrDataSubmissionScreenState extends State<HrDataSubmissionScreen> {
     );
   }
 
+  Widget _buildHeaderActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
+      ),
+    );
+  }
+
   Widget _buildHeaderSection(BuildContext context) {
+    final isMobile = ResponsiveHelper.isMobile(context);
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [Colors.orange.shade600, Colors.orange.shade400],
@@ -1038,46 +1050,76 @@ class _HrDataSubmissionScreenState extends State<HrDataSubmissionScreen> {
           ),
         ],
       ),
-      child: Row(
+      child: Column(
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Employee Information Form',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.white.withValues(alpha: 0.9),
+          // Top action bar
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildHeaderActionButton(
+                icon: Icons.arrow_back,
+                tooltip: 'Back',
+                onPressed: () => context.go('/admin-hub'),
+              ),
+              Row(
+                children: [
+                  _buildHeaderActionButton(
+                    icon: Icons.home_outlined,
+                    tooltip: 'Home',
+                    onPressed: () => context.go('/admin-hub'),
                   ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'HR Data Submission',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Please fill in all required fields marked with *',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white.withValues(alpha: 0.8),
-                  ),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.person_add, size: 48, color: Colors.white),
+          SizedBox(height: isMobile ? 16 : 20),
+          // Existing content
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Employee Information Form',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.white.withValues(alpha: 0.9),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'HR Data Submission',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Please fill in all required fields marked with *',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.white.withValues(alpha: 0.8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.person_add,
+                  size: 48,
+                  color: Colors.white,
+                ),
+              ),
+            ],
           ),
         ],
       ),

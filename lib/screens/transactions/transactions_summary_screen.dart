@@ -155,115 +155,182 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text('Transactions Summary'),
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.home_outlined),
-            onPressed: () => context.go('/dashboard'),
-            tooltip: 'Home',
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              context.read<TransactionProvider>().loadTransactions();
-            },
-            tooltip: 'Refresh',
+      body: SafeArea(
+        child: transactionProvider.isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                child: ResponsiveContainer(
+                  padding: EdgeInsets.zero,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: _buildWelcomeHeader(
+                          filteredTransactions.length,
+                          totalAmount,
+                        ),
+                      ),
+                      // Summary Cards
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: _buildSummaryCards(
+                          filteredTransactions.length,
+                          totalAmount,
+                          categorySummary,
+                          paymentMethodSummary,
+                          statusSummary,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Filters
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: _buildFilters(),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Transactions Table
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: _buildTransactionsTable(
+                          filteredTransactions,
+                          reportProvider,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildWelcomeHeader(int transactionCount, double totalAmount) {
+    final isMobile = ResponsiveHelper.isMobile(context);
+    final currencyFormat = NumberFormat.currency(
+      symbol: '${AppConstants.currencySymbol} ',
+    );
+
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.blue.shade600, Colors.blue.shade400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      body: transactionProvider.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              child: ResponsiveContainer(
+      child: Column(
+        children: [
+          // Top action bar
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Back/Home button
+              _buildHeaderActionButton(
+                icon: Icons.arrow_back,
+                tooltip: 'Back to Dashboard',
+                onPressed: () => context.go('/admin-hub'),
+              ),
+              // Action buttons
+              Row(
+                children: [
+                  _buildHeaderActionButton(
+                    icon: Icons.refresh,
+                    tooltip: 'Refresh',
+                    onPressed: () {
+                      context.read<TransactionProvider>().loadTransactions();
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+          SizedBox(height: isMobile ? 16 : 20),
+          // Content row
+          Row(
+            children: [
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Organization Header
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      margin: const EdgeInsets.only(bottom: 16),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.blue.shade600, Colors.blue.shade400],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.blue.withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          // Add logo if it exists
-                          Image.asset(
-                            AppConstants.companyLogo,
-                            width: 40,
-                            height: 40,
-                            fit: BoxFit.contain,
-                            errorBuilder: (context, error, stackTrace) {
-                              return const Icon(
-                                Icons.store,
-                                size: 40,
-                                color: Colors.white,
-                              );
-                            },
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  AppConstants.organizationName,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                Text(
-                                  AppConstants.organizationAddress,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.white.withOpacity(0.9),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                    Text(
+                      'Transactions Summary',
+                      style: TextStyle(
+                        fontSize: isMobile ? 24 : 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
                     ),
-                    // Summary Cards
-                    _buildSummaryCards(
-                      filteredTransactions.length,
-                      totalAmount,
-                      categorySummary,
-                      paymentMethodSummary,
-                      statusSummary,
-                    ),
-                    const SizedBox(height: 32),
-
-                    // Filters
-                    _buildFilters(),
-                    const SizedBox(height: 24),
-
-                    // Transactions Table
-                    _buildTransactionsTable(
-                      filteredTransactions,
-                      reportProvider,
+                    const SizedBox(height: 8),
+                    Text(
+                      '$transactionCount transactions • ${currencyFormat.format(totalAmount)}',
+                      style: TextStyle(
+                        fontSize: isMobile ? 12 : 14,
+                        color: Colors.white.withOpacity(0.9),
+                      ),
                     ),
                   ],
                 ),
               ),
-            ),
+              // Logo
+              Image.asset(
+                AppConstants.companyLogo,
+                width: isMobile ? 40 : 50,
+                height: isMobile ? 40 : 50,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    padding: EdgeInsets.all(isMobile ? 10 : 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.receipt_long,
+                      size: isMobile ? 28 : 36,
+                      color: Colors.white,
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
+      ),
     );
   }
 

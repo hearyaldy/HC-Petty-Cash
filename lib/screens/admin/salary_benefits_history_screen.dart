@@ -67,8 +67,23 @@ class _SalaryBenefitsHistoryScreenState
   Widget build(BuildContext context) {
     if (_staff == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Salary History')),
-        body: const Center(child: Text('Staff information not found')),
+        backgroundColor: Colors.grey[100],
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: ResponsiveContainer(
+              child: Padding(
+                padding: ResponsiveHelper.getScreenPadding(context),
+                child: Column(
+                  children: [
+                    _buildWelcomeHeader(showError: true),
+                    const SizedBox(height: 100),
+                    const Center(child: Text('Staff information not found')),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
       );
     }
 
@@ -101,11 +116,21 @@ class _SalaryBenefitsHistoryScreenState
   Widget _buildLoadingScaffold() {
     return Scaffold(
       backgroundColor: Colors.grey[100],
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) => [
-          _buildSliverAppBar(null),
-        ],
-        body: const Center(child: CircularProgressIndicator()),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: ResponsiveContainer(
+            child: Padding(
+              padding: ResponsiveHelper.getScreenPadding(context),
+              child: Column(
+                children: [
+                  _buildWelcomeHeader(isLoading: true),
+                  const SizedBox(height: 100),
+                  const Center(child: CircularProgressIndicator()),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -113,14 +138,19 @@ class _SalaryBenefitsHistoryScreenState
   Widget _buildErrorScaffold(String error) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) => [
-          _buildSliverAppBar(null),
-        ],
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: _buildErrorState(error),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: ResponsiveContainer(
+            child: Padding(
+              padding: ResponsiveHelper.getScreenPadding(context),
+              child: Column(
+                children: [
+                  _buildWelcomeHeader(showError: true),
+                  const SizedBox(height: 32),
+                  _buildErrorState(error),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -130,169 +160,293 @@ class _SalaryBenefitsHistoryScreenState
   Widget _buildEmptyScaffold() {
     return Scaffold(
       backgroundColor: Colors.grey[100],
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) => [
-          _buildSliverAppBar(null),
-        ],
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: _buildEmptyState(),
-          ),
-        ),
-      ),
-      floatingActionButton: _buildNewYearFab(null),
-    );
-  }
-
-  Widget _buildMainScaffold() {
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) => [
-          _buildSliverAppBar(_tabController),
-        ],
-        body: TabBarView(
-          controller: _tabController,
-          children: _years.map((year) {
-            final records = _groupedRecords[year]!;
-            return _buildYearTab(records, year);
-          }).toList(),
-        ),
-      ),
-      floatingActionButton: _buildNewYearFab(
-        _groupedRecords[_years.first]?.first,
-      ),
-    );
-  }
-
-  SliverAppBar _buildSliverAppBar(TabController? tabController) {
-    return SliverAppBar(
-      expandedHeight: tabController != null ? 240 : 200,
-      floating: false,
-      pinned: true,
-      elevation: 0,
-      backgroundColor: Colors.indigo.shade600,
-      flexibleSpace: FlexibleSpaceBar(
-        background: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.indigo.shade700,
-                Colors.indigo.shade500,
-                Colors.purple.shade400,
-              ],
-            ),
-          ),
-          child: SafeArea(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: ResponsiveContainer(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
+              padding: ResponsiveHelper.getScreenPadding(context),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white.withOpacity(0.2),
-                          border: Border.all(color: Colors.white, width: 2),
-                          image: _staff!.photoUrl != null
-                              ? DecorationImage(
-                                  image: NetworkImage(_staff!.photoUrl!),
-                                  fit: BoxFit.cover,
-                                )
-                              : null,
-                        ),
-                        child: _staff!.photoUrl == null
-                            ? Center(
-                                child: Text(
-                                  _staff!.fullName.isNotEmpty
-                                      ? _staff!.fullName[0].toUpperCase()
-                                      : '?',
-                                  style: const TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              )
-                            : null,
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _staff!.fullName,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Salary & Benefits',
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.9),
-                                fontSize: 14,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                _staff!.employeeId,
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.9),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (tabController != null) const SizedBox(height: 16),
+                  _buildWelcomeHeader(),
+                  const SizedBox(height: 32),
+                  _buildEmptyState(),
                 ],
               ),
             ),
           ),
         ),
       ),
-      bottom: tabController != null
-          ? TabBar(
-              controller: tabController,
-              isScrollable: true,
-              indicatorColor: Colors.white,
-              indicatorWeight: 3,
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white70,
-              labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-              unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 14),
-              tabs: _years.map((year) => Tab(text: year.toString())).toList(),
-            )
-          : null,
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.home_outlined),
-          onPressed: () => context.go('/dashboard'),
-          tooltip: 'Home',
+    );
+  }
+
+  Widget _buildMainScaffold() {
+    return Scaffold(
+      backgroundColor: Colors.grey[100],
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: ResponsiveHelper.getScreenPadding(context),
+              child: ResponsiveContainer(
+                child: Column(
+                  children: [
+                    _buildWelcomeHeader(),
+                    const SizedBox(height: 16),
+                    _buildTabBarWidget(),
+                  ],
+                ),
+              ),
+            ),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: _years.map((year) {
+                  final records = _groupedRecords[year]!;
+                  return _buildYearTab(records, year);
+                }).toList(),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
+    );
+  }
+
+  Widget _buildTabBarWidget() {
+    if (_tabController == null) return const SizedBox.shrink();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: TabBar(
+        controller: _tabController,
+        isScrollable: true,
+        indicatorColor: Colors.indigo.shade600,
+        indicatorWeight: 3,
+        labelColor: Colors.indigo.shade700,
+        unselectedLabelColor: Colors.grey.shade600,
+        labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+        unselectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.normal,
+          fontSize: 14,
+        ),
+        tabs: _years.map((year) => Tab(text: year.toString())).toList(),
+      ),
+    );
+  }
+
+  Widget _buildWelcomeHeader({bool isLoading = false, bool showError = false}) {
+    final isMobile = ResponsiveHelper.isMobile(context);
+
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.indigo.shade700, Colors.purple.shade500],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.indigo.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Top action bar
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildHeaderActionButton(
+                icon: Icons.arrow_back,
+                tooltip: 'Back',
+                onPressed: () => context.pop(),
+              ),
+              Row(
+                children: [
+                  if (!isLoading && !showError && _years.isNotEmpty)
+                    _buildHeaderActionButton(
+                      icon: Icons.add,
+                      tooltip: 'Add New Year',
+                      onPressed: () => _navigateToNewYear(
+                        _groupedRecords[_years.first]?.first,
+                      ),
+                    ),
+                  if (!isLoading && !showError && _years.isNotEmpty)
+                    const SizedBox(width: 8),
+                  _buildHeaderActionButton(
+                    icon: Icons.home_outlined,
+                    tooltip: 'Home',
+                    onPressed: () => context.go('/admin-hub'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          SizedBox(height: isMobile ? 16 : 20),
+          // Staff info content
+          if (_staff != null)
+            Row(
+              children: [
+                // Avatar
+                Container(
+                  width: isMobile ? 50 : 60,
+                  height: isMobile ? 50 : 60,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withOpacity(0.2),
+                    border: Border.all(color: Colors.white, width: 2),
+                    image: _staff!.photoUrl != null
+                        ? DecorationImage(
+                            image: NetworkImage(_staff!.photoUrl!),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
+                  ),
+                  child: _staff!.photoUrl == null
+                      ? Center(
+                          child: Text(
+                            _staff!.fullName.isNotEmpty
+                                ? _staff!.fullName[0].toUpperCase()
+                                : '?',
+                            style: TextStyle(
+                              fontSize: isMobile ? 20 : 24,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _staff!.fullName,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: isMobile ? 18 : 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Salary & Benefits History',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: isMobile ? 12 : 14,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          _staff!.employeeId,
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            )
+          else
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    showError
+                        ? Icons.error_outline
+                        : Icons.account_balance_wallet,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        showError ? 'Error' : 'Salary History',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: isMobile ? 18 : 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        showError
+                            ? 'Could not load salary history'
+                            : 'Loading...',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: isMobile ? 12 : 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
+      ),
     );
   }
 
@@ -351,7 +505,11 @@ class _SalaryBenefitsHistoryScreenState
                           color: Colors.white.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(Icons.calendar_today, color: Colors.white, size: 20),
+                        child: const Icon(
+                          Icons.calendar_today,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                       ),
                       const SizedBox(width: 10),
                       Text(
@@ -408,7 +566,9 @@ class _SalaryBenefitsHistoryScreenState
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: isMostRecent ? Border.all(color: Colors.indigo.shade300, width: 2) : null,
+        border: isMostRecent
+            ? Border.all(color: Colors.indigo.shade300, width: 2)
+            : null,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -425,7 +585,9 @@ class _SalaryBenefitsHistoryScreenState
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             decoration: BoxDecoration(
               gradient: isMostRecent
-                  ? LinearGradient(colors: [Colors.indigo.shade50, Colors.purple.shade50])
+                  ? LinearGradient(
+                      colors: [Colors.indigo.shade50, Colors.purple.shade50],
+                    )
                   : null,
               color: isMostRecent ? null : Colors.grey.shade50,
               borderRadius: const BorderRadius.only(
@@ -448,18 +610,26 @@ class _SalaryBenefitsHistoryScreenState
                         ),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.calendar_today, color: Colors.white, size: 16),
+                      child: const Icon(
+                        Icons.calendar_today,
+                        color: Colors.white,
+                        size: 16,
+                      ),
                     ),
                     const SizedBox(width: 10),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          DateFormat('dd MMMM yyyy').format(record.effectiveDate),
+                          DateFormat(
+                            'dd MMMM yyyy',
+                          ).format(record.effectiveDate),
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: isMostRecent ? Colors.indigo.shade700 : Colors.grey.shade800,
+                            color: isMostRecent
+                                ? Colors.indigo.shade700
+                                : Colors.grey.shade800,
                           ),
                         ),
                         if (isMostRecent)
@@ -476,7 +646,10 @@ class _SalaryBenefitsHistoryScreenState
                   ],
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: record.isActive ? Colors.green : Colors.grey,
                     borderRadius: BorderRadius.circular(20),
@@ -504,10 +677,7 @@ class _SalaryBenefitsHistoryScreenState
                     '${record.currency ?? "THB"} ${NumberFormat('#,##0').format(record.wageFactor)}',
                   ),
                 if (record.salaryPercentage != null)
-                  _buildInfoRow(
-                    'Salary Scale',
-                    '${record.salaryPercentage}%',
-                  ),
+                  _buildInfoRow('Salary Scale', '${record.salaryPercentage}%'),
                 _buildInfoRow(
                   'Gross Salary',
                   '${record.currency ?? "THB"} ${NumberFormat('#,##0').format(record.grossSalary)}',
@@ -520,28 +690,33 @@ class _SalaryBenefitsHistoryScreenState
                     'Phone Allowance',
                     '${record.currency ?? "THB"} ${NumberFormat('#,##0').format(record.phoneAllowance)}',
                   ),
-                if (record.housingAllowance != null && record.housingAllowance! > 0)
+                if (record.housingAllowance != null &&
+                    record.housingAllowance! > 0)
                   _buildInfoRow(
                     'Housing Allowance',
                     '${record.currency ?? "THB"} ${NumberFormat('#,##0').format(record.housingAllowance)}',
                   ),
-                if (record.equipmentAllowance != null && record.equipmentAllowance! > 0)
+                if (record.equipmentAllowance != null &&
+                    record.equipmentAllowance! > 0)
                   _buildInfoRow(
                     'Equipment (Annual)',
                     '${record.currency ?? "THB"} ${NumberFormat('#,##0').format(record.equipmentAllowance)}',
                   ),
-                if (record.continueEducationAllowance != null && record.continueEducationAllowance! > 0)
+                if (record.continueEducationAllowance != null &&
+                    record.continueEducationAllowance! > 0)
                   _buildInfoRow(
                     'Education (Annual)',
                     '${record.currency ?? "THB"} ${NumberFormat('#,##0').format(record.continueEducationAllowance)}',
                   ),
                 // Deductions
-                if (record.tithePercentage != null && record.tithePercentage! > 0)
+                if (record.tithePercentage != null &&
+                    record.tithePercentage! > 0)
                   _buildInfoRow(
                     'Tithe (${record.tithePercentage}%)',
                     '- ${record.currency ?? "THB"} ${NumberFormat('#,##0').format(record.titheAmount)}',
                   ),
-                if (record.providentFundPercentage != null && record.providentFundPercentage! > 0)
+                if (record.providentFundPercentage != null &&
+                    record.providentFundPercentage! > 0)
                   _buildInfoRow(
                     'Provident Fund (${record.providentFundPercentage}%)',
                     '- ${record.currency ?? "THB"} ${NumberFormat('#,##0').format(record.providentFundAmount)}',
@@ -551,7 +726,8 @@ class _SalaryBenefitsHistoryScreenState
                     'Social Security',
                     '- ${record.currency ?? "THB"} ${NumberFormat('#,##0').format(record.socialSecurityAmount)}',
                   ),
-                if (record.houseRentalPercentage != null && record.houseRentalPercentage! > 0)
+                if (record.houseRentalPercentage != null &&
+                    record.houseRentalPercentage! > 0)
                   _buildInfoRow(
                     'House Rental (${record.houseRentalPercentage}%)',
                     '- ${record.currency ?? "THB"} ${NumberFormat('#,##0').format(record.houseRentalAmount)}',
@@ -580,7 +756,11 @@ class _SalaryBenefitsHistoryScreenState
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.note, size: 16, color: Colors.amber.shade700),
+                        Icon(
+                          Icons.note,
+                          size: 16,
+                          color: Colors.amber.shade700,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -621,18 +801,6 @@ class _SalaryBenefitsHistoryScreenState
     );
   }
 
-  Widget _buildNewYearFab(SalaryBenefits? latestRecord) {
-    return FloatingActionButton.extended(
-      onPressed: () => _navigateToNewYear(latestRecord),
-      backgroundColor: Colors.indigo.shade600,
-      icon: const Icon(Icons.add, color: Colors.white),
-      label: const Text(
-        'New Year',
-        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-
   Widget _buildErrorState(String error) {
     return Container(
       padding: const EdgeInsets.all(48),
@@ -657,12 +825,20 @@ class _SalaryBenefitsHistoryScreenState
               color: Colors.red.shade50,
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.error_outline, size: 48, color: Colors.red.shade400),
+            child: Icon(
+              Icons.error_outline,
+              size: 48,
+              color: Colors.red.shade400,
+            ),
           ),
           const SizedBox(height: 16),
           Text(
             'Error loading history',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red.shade600),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.red.shade600,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
@@ -699,12 +875,20 @@ class _SalaryBenefitsHistoryScreenState
               color: Colors.indigo.shade50,
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.history_outlined, size: 48, color: Colors.indigo.shade400),
+            child: Icon(
+              Icons.history_outlined,
+              size: 48,
+              color: Colors.indigo.shade400,
+            ),
           ),
           const SizedBox(height: 16),
           Text(
             'No salary history found',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey.shade700,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
@@ -716,7 +900,12 @@ class _SalaryBenefitsHistoryScreenState
     );
   }
 
-  Widget _buildInfoRow(String label, String value, {bool isBold = false, bool isHighlighted = false}) {
+  Widget _buildInfoRow(
+    String label,
+    String value, {
+    bool isBold = false,
+    bool isHighlighted = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -734,7 +923,9 @@ class _SalaryBenefitsHistoryScreenState
               value,
               style: TextStyle(
                 fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
-                color: isHighlighted ? Colors.green.shade700 : Colors.grey.shade900,
+                color: isHighlighted
+                    ? Colors.green.shade700
+                    : Colors.grey.shade900,
                 fontSize: isHighlighted ? 16 : 14,
               ),
               textAlign: TextAlign.right,

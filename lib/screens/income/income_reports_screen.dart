@@ -59,106 +59,50 @@ class _IncomeReportsScreenState extends State<IncomeReportsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text('Income Reports'),
-        backgroundColor: Colors.green.shade600,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadReports),
-          IconButton(
-            icon: const Icon(Icons.home_outlined),
-            onPressed: () => context.go('/dashboard'),
-            tooltip: 'Dashboard',
-          ),
-          TextButton.icon(
-            onPressed: () => context.push('/income/new'),
-            icon: const Icon(Icons.add, color: Colors.white),
-            label: const Text(
-              'New Report',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        ],
-      ),
-      body: Consumer<IncomeReportProvider>(
-        builder: (context, provider, child) {
-          if (provider.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: SafeArea(
+        child: Consumer<IncomeReportProvider>(
+          builder: (context, provider, child) {
+            if (provider.isLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          final filteredReports = _getFilteredReports(provider.incomeReports);
+            final filteredReports = _getFilteredReports(provider.incomeReports);
 
-          return ResponsiveContainer(
-            padding: EdgeInsets.zero,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 12),
-                Padding(
-                  padding: ResponsiveHelper.getScreenPadding(context).copyWith(
-                    top: 0,
-                    bottom: 0,
+            return ResponsiveContainer(
+              padding: EdgeInsets.zero,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: _buildWelcomeHeader(provider),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Income Overview',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: () => context.push('/income/new'),
-                        icon: const Icon(Icons.add),
-                        label: const Text('New Report'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.green.shade700,
-                          side: BorderSide(color: Colors.green.shade200),
-                        ),
-                      ),
-                    ],
+                  // Filter Chips
+                  _buildFilterChips(provider),
+                  // Reports List
+                  Expanded(
+                    child: filteredReports.isEmpty
+                        ? _buildEmptyState()
+                        : _buildReportsList(filteredReports),
                   ),
-                ),
-                // Summary Card
-                _buildSummaryCard(provider),
-                // Filter Chips
-                _buildFilterChips(provider),
-                // Reports List
-                Expanded(
-                  child: filteredReports.isEmpty
-                      ? _buildEmptyState()
-                      : _buildReportsList(filteredReports),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/income/new'),
-        backgroundColor: Colors.green.shade600,
-        icon: const Icon(Icons.add),
-        label: const Text('New Report'),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildSummaryCard(IncomeReportProvider provider) {
+  Widget _buildWelcomeHeader(IncomeReportProvider provider) {
+    final isMobile = ResponsiveHelper.isMobile(context);
     final currencyFormat = NumberFormat('#,##0.00', 'en_US');
-    final horizontalPadding = ResponsiveHelper.getScreenPadding(context);
 
     return Container(
-      margin: EdgeInsets.symmetric(
-        horizontal: horizontalPadding.left,
-        vertical: 16,
-      ),
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.green.shade400, Colors.green.shade600],
+          colors: [Colors.green.shade600, Colors.green.shade400],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -166,57 +110,114 @@ class _IncomeReportsScreenState extends State<IncomeReportsScreen> {
         boxShadow: [
           BoxShadow(
             color: Colors.green.withOpacity(0.3),
-            blurRadius: 10,
+            blurRadius: 8,
             offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Row(
+      child: Column(
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Total Income',
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${AppConstants.currencySymbol}${currencyFormat.format(provider.totalIncomeAllReports)}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
+          // Top action bar
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Back/Home button
+              _buildHeaderActionButton(
+                icon: Icons.arrow_back,
+                tooltip: 'Back to Dashboard',
+                onPressed: () => context.go('/admin-hub'),
+              ),
+              // Action buttons
+              Row(
+                children: [
+                  _buildHeaderActionButton(
+                    icon: Icons.refresh,
+                    tooltip: 'Refresh',
+                    onPressed: _loadReports,
                   ),
-                ),
-              ],
-            ),
+                  const SizedBox(width: 8),
+                  _buildHeaderActionButton(
+                    icon: Icons.add_circle_outline,
+                    tooltip: 'New Report',
+                    onPressed: () => context.push('/income/new'),
+                  ),
+                ],
+              ),
+            ],
           ),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              children: [
-                Text(
-                  '${provider.incomeReports.length}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+          SizedBox(height: isMobile ? 16 : 20),
+          // Content row
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Income Reports',
+                      style: TextStyle(
+                        fontSize: isMobile ? 24 : 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Total: ${AppConstants.currencySymbol}${currencyFormat.format(provider.totalIncomeAllReports)}',
+                      style: TextStyle(
+                        fontSize: isMobile ? 16 : 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white.withOpacity(0.95),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${provider.incomeReports.length} reports',
+                      style: TextStyle(
+                        fontSize: isMobile ? 12 : 14,
+                        color: Colors.white.withOpacity(0.8),
+                      ),
+                    ),
+                  ],
                 ),
-                const Text(
-                  'Reports',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+              Container(
+                padding: EdgeInsets.all(isMobile ? 12 : 16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  shape: BoxShape.circle,
                 ),
-              ],
-            ),
+                child: Icon(
+                  Icons.account_balance_wallet,
+                  size: isMobile ? 36 : 48,
+                  color: Colors.white,
+                ),
+              ),
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
       ),
     );
   }
@@ -348,8 +349,12 @@ class _IncomeReportsScreenState extends State<IncomeReportsScreen> {
                           _buildStatusChip(report.status),
                           if (report.status == 'draft')
                             PopupMenuButton<String>(
-                              icon: Icon(Icons.more_vert, color: Colors.grey[600]),
-                              onSelected: (value) => _handleReportAction(value, report),
+                              icon: Icon(
+                                Icons.more_vert,
+                                color: Colors.grey[600],
+                              ),
+                              onSelected: (value) =>
+                                  _handleReportAction(value, report),
                               itemBuilder: (context) => [
                                 const PopupMenuItem(
                                   value: 'edit',
@@ -365,9 +370,16 @@ class _IncomeReportsScreenState extends State<IncomeReportsScreen> {
                                   value: 'delete',
                                   child: Row(
                                     children: [
-                                      Icon(Icons.delete, color: Colors.red, size: 20),
+                                      Icon(
+                                        Icons.delete,
+                                        color: Colors.red,
+                                        size: 20,
+                                      ),
                                       SizedBox(width: 8),
-                                      Text('Delete Report', style: TextStyle(color: Colors.red)),
+                                      Text(
+                                        'Delete Report',
+                                        style: TextStyle(color: Colors.red),
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -448,7 +460,9 @@ class _IncomeReportsScreenState extends State<IncomeReportsScreen> {
   void _showEditReportDialog(IncomeReport report) {
     final formKey = GlobalKey<FormState>();
     final reportNameController = TextEditingController(text: report.reportName);
-    final descriptionController = TextEditingController(text: report.description ?? '');
+    final descriptionController = TextEditingController(
+      text: report.description ?? '',
+    );
     String selectedDepartment = report.department;
     DateTime periodStart = report.periodStart;
     DateTime periodEnd = report.periodEnd;
@@ -568,7 +582,10 @@ class _IncomeReportsScreenState extends State<IncomeReportsScreen> {
                               prefixIcon: const Icon(Icons.business),
                             ),
                             items: departments.map((dept) {
-                              return DropdownMenuItem(value: dept, child: Text(dept));
+                              return DropdownMenuItem(
+                                value: dept,
+                                child: Text(dept),
+                              );
                             }).toList(),
                             onChanged: (value) {
                               setModalState(() => selectedDepartment = value!);
@@ -584,19 +601,37 @@ class _IncomeReportsScreenState extends State<IncomeReportsScreen> {
                                   child: Container(
                                     padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
-                                      border: Border.all(color: Colors.grey.shade300),
+                                      border: Border.all(
+                                        color: Colors.grey.shade300,
+                                      ),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        Text('Start Date', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                                        Text(
+                                          'Start Date',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
                                         const SizedBox(height: 4),
                                         Row(
                                           children: [
-                                            Icon(Icons.calendar_today, size: 16, color: Colors.green.shade600),
+                                            Icon(
+                                              Icons.calendar_today,
+                                              size: 16,
+                                              color: Colors.green.shade600,
+                                            ),
                                             const SizedBox(width: 8),
-                                            Text(dateFormat.format(periodStart), style: const TextStyle(fontWeight: FontWeight.w500)),
+                                            Text(
+                                              dateFormat.format(periodStart),
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
                                           ],
                                         ),
                                       ],
@@ -611,19 +646,37 @@ class _IncomeReportsScreenState extends State<IncomeReportsScreen> {
                                   child: Container(
                                     padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
-                                      border: Border.all(color: Colors.grey.shade300),
+                                      border: Border.all(
+                                        color: Colors.grey.shade300,
+                                      ),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        Text('End Date', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                                        Text(
+                                          'End Date',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
                                         const SizedBox(height: 4),
                                         Row(
                                           children: [
-                                            Icon(Icons.calendar_today, size: 16, color: Colors.green.shade600),
+                                            Icon(
+                                              Icons.calendar_today,
+                                              size: 16,
+                                              color: Colors.green.shade600,
+                                            ),
                                             const SizedBox(width: 8),
-                                            Text(dateFormat.format(periodEnd), style: const TextStyle(fontWeight: FontWeight.w500)),
+                                            Text(
+                                              dateFormat.format(periodEnd),
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
                                           ],
                                         ),
                                       ],
@@ -658,11 +711,15 @@ class _IncomeReportsScreenState extends State<IncomeReportsScreen> {
                                 onPressed: () async {
                                   if (formKey.currentState!.validate()) {
                                     final updatedReport = report.copyWith(
-                                      reportName: reportNameController.text.trim(),
+                                      reportName: reportNameController.text
+                                          .trim(),
                                       department: selectedDepartment,
                                       periodStart: periodStart,
                                       periodEnd: periodEnd,
-                                      description: descriptionController.text.trim().isEmpty
+                                      description:
+                                          descriptionController.text
+                                              .trim()
+                                              .isEmpty
                                           ? null
                                           : descriptionController.text.trim(),
                                       updatedAt: DateTime.now(),
@@ -675,9 +732,13 @@ class _IncomeReportsScreenState extends State<IncomeReportsScreen> {
                                     if (context.mounted) {
                                       Navigator.pop(context);
                                       if (success) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
                                           const SnackBar(
-                                            content: Text('Report updated successfully!'),
+                                            content: Text(
+                                              'Report updated successfully!',
+                                            ),
                                             backgroundColor: Colors.green,
                                           ),
                                         );

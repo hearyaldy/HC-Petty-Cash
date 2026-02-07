@@ -12,6 +12,7 @@ import '../../models/petty_cash_report.dart';
 import '../../models/enums.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/constants.dart';
+import '../../utils/responsive_helper.dart';
 
 class ApprovalsScreen extends StatefulWidget {
   const ApprovalsScreen({super.key});
@@ -36,23 +37,31 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
 
     if (!authProvider.canApprove()) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Approvals')),
-        body: const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.lock, size: 80, color: Colors.grey),
-              SizedBox(height: 16),
-              Text(
-                'Access Denied',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 8),
-              Text(
-                'You do not have permission to approve transactions',
-                style: TextStyle(color: Colors.grey),
-              ),
-            ],
+        backgroundColor: Colors.grey[50],
+        body: SafeArea(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.lock, size: 80, color: Colors.grey),
+                const SizedBox(height: 16),
+                const Text(
+                  'Access Denied',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'You do not have permission to approve transactions',
+                  style: TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () => context.go('/admin-hub'),
+                  icon: const Icon(Icons.home),
+                  label: const Text('Go to Dashboard'),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -83,62 +92,166 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
             pendingTransactions.length + submittedTravelingReports.length;
 
         return Scaffold(
-          appBar: AppBar(
-            title: const Text('Pending Approvals'),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.home_outlined),
-                onPressed: () => context.go('/dashboard'),
-                tooltip: 'Home',
-              ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Center(
-                  child: Chip(
-                    label: Text(
-                      '$totalPending Pending',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                    backgroundColor: Colors.orange,
-                  ),
+          backgroundColor: Colors.grey[50],
+          body: SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: _buildWelcomeHeader(totalPending),
                 ),
-              ),
-            ],
+                Expanded(
+                  child: totalPending == 0
+                      ? _buildEmptyState()
+                      : _buildCombinedApprovalsList(
+                          pendingTransactions,
+                          submittedTravelingReports,
+                          authProvider,
+                          transactionProvider,
+                        ),
+                ),
+              ],
+            ),
           ),
-          body: totalPending == 0
-              ? _buildEmptyState()
-              : _buildCombinedApprovalsList(
-                  pendingTransactions,
-                  submittedTravelingReports,
-                  authProvider,
-                  transactionProvider,
-                ),
         );
       },
     );
   }
 
+  Widget _buildWelcomeHeader(int totalPending) {
+    final isMobile = ResponsiveHelper.isMobile(context);
+
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.orange.shade600, Colors.orange.shade400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Top action bar
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Back/Home button
+              _buildHeaderActionButton(
+                icon: Icons.arrow_back,
+                tooltip: 'Back to Dashboard',
+                onPressed: () => context.go('/admin-hub'),
+              ),
+              // Pending count badge
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '$totalPending Pending',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: isMobile ? 16 : 20),
+          // Content row
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Pending Approvals',
+                      style: TextStyle(
+                        fontSize: isMobile ? 24 : 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Review and approve pending items',
+                      style: TextStyle(
+                        fontSize: isMobile ? 12 : 14,
+                        color: Colors.white.withOpacity(0.8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: EdgeInsets.all(isMobile ? 12 : 16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.approval,
+                  size: isMobile ? 36 : 48,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
+      ),
+    );
+  }
+
   Stream<List<dynamic>> _combineApprovalStreams() {
     final firestoreService = FirestoreService();
-    final transactionProvider = context.read<TransactionProvider>();
 
-    // Stream for pending transactions
-    final transactionStream = Stream.fromFuture(
-      transactionProvider.loadTransactions(),
-    ).asyncMap((_) => transactionProvider.getPendingApprovals());
+    // Stream for pending transactions directly from Firestore
+    final transactionStream = firestoreService.pendingTransactionsStream();
 
     // Stream for submitted traveling reports
     final travelingStream = firestoreService.travelingReportsStream().map(
       (reports) => reports.where((r) => r.status == 'submitted').toList(),
     );
 
-    // Combine the streams
-    return Stream.fromFutures([
-      transactionStream.first,
-      travelingStream.first,
-    ]).map((results) {
-      final transactions = results[0] as List<Transaction>;
-      final travelingReports = results[1] as List<TravelingReport>;
+    // Combine the streams using StreamZip-like pattern
+    return transactionStream.asyncMap((transactions) async {
+      final travelingReports = await travelingStream.first;
       return [...transactions, ...travelingReports];
     });
   }
@@ -182,10 +295,12 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
         // Handle transactions first
         if (index < transactions.length) {
           final transaction = transactions[index];
-          final report = reportProvider.reports.cast<PettyCashReport?>().firstWhere(
-            (r) => r?.id == transaction.reportId,
-            orElse: () => null,
-          );
+          final report = reportProvider.reports
+              .cast<PettyCashReport?>()
+              .firstWhere(
+                (r) => r?.id == transaction.reportId,
+                orElse: () => null,
+              );
 
           // Skip this item if report not found
           if (report == null) {

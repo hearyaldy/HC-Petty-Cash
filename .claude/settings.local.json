@@ -21,7 +21,14 @@
       "Bash(firebase hosting:releases:list:*)",
       "Bash(git stash drop:*)",
       "Bash(git reset:*)",
-      "Bash(nc:*)"
+      "Bash(nc:*)",
+      "Bash(git diff:*)",
+      "Bash(ls:*)",
+      "Bash(git rm:*)",
+      "Bash(unzip -p 'HC ADCOM Meeting Agenda.docx' word/document.xml)",
+      "Bash(git push:*)",
+      "Bash(for f in lib/models/adcom_agenda.dart lib/models/adcom_minutes.dart lib/models/meeting.dart lib/services/adcom_agenda_service.dart lib/services/adcom_minutes_service.dart lib/services/ai_text_service.dart lib/services/meeting_service.dart)",
+      "Bash(do grep -l -E \"\\(api[_-]?key|secret|password\\)\\\\s*[:=]\\\\s*[''''][^'''']+['''']\" $f)"
     ]
   }
 }

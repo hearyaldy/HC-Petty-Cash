@@ -126,7 +126,7 @@ class _NewIncomeReportScreenState extends State<NewIncomeReportScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.home_outlined),
-            onPressed: () => context.go('/dashboard'),
+            onPressed: () => context.go('/admin-hub'),
             tooltip: 'Dashboard',
           ),
         ],

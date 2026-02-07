@@ -26,8 +26,8 @@ class AppDrawer extends StatelessWidget {
           _buildDrawerItem(
             context,
             icon: Icons.dashboard,
-            title: 'Dashboard',
-            route: '/dashboard',
+            title: 'Admin Hub',
+            route: '/admin-hub',
             iconColor: Colors.blue,
           ),
 

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../models/income_report.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/constants.dart';
+import '../../utils/responsive_helper.dart';
 
 class AdminIncomeReportsScreen extends StatefulWidget {
   const AdminIncomeReportsScreen({super.key});
@@ -21,79 +22,153 @@ class _AdminIncomeReportsScreenState extends State<AdminIncomeReportsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text('Income Reports (Admin)'),
-        backgroundColor: Colors.green.shade600,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          TextButton.icon(
-            onPressed: () => context.push('/income/new'),
-            icon: const Icon(Icons.add, color: Colors.white),
-            label: const Text(
-              'New Report',
-              style: TextStyle(color: Colors.white),
-            ),
+      body: SafeArea(
+        child: StreamBuilder<List<IncomeReport>>(
+          stream: _firestoreService.incomeReportsStream(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (snapshot.hasError) {
+              return Center(child: Text('Error: ${snapshot.error}'));
+            }
+
+            final allReports = snapshot.data ?? [];
+            final filteredReports = _filterReports(allReports);
+
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1200),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: _buildWelcomeHeader(),
+                    ),
+                    _buildSummaryHeader(allReports),
+                    _buildFilterChips(allReports),
+                    Expanded(
+                      child: filteredReports.isEmpty
+                          ? _buildEmptyState()
+                          : _buildReportsList(filteredReports),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWelcomeHeader() {
+    final isMobile = ResponsiveHelper.isMobile(context);
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.green.shade600, Colors.green.shade400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.green.shade200.withOpacity(0.5),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      body: StreamBuilder<List<IncomeReport>>(
-        stream: _firestoreService.incomeReportsStream(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          }
-
-          final allReports = snapshot.data ?? [];
-          final filteredReports = _filterReports(allReports);
-
-          return Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1200),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildHeaderActionButton(
+                icon: Icons.arrow_back,
+                tooltip: 'Back to Dashboard',
+                onPressed: () => context.go('/admin-hub'),
+              ),
+              Row(
                 children: [
-                  const SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Income Overview',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: () => context.push('/income/new'),
-                          icon: const Icon(Icons.add),
-                          label: const Text('New Report'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.green.shade700,
-                            side: BorderSide(color: Colors.green.shade200),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  _buildSummaryHeader(allReports),
-                  _buildFilterChips(allReports),
-                  Expanded(
-                    child: filteredReports.isEmpty
-                        ? _buildEmptyState()
-                        : _buildReportsList(filteredReports),
+                  _buildHeaderActionButton(
+                    icon: Icons.add,
+                    tooltip: 'New Report',
+                    onPressed: () => context.push('/income/new'),
                   ),
                 ],
               ),
-            ),
-          );
-        },
+            ],
+          ),
+          SizedBox(height: isMobile ? 16 : 20),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.attach_money,
+                  color: Colors.white,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Income Reports',
+                      style: TextStyle(
+                        fontSize: isMobile ? 20 : 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Manage and review all income reports',
+                      style: TextStyle(
+                        fontSize: isMobile ? 12 : 14,
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
       ),
     );
   }

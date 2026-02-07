@@ -11,10 +11,12 @@ class SalaryBenefitsManagementScreen extends StatefulWidget {
   const SalaryBenefitsManagementScreen({super.key});
 
   @override
-  State<SalaryBenefitsManagementScreen> createState() => _SalaryBenefitsManagementScreenState();
+  State<SalaryBenefitsManagementScreen> createState() =>
+      _SalaryBenefitsManagementScreenState();
 }
 
-class _SalaryBenefitsManagementScreenState extends State<SalaryBenefitsManagementScreen> {
+class _SalaryBenefitsManagementScreenState
+    extends State<SalaryBenefitsManagementScreen> {
   final StaffService _staffService = StaffService();
   final SalaryBenefitsService _salaryBenefitsService = SalaryBenefitsService();
   final TextEditingController _searchController = TextEditingController();
@@ -31,118 +33,130 @@ class _SalaryBenefitsManagementScreenState extends State<SalaryBenefitsManagemen
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
-      body: CustomScrollView(
-        slivers: [
-          // Modern SliverAppBar with gradient
-          SliverAppBar(
-            expandedHeight: 200,
-            floating: false,
-            pinned: true,
-            elevation: 0,
-            backgroundColor: Colors.green.shade600,
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.green.shade700,
-                      Colors.green.shade500,
-                      Colors.teal.shade400,
-                    ],
-                  ),
-                ),
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.monetization_on,
-                                color: Colors.white,
-                                size: 28,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Salary & Benefits',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Manage employee compensation',
-                                    style: TextStyle(
-                                      color: Colors.white.withOpacity(0.9),
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: ResponsiveContainer(
+            child: Padding(
+              padding: ResponsiveHelper.getScreenPadding(context),
+              child: Column(
+                children: [
+                  _buildWelcomeHeader(),
+                  const SizedBox(height: 16),
+                  _buildSearchSection(),
+                  const SizedBox(height: 24),
+                  _buildStaffList(),
+                  const SizedBox(height: 32),
+                ],
               ),
             ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.home_outlined),
-                onPressed: () => context.go('/dashboard'),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWelcomeHeader() {
+    final isMobile = ResponsiveHelper.isMobile(context);
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.green.shade600, Colors.teal.shade400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.green.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Top action bar
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildHeaderActionButton(
+                icon: Icons.arrow_back,
+                tooltip: 'Back',
+                onPressed: () => context.go('/hr-dashboard'),
+              ),
+              _buildHeaderActionButton(
+                icon: Icons.home_outlined,
                 tooltip: 'Home',
+                onPressed: () => context.go('/admin-hub'),
               ),
             ],
           ),
-          // Content
-          SliverToBoxAdapter(
-            child: ResponsiveContainer(
-              child: Padding(
-                padding: ResponsiveHelper.getScreenPadding(context),
+          SizedBox(height: isMobile ? 16 : 20),
+          // Content with icon and title
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.monetization_on,
+                  color: Colors.white,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 16),
-                    // Search Section
-                    _buildSearchSection(),
-                    const SizedBox(height: 24),
+                    Text(
+                      'Salary & Benefits',
+                      style: TextStyle(
+                        fontSize: isMobile ? 20 : 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Manage employee compensation',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                    ),
                   ],
                 ),
               ),
-            ),
-          ),
-          // Staff List
-          SliverToBoxAdapter(
-            child: ResponsiveContainer(
-              child: Padding(
-                padding: ResponsiveHelper.getScreenPadding(context),
-                child: _buildStaffList(),
-              ),
-            ),
-          ),
-          const SliverToBoxAdapter(
-            child: SizedBox(height: 32),
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
       ),
     );
   }
@@ -175,7 +189,11 @@ class _SalaryBenefitsManagementScreenState extends State<SalaryBenefitsManagemen
                     ),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.search, color: Colors.white, size: 20),
+                  child: const Icon(
+                    Icons.search,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Text(
@@ -193,7 +211,10 @@ class _SalaryBenefitsManagementScreenState extends State<SalaryBenefitsManagemen
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Search by name, employee ID, or email...',
-                prefixIcon: Icon(Icons.person_search, color: Colors.grey.shade500),
+                prefixIcon: Icon(
+                  Icons.person_search,
+                  color: Colors.grey.shade500,
+                ),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
                         icon: Icon(Icons.clear, color: Colors.grey.shade500),
@@ -215,7 +236,10 @@ class _SalaryBenefitsManagementScreenState extends State<SalaryBenefitsManagemen
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.green.shade400, width: 2),
+                  borderSide: BorderSide(
+                    color: Colors.green.shade400,
+                    width: 2,
+                  ),
                 ),
                 filled: true,
                 fillColor: Colors.grey.shade50,
@@ -255,10 +279,10 @@ class _SalaryBenefitsManagementScreenState extends State<SalaryBenefitsManagemen
         if (_searchTerm.isNotEmpty) {
           staffList = staffList.where((staff) {
             return staff.fullName.toLowerCase().contains(_searchTerm) ||
-                   staff.employeeId.toLowerCase().contains(_searchTerm) ||
-                   staff.email.toLowerCase().contains(_searchTerm) ||
-                   staff.position.toLowerCase().contains(_searchTerm) ||
-                   staff.department.toLowerCase().contains(_searchTerm);
+                staff.employeeId.toLowerCase().contains(_searchTerm) ||
+                staff.email.toLowerCase().contains(_searchTerm) ||
+                staff.position.toLowerCase().contains(_searchTerm) ||
+                staff.department.toLowerCase().contains(_searchTerm);
           }).toList();
         }
 
@@ -296,12 +320,20 @@ class _SalaryBenefitsManagementScreenState extends State<SalaryBenefitsManagemen
               color: Colors.red.shade50,
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.error_outline, size: 48, color: Colors.red.shade400),
+            child: Icon(
+              Icons.error_outline,
+              size: 48,
+              color: Colors.red.shade400,
+            ),
           ),
           const SizedBox(height: 16),
           Text(
             'Error loading staff',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red.shade600),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.red.shade600,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
@@ -337,12 +369,20 @@ class _SalaryBenefitsManagementScreenState extends State<SalaryBenefitsManagemen
               color: Colors.green.shade50,
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.monetization_on_outlined, size: 48, color: Colors.green.shade400),
+            child: Icon(
+              Icons.monetization_on_outlined,
+              size: 48,
+              color: Colors.green.shade400,
+            ),
           ),
           const SizedBox(height: 16),
           Text(
             'No staff records found',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey.shade700,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
@@ -435,7 +475,10 @@ class _SalaryBenefitsManagementScreenState extends State<SalaryBenefitsManagemen
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.blue.shade50,
                               borderRadius: BorderRadius.circular(4),
@@ -465,19 +508,27 @@ class _SalaryBenefitsManagementScreenState extends State<SalaryBenefitsManagemen
                       const SizedBox(height: 6),
                       // Brief salary summary
                       StreamBuilder<SalaryBenefits?>(
-                        stream: _salaryBenefitsService.getCurrentOrLatestSalaryBenefitsForStaff(staff.id),
+                        stream: _salaryBenefitsService
+                            .getCurrentOrLatestSalaryBenefitsForStaff(staff.id),
                         builder: (context, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.waiting) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
                             return Text(
                               'Loading...',
-                              style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade400,
+                              ),
                             );
                           }
                           final sb = snapshot.data;
                           if (sb == null) {
                             return Text(
                               'No salary record',
-                              style: TextStyle(fontSize: 12, color: Colors.orange.shade600),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.orange.shade600,
+                              ),
                             );
                           }
                           return Text(

@@ -87,8 +87,8 @@ class _PurchaseRequisitionsScreenState
 
     if (result != null && mounted) {
       try {
-        final requisitionNumber =
-            _firestoreService.generatePurchaseRequisitionNumber();
+        final requisitionNumber = _firestoreService
+            .generatePurchaseRequisitionNumber();
         final newRequisition = PurchaseRequisition(
           id: const Uuid().v4(),
           requisitionNumber: requisitionNumber,
@@ -346,9 +346,7 @@ class _PurchaseRequisitionsScreenState
     if (!['draft', 'submitted'].contains(requisition.status)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'You can only delete draft or submitted requisitions',
-          ),
+          content: Text('You can only delete draft or submitted requisitions'),
           backgroundColor: Colors.red,
         ),
       );
@@ -414,49 +412,19 @@ class _PurchaseRequisitionsScreenState
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Purchase Requisitions Management'),
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Colors.purple.shade400, Colors.purple.shade600],
-            ),
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.home_outlined),
-            onPressed: () => context.go('/dashboard'),
-            tooltip: 'Home',
-          ),
-          if (isAdmin)
-            IconButton(
-              icon: const Icon(Icons.admin_panel_settings),
-              onPressed: () => context.go('/admin'),
-              tooltip: 'Admin',
-            ),
-        ],
-      ),
       backgroundColor: Colors.grey[50],
-      body: ResponsiveBuilder(
-        mobile: SingleChildScrollView(
-          child: _buildMobileLayout(context, isAdmin),
+      body: SafeArea(
+        child: ResponsiveBuilder(
+          mobile: SingleChildScrollView(
+            child: _buildMobileLayout(context, isAdmin),
+          ),
+          tablet: SingleChildScrollView(
+            child: _buildTabletLayout(context, isAdmin),
+          ),
+          desktop: SingleChildScrollView(
+            child: _buildDesktopLayout(context, isAdmin),
+          ),
         ),
-        tablet: SingleChildScrollView(
-          child: _buildTabletLayout(context, isAdmin),
-        ),
-        desktop: SingleChildScrollView(
-          child: _buildDesktopLayout(context, isAdmin),
-        ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _createNewRequisition,
-        backgroundColor: Colors.purple,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: const Text('New Requisition'),
       ),
     );
   }
@@ -516,15 +484,9 @@ class _PurchaseRequisitionsScreenState
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  flex: 3,
-                  child: _buildStatCards(context),
-                ),
+                Expanded(flex: 3, child: _buildStatCards(context)),
                 const SizedBox(width: 24),
-                Expanded(
-                  flex: 1,
-                  child: _buildSummaryBar(),
-                ),
+                Expanded(flex: 1, child: _buildSummaryBar()),
               ],
             ),
             const SizedBox(height: 24),
@@ -538,6 +500,9 @@ class _PurchaseRequisitionsScreenState
   }
 
   Widget _buildWelcomeHeader(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final isAdmin = authProvider.canManageUsers();
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -555,53 +520,119 @@ class _PurchaseRequisitionsScreenState
           ),
         ],
       ),
-      child: Row(
+      child: Column(
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Purchase Requisitions',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.white.withValues(alpha: 0.9),
+          // Top action bar
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Back/Home button
+              _buildHeaderActionButton(
+                icon: Icons.arrow_back,
+                tooltip: 'Back to Dashboard',
+                onPressed: () => context.go('/admin-hub'),
+              ),
+              // Action buttons
+              Row(
+                children: [
+                  if (isAdmin)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _buildHeaderActionButton(
+                        icon: Icons.admin_panel_settings,
+                        tooltip: 'Admin',
+                        onPressed: () => context.go('/admin'),
+                      ),
+                    ),
+                  _buildHeaderActionButton(
+                    icon: Icons.add_circle_outline,
+                    tooltip: 'New Requisition',
+                    onPressed: _createNewRequisition,
                   ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Manage your purchase requests',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Track, approve, and manage purchase requisitions',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white.withValues(alpha: 0.8),
-                  ),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.shopping_cart, size: 48, color: Colors.white),
+          const SizedBox(height: 20),
+          // Content row
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Purchase Requisitions',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.white.withValues(alpha: 0.9),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Manage your purchase requests',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Track, approve, and manage purchase requisitions',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.white.withValues(alpha: 0.8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.shopping_cart,
+                  size: 48,
+                  color: Colors.white,
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
+  Widget _buildHeaderActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
+      ),
+    );
+  }
+
   Widget _buildWelcomeHeaderMobile(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final isAdmin = authProvider.canManageUsers();
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -615,6 +646,38 @@ class _PurchaseRequisitionsScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Top action bar
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Back/Home button
+              _buildHeaderActionButton(
+                icon: Icons.arrow_back,
+                tooltip: 'Back to Dashboard',
+                onPressed: () => context.go('/admin-hub'),
+              ),
+              // Action buttons
+              Row(
+                children: [
+                  if (isAdmin)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _buildHeaderActionButton(
+                        icon: Icons.admin_panel_settings,
+                        tooltip: 'Admin',
+                        onPressed: () => context.go('/admin'),
+                      ),
+                    ),
+                  _buildHeaderActionButton(
+                    icon: Icons.add_circle_outline,
+                    tooltip: 'New Requisition',
+                    onPressed: _createNewRequisition,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
           Row(
             children: [
               Container(
@@ -623,7 +686,11 @@ class _PurchaseRequisitionsScreenState
                   color: Colors.white.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.shopping_cart, size: 28, color: Colors.white),
+                child: const Icon(
+                  Icons.shopping_cart,
+                  size: 28,
+                  color: Colors.white,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -661,9 +728,15 @@ class _PurchaseRequisitionsScreenState
       builder: (context, snapshot) {
         final requisitions = snapshot.data ?? [];
 
-        final draftCount = requisitions.where((r) => r.status == 'draft').length;
-        final pendingCount = requisitions.where((r) => r.status == 'submitted').length;
-        final approvedCount = requisitions.where((r) => r.status == 'approved').length;
+        final draftCount = requisitions
+            .where((r) => r.status == 'draft')
+            .length;
+        final pendingCount = requisitions
+            .where((r) => r.status == 'submitted')
+            .length;
+        final approvedCount = requisitions
+            .where((r) => r.status == 'approved')
+            .length;
 
         return Column(
           children: [
@@ -716,7 +789,12 @@ class _PurchaseRequisitionsScreenState
     );
   }
 
-  Widget _buildMiniStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildMiniStatCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -755,10 +833,7 @@ class _PurchaseRequisitionsScreenState
                 ),
                 Text(
                   title,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey.shade600,
-                  ),
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                 ),
               ],
             ),
@@ -805,10 +880,7 @@ class _PurchaseRequisitionsScreenState
                   const SizedBox(height: 16),
                   Text(
                     'No requisitions found',
-                    style: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontSize: 16,
-                    ),
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
                   ),
                 ],
               ),
@@ -830,7 +902,8 @@ class _PurchaseRequisitionsScreenState
                 borderRadius: BorderRadius.circular(10),
               ),
               child: InkWell(
-                onTap: () => context.push('/purchase-requisitions/${requisition.id}'),
+                onTap: () =>
+                    context.push('/purchase-requisitions/${requisition.id}'),
                 borderRadius: BorderRadius.circular(10),
                 child: Padding(
                   padding: const EdgeInsets.all(12),
@@ -872,7 +945,11 @@ class _PurchaseRequisitionsScreenState
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          Icon(Icons.person, size: 14, color: Colors.grey.shade500),
+                          Icon(
+                            Icons.person,
+                            size: 14,
+                            color: Colors.grey.shade500,
+                          ),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
@@ -923,9 +1000,15 @@ class _PurchaseRequisitionsScreenState
       builder: (context, snapshot) {
         final requisitions = snapshot.data ?? [];
 
-        final draftCount = requisitions.where((r) => r.status == 'draft').length;
-        final pendingCount = requisitions.where((r) => r.status == 'submitted').length;
-        final approvedCount = requisitions.where((r) => r.status == 'approved').length;
+        final draftCount = requisitions
+            .where((r) => r.status == 'draft')
+            .length;
+        final pendingCount = requisitions
+            .where((r) => r.status == 'submitted')
+            .length;
+        final approvedCount = requisitions
+            .where((r) => r.status == 'approved')
+            .length;
 
         final stats = [
           _StatData(
@@ -960,18 +1043,16 @@ class _PurchaseRequisitionsScreenState
 
         return Column(
           children: [
-            for(int i = 0; i < stats.length; i += 2)
+            for (int i = 0; i < stats.length; i += 2)
               Padding(
                 padding: const EdgeInsets.only(bottom: 16),
                 child: Row(
                   children: [
-                    Expanded(
-                      child: _buildModernStatCard(context, stats[i]),
-                    ),
-                    if(i+1 < stats.length) ...[
+                    Expanded(child: _buildModernStatCard(context, stats[i])),
+                    if (i + 1 < stats.length) ...[
                       const SizedBox(width: 16),
                       Expanded(
-                        child: _buildModernStatCard(context, stats[i+1]),
+                        child: _buildModernStatCard(context, stats[i + 1]),
                       ),
                     ],
                   ],
@@ -1006,7 +1087,9 @@ class _PurchaseRequisitionsScreenState
               height: 100,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: stat.gradient.map((c) => c.withValues(alpha: 0.1)).toList(),
+                  colors: stat.gradient
+                      .map((c) => c.withValues(alpha: 0.1))
+                      .toList(),
                 ),
                 shape: BoxShape.circle,
               ),
@@ -1127,12 +1210,15 @@ class _PurchaseRequisitionsScreenState
         final requisitions = snapshot.data ?? [];
         final currencyFormat = NumberFormat('#,##0.00', 'en_US');
 
-        final draftCount =
-            requisitions.where((r) => r.status == 'draft').length;
-        final pendingCount =
-            requisitions.where((r) => r.status == 'submitted').length;
-        final approvedCount =
-            requisitions.where((r) => r.status == 'approved').length;
+        final draftCount = requisitions
+            .where((r) => r.status == 'draft')
+            .length;
+        final pendingCount = requisitions
+            .where((r) => r.status == 'submitted')
+            .length;
+        final approvedCount = requisitions
+            .where((r) => r.status == 'approved')
+            .length;
         final totalAmount = requisitions.fold<double>(
           0.0,
           (sum, r) => sum + r.totalAmount,
@@ -1160,13 +1246,20 @@ class _PurchaseRequisitionsScreenState
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Colors.purple.shade400, Colors.purple.shade600],
+                        colors: [
+                          Colors.purple.shade400,
+                          Colors.purple.shade600,
+                        ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(Icons.account_balance_wallet, color: Colors.white, size: 24),
+                    child: Icon(
+                      Icons.account_balance_wallet,
+                      color: Colors.white,
+                      size: 24,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Text(
@@ -1390,10 +1483,7 @@ class _PurchaseRequisitionsScreenState
             const SizedBox(height: 4),
             Text(
               requisition.chargeToDepartment,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade600,
-              ),
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -1404,10 +1494,7 @@ class _PurchaseRequisitionsScreenState
           children: [
             Text(
               '฿${currencyFormat.format(requisition.totalAmount)}',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert),
@@ -1442,10 +1529,7 @@ class _PurchaseRequisitionsScreenState
                       children: [
                         Icon(Icons.check, size: 20, color: Colors.green),
                         SizedBox(width: 8),
-                        Text(
-                          'Approve',
-                          style: TextStyle(color: Colors.green),
-                        ),
+                        Text('Approve', style: TextStyle(color: Colors.green)),
                       ],
                     ),
                   ),
@@ -1455,15 +1539,13 @@ class _PurchaseRequisitionsScreenState
                       children: [
                         Icon(Icons.close, size: 20, color: Colors.red),
                         SizedBox(width: 8),
-                        Text(
-                          'Reject',
-                          style: TextStyle(color: Colors.red),
-                        ),
+                        Text('Reject', style: TextStyle(color: Colors.red)),
                       ],
                     ),
                   ),
                 ],
-                if (isAdmin && ['approved', 'rejected'].contains(requisition.status)) ...[
+                if (isAdmin &&
+                    ['approved', 'rejected'].contains(requisition.status)) ...[
                   const PopupMenuItem<String>(
                     value: 'revert',
                     child: Row(
@@ -1485,10 +1567,7 @@ class _PurchaseRequisitionsScreenState
                       children: [
                         Icon(Icons.delete, size: 20, color: Colors.red),
                         SizedBox(width: 8),
-                        Text(
-                          'Delete',
-                          style: TextStyle(color: Colors.red),
-                        ),
+                        Text('Delete', style: TextStyle(color: Colors.red)),
                       ],
                     ),
                   ),

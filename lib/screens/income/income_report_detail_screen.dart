@@ -44,7 +44,7 @@ class _IncomeReportDetailScreenState extends State<IncomeReportDetailScreen> {
               actions: [
                 IconButton(
                   icon: const Icon(Icons.home_outlined),
-                  onPressed: () => context.go('/dashboard'),
+                  onPressed: () => context.go('/admin-hub'),
                   tooltip: 'Dashboard',
                 ),
               ],
@@ -62,7 +62,7 @@ class _IncomeReportDetailScreenState extends State<IncomeReportDetailScreen> {
               actions: [
                 IconButton(
                   icon: const Icon(Icons.home_outlined),
-                  onPressed: () => context.go('/dashboard'),
+                  onPressed: () => context.go('/admin-hub'),
                   tooltip: 'Dashboard',
                 ),
               ],
@@ -88,7 +88,7 @@ class _IncomeReportDetailScreenState extends State<IncomeReportDetailScreen> {
               // Home button - always visible
               IconButton(
                 icon: const Icon(Icons.home_outlined),
-                onPressed: () => context.go('/dashboard'),
+                onPressed: () => context.go('/admin-hub'),
                 tooltip: 'Dashboard',
               ),
               // More options menu

@@ -31,6 +31,133 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
   Uint8List? _pickedBytes;
   File? _pickedFile;
 
+  Widget _buildHeaderActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWelcomeHeader(String name, String email) {
+    final isMobile = ResponsiveHelper.isMobile(context);
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.orange.shade600, Colors.orange.shade400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Top action bar
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildHeaderActionButton(
+                icon: Icons.home_outlined,
+                tooltip: 'Home',
+                onPressed: () => context.go('/student-dashboard'),
+              ),
+              Row(
+                children: [
+                  _isSaving
+                      ? Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          ),
+                        )
+                      : _buildHeaderActionButton(
+                          icon: Icons.save,
+                          tooltip: 'Save Profile',
+                          onPressed: _saveProfile,
+                        ),
+                ],
+              ),
+            ],
+          ),
+          SizedBox(height: isMobile ? 16 : 20),
+          // Profile avatar and info
+          CircleAvatar(
+            radius: 48,
+            backgroundImage: _buildAvatarImage(),
+            backgroundColor: Colors.white.withOpacity(0.2),
+            child:
+                (_photoUrl == null &&
+                    _pickedBytes == null &&
+                    _pickedFile == null)
+                ? const Icon(Icons.person, size: 42, color: Colors.white)
+                : null,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            name,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            email,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.9),
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.orange.shade700,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+            onPressed: _isSaving ? null : _pickPhoto,
+            icon: const Icon(Icons.photo_camera),
+            label: const Text('Change Photo'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -198,143 +325,62 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
     final user = auth.currentUser;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Profile'),
-        leading: IconButton(
-          icon: const Icon(Icons.home_outlined),
-          onPressed: () => context.go('/student-dashboard'),
-        ),
-        actions: [
-          TextButton.icon(
-            onPressed: _isSaving ? null : _saveProfile,
-            icon: _isSaving
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.save, color: Colors.white),
-            label: const Text('Save', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : ResponsiveContainer(
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: Column(
-                  children: [
-                    _buildHeader(user?.name ?? 'Student', user?.email ?? ''),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 16,
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : ResponsiveContainer(
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 16),
+                      _buildWelcomeHeader(
+                        user?.name ?? 'Student',
+                        user?.email ?? '',
                       ),
-                      child: _buildFormCard(user),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 0,
+                          vertical: 16,
+                        ),
+                        child: _buildFormCard(user),
                       ),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 0,
+                          vertical: 12,
+                        ),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
-                          ),
-                          onPressed: _isSaving ? null : _saveProfile,
-                          icon: _isSaving
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Icon(Icons.save_outlined),
-                          label: Text(
-                            _isSaving ? 'Saving...' : 'Save Profile',
-                            style: const TextStyle(fontSize: 16),
+                            onPressed: _isSaving ? null : _saveProfile,
+                            icon: _isSaving
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.save_outlined),
+                            label: Text(
+                              _isSaving ? 'Saving...' : 'Save Profile',
+                              style: const TextStyle(fontSize: 16),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-    );
-  }
-
-  Widget _buildHeader(String name, String email) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.orange.shade400, Colors.orange.shade600],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.orange.shade200,
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
-      ),
-      child: Column(
-        children: [
-          CircleAvatar(
-            radius: 48,
-            backgroundImage: _buildAvatarImage(),
-            backgroundColor: Colors.white.withOpacity(0.2),
-            child:
-                (_photoUrl == null &&
-                    _pickedBytes == null &&
-                    _pickedFile == null)
-                ? const Icon(Icons.person, size: 42, color: Colors.white)
-                : null,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            name,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            email,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 12),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: Colors.orange.shade700,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-            ),
-            onPressed: _isSaving ? null : _pickPhoto,
-            icon: const Icon(Icons.photo_camera),
-            label: const Text('Change Photo'),
-          ),
-        ],
       ),
     );
   }

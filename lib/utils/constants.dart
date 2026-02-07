@@ -40,11 +40,13 @@ class AppConstants {
 
   // Security and Demo Mode
   static const bool enableDemoAccounts = false; // Set to false for production
+
 }
 
 class AppRoutes {
   static const String login = '/';
-  static const String dashboard = '/dashboard';
+  static const String dashboard = '/admin-hub';
+  static const String adminHub = '/admin-hub';
   static const String reports = '/reports';
   static const String reportDetails = '/reports/:id';
   static const String newReport = '/reports/new';

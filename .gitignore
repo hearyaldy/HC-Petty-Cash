@@ -57,6 +57,9 @@ app.*.map.json
 node_modules/
 package-lock.json
 
+# Environment files
+.env
+
 # Import scripts with Firebase config (security)
 import_equipment*.html
 import_equipment*.js

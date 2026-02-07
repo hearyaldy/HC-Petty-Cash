@@ -132,8 +132,8 @@ class ResponsiveLayout extends StatelessWidget {
     final navigationItems = [
       _NavigationItem(
         icon: Icons.dashboard,
-        label: 'Dashboard',
-        route: '/dashboard',
+        label: 'Admin Hub',
+        route: '/admin-hub',
       ),
       _NavigationItem(
         icon: Icons.description,
@@ -271,11 +271,7 @@ class ResponsiveLayout extends StatelessWidget {
     }
 
     final items = [
-      _BottomNavItem(
-        icon: Icons.dashboard,
-        label: 'Dashboard',
-        route: '/dashboard',
-      ),
+      _BottomNavItem(icon: Icons.dashboard, label: 'Hub', route: '/admin-hub'),
       _BottomNavItem(
         icon: Icons.description,
         label: 'Reports',
