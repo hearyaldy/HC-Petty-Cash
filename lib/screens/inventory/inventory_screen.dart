@@ -1,10 +1,12 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:printing/printing.dart';
 import '../../models/equipment.dart';
 import '../../services/equipment_service.dart';
+import '../../services/pdf_export_service.dart';
 import '../../providers/auth_provider.dart';
-import '../../widgets/app_drawer.dart';
 import '../../widgets/dashboard_section.dart';
 import '../../utils/responsive_helper.dart';
 
@@ -30,7 +32,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   bool _isLoading = true;
   List<Equipment> _equipment = [];
   String? _errorMessage;
-  bool _showFilters = true;
+  final bool _showFilters = true;
 
   // Selection state for table view
   final Set<String> _selectedEquipmentIds = {};
@@ -119,7 +121,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   Future<void> _deleteSelectedEquipment() async {
     final authProvider = context.read<AuthProvider>();
-    if (!authProvider.canManageUsers()) {
+    if (!authProvider.canDeleteInventory()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('You do not have permission to delete equipment'),
@@ -187,6 +189,392 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   String _getFilterKey() {
     return '$_selectedCategory|$_selectedStatus|$_selectedCondition|$_selectedLocation|$_searchQuery';
+  }
+
+  /// Show print field selection dialog
+  Future<void> _showPrintDialog() async {
+    final filteredEquipment = _filterEquipment(_equipment);
+
+    if (filteredEquipment.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No equipment to print'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // Default selected fields
+    final selectedFields = Set<EquipmentPrintField>.from(
+      EquipmentPrintField.defaultFields,
+    );
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.indigo.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.print, color: Colors.indigo.shade600),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Print Equipment List'),
+                      Text(
+                        '${filteredEquipment.length} items | ${selectedFields.length} fields selected',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.normal,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: 500,
+              height: 450,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Quick selection buttons
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        TextButton.icon(
+                          onPressed: () {
+                            setDialogState(() {
+                              selectedFields.addAll(EquipmentPrintField.allFields);
+                            });
+                          },
+                          icon: const Icon(Icons.select_all, size: 18),
+                          label: const Text('All'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.indigo,
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: () {
+                            setDialogState(() {
+                              selectedFields.clear();
+                              selectedFields.addAll(
+                                EquipmentPrintField.defaultFields,
+                              );
+                            });
+                          },
+                          icon: const Icon(Icons.restore, size: 18),
+                          label: const Text('Default'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.teal,
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: () {
+                            setDialogState(() {
+                              selectedFields.clear();
+                            });
+                          },
+                          icon: const Icon(Icons.clear_all, size: 18),
+                          label: const Text('Clear'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.red,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Field groups
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildFieldGroup(
+                            'Basic Info',
+                            [
+                              EquipmentPrintField.assetCode,
+                              EquipmentPrintField.name,
+                              EquipmentPrintField.description,
+                              EquipmentPrintField.category,
+                              EquipmentPrintField.brand,
+                              EquipmentPrintField.model,
+                            ],
+                            selectedFields,
+                            setDialogState,
+                          ),
+                          _buildFieldGroup(
+                            'Identification',
+                            [
+                              EquipmentPrintField.serialNumber,
+                              EquipmentPrintField.assetTag,
+                              EquipmentPrintField.accountingPeriod,
+                            ],
+                            selectedFields,
+                            setDialogState,
+                          ),
+                          _buildFieldGroup(
+                            'Location & Assignment',
+                            [
+                              EquipmentPrintField.location,
+                              EquipmentPrintField.assignedTo,
+                              EquipmentPrintField.currentHolder,
+                            ],
+                            selectedFields,
+                            setDialogState,
+                          ),
+                          _buildFieldGroup(
+                            'Status & Condition',
+                            [
+                              EquipmentPrintField.status,
+                              EquipmentPrintField.condition,
+                            ],
+                            selectedFields,
+                            setDialogState,
+                          ),
+                          _buildFieldGroup(
+                            'Purchase & Value',
+                            [
+                              EquipmentPrintField.purchaseYear,
+                              EquipmentPrintField.purchaseDate,
+                              EquipmentPrintField.purchasePrice,
+                              EquipmentPrintField.quantity,
+                              EquipmentPrintField.unitCost,
+                              EquipmentPrintField.supplier,
+                              EquipmentPrintField.warrantyExpiry,
+                            ],
+                            selectedFields,
+                            setDialogState,
+                          ),
+                          _buildFieldGroup(
+                            'Depreciation',
+                            [
+                              EquipmentPrintField.depreciationPercentage,
+                              EquipmentPrintField.assetAge,
+                              EquipmentPrintField.monthlyDepreciation,
+                              EquipmentPrintField.totalDepreciation,
+                              EquipmentPrintField.currentBookValue,
+                            ],
+                            selectedFields,
+                            setDialogState,
+                          ),
+                          _buildFieldGroup(
+                            'Other',
+                            [EquipmentPrintField.notes],
+                            selectedFields,
+                            setDialogState,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton.icon(
+                onPressed: selectedFields.isEmpty
+                    ? null
+                    : () => Navigator.pop(context, true),
+                icon: const Icon(Icons.print, size: 18),
+                label: const Text('Print Preview'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.indigo,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (confirmed == true && selectedFields.isNotEmpty) {
+      await _generateAndOpenPdf(
+        filteredEquipment,
+        selectedFields.toList()..sort((a, b) => a.index.compareTo(b.index)),
+      );
+    }
+  }
+
+  Widget _buildFieldGroup(
+    String title,
+    List<EquipmentPrintField> fields,
+    Set<EquipmentPrintField> selectedFields,
+    StateSetter setDialogState,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[700],
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: () {
+                  setDialogState(() {
+                    if (fields.every((f) => selectedFields.contains(f))) {
+                      selectedFields.removeAll(fields);
+                    } else {
+                      selectedFields.addAll(fields);
+                    }
+                  });
+                },
+                child: Text(
+                  fields.every((f) => selectedFields.contains(f))
+                      ? 'Deselect all'
+                      : 'Select all',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.indigo[400],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: fields.map((field) {
+            final isSelected = selectedFields.contains(field);
+            return FilterChip(
+              label: Text(
+                field.displayName,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isSelected ? Colors.white : Colors.grey[700],
+                ),
+              ),
+              selected: isSelected,
+              onSelected: (selected) {
+                setDialogState(() {
+                  if (selected) {
+                    selectedFields.add(field);
+                  } else {
+                    selectedFields.remove(field);
+                  }
+                });
+              },
+              selectedColor: Colors.indigo,
+              checkmarkColor: Colors.white,
+              backgroundColor: Colors.grey[200],
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              visualDensity: VisualDensity.compact,
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 8),
+        const Divider(height: 1),
+      ],
+    );
+  }
+
+  Future<void> _generateAndOpenPdf(
+    List<Equipment> equipment,
+    List<EquipmentPrintField> selectedFields,
+  ) async {
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        content: Row(
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(width: 20),
+            Expanded(
+              child: Text(
+                'Generating PDF for ${equipment.length} items...',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final pdfService = PdfExportService();
+
+      // Get PDF bytes directly (works on web)
+      final pdfBytes = await pdfService.exportEquipmentListBytes(
+        equipment,
+        selectedFields,
+      );
+
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+
+        // Show print preview with sharing options
+        await Printing.layoutPdf(
+          onLayout: (format) async => Uint8List.fromList(pdfBytes),
+          name: 'Equipment_Inventory_List',
+        );
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text('PDF ready for printing/sharing'),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error generating PDF: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   List<String> _getUniqueLocations(List<Equipment> equipment) {
@@ -653,129 +1041,88 @@ class _InventoryScreenState extends State<InventoryScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
-    final isAdmin = authProvider.canManageUsers();
-    final isDesktop = ResponsiveHelper.isDesktop(context);
 
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: _buildResponsiveAppBar(context, isAdmin),
-      drawer: isDesktop ? null : const AppDrawer(),
-      body: Row(
-        children: [
-          if (isDesktop) const AppDrawer(),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: _refreshEquipment,
-              child: ResponsiveBuilder(
-                mobile: _buildMobileLayout(),
-                tablet: _buildTabletLayout(),
-                desktop: _buildDesktopLayout(),
+    // Check if user has view permission
+    if (!authProvider.canViewInventory()) {
+      return Scaffold(
+        backgroundColor: Colors.grey[50],
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.lock_outline,
+                      size: 64,
+                      color: Colors.red.shade400,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Access Denied',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[800],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'You do not have permission to view the inventory.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Please contact an administrator to request access.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[500],
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  ElevatedButton.icon(
+                    onPressed: () => context.go('/admin-hub'),
+                    icon: const Icon(Icons.home),
+                    label: const Text('Back to Dashboard'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.indigo,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-        ],
-      ),
-      floatingActionButton: isAdmin
-          ? FloatingActionButton.extended(
-              onPressed: () => context.push('/inventory/add'),
-              icon: const Icon(Icons.add),
-              label: const Text('Add Equipment'),
-              backgroundColor: Colors.indigo,
-              foregroundColor: Colors.white,
-            )
-          : null,
-    );
-  }
-
-  PreferredSizeWidget _buildResponsiveAppBar(
-    BuildContext context,
-    bool isAdmin,
-  ) {
-    final isMobile = ResponsiveHelper.isMobile(context);
-
-    return AppBar(
-      elevation: ResponsiveHelper.isDesktop(context) ? 1 : 0,
-      title: Text(
-        'Equipment Inventory',
-        style: ResponsiveHelper.getResponsiveTextTheme(
-          context,
-        ).titleLarge?.copyWith(fontWeight: FontWeight.bold),
-      ),
-      backgroundColor: Colors.white,
-      foregroundColor: Colors.grey[800],
-      surfaceTintColor: Colors.white,
-      actions: [
-        if (!isMobile) ...[
-          Container(
-            margin: const EdgeInsets.only(right: 8),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildViewToggle(
-                  ViewType.card,
-                  Icons.grid_view_rounded,
-                  'Cards',
-                ),
-                _buildViewToggle(
-                  ViewType.table,
-                  Icons.table_chart_rounded,
-                  'Table',
-                ),
-                _buildViewToggle(
-                  ViewType.list,
-                  Icons.view_list_rounded,
-                  'List',
-                ),
-              ],
-            ),
-          ),
-        ],
-        IconButton(
-          icon: const Icon(Icons.refresh),
-          onPressed: _refreshEquipment,
-          tooltip: 'Refresh',
         ),
-        IconButton(
-          icon: const Icon(Icons.find_replace),
-          onPressed: _showDuplicatesDialog,
-          tooltip: 'Check Duplicates',
-        ),
-        if (isAdmin && !isMobile)
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline),
-            onPressed: () => context.push('/inventory/add'),
-            tooltip: 'Add Equipment',
-          ),
-        IconButton(
-          icon: const Icon(Icons.home_outlined),
-          onPressed: () => context.go('/dashboard'),
-          tooltip: 'Dashboard',
-        ),
-      ],
-    );
-  }
+      );
+    }
 
-  Widget _buildViewToggle(ViewType type, IconData icon, String tooltip) {
-    final isSelected = _viewType == type;
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: () => setState(() => _viewType = type),
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: isSelected ? Colors.indigo : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            icon,
-            size: 20,
-            color: isSelected ? Colors.white : Colors.grey[600],
+    return Scaffold(
+      backgroundColor: Colors.grey[50],
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _refreshEquipment,
+          child: ResponsiveBuilder(
+            mobile: _buildMobileLayout(),
+            tablet: _buildTabletLayout(),
+            desktop: _buildDesktopLayout(),
           ),
         ),
       ),
@@ -950,10 +1297,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
   Widget _buildWelcomeHeader() {
     final authProvider = context.read<AuthProvider>();
     final userName = authProvider.currentUser?.name ?? 'User';
+    final canAdd = authProvider.canAddInventory();
     final stats = _getStats(_equipment);
+    final isMobile = ResponsiveHelper.isMobile(context);
 
     return Container(
-      padding: EdgeInsets.all(ResponsiveHelper.isMobile(context) ? 16 : 24),
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [Colors.indigo.shade600, Colors.indigo.shade400],
@@ -969,54 +1318,174 @@ class _InventoryScreenState extends State<InventoryScreen> {
           ),
         ],
       ),
-      child: Row(
+      child: Column(
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Equipment Inventory',
-                  style: TextStyle(
-                    fontSize: ResponsiveHelper.isMobile(context) ? 14 : 16,
-                    color: Colors.white.withOpacity(0.9),
+          // Top action bar
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Back/Home button
+              _buildHeaderActionButton(
+                icon: Icons.arrow_back,
+                tooltip: 'Back to Dashboard',
+                onPressed: () => context.go('/admin-hub'),
+              ),
+              // Action buttons
+              Row(
+                children: [
+                  if (!isMobile) ...[
+                    // View toggles
+                    Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildHeaderViewToggle(
+                            ViewType.card,
+                            Icons.grid_view_rounded,
+                            'Cards',
+                          ),
+                          _buildHeaderViewToggle(
+                            ViewType.table,
+                            Icons.table_chart_rounded,
+                            'Table',
+                          ),
+                          _buildHeaderViewToggle(
+                            ViewType.list,
+                            Icons.view_list_rounded,
+                            'List',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  _buildHeaderActionButton(
+                    icon: Icons.refresh,
+                    tooltip: 'Refresh',
+                    onPressed: _refreshEquipment,
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${stats['total']} Total Items',
-                  style: TextStyle(
-                    fontSize: ResponsiveHelper.isMobile(context) ? 24 : 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                  _buildHeaderActionButton(
+                    icon: Icons.find_replace,
+                    tooltip: 'Check Duplicates',
+                    onPressed: _showDuplicatesDialog,
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Managed by $userName',
-                  style: TextStyle(
-                    fontSize: ResponsiveHelper.isMobile(context) ? 12 : 14,
-                    color: Colors.white.withOpacity(0.8),
+                  _buildHeaderActionButton(
+                    icon: Icons.print,
+                    tooltip: 'Print Equipment List',
+                    onPressed: _showPrintDialog,
                   ),
-                ),
-              ],
-            ),
+                  if (canAdd)
+                    _buildHeaderActionButton(
+                      icon: Icons.add_circle_outline,
+                      tooltip: 'Add Equipment',
+                      onPressed: () => context.push('/inventory/add'),
+                    ),
+                ],
+              ),
+            ],
           ),
-          Container(
-            padding: EdgeInsets.all(
-              ResponsiveHelper.isMobile(context) ? 12 : 16,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.inventory_2,
-              size: ResponsiveHelper.isMobile(context) ? 36 : 48,
-              color: Colors.white,
-            ),
+          SizedBox(height: isMobile ? 16 : 20),
+          // Content row
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Equipment Inventory',
+                      style: TextStyle(
+                        fontSize: isMobile ? 14 : 16,
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${stats['total']} Total Items',
+                      style: TextStyle(
+                        fontSize: isMobile ? 24 : 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Managed by $userName',
+                      style: TextStyle(
+                        fontSize: isMobile ? 12 : 14,
+                        color: Colors.white.withOpacity(0.8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: EdgeInsets.all(isMobile ? 12 : 16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.inventory_2,
+                  size: isMobile ? 36 : 48,
+                  color: Colors.white,
+                ),
+              ),
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeaderViewToggle(ViewType type, IconData icon, String tooltip) {
+    final isSelected = _viewType == type;
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: () => setState(() => _viewType = type),
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Icon(
+            icon,
+            size: 18,
+            color: isSelected
+                ? Colors.indigo.shade600
+                : Colors.white.withOpacity(0.8),
+          ),
+        ),
       ),
     );
   }
@@ -2213,7 +2682,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Widget _buildEmptyState() {
-    final isAdmin = context.read<AuthProvider>().canManageUsers();
+    final canAdd = context.read<AuthProvider>().canAddInventory();
 
     return Center(
       child: Column(
@@ -2222,7 +2691,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.indigo.withOpacity(0.1),
+              color: Colors.indigo.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -2242,10 +2711,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Add your first equipment to get started',
+            canAdd
+                ? 'Add your first equipment to get started'
+                : 'No equipment has been added yet',
             style: TextStyle(fontSize: 16, color: Colors.grey[500]),
           ),
-          if (isAdmin) ...[
+          if (canAdd) ...[
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: () => context.push('/inventory/add'),

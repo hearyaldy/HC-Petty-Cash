@@ -454,5 +454,120 @@ service cloud.firestore {
       // Only admins can delete checkout records
       allow delete: if isAdmin();
     }
+
+    // Equipment History collection (for tracking checkout/return history)
+    match /equipment_history/{historyId} {
+      // All authenticated users can read equipment history
+      allow read: if isAuthenticated();
+
+      // All authenticated users can create history entries
+      allow create: if isAuthenticated();
+
+      // Only admins can update or delete history records
+      allow update, delete: if isAdmin();
+    }
+
+    // Payment Rates collection (for student labor hourly rates)
+    match /payment_rates/{rateId} {
+      // All authenticated users can read payment rates
+      allow read: if isAuthenticated();
+
+      // Only admins can create, update, or delete payment rates
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Meetings collection (ADCOM & Board meetings)
+    match /meetings/{meetingId} {
+      // All authenticated users can read meetings
+      allow read: if isAuthenticated();
+
+      // Only admins can create meetings
+      allow create: if isAdmin();
+
+      // Only admins can update meetings
+      allow update: if isAdmin();
+
+      // Only admins can delete meetings
+      allow delete: if isAdmin();
+    }
+
+    // Meeting Agendas collection
+    match /meeting_agendas/{agendaId} {
+      // All authenticated users can read agendas
+      allow read: if isAuthenticated();
+
+      // Only admins can create agendas
+      allow create: if isAdmin();
+
+      // Only admins can update agendas
+      allow update: if isAdmin();
+
+      // Only admins can delete agendas
+      allow delete: if isAdmin();
+    }
+
+    // Meeting Minutes collection
+    match /meeting_minutes/{minutesId} {
+      // All authenticated users can read minutes
+      allow read: if isAuthenticated();
+
+      // Only admins can create minutes
+      allow create: if isAdmin();
+
+      // Only admins can update minutes
+      allow update: if isAdmin();
+
+      // Only admins can delete minutes
+      allow delete: if isAdmin();
+    }
+
+    // Meeting Action Items collection
+    match /meeting_action_items/{actionItemId} {
+      // All authenticated users can read action items
+      allow read: if isAuthenticated();
+
+      // Only admins can create action items
+      allow create: if isAdmin();
+
+      // Admins can update any action item
+      // Assignees can update their own action items (status, completedNotes, completedAt)
+      allow update: if isAuthenticated() && (
+        isAdmin() ||
+        resource.data.assigneeId == request.auth.uid
+      );
+
+      // Only admins can delete action items
+      allow delete: if isAdmin();
+    }
+
+    // ADCOM Agendas collection
+    match /adcom_agendas/{agendaId} {
+      // All authenticated users can read ADCOM agendas
+      allow read: if isAuthenticated();
+
+      // Only admins can create ADCOM agendas
+      allow create: if isAdmin();
+
+      // Only admins can update ADCOM agendas
+      allow update: if isAdmin();
+
+      // Only admins can delete ADCOM agendas
+      allow delete: if isAdmin();
+    }
+
+    // ADCOM Minutes collection
+    match /adcom_minutes/{minutesId} {
+      // All authenticated users can read ADCOM minutes
+      allow read: if isAuthenticated();
+
+      // Only admins can create ADCOM minutes
+      allow create: if isAdmin();
+
+      // Only admins can update ADCOM minutes
+      allow update: if isAdmin();
+
+      // Only admins can delete ADCOM minutes
+      allow delete: if isAdmin();
+    }
   }
 }

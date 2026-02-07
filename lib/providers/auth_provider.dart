@@ -167,6 +167,27 @@ class AuthProvider extends ChangeNotifier {
         currentUser?.roleEnum == UserRole.finance;
   }
 
+  // Inventory permission checks
+  bool canViewInventory() {
+    return _authService.canViewInventory();
+  }
+
+  bool canAddInventory() {
+    return _authService.canAddInventory();
+  }
+
+  bool canEditInventory() {
+    return _authService.canEditInventory();
+  }
+
+  bool canDeleteInventory() {
+    return _authService.canDeleteInventory();
+  }
+
+  bool canCheckoutInventory() {
+    return _authService.canCheckoutInventory();
+  }
+
   // Fetch user by ID
   Future<User?> getUserById(String userId) async {
     return await _authService.getUserById(userId);

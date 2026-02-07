@@ -167,26 +167,38 @@ class EquipmentCheckout {
 /// Main Equipment model
 class Equipment {
   final String id;
-  final String name;
+  final String name; // Asset Name
   final String? description;
   final String category; // e.g., Camera, Audio, Lighting, Computer, etc.
   final String? brand;
   final String? model;
-  final String? serialNumber;
-  final String? assetTag; // Internal asset tracking number
+  final String? serialNumber; // Asset Details/Serial Number
+  final String? assetTag; // Internal asset tracking number (legacy)
+  final String? assetCode; // Asset Code (e.g., ASSET-001)
+  final String? accountingPeriod; // Accounting period (e.g., "2024/001")
   final String? location; // Storage location
   final EquipmentStatus status;
   final EquipmentCondition condition;
-  final double? purchasePrice;
+  final double? purchasePrice; // Total purchase price
   final DateTime? purchaseDate;
+  final int? purchaseYear; // Year of purchase
   final String? supplier;
   final DateTime? warrantyExpiry;
-  final String? photoUrl;
+  final String? photoUrl; // Image/Photo of Product
   final String? notes;
-  final String?
-  currentCheckoutId; // Reference to current checkout if checked out
+  // Assignment (permanent, different from checkout)
+  final String? assignedToId; // User ID of assigned person
+  final String? assignedToName; // Name of assigned person
+  // Checkout tracking
+  final String? currentCheckoutId; // Reference to current checkout if checked out
   final String? currentHolderId; // User ID of current holder
   final String? currentHolderName;
+  // Depreciation fields
+  final int quantity; // Quantity (default 1)
+  final double? unitCost; // Cost per unit
+  final double? depreciationPercentage; // Annual depreciation rate (e.g., 20 for 20%)
+  final int? monthsDepreciated; // Number of months depreciation has been applied
+  // Timestamps
   final DateTime createdAt;
   final DateTime? updatedAt;
   final String? createdBy;
@@ -200,18 +212,27 @@ class Equipment {
     this.model,
     this.serialNumber,
     this.assetTag,
+    this.assetCode,
+    this.accountingPeriod,
     this.location,
     required this.status,
     required this.condition,
     this.purchasePrice,
     this.purchaseDate,
+    this.purchaseYear,
     this.supplier,
     this.warrantyExpiry,
     this.photoUrl,
     this.notes,
+    this.assignedToId,
+    this.assignedToName,
     this.currentCheckoutId,
     this.currentHolderId,
     this.currentHolderName,
+    this.quantity = 1,
+    this.unitCost,
+    this.depreciationPercentage,
+    this.monthsDepreciated,
     required this.createdAt,
     this.updatedAt,
     this.createdBy,
@@ -219,6 +240,64 @@ class Equipment {
 
   bool get isAvailable => status == EquipmentStatus.available;
   bool get isCheckedOut => status == EquipmentStatus.checkedOut;
+
+  /// Calculate asset age in years from purchase date or purchase year
+  int? get assetAgeYears {
+    if (purchaseDate != null) {
+      return DateTime.now().difference(purchaseDate!).inDays ~/ 365;
+    }
+    if (purchaseYear != null) {
+      return DateTime.now().year - purchaseYear!;
+    }
+    return null;
+  }
+
+  /// Calculate asset age in months from purchase date
+  int? get assetAgeMonths {
+    if (purchaseDate != null) {
+      final now = DateTime.now();
+      return (now.year - purchaseDate!.year) * 12 +
+          (now.month - purchaseDate!.month);
+    }
+    return null;
+  }
+
+  /// Calculate monthly depreciation amount
+  double? get monthlyDepreciation {
+    if (purchasePrice != null && depreciationPercentage != null) {
+      return (purchasePrice! * depreciationPercentage! / 100) / 12;
+    }
+    return null;
+  }
+
+  /// Calculate total depreciation to date
+  double? get totalDepreciation {
+    final monthly = monthlyDepreciation;
+    final months = monthsDepreciated ?? assetAgeMonths;
+    if (monthly != null && months != null) {
+      return monthly * months;
+    }
+    return null;
+  }
+
+  /// Calculate current book value after depreciation
+  double? get currentBookValue {
+    if (purchasePrice != null) {
+      final depreciation = totalDepreciation ?? 0;
+      final value = purchasePrice! - depreciation;
+      return value > 0 ? value : 0;
+    }
+    return null;
+  }
+
+  /// Get the effective unit cost (stored or calculated)
+  double? get effectiveUnitCost {
+    if (unitCost != null) return unitCost;
+    if (purchasePrice != null && quantity > 0) {
+      return purchasePrice! / quantity;
+    }
+    return null;
+  }
 
   factory Equipment.fromFirestore(
     firestore.DocumentSnapshot<Map<String, dynamic>> doc,
@@ -233,18 +312,28 @@ class Equipment {
       model: _parseString(data['model']),
       serialNumber: _parseString(data['serialNumber']),
       assetTag: _parseString(data['assetTag']),
+      assetCode: _parseString(data['assetCode']),
+      accountingPeriod: _parseString(data['accountingPeriod']),
       location: _parseString(data['location']),
       status: EquipmentStatus.fromString(data['status']),
       condition: EquipmentCondition.fromString(data['condition']),
       purchasePrice: (data['purchasePrice'] as num?)?.toDouble(),
       purchaseDate: _parseDateTime(data['purchaseDate']),
+      purchaseYear: (data['purchaseYear'] as num?)?.toInt(),
       supplier: _parseString(data['supplier']),
       warrantyExpiry: _parseDateTime(data['warrantyExpiry']),
       photoUrl: _parseString(data['photoUrl']),
       notes: _parseString(data['notes']),
+      assignedToId: _parseString(data['assignedToId']),
+      assignedToName: _parseString(data['assignedToName']),
       currentCheckoutId: _parseString(data['currentCheckoutId']),
       currentHolderId: _parseString(data['currentHolderId']),
       currentHolderName: _parseString(data['currentHolderName']),
+      quantity: (data['quantity'] as num?)?.toInt() ?? 1,
+      unitCost: (data['unitCost'] as num?)?.toDouble(),
+      depreciationPercentage:
+          (data['depreciationPercentage'] as num?)?.toDouble(),
+      monthsDepreciated: (data['monthsDepreciated'] as num?)?.toInt(),
       createdAt: _parseDateTime(data['createdAt']) ?? DateTime.now(),
       updatedAt: _parseDateTime(data['updatedAt']),
       createdBy: _parseString(data['createdBy']),
@@ -275,6 +364,8 @@ class Equipment {
       'model': model,
       'serialNumber': serialNumber,
       'assetTag': assetTag,
+      'assetCode': assetCode,
+      'accountingPeriod': accountingPeriod,
       'location': location,
       'status': status.name,
       'condition': condition.name,
@@ -282,15 +373,22 @@ class Equipment {
       'purchaseDate': purchaseDate != null
           ? firestore.Timestamp.fromDate(purchaseDate!)
           : null,
+      'purchaseYear': purchaseYear,
       'supplier': supplier,
       'warrantyExpiry': warrantyExpiry != null
           ? firestore.Timestamp.fromDate(warrantyExpiry!)
           : null,
       'photoUrl': photoUrl,
       'notes': notes,
+      'assignedToId': assignedToId,
+      'assignedToName': assignedToName,
       'currentCheckoutId': currentCheckoutId,
       'currentHolderId': currentHolderId,
       'currentHolderName': currentHolderName,
+      'quantity': quantity,
+      'unitCost': unitCost,
+      'depreciationPercentage': depreciationPercentage,
+      'monthsDepreciated': monthsDepreciated,
       'createdAt': firestore.Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt != null
           ? firestore.Timestamp.fromDate(updatedAt!)
@@ -308,18 +406,27 @@ class Equipment {
     String? model,
     String? serialNumber,
     String? assetTag,
+    String? assetCode,
+    String? accountingPeriod,
     String? location,
     EquipmentStatus? status,
     EquipmentCondition? condition,
     double? purchasePrice,
     DateTime? purchaseDate,
+    int? purchaseYear,
     String? supplier,
     DateTime? warrantyExpiry,
     String? photoUrl,
     String? notes,
+    String? assignedToId,
+    String? assignedToName,
     String? currentCheckoutId,
     String? currentHolderId,
     String? currentHolderName,
+    int? quantity,
+    double? unitCost,
+    double? depreciationPercentage,
+    int? monthsDepreciated,
     DateTime? createdAt,
     DateTime? updatedAt,
     String? createdBy,
@@ -333,18 +440,28 @@ class Equipment {
       model: model ?? this.model,
       serialNumber: serialNumber ?? this.serialNumber,
       assetTag: assetTag ?? this.assetTag,
+      assetCode: assetCode ?? this.assetCode,
+      accountingPeriod: accountingPeriod ?? this.accountingPeriod,
       location: location ?? this.location,
       status: status ?? this.status,
       condition: condition ?? this.condition,
       purchasePrice: purchasePrice ?? this.purchasePrice,
       purchaseDate: purchaseDate ?? this.purchaseDate,
+      purchaseYear: purchaseYear ?? this.purchaseYear,
       supplier: supplier ?? this.supplier,
       warrantyExpiry: warrantyExpiry ?? this.warrantyExpiry,
       photoUrl: photoUrl ?? this.photoUrl,
       notes: notes ?? this.notes,
+      assignedToId: assignedToId ?? this.assignedToId,
+      assignedToName: assignedToName ?? this.assignedToName,
       currentCheckoutId: currentCheckoutId ?? this.currentCheckoutId,
       currentHolderId: currentHolderId ?? this.currentHolderId,
       currentHolderName: currentHolderName ?? this.currentHolderName,
+      quantity: quantity ?? this.quantity,
+      unitCost: unitCost ?? this.unitCost,
+      depreciationPercentage:
+          depreciationPercentage ?? this.depreciationPercentage,
+      monthsDepreciated: monthsDepreciated ?? this.monthsDepreciated,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       createdBy: createdBy ?? this.createdBy,

@@ -25,9 +25,30 @@ class FirebaseAuthService {
 
   // Flag to prevent auth state listener from interfering during login/registration
   bool _isAuthOperationInProgress = false;
+  DateTime? _authOperationStartTime;
+
+  // Timeout for auth operation flag (prevents stuck state)
+  static const Duration _authOperationTimeout = Duration(seconds: 30);
 
   User? get currentUser => _currentUser;
   bool get isAuthenticated => _currentUser != null;
+
+  // Check if auth operation is truly in progress (with timeout protection)
+  bool get _isAuthOperationActive {
+    if (!_isAuthOperationInProgress) return false;
+
+    // If operation started more than 30 seconds ago, consider it stuck and reset
+    if (_authOperationStartTime != null) {
+      final elapsed = DateTime.now().difference(_authOperationStartTime!);
+      if (elapsed > _authOperationTimeout) {
+        debugPrint('DEBUG AUTH: Auth operation timeout - resetting flag');
+        _isAuthOperationInProgress = false;
+        _authOperationStartTime = null;
+        return false;
+      }
+    }
+    return true;
+  }
 
   // Stream of auth state changes
   Stream<firebase_auth.User?> get authStateChanges => _auth.authStateChanges();
@@ -43,6 +64,7 @@ class FirebaseAuthService {
   // Login with email and password
   Future<bool> login(String email, String password) async {
     _isAuthOperationInProgress = true;
+    _authOperationStartTime = DateTime.now();
     try {
       // Sanitize inputs
       final sanitizedEmail = ValidationUtils.sanitizeString(email);
@@ -62,6 +84,7 @@ class FirebaseAuthService {
       throw 'An unexpected error occurred';
     } finally {
       _isAuthOperationInProgress = false;
+      _authOperationStartTime = null;
     }
   }
 
@@ -74,6 +97,7 @@ class FirebaseAuthService {
     required String department,
   }) async {
     _isAuthOperationInProgress = true;
+    _authOperationStartTime = DateTime.now();
     try {
       // Sanitize inputs
       final sanitizedEmail = ValidationUtils.sanitizeString(email);
@@ -122,6 +146,7 @@ class FirebaseAuthService {
       throw 'An unexpected error occurred: $e';
     } finally {
       _isAuthOperationInProgress = false;
+      _authOperationStartTime = null;
     }
   }
 
@@ -160,8 +185,8 @@ class FirebaseAuthService {
   // Returns true if user data was loaded, false otherwise
   // Skips if an auth operation (login/register) is already in progress
   Future<bool> tryLoadUserData() async {
-    // Don't interfere if login or registration is in progress
-    if (_isAuthOperationInProgress) {
+    // Don't interfere if login or registration is in progress (with timeout protection)
+    if (_isAuthOperationActive) {
       debugPrint(
         'DEBUG AUTH: Skipping tryLoadUserData - auth operation in progress',
       );
@@ -250,6 +275,47 @@ class FirebaseAuthService {
   bool canCreateTravelingReports() {
     // Any authenticated user can create traveling reports
     return _currentUser != null;
+  }
+
+  // Inventory permission checks
+  bool canViewInventory() {
+    if (_currentUser == null) return false;
+    // Admins always have full access
+    if (_currentUser!.roleEnum == UserRole.admin) return true;
+    // Check user-specific permissions
+    return _currentUser!.inventoryPermissions.canView;
+  }
+
+  bool canAddInventory() {
+    if (_currentUser == null) return false;
+    // Admins always have full access
+    if (_currentUser!.roleEnum == UserRole.admin) return true;
+    // Check user-specific permissions
+    return _currentUser!.inventoryPermissions.canAdd;
+  }
+
+  bool canEditInventory() {
+    if (_currentUser == null) return false;
+    // Admins always have full access
+    if (_currentUser!.roleEnum == UserRole.admin) return true;
+    // Check user-specific permissions
+    return _currentUser!.inventoryPermissions.canEdit;
+  }
+
+  bool canDeleteInventory() {
+    if (_currentUser == null) return false;
+    // Admins always have full access
+    if (_currentUser!.roleEnum == UserRole.admin) return true;
+    // Check user-specific permissions
+    return _currentUser!.inventoryPermissions.canDelete;
+  }
+
+  bool canCheckoutInventory() {
+    if (_currentUser == null) return false;
+    // Admins always have full access
+    if (_currentUser!.roleEnum == UserRole.admin) return true;
+    // Check user-specific permissions
+    return _currentUser!.inventoryPermissions.canCheckout;
   }
 
   // Error handling

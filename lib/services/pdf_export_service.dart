@@ -6,11 +6,492 @@ import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/petty_cash_report.dart';
 import '../models/transaction.dart';
+import '../models/equipment.dart';
 import '../utils/constants.dart';
 import 'firestore_service.dart';
-import '../models/enums.dart';
+
+/// Enum for equipment fields that can be included in the print export
+enum EquipmentPrintField {
+  assetCode('Asset Code'),
+  name('Asset Name'),
+  description('Description'),
+  category('Category'),
+  brand('Brand'),
+  model('Model'),
+  serialNumber('Serial Number'),
+  assetTag('Asset Tag'),
+  accountingPeriod('Accounting Period'),
+  location('Location'),
+  assignedTo('Assigned To'),
+  status('Status'),
+  condition('Condition'),
+  purchaseYear('Purchase Year'),
+  purchaseDate('Purchase Date'),
+  purchasePrice('Purchase Price'),
+  quantity('Quantity'),
+  unitCost('Unit Cost'),
+  depreciationPercentage('Depreciation %'),
+  assetAge('Asset Age'),
+  monthlyDepreciation('Monthly Depreciation'),
+  totalDepreciation('Total Depreciation'),
+  currentBookValue('Book Value'),
+  supplier('Supplier'),
+  warrantyExpiry('Warranty Expiry'),
+  currentHolder('Current Holder'),
+  notes('Notes');
+
+  final String displayName;
+  const EquipmentPrintField(this.displayName);
+
+  /// Get default fields for quick print
+  static List<EquipmentPrintField> get defaultFields => [
+        EquipmentPrintField.assetCode,
+        EquipmentPrintField.name,
+        EquipmentPrintField.category,
+        EquipmentPrintField.brand,
+        EquipmentPrintField.model,
+        EquipmentPrintField.status,
+        EquipmentPrintField.condition,
+        EquipmentPrintField.location,
+        EquipmentPrintField.purchasePrice,
+      ];
+
+  /// Get all available fields
+  static List<EquipmentPrintField> get allFields => EquipmentPrintField.values;
+}
 
 class PdfExportService {
+  /// Export equipment list to PDF with selected fields
+  /// Returns the PDF bytes for web compatibility
+  Future<List<int>> exportEquipmentListBytes(
+    List<Equipment> equipment,
+    List<EquipmentPrintField> selectedFields, {
+    String? title,
+  }) async {
+    final pdf = pw.Document();
+    final dateFormat = DateFormat('MMM dd, yyyy');
+    final currencyFormat = NumberFormat.currency(symbol: 'THB ', decimalDigits: 2);
+
+    // Load logo
+    pw.ImageProvider? logoImage;
+    try {
+      final logoData = await rootBundle.load(
+        'assets/images/hope_channel_logo.png',
+      );
+      logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
+    } catch (e) {
+      // Logo loading failed, will use fallback
+    }
+
+    final reportTitle = title ?? 'Equipment Inventory List';
+
+    // Calculate column flex values based on field types
+    final columnFlexes = _getColumnFlexes(selectedFields);
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4.landscape,
+        margin: const pw.EdgeInsets.all(24),
+        header: (context) => _buildEquipmentHeader(logoImage, reportTitle),
+        footer: (context) => _buildEquipmentFooter(context, equipment.length),
+        build: (context) => [
+          // Summary info
+          _buildEquipmentSummary(equipment),
+          pw.SizedBox(height: 16),
+
+          // Equipment table
+          _buildEquipmentTable(
+            equipment,
+            selectedFields,
+            columnFlexes,
+            dateFormat,
+            currencyFormat,
+          ),
+        ],
+      ),
+    );
+
+    return await pdf.save();
+  }
+
+  /// Export equipment list to PDF file (for mobile/desktop)
+  Future<String> exportEquipmentList(
+    List<Equipment> equipment,
+    List<EquipmentPrintField> selectedFields, {
+    String? title,
+  }) async {
+    final pdfBytes = await exportEquipmentListBytes(
+      equipment,
+      selectedFields,
+      title: title,
+    );
+
+    // Save file
+    final directory = await getApplicationDocumentsDirectory();
+    final fileName =
+        'equipment_list_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    final filePath = '${directory.path}/$fileName';
+
+    final file = File(filePath);
+    await file.writeAsBytes(pdfBytes);
+
+    return filePath;
+  }
+
+  pw.Widget _buildEquipmentHeader(
+    pw.ImageProvider? logoImage,
+    String title,
+  ) {
+    return pw.Column(
+      children: [
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.center,
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            // Add logo
+            if (logoImage != null)
+              pw.Container(
+                width: 40,
+                height: 40,
+                child: pw.Image(logoImage, fit: pw.BoxFit.contain),
+              )
+            else
+              pw.Container(
+                width: 40,
+                height: 40,
+                child: pw.Padding(
+                  padding: const pw.EdgeInsets.all(5),
+                  child: pw.DecoratedBox(
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.grey300,
+                      borderRadius: pw.BorderRadius.circular(5),
+                    ),
+                    child: pw.Center(
+                      child: pw.Text(
+                        'H',
+                        style: pw.TextStyle(
+                          fontSize: 20,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.grey700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            pw.SizedBox(width: 10),
+            // Organization name and address
+            pw.Expanded(
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    AppConstants.organizationName,
+                    style: pw.TextStyle(
+                      fontSize: 11,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                    textAlign: pw.TextAlign.left,
+                  ),
+                  pw.Text(
+                    AppConstants.organizationAddress,
+                    style: const pw.TextStyle(fontSize: 9),
+                    textAlign: pw.TextAlign.left,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        pw.SizedBox(height: 12),
+        pw.Text(
+          title.toUpperCase(),
+          style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+        ),
+        pw.Divider(),
+        pw.SizedBox(height: 8),
+      ],
+    );
+  }
+
+  pw.Widget _buildEquipmentFooter(pw.Context context, int totalItems) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.only(top: 8),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text(
+            'Generated on: ${DateFormat('MMM dd, yyyy hh:mm a').format(DateTime.now())} | Total Items: $totalItems',
+            style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey),
+          ),
+          pw.Text(
+            'Page ${context.pageNumber} of ${context.pagesCount}',
+            style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildEquipmentSummary(List<Equipment> equipment) {
+    final stats = {
+      'Total': equipment.length,
+      'Available': equipment
+          .where((e) => e.status == EquipmentStatus.available)
+          .length,
+      'Checked Out': equipment
+          .where((e) => e.status == EquipmentStatus.checkedOut)
+          .length,
+      'Maintenance': equipment
+          .where((e) => e.status == EquipmentStatus.maintenance)
+          .length,
+      'Retired': equipment
+          .where((e) => e.status == EquipmentStatus.retired)
+          .length,
+    };
+
+    // Calculate total value
+    final totalValue = equipment.fold<double>(
+      0,
+      (sum, e) => sum + (e.purchasePrice ?? 0),
+    );
+    final currencyFormat =
+        NumberFormat.currency(symbol: 'THB ', decimalDigits: 2);
+
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(10),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.grey300),
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+        color: PdfColors.grey100,
+      ),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
+        children: [
+          ...stats.entries.map((entry) => pw.Column(
+                children: [
+                  pw.Text(
+                    entry.value.toString(),
+                    style: pw.TextStyle(
+                      fontSize: 14,
+                      fontWeight: pw.FontWeight.bold,
+                      color: entry.key == 'Total'
+                          ? PdfColors.indigo
+                          : PdfColors.grey800,
+                    ),
+                  ),
+                  pw.SizedBox(height: 2),
+                  pw.Text(
+                    entry.key,
+                    style: const pw.TextStyle(
+                      fontSize: 8,
+                      color: PdfColors.grey600,
+                    ),
+                  ),
+                ],
+              )),
+          pw.Column(
+            children: [
+              pw.Text(
+                currencyFormat.format(totalValue),
+                style: pw.TextStyle(
+                  fontSize: 12,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.green800,
+                ),
+              ),
+              pw.SizedBox(height: 2),
+              pw.Text(
+                'Total Value',
+                style: const pw.TextStyle(
+                  fontSize: 8,
+                  color: PdfColors.grey600,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<int> _getColumnFlexes(List<EquipmentPrintField> fields) {
+    return fields.map((field) {
+      switch (field) {
+        case EquipmentPrintField.description:
+        case EquipmentPrintField.notes:
+          return 20;
+        case EquipmentPrintField.name:
+        case EquipmentPrintField.location:
+        case EquipmentPrintField.assignedTo:
+        case EquipmentPrintField.currentHolder:
+          return 15;
+        case EquipmentPrintField.category:
+        case EquipmentPrintField.brand:
+        case EquipmentPrintField.model:
+        case EquipmentPrintField.supplier:
+          return 12;
+        case EquipmentPrintField.serialNumber:
+        case EquipmentPrintField.assetTag:
+        case EquipmentPrintField.accountingPeriod:
+          return 12;
+        case EquipmentPrintField.purchasePrice:
+        case EquipmentPrintField.unitCost:
+        case EquipmentPrintField.monthlyDepreciation:
+        case EquipmentPrintField.totalDepreciation:
+        case EquipmentPrintField.currentBookValue:
+          return 12;
+        default:
+          return 10;
+      }
+    }).toList();
+  }
+
+  pw.Widget _buildEquipmentTable(
+    List<Equipment> equipment,
+    List<EquipmentPrintField> selectedFields,
+    List<int> columnFlexes,
+    DateFormat dateFormat,
+    NumberFormat currencyFormat,
+  ) {
+    // Build header row
+    final headerCells = selectedFields.map((field) => field.displayName).toList();
+
+    // Build data rows
+    final rows = equipment.map((item) {
+      return selectedFields.map((field) {
+        return _getFieldValue(item, field, dateFormat, currencyFormat);
+      }).toList();
+    }).toList();
+
+    return pw.ListView.builder(
+      itemCount: rows.length + 1,
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return _buildEquipmentTableRow(headerCells, columnFlexes, isHeader: true);
+        }
+        return _buildEquipmentTableRow(rows[index - 1], columnFlexes);
+      },
+    );
+  }
+
+  String _getFieldValue(
+    Equipment item,
+    EquipmentPrintField field,
+    DateFormat dateFormat,
+    NumberFormat currencyFormat,
+  ) {
+    switch (field) {
+      case EquipmentPrintField.assetCode:
+        return item.assetCode ?? '-';
+      case EquipmentPrintField.name:
+        return item.name;
+      case EquipmentPrintField.description:
+        return item.description ?? '-';
+      case EquipmentPrintField.category:
+        return item.category;
+      case EquipmentPrintField.brand:
+        return item.brand ?? '-';
+      case EquipmentPrintField.model:
+        return item.model ?? '-';
+      case EquipmentPrintField.serialNumber:
+        return item.serialNumber ?? '-';
+      case EquipmentPrintField.assetTag:
+        return item.assetTag ?? '-';
+      case EquipmentPrintField.accountingPeriod:
+        return item.accountingPeriod ?? '-';
+      case EquipmentPrintField.location:
+        return item.location ?? '-';
+      case EquipmentPrintField.assignedTo:
+        return item.assignedToName ?? '-';
+      case EquipmentPrintField.status:
+        return item.status.displayName;
+      case EquipmentPrintField.condition:
+        return item.condition.displayName;
+      case EquipmentPrintField.purchaseYear:
+        return item.purchaseYear?.toString() ?? '-';
+      case EquipmentPrintField.purchaseDate:
+        return item.purchaseDate != null
+            ? dateFormat.format(item.purchaseDate!)
+            : '-';
+      case EquipmentPrintField.purchasePrice:
+        return item.purchasePrice != null
+            ? currencyFormat.format(item.purchasePrice)
+            : '-';
+      case EquipmentPrintField.quantity:
+        return item.quantity.toString();
+      case EquipmentPrintField.unitCost:
+        return item.effectiveUnitCost != null
+            ? currencyFormat.format(item.effectiveUnitCost)
+            : '-';
+      case EquipmentPrintField.depreciationPercentage:
+        return item.depreciationPercentage != null
+            ? '${item.depreciationPercentage!.toStringAsFixed(1)}%'
+            : '-';
+      case EquipmentPrintField.assetAge:
+        final years = item.assetAgeYears;
+        if (years == null) return '-';
+        return years == 1 ? '1 year' : '$years years';
+      case EquipmentPrintField.monthlyDepreciation:
+        return item.monthlyDepreciation != null
+            ? currencyFormat.format(item.monthlyDepreciation)
+            : '-';
+      case EquipmentPrintField.totalDepreciation:
+        return item.totalDepreciation != null
+            ? currencyFormat.format(item.totalDepreciation)
+            : '-';
+      case EquipmentPrintField.currentBookValue:
+        return item.currentBookValue != null
+            ? currencyFormat.format(item.currentBookValue)
+            : '-';
+      case EquipmentPrintField.supplier:
+        return item.supplier ?? '-';
+      case EquipmentPrintField.warrantyExpiry:
+        return item.warrantyExpiry != null
+            ? dateFormat.format(item.warrantyExpiry!)
+            : '-';
+      case EquipmentPrintField.currentHolder:
+        return item.currentHolderName ?? '-';
+      case EquipmentPrintField.notes:
+        return item.notes ?? '-';
+    }
+  }
+
+  pw.Widget _buildEquipmentTableRow(
+    List<String> cells,
+    List<int> flexes, {
+    bool isHeader = false,
+  }) {
+    final styles = pw.TextStyle(
+      fontWeight: isHeader ? pw.FontWeight.bold : pw.FontWeight.normal,
+      fontSize: isHeader ? 8 : 7,
+    );
+
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+        color: isHeader ? PdfColors.indigo50 : null,
+        border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
+      ),
+      padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+      child: pw.Row(
+        children: List.generate(cells.length, (index) {
+          return pw.Expanded(
+            flex: flexes[index],
+            child: pw.Padding(
+              padding: const pw.EdgeInsets.symmetric(horizontal: 2),
+              child: pw.Text(
+                cells[index],
+                style: styles,
+                maxLines: 2,
+                overflow: pw.TextOverflow.clip,
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
   Future<String> exportReport(PettyCashReport report) async {
     final pdf = pw.Document();
     final dateFormat = DateFormat('MMM dd, yyyy');
@@ -19,7 +500,9 @@ class PdfExportService {
     // Load logo
     pw.ImageProvider? logoImage;
     try {
-      final logoData = await rootBundle.load('assets/images/hope_channel_logo.png');
+      final logoData = await rootBundle.load(
+        'assets/images/hope_channel_logo.png',
+      );
       logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
     } catch (e) {
       // Logo loading failed, will use fallback
@@ -204,24 +687,6 @@ class PdfExportService {
     );
   }
 
-  pw.Widget _buildTableCell(
-    String text, {
-    bool isHeader = false,
-    pw.Alignment? alignment,
-  }) {
-    return pw.Container(
-      padding: const pw.EdgeInsets.all(8),
-      alignment: alignment ?? pw.Alignment.centerLeft,
-      child: pw.Text(
-        text,
-        style: pw.TextStyle(
-          fontWeight: isHeader ? pw.FontWeight.bold : pw.FontWeight.normal,
-          fontSize: isHeader ? 10 : 9,
-        ),
-      ),
-    );
-  }
-
   pw.Widget _buildHeader(PettyCashReport report, pw.ImageProvider? logoImage) {
     return pw.Column(
       children: [
@@ -268,7 +733,10 @@ class PdfExportService {
                 children: [
                   pw.Text(
                     AppConstants.organizationName,
-                    style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
+                    style: pw.TextStyle(
+                      fontSize: 11,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
                     textAlign: pw.TextAlign.left,
                   ),
                   pw.Text(
@@ -538,5 +1006,4 @@ class PdfExportService {
 
     return number.toString(); // Fallback for very large numbers
   }
-
 }

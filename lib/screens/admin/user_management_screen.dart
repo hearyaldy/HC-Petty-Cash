@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
-import '../../models/user.dart';
+import '../../models/user.dart' show User, InventoryPermissions;
 import '../../models/enums.dart';
 import '../../models/student_timesheet.dart';
 import '../../services/firestore_service.dart';
@@ -38,7 +38,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       final users = await _firestoreService.getAllUsers();
       debugPrint('UserManagement: Loaded ${users.length} users');
       for (final user in users) {
-        debugPrint('  - User: ${user.name} (${user.email}), role: ${user.role}');
+        debugPrint(
+          '  - User: ${user.name} (${user.email}), role: ${user.role}',
+        );
       }
       _users = users;
 
@@ -78,7 +80,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             profiles[student.id] = StudentProfile.fromFirestore(doc);
           }
         } catch (e) {
-          debugPrint('UserManagement: Error loading profile for ${student.id}: $e');
+          debugPrint(
+            'UserManagement: Error loading profile for ${student.id}: $e',
+          );
         }
       }
 
@@ -95,75 +99,140 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('User Management'),
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Colors.purple.shade400, Colors.purple.shade600],
-            ),
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadUsers,
-            tooltip: 'Refresh',
-          ),
-          IconButton(
-            icon: const Icon(Icons.home_outlined),
-            onPressed: () => context.go('/dashboard'),
-            tooltip: 'Home',
-          ),
-        ],
-      ),
       backgroundColor: Colors.grey[50],
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : ResponsiveContainer(
-              child: _users.isEmpty ? _buildEmptyState() : _buildUserList(),
-            ),
-      floatingActionButton: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Colors.purple.shade400, Colors.purple.shade600],
-          ),
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.purple.withOpacity(0.3),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildWelcomeHeader(),
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : ResponsiveContainer(
+                      child: _users.isEmpty
+                          ? _buildEmptyState()
+                          : _buildUserList(),
+                    ),
             ),
           ],
         ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => _showAddUserDialog(),
-            borderRadius: BorderRadius.circular(24),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+      ),
+    );
+  }
+
+  Widget _buildWelcomeHeader() {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.purple.shade400, Colors.purple.shade600],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.purple.shade200,
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'User Management',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.9),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Row(
                 children: [
-                  Icon(Icons.person_add, color: Colors.white),
-                  SizedBox(width: 8),
-                  Text(
-                    'Add User',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  _buildHeaderActionButton(
+                    icon: Icons.person_add,
+                    tooltip: 'Add User',
+                    onPressed: () => _showAddUserDialog(),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildHeaderActionButton(
+                    icon: Icons.refresh,
+                    tooltip: 'Refresh',
+                    onPressed: _loadUsers,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildHeaderActionButton(
+                    icon: Icons.home_outlined,
+                    tooltip: 'Home',
+                    onPressed: () => context.go('/admin-hub'),
                   ),
                 ],
               ),
-            ),
+            ],
           ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.people, color: Colors.white, size: 32),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Manage Users',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${_users.length} users in system',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
         ),
       ),
     );
@@ -269,7 +338,13 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
   Widget _buildUserList() {
     // Group users by role
-    final knownRoles = ['admin', 'manager', 'finance', 'requester', 'studentWorker'];
+    final knownRoles = [
+      'admin',
+      'manager',
+      'finance',
+      'requester',
+      'studentWorker',
+    ];
     final admins = _users.where((u) => u.role == 'admin').toList();
     final managers = _users.where((u) => u.role == 'manager').toList();
     final finance = _users.where((u) => u.role == 'finance').toList();
@@ -289,35 +364,72 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           ),
         ),
         if (admins.isNotEmpty) ...[
-          _buildSectionHeader('Admins', Icons.admin_panel_settings, Colors.purple, admins.length),
+          _buildSectionHeader(
+            'Admins',
+            Icons.admin_panel_settings,
+            Colors.purple,
+            admins.length,
+          ),
           ...admins.map((user) => _buildUserCard(user)),
         ],
         if (managers.isNotEmpty) ...[
-          _buildSectionHeader('Managers', Icons.verified_user, Colors.blue, managers.length),
+          _buildSectionHeader(
+            'Managers',
+            Icons.verified_user,
+            Colors.blue,
+            managers.length,
+          ),
           ...managers.map((user) => _buildUserCard(user)),
         ],
         if (finance.isNotEmpty) ...[
-          _buildSectionHeader('Finance', Icons.account_balance, Colors.teal, finance.length),
+          _buildSectionHeader(
+            'Finance',
+            Icons.account_balance,
+            Colors.teal,
+            finance.length,
+          ),
           ...finance.map((user) => _buildUserCard(user)),
         ],
         if (requesters.isNotEmpty) ...[
-          _buildSectionHeader('Requesters', Icons.person, Colors.green, requesters.length),
+          _buildSectionHeader(
+            'Requesters',
+            Icons.person,
+            Colors.green,
+            requesters.length,
+          ),
           ...requesters.map((user) => _buildUserCard(user)),
         ],
         if (students.isNotEmpty) ...[
-          _buildSectionHeader('Student Workers', Icons.school, Colors.orange, students.length),
-          ...students.map((user) => _buildStudentCard(user, _studentProfiles[user.id])),
+          _buildSectionHeader(
+            'Student Workers',
+            Icons.school,
+            Colors.orange,
+            students.length,
+          ),
+          ...students.map(
+            (user) => _buildStudentCard(user, _studentProfiles[user.id]),
+          ),
         ],
         // Show users with unknown roles (for debugging)
         if (others.isNotEmpty) ...[
-          _buildSectionHeader('Other (Unknown Role)', Icons.help_outline, Colors.grey, others.length),
+          _buildSectionHeader(
+            'Other (Unknown Role)',
+            Icons.help_outline,
+            Colors.grey,
+            others.length,
+          ),
           ...others.map((user) => _buildUserCard(user)),
         ],
       ],
     );
   }
 
-  Widget _buildSectionHeader(String title, IconData icon, Color color, int count) {
+  Widget _buildSectionHeader(
+    String title,
+    IconData icon,
+    Color color,
+    int count,
+  ) {
     return Container(
       margin: const EdgeInsets.only(top: 16, bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -327,9 +439,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           end: Alignment.centerRight,
           colors: [color.withValues(alpha: 0.1), Colors.transparent],
         ),
-        border: Border(
-          left: BorderSide(color: color, width: 4),
-        ),
+        border: Border(left: BorderSide(color: color, width: 4)),
       ),
       child: Row(
         children: [
@@ -463,7 +573,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       children: [
                         if (grade != null) ...[
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: _getGradeColor(grade),
                               borderRadius: BorderRadius.circular(8),
@@ -499,39 +612,46 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     ),
                   ],
                   const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: _getRoleGradientColors(user.role),
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: _getRoleColor(user.role).withOpacity(0.3),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
                         ),
-                      ],
-                    ),
-                    child: Text(
-                      UserRole.values
-                          .firstWhere(
-                            (e) => e.name == user.role.trim().toLowerCase(),
-                            orElse: () => UserRole.requester,
-                          )
-                          .displayName,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: _getRoleGradientColors(user.role),
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _getRoleColor(user.role).withOpacity(0.3),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          UserRole.values
+                              .firstWhere(
+                                (e) => e.name == user.role.trim().toLowerCase(),
+                                orElse: () => UserRole.requester,
+                              )
+                              .displayName,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      if (_hasAnyInventoryPermission(user))
+                        _buildInventoryBadge(user),
+                    ],
                   ),
                 ],
               ),
@@ -544,6 +664,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   _confirmDeleteUser(user);
                 } else if (value == 'rate') {
                   _showEditRateDialog(user, hourlyRate ?? 0.0);
+                } else if (value == 'inventory') {
+                  _showInventoryPermissionsDialog(user);
                 }
               },
               itemBuilder: (context) => [
@@ -554,6 +676,16 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       Icon(Icons.edit, color: Colors.blue.shade600),
                       const SizedBox(width: 8),
                       const Text('Edit'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'inventory',
+                  child: Row(
+                    children: [
+                      Icon(Icons.inventory_2, color: Colors.indigo.shade600),
+                      const SizedBox(width: 8),
+                      const Text('Inventory Access'),
                     ],
                   ),
                 ),
@@ -655,7 +787,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                           ),
                           if (profile?.grade != null)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: _getGradeColor(profile!.grade!),
                                 borderRadius: BorderRadius.circular(12),
@@ -674,12 +809,19 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          Icon(Icons.email_outlined, size: 14, color: Colors.grey[600]),
+                          Icon(
+                            Icons.email_outlined,
+                            size: 14,
+                            color: Colors.grey[600],
+                          ),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
                               user.email,
-                              style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 13,
+                              ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -696,6 +838,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       _showEditStudentProfileDialog(user, profile);
                     } else if (value == 'delete') {
                       _confirmDeleteUser(user);
+                    } else if (value == 'inventory') {
+                      _showInventoryPermissionsDialog(user);
                     }
                   },
                   itemBuilder: (context) => [
@@ -703,7 +847,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       value: 'edit_user',
                       child: Row(
                         children: [
-                          Icon(Icons.person_outline, color: Colors.blue.shade600),
+                          Icon(
+                            Icons.person_outline,
+                            color: Colors.blue.shade600,
+                          ),
                           const SizedBox(width: 8),
                           const Text('Edit User Info'),
                         ],
@@ -713,9 +860,25 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       value: 'edit_profile',
                       child: Row(
                         children: [
-                          Icon(Icons.school_outlined, color: Colors.orange.shade600),
+                          Icon(
+                            Icons.school_outlined,
+                            color: Colors.orange.shade600,
+                          ),
                           const SizedBox(width: 8),
                           const Text('Edit Student Profile'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'inventory',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.inventory_2,
+                            color: Colors.indigo.shade600,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text('Inventory Access'),
                         ],
                       ),
                     ),
@@ -738,22 +901,58 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             if (profile != null) ...[
               Row(
                 children: [
-                  Expanded(child: _buildStudentInfoItem(Icons.badge, 'Student #', profile.studentNumber)),
-                  Expanded(child: _buildStudentInfoItem(Icons.phone, 'Phone', profile.phoneNumber)),
+                  Expanded(
+                    child: _buildStudentInfoItem(
+                      Icons.badge,
+                      'Student #',
+                      profile.studentNumber,
+                    ),
+                  ),
+                  Expanded(
+                    child: _buildStudentInfoItem(
+                      Icons.phone,
+                      'Phone',
+                      profile.phoneNumber,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Expanded(child: _buildStudentInfoItem(Icons.book, 'Course', profile.course)),
-                  Expanded(child: _buildStudentInfoItem(Icons.school_outlined, 'Year', profile.yearLevel)),
+                  Expanded(
+                    child: _buildStudentInfoItem(
+                      Icons.book,
+                      'Course',
+                      profile.course,
+                    ),
+                  ),
+                  Expanded(
+                    child: _buildStudentInfoItem(
+                      Icons.school_outlined,
+                      'Year',
+                      profile.yearLevel,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Expanded(child: _buildStudentInfoItem(Icons.language, 'Language', profile.language ?? 'Not set')),
-                  Expanded(child: _buildStudentInfoItem(Icons.work_outline, 'Role', profile.role ?? 'Not set')),
+                  Expanded(
+                    child: _buildStudentInfoItem(
+                      Icons.language,
+                      'Language',
+                      profile.language ?? 'Not set',
+                    ),
+                  ),
+                  Expanded(
+                    child: _buildStudentInfoItem(
+                      Icons.work_outline,
+                      'Role',
+                      profile.role ?? 'Not set',
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -772,7 +971,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       children: [
                         Text(
                           'Hourly Rate',
-                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
                         ),
                         const SizedBox(height: 2),
                         Text(
@@ -786,10 +988,16 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       ],
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [Colors.orange.shade400, Colors.orange.shade600],
+                          colors: [
+                            Colors.orange.shade400,
+                            Colors.orange.shade600,
+                          ],
                         ),
                         borderRadius: BorderRadius.circular(20),
                       ),
@@ -854,7 +1062,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               ),
               Text(
                 value.isEmpty ? 'Not set' : value,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
                 overflow: TextOverflow.ellipsis,
               ),
             ],
@@ -862,6 +1073,75 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         ),
       ],
     );
+  }
+
+  bool _hasAnyInventoryPermission(User user) {
+    // Admin always has full access
+    if (user.role == 'admin') return true;
+    final perms = user.inventoryPermissions;
+    return perms.canView ||
+        perms.canAdd ||
+        perms.canEdit ||
+        perms.canDelete ||
+        perms.canCheckout;
+  }
+
+  Widget _buildInventoryBadge(User user) {
+    final perms = user.inventoryPermissions;
+    final isAdmin = user.role == 'admin';
+    final permCount = isAdmin
+        ? 5
+        : [
+            perms.canView,
+            perms.canAdd,
+            perms.canEdit,
+            perms.canDelete,
+            perms.canCheckout,
+          ].where((p) => p).length;
+
+    return Tooltip(
+      message: isAdmin
+          ? 'Full inventory access (Admin)'
+          : 'Inventory: ${_getPermissionSummary(user)}',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.indigo.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.indigo.shade200),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.inventory_2,
+              size: 12,
+              color: Colors.indigo.shade600,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              isAdmin ? 'Full' : '$permCount/5',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: Colors.indigo.shade700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getPermissionSummary(User user) {
+    final perms = user.inventoryPermissions;
+    final List<String> enabled = [];
+    if (perms.canView) enabled.add('View');
+    if (perms.canAdd) enabled.add('Add');
+    if (perms.canEdit) enabled.add('Edit');
+    if (perms.canDelete) enabled.add('Delete');
+    if (perms.canCheckout) enabled.add('Checkout');
+    return enabled.isEmpty ? 'No access' : enabled.join(', ');
   }
 
   List<Color> _getRoleGradientColors(String role) {
@@ -922,7 +1202,13 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         return 'manager'; // Map old 'approver' to 'manager'
       default:
         // Check if it's a valid role, otherwise default to requester
-        final validRoles = ['requester', 'manager', 'finance', 'admin', 'studentWorker'];
+        final validRoles = [
+          'requester',
+          'manager',
+          'finance',
+          'admin',
+          'studentWorker',
+        ];
         return validRoles.contains(role) ? role : 'requester';
     }
   }
@@ -952,7 +1238,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   ),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.person_add, color: Colors.white, size: 20),
+                child: const Icon(
+                  Icons.person_add,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 12),
               const Text('Add New User'),
@@ -1006,8 +1296,13 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       border: const OutlineInputBorder(),
                       prefixIcon: const Icon(Icons.lock),
                       suffixIcon: IconButton(
-                        icon: Icon(obscurePassword ? Icons.visibility : Icons.visibility_off),
-                        onPressed: () => setState(() => obscurePassword = !obscurePassword),
+                        icon: Icon(
+                          obscurePassword
+                              ? Icons.visibility
+                              : Icons.visibility_off,
+                        ),
+                        onPressed: () =>
+                            setState(() => obscurePassword = !obscurePassword),
                       ),
                     ),
                     validator: (value) {
@@ -1029,8 +1324,15 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       border: const OutlineInputBorder(),
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
-                        icon: Icon(obscureConfirmPassword ? Icons.visibility : Icons.visibility_off),
-                        onPressed: () => setState(() => obscureConfirmPassword = !obscureConfirmPassword),
+                        icon: Icon(
+                          obscureConfirmPassword
+                              ? Icons.visibility
+                              : Icons.visibility_off,
+                        ),
+                        onPressed: () => setState(
+                          () =>
+                              obscureConfirmPassword = !obscureConfirmPassword,
+                        ),
                       ),
                     ),
                     validator: (value) {
@@ -1101,12 +1403,19 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.info_outline, color: Colors.amber.shade700, size: 20),
+                        Icon(
+                          Icons.info_outline,
+                          color: Colors.amber.shade700,
+                          size: 20,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'You will need to re-enter your password after creating this user.',
-                            style: TextStyle(fontSize: 12, color: Colors.amber.shade800),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.amber.shade800,
+                            ),
                           ),
                         ),
                       ],
@@ -1439,7 +1748,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   ),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.lock_person, color: Colors.white, size: 20),
+                child: const Icon(
+                  Icons.lock_person,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 12),
               const Text('Re-authenticate'),
@@ -1496,8 +1809,13 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     border: const OutlineInputBorder(),
                     prefixIcon: const Icon(Icons.lock),
                     suffixIcon: IconButton(
-                      icon: Icon(obscurePassword ? Icons.visibility : Icons.visibility_off),
-                      onPressed: () => setState(() => obscurePassword = !obscurePassword),
+                      icon: Icon(
+                        obscurePassword
+                            ? Icons.visibility
+                            : Icons.visibility_off,
+                      ),
+                      onPressed: () =>
+                          setState(() => obscurePassword = !obscurePassword),
                     ),
                   ),
                   validator: (value) {
@@ -1526,11 +1844,17 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   if (formKey.currentState!.validate()) {
                     setState(() => isLoading = true);
                     try {
-                      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                      final authProvider = Provider.of<AuthProvider>(
+                        context,
+                        listen: false,
+                      );
                       final navigator = Navigator.of(context);
                       final scaffoldMessenger = ScaffoldMessenger.of(context);
 
-                      await authProvider.login(adminEmail, passwordController.text);
+                      await authProvider.login(
+                        adminEmail,
+                        passwordController.text,
+                      );
 
                       if (context.mounted) {
                         navigator.pop();
@@ -1743,17 +2067,42 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
   void _showEditStudentProfileDialog(User user, StudentProfile? profile) {
     final formKey = GlobalKey<FormState>();
-    final studentNumberController = TextEditingController(text: profile?.studentNumber ?? '');
-    final phoneNumberController = TextEditingController(text: profile?.phoneNumber ?? '');
+    final studentNumberController = TextEditingController(
+      text: profile?.studentNumber ?? '',
+    );
+    final phoneNumberController = TextEditingController(
+      text: profile?.phoneNumber ?? '',
+    );
     final courseController = TextEditingController(text: profile?.course ?? '');
     String selectedYearLevel = profile?.yearLevel ?? '1st Year';
     String? selectedLanguage = profile?.language;
     String? selectedRole = profile?.role;
     String? selectedGrade = profile?.grade;
 
-    final yearLevels = ['1st Year', '2nd Year', '3rd Year', '4th Year', 'Graduate'];
-    final languages = ['Malay', 'Thai', 'Khmer', 'Chinese', 'English', 'Lao', 'Vietnamese', 'Other'];
-    final roles = ['Video Editor', 'Producer', 'Content Creator', 'Language Editor', 'Other'];
+    final yearLevels = [
+      '1st Year',
+      '2nd Year',
+      '3rd Year',
+      '4th Year',
+      'Graduate',
+    ];
+    final languages = [
+      'Malay',
+      'Thai',
+      'Khmer',
+      'Chinese',
+      'English',
+      'Lao',
+      'Vietnamese',
+      'Other',
+    ];
+    final roles = [
+      'Video Editor',
+      'Producer',
+      'Content Creator',
+      'Language Editor',
+      'Other',
+    ];
 
     showDialog(
       context: context,
@@ -1761,7 +2110,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         builder: (context, setState) {
           // Calculate rate based on role and grade (use 'Other' as fallback)
           final rateRole = selectedRole ?? 'Other';
-          double calculatedRate = StudentRateConfig.getRate(rateRole, selectedGrade);
+          double calculatedRate = StudentRateConfig.getRate(
+            rateRole,
+            selectedGrade,
+          );
 
           return AlertDialog(
             title: Row(
@@ -1774,17 +2126,28 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     ),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.school, color: Colors.white, size: 20),
+                  child: const Icon(
+                    Icons.school,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Edit Student Profile', style: TextStyle(fontSize: 18)),
+                      const Text(
+                        'Edit Student Profile',
+                        style: TextStyle(fontSize: 18),
+                      ),
                       Text(
                         user.name,
-                        style: TextStyle(fontSize: 13, color: Colors.grey[600], fontWeight: FontWeight.normal),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.normal,
+                        ),
                       ),
                     ],
                   ),
@@ -1804,7 +2167,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       decoration: InputDecoration(
                         labelText: 'Student Number *',
                         hintText: 'e.g., 2024-12345',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         prefixIcon: const Icon(Icons.badge),
                       ),
                       validator: (value) {
@@ -1821,7 +2186,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       decoration: InputDecoration(
                         labelText: 'Phone Number *',
                         hintText: 'e.g., +1234567890',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         prefixIcon: const Icon(Icons.phone),
                       ),
                       keyboardType: TextInputType.phone,
@@ -1839,7 +2206,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       decoration: InputDecoration(
                         labelText: 'Course/Program *',
                         hintText: 'e.g., Computer Science',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         prefixIcon: const Icon(Icons.book),
                       ),
                       validator: (value) {
@@ -1855,11 +2224,21 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       value: selectedYearLevel,
                       decoration: InputDecoration(
                         labelText: 'Year Level *',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         prefixIcon: const Icon(Icons.school_outlined),
                       ),
-                      items: yearLevels.map((year) => DropdownMenuItem(value: year, child: Text(year))).toList(),
-                      onChanged: (value) => setState(() => selectedYearLevel = value!),
+                      items: yearLevels
+                          .map(
+                            (year) => DropdownMenuItem(
+                              value: year,
+                              child: Text(year),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) =>
+                          setState(() => selectedYearLevel = value!),
                     ),
                     const SizedBox(height: 16),
                     // Language
@@ -1868,11 +2247,21 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       decoration: InputDecoration(
                         labelText: 'Language',
                         hintText: 'Select language',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         prefixIcon: const Icon(Icons.language),
                       ),
-                      items: languages.map((lang) => DropdownMenuItem(value: lang, child: Text(lang))).toList(),
-                      onChanged: (value) => setState(() => selectedLanguage = value),
+                      items: languages
+                          .map(
+                            (lang) => DropdownMenuItem(
+                              value: lang,
+                              child: Text(lang),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) =>
+                          setState(() => selectedLanguage = value),
                     ),
                     const SizedBox(height: 16),
                     // Role
@@ -1881,11 +2270,21 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       decoration: InputDecoration(
                         labelText: 'Role',
                         hintText: 'Select role',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         prefixIcon: const Icon(Icons.work_outline),
                       ),
-                      items: roles.map((role) => DropdownMenuItem(value: role, child: Text(role))).toList(),
-                      onChanged: (value) => setState(() => selectedRole = value),
+                      items: roles
+                          .map(
+                            (role) => DropdownMenuItem(
+                              value: role,
+                              child: Text(role),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) =>
+                          setState(() => selectedRole = value),
                     ),
                     const SizedBox(height: 16),
                     // Grade
@@ -1894,7 +2293,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       decoration: InputDecoration(
                         labelText: 'Grade',
                         hintText: 'Select grade',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         prefixIcon: const Icon(Icons.grade),
                       ),
                       items: StudentRateConfig.grades.map((grade) {
@@ -1909,13 +2310,17 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                               Text('Grade $grade'),
                               Text(
                                 'THB ${rate.toStringAsFixed(0)}/hr',
-                                style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 12,
+                                ),
                               ),
                             ],
                           ),
                         );
                       }).toList(),
-                      onChanged: (value) => setState(() => selectedGrade = value),
+                      onChanged: (value) =>
+                          setState(() => selectedGrade = value),
                     ),
                     const SizedBox(height: 16),
                     // Calculated Rate Display
@@ -1936,7 +2341,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                               children: [
                                 Text(
                                   'Calculated Hourly Rate',
-                                  style: TextStyle(fontSize: 12, color: Colors.green.shade700),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.green.shade700,
+                                  ),
                                 ),
                                 Text(
                                   'THB ${calculatedRate.toStringAsFixed(2)}',
@@ -1982,16 +2390,24 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                           language: selectedLanguage,
                           role: selectedRole,
                           grade: selectedGrade,
-                          hourlyRate: calculatedRate > 0 ? calculatedRate : profile?.hourlyRate ?? 0.0,
+                          hourlyRate: calculatedRate > 0
+                              ? calculatedRate
+                              : profile?.hourlyRate ?? 0.0,
                         );
                       }
                     },
                     borderRadius: BorderRadius.circular(8),
                     child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       child: Text(
                         'Save Changes',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
@@ -2016,7 +2432,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     required double hourlyRate,
   }) async {
     try {
-      final profileRef = FirebaseFirestore.instance.collection('student_profiles').doc(userId);
+      final profileRef = FirebaseFirestore.instance
+          .collection('student_profiles')
+          .doc(userId);
       final profileDoc = await profileRef.get();
 
       if (profileDoc.exists) {
@@ -2061,6 +2479,317 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error updating profile: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showInventoryPermissionsDialog(User user) {
+    // Get current permissions
+    bool canView = user.inventoryPermissions.canView;
+    bool canAdd = user.inventoryPermissions.canAdd;
+    bool canEdit = user.inventoryPermissions.canEdit;
+    bool canDelete = user.inventoryPermissions.canDelete;
+    bool canCheckout = user.inventoryPermissions.canCheckout;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.indigo.shade400, Colors.indigo.shade600],
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.inventory_2,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Inventory Permissions',
+                      style: TextStyle(fontSize: 18),
+                    ),
+                    Text(
+                      user.name,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.normal,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Admin note
+                if (user.role == 'admin')
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.amber.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          color: Colors.amber.shade700,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Admins automatically have full inventory access.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.amber.shade800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                // Quick actions
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            canView = true;
+                            canAdd = true;
+                            canEdit = true;
+                            canDelete = true;
+                            canCheckout = true;
+                          });
+                        },
+                        icon: const Icon(Icons.check_circle, size: 16),
+                        label: const Text('Grant All'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.green.shade700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            canView = false;
+                            canAdd = false;
+                            canEdit = false;
+                            canDelete = false;
+                            canCheckout = false;
+                          });
+                        },
+                        icon: const Icon(Icons.cancel, size: 16),
+                        label: const Text('Revoke All'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red.shade700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const Divider(height: 24),
+                // Individual permissions
+                _buildPermissionSwitch(
+                  title: 'View Inventory',
+                  subtitle: 'Can see equipment list and details',
+                  icon: Icons.visibility,
+                  value: canView,
+                  onChanged: (val) => setState(() => canView = val),
+                ),
+                _buildPermissionSwitch(
+                  title: 'Add Equipment',
+                  subtitle: 'Can add new equipment to inventory',
+                  icon: Icons.add_circle_outline,
+                  value: canAdd,
+                  onChanged: (val) => setState(() => canAdd = val),
+                ),
+                _buildPermissionSwitch(
+                  title: 'Edit Equipment',
+                  subtitle: 'Can modify existing equipment details',
+                  icon: Icons.edit,
+                  value: canEdit,
+                  onChanged: (val) => setState(() => canEdit = val),
+                ),
+                _buildPermissionSwitch(
+                  title: 'Delete Equipment',
+                  subtitle: 'Can remove equipment from inventory',
+                  icon: Icons.delete_outline,
+                  value: canDelete,
+                  onChanged: (val) => setState(() => canDelete = val),
+                  isDanger: true,
+                ),
+                _buildPermissionSwitch(
+                  title: 'Checkout Equipment',
+                  subtitle: 'Can checkout/return equipment',
+                  icon: Icons.assignment_return,
+                  value: canCheckout,
+                  onChanged: (val) => setState(() => canCheckout = val),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.indigo.shade400, Colors.indigo.shade600],
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await _updateInventoryPermissions(
+                      user,
+                      canView: canView,
+                      canAdd: canAdd,
+                      canEdit: canEdit,
+                      canDelete: canDelete,
+                      canCheckout: canCheckout,
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: Text(
+                      'Save Permissions',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPermissionSwitch({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+    bool isDanger = false,
+  }) {
+    final color = isDanger ? Colors.red : Colors.indigo;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: value ? color.withValues(alpha: 0.05) : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: value ? color.withValues(alpha: 0.3) : Colors.grey.shade200,
+        ),
+      ),
+      child: SwitchListTile(
+        title: Row(
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color: value ? color : Colors.grey,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: value ? color.shade700 : Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(left: 28),
+          child: Text(
+            subtitle,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade600,
+            ),
+          ),
+        ),
+        value: value,
+        onChanged: onChanged,
+        activeColor: color,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      ),
+    );
+  }
+
+  Future<void> _updateInventoryPermissions(
+    User user, {
+    required bool canView,
+    required bool canAdd,
+    required bool canEdit,
+    required bool canDelete,
+    required bool canCheckout,
+  }) async {
+    try {
+      final updatedUser = user.copyWith(
+        inventoryPermissions: InventoryPermissions(
+          canView: canView,
+          canAdd: canAdd,
+          canEdit: canEdit,
+          canDelete: canDelete,
+          canCheckout: canCheckout,
+        ),
+        updatedAt: DateTime.now(),
+      );
+
+      await _firestoreService.updateUser(updatedUser);
+      await _loadUsers();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Inventory permissions updated successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating permissions: $e'),
             backgroundColor: Colors.red,
           ),
         );

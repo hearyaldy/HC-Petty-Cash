@@ -1,6 +1,81 @@
 import 'package:cloud_firestore/cloud_firestore.dart' as firestore;
 import 'enums.dart';
 
+/// Inventory permission settings for a user
+class InventoryPermissions {
+  final bool canView;
+  final bool canAdd;
+  final bool canEdit;
+  final bool canDelete;
+  final bool canCheckout;
+
+  const InventoryPermissions({
+    this.canView = false,
+    this.canAdd = false,
+    this.canEdit = false,
+    this.canDelete = false,
+    this.canCheckout = false,
+  });
+
+  factory InventoryPermissions.fromMap(Map<String, dynamic>? map) {
+    if (map == null) return const InventoryPermissions();
+    return InventoryPermissions(
+      canView: map['canView'] as bool? ?? false,
+      canAdd: map['canAdd'] as bool? ?? false,
+      canEdit: map['canEdit'] as bool? ?? false,
+      canDelete: map['canDelete'] as bool? ?? false,
+      canCheckout: map['canCheckout'] as bool? ?? false,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'canView': canView,
+      'canAdd': canAdd,
+      'canEdit': canEdit,
+      'canDelete': canDelete,
+      'canCheckout': canCheckout,
+    };
+  }
+
+  InventoryPermissions copyWith({
+    bool? canView,
+    bool? canAdd,
+    bool? canEdit,
+    bool? canDelete,
+    bool? canCheckout,
+  }) {
+    return InventoryPermissions(
+      canView: canView ?? this.canView,
+      canAdd: canAdd ?? this.canAdd,
+      canEdit: canEdit ?? this.canEdit,
+      canDelete: canDelete ?? this.canDelete,
+      canCheckout: canCheckout ?? this.canCheckout,
+    );
+  }
+
+  /// Returns full permissions (admin-level)
+  static InventoryPermissions get full => const InventoryPermissions(
+        canView: true,
+        canAdd: true,
+        canEdit: true,
+        canDelete: true,
+        canCheckout: true,
+      );
+
+  /// Returns view-only permissions
+  static InventoryPermissions get viewOnly => const InventoryPermissions(
+        canView: true,
+        canAdd: false,
+        canEdit: false,
+        canDelete: false,
+        canCheckout: false,
+      );
+
+  /// Returns no permissions
+  static InventoryPermissions get none => const InventoryPermissions();
+}
+
 class User {
   final String id; // Firebase Auth UID
   final String name;
@@ -10,6 +85,7 @@ class User {
   final String? photoUrl;
   final DateTime createdAt;
   final DateTime? updatedAt;
+  final InventoryPermissions inventoryPermissions;
 
   User({
     required this.id,
@@ -20,6 +96,7 @@ class User {
     this.photoUrl,
     required this.createdAt,
     this.updatedAt,
+    this.inventoryPermissions = const InventoryPermissions(),
   });
 
   // Get UserRole enum from string
@@ -39,6 +116,7 @@ class User {
       'photoUrl': photoUrl,
       'createdAt': firestore.Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt != null ? firestore.Timestamp.fromDate(updatedAt!) : null,
+      'inventoryPermissions': inventoryPermissions.toMap(),
     };
   }
 
@@ -75,6 +153,9 @@ class User {
       photoUrl: data['photoUrl'] as String?,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      inventoryPermissions: InventoryPermissions.fromMap(
+        data['inventoryPermissions'] as Map<String, dynamic>?,
+      ),
     );
   }
 
@@ -89,6 +170,7 @@ class User {
       'photoUrl': photoUrl,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
+      'inventoryPermissions': inventoryPermissions.toMap(),
     };
   }
 
@@ -104,6 +186,9 @@ class User {
       updatedAt: json['updatedAt'] != null
           ? DateTime.parse(json['updatedAt'] as String)
           : null,
+      inventoryPermissions: InventoryPermissions.fromMap(
+        json['inventoryPermissions'] as Map<String, dynamic>?,
+      ),
     );
   }
 
@@ -115,6 +200,7 @@ class User {
     String? department,
     String? photoUrl,
     DateTime? updatedAt,
+    InventoryPermissions? inventoryPermissions,
   }) {
     return User(
       id: id,
@@ -125,6 +211,7 @@ class User {
       photoUrl: photoUrl ?? this.photoUrl,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      inventoryPermissions: inventoryPermissions ?? this.inventoryPermissions,
     );
   }
 }

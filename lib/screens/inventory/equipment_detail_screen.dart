@@ -36,7 +36,8 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
-    final isAdmin = authProvider.canManageUsers();
+    final canEdit = authProvider.canEditInventory();
+    final canDelete = authProvider.canDeleteInventory();
 
     return StreamBuilder<List<Equipment>>(
       stream: _equipmentService.getAllEquipment(),
@@ -72,19 +73,19 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
             title: Text(equipment.name),
             elevation: ResponsiveHelper.isDesktop(context) ? 1 : 0,
             actions: [
-              if (isAdmin) ...[
+              if (canEdit)
                 IconButton(
                   icon: const Icon(Icons.edit),
                   onPressed: () =>
                       context.push('/inventory/edit/${equipment.id}'),
                   tooltip: 'Edit',
                 ),
+              if (canDelete)
                 IconButton(
                   icon: const Icon(Icons.delete),
                   onPressed: () => _confirmDelete(equipment),
                   tooltip: 'Delete',
                 ),
-              ],
             ],
             bottom: TabBar(
               controller: _tabController,
@@ -110,8 +111,9 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
   Widget? _buildActionButton(Equipment equipment) {
     final authProvider = context.watch<AuthProvider>();
     final user = authProvider.currentUser;
+    final canCheckout = authProvider.canCheckoutInventory();
 
-    if (equipment.status == EquipmentStatus.available) {
+    if (equipment.status == EquipmentStatus.available && canCheckout) {
       return FloatingActionButton.extended(
         onPressed: () => _showCheckoutDialog(equipment),
         icon: const Icon(Icons.output),
@@ -119,9 +121,9 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
         backgroundColor: Colors.orange,
       );
     } else if (equipment.status == EquipmentStatus.checkedOut) {
-      // Only the person who checked it out or admin can check it in
+      // Only the person who checked it out or users with checkout permission can check it in
       final canCheckIn =
-          authProvider.canManageUsers() ||
+          canCheckout ||
           equipment.currentHolderId == user?.id;
       if (canCheckIn) {
         return FloatingActionButton.extended(
@@ -206,42 +208,82 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
   Widget _buildHeaderCard(Equipment equipment, NumberFormat currencyFormat) {
     final statusColor = _getStatusColor(equipment.status);
     final conditionColor = _getConditionColor(equipment.condition);
+    final hasPhoto = equipment.photoUrl != null && equipment.photoUrl!.isNotEmpty;
 
     return Card(
       elevation: 3,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            colors: [
-              _getCategoryColor(equipment.category).withOpacity(0.1),
-              Colors.white,
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      child: Column(
+        children: [
+          // Photo section
+          if (hasPhoto)
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              child: Image.network(
+                equipment.photoUrl!,
+                height: 200,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) return child;
+                  return Container(
+                    height: 200,
+                    color: Colors.grey.shade200,
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        value: progress.expectedTotalBytes != null
+                            ? progress.cumulativeBytesLoaded /
+                                progress.expectedTotalBytes!
+                            : null,
+                      ),
+                    ),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    height: 200,
+                    color: Colors.grey.shade200,
+                    child: const Center(
+                      child: Icon(Icons.broken_image, size: 48, color: Colors.grey),
+                    ),
+                  );
+                },
+              ),
+            ),
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: hasPhoto
+                  ? const BorderRadius.vertical(bottom: Radius.circular(16))
+                  : BorderRadius.circular(16),
+              gradient: LinearGradient(
+                colors: [
+                  _getCategoryColor(equipment.category).withValues(alpha: 0.1),
+                  Colors.white,
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: _getCategoryColor(
-                      equipment.category,
-                    ).withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Icon(
-                    _getCategoryIcon(equipment.category),
-                    size: 48,
-                    color: _getCategoryColor(equipment.category),
-                  ),
-                ),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: _getCategoryColor(
+                          equipment.category,
+                        ).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Icon(
+                        _getCategoryIcon(equipment.category),
+                        size: 48,
+                        color: _getCategoryColor(equipment.category),
+                      ),
+                    ),
                 const SizedBox(width: 20),
                 Expanded(
                   child: Column(
@@ -290,28 +332,30 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
                 ),
               ],
             ),
-            if (equipment.purchasePrice != null) ...[
-              const Divider(height: 32),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Asset Value',
-                    style: TextStyle(fontSize: 14, color: Colors.grey),
-                  ),
-                  Text(
-                    currencyFormat.format(equipment.purchasePrice),
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green,
-                    ),
+                if (equipment.purchasePrice != null) ...[
+                  const Divider(height: 32),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Asset Value',
+                        style: TextStyle(fontSize: 14, color: Colors.grey),
+                      ),
+                      Text(
+                        currencyFormat.format(equipment.purchasePrice),
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
-              ),
-            ],
-          ],
-        ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -412,21 +456,33 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
                 Icon(Icons.settings, color: Colors.blue.shade700),
                 const SizedBox(width: 8),
                 const Text(
-                  'Specifications',
+                  'Specifications & Identification',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
             const Divider(height: 24),
+            if (equipment.accountingPeriod != null)
+              _buildInfoRow('Accounting Period', equipment.accountingPeriod!),
+            if (equipment.assetCode != null)
+              _buildInfoRow('Asset Code', equipment.assetCode!),
             if (equipment.serialNumber != null)
               _buildInfoRow('Serial Number', equipment.serialNumber!),
             if (equipment.assetTag != null)
               _buildInfoRow('Asset Tag', equipment.assetTag!),
             if (equipment.location != null)
               _buildInfoRow('Location', equipment.location!),
+            if (equipment.assignedToName != null)
+              _buildInfoRow('Assigned To', equipment.assignedToName!),
+            if (equipment.quantity > 1)
+              _buildInfoRow('Quantity', equipment.quantity.toString()),
             if (equipment.description != null)
               _buildInfoRow('Description', equipment.description!),
-            if (equipment.serialNumber == null &&
+            if (equipment.assetAgeYears != null)
+              _buildInfoRow('Asset Age', '${equipment.assetAgeYears} years'),
+            if (equipment.accountingPeriod == null &&
+                equipment.assetCode == null &&
+                equipment.serialNumber == null &&
                 equipment.assetTag == null &&
                 equipment.location == null &&
                 equipment.description == null)
@@ -458,17 +514,31 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
                 Icon(Icons.receipt_long, color: Colors.green.shade700),
                 const SizedBox(width: 8),
                 const Text(
-                  'Purchase Information',
+                  'Purchase & Depreciation',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
             const Divider(height: 24),
+            if (equipment.purchasePrice != null)
+              _buildInfoRow(
+                'Purchase Price',
+                currencyFormat.format(equipment.purchasePrice),
+              ),
+            if (equipment.unitCost != null || equipment.effectiveUnitCost != null)
+              _buildInfoRow(
+                'Unit Cost',
+                currencyFormat.format(
+                  equipment.unitCost ?? equipment.effectiveUnitCost,
+                ),
+              ),
             if (equipment.purchaseDate != null)
               _buildInfoRow(
                 'Purchase Date',
                 dateFormat.format(equipment.purchaseDate!),
               ),
+            if (equipment.purchaseYear != null)
+              _buildInfoRow('Purchase Year', equipment.purchaseYear.toString()),
             if (equipment.supplier != null)
               _buildInfoRow('Supplier', equipment.supplier!),
             if (equipment.warrantyExpiry != null)
@@ -479,6 +549,35 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
                   DateTime.now(),
                 ),
               ),
+            // Depreciation info
+            if (equipment.depreciationPercentage != null) ...[
+              const Divider(height: 24),
+              _buildInfoRow(
+                'Depreciation Rate',
+                '${equipment.depreciationPercentage}% per year',
+              ),
+              if (equipment.monthlyDepreciation != null)
+                _buildInfoRow(
+                  'Monthly Depreciation',
+                  currencyFormat.format(equipment.monthlyDepreciation),
+                ),
+              if (equipment.monthsDepreciated != null)
+                _buildInfoRow(
+                  'Months Depreciated',
+                  '${equipment.monthsDepreciated} months',
+                ),
+              if (equipment.totalDepreciation != null)
+                _buildInfoRow(
+                  'Total Depreciation',
+                  currencyFormat.format(equipment.totalDepreciation),
+                ),
+              if (equipment.currentBookValue != null)
+                _buildInfoRow(
+                  'Current Book Value',
+                  currencyFormat.format(equipment.currentBookValue),
+                ),
+            ],
+            const Divider(height: 24),
             _buildInfoRow('Created', dateFormat.format(equipment.createdAt)),
             if (equipment.updatedAt != null)
               _buildInfoRow(
