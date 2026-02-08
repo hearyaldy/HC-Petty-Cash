@@ -46,6 +46,113 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
 
   List<Map<String, dynamic>> _availableUsers = [];
 
+  static final List<MeetingMember> _defaultAdcomMembers = [
+    MeetingMember(
+      oderId: 'external_adcom_chair',
+      name: 'Pr. Heary Healdy Sairin',
+      role: 'Chair',
+      organization: 'HC',
+    ),
+    MeetingMember(
+      oderId: 'external_adcom_secretary',
+      name: 'Pr. Kungwalpai Poodjing',
+      role: 'Secretary',
+      organization: 'HC',
+    ),
+    MeetingMember(
+      oderId: 'external_adcom_treasurer',
+      name: 'Archan Samorn Namkote',
+      role: 'SEUM Treasurer',
+      organization: 'SEUM',
+    ),
+    MeetingMember(
+      oderId: 'external_adcom_member_bruno',
+      name: 'Pr. Bruno Barbosa',
+      role: 'HC Member',
+      organization: 'HC',
+    ),
+    MeetingMember(
+      oderId: 'external_adcom_member_doreen',
+      name: 'Mrs. Doreen Neo',
+      role: 'HC Member',
+      organization: 'HC',
+    ),
+    MeetingMember(
+      oderId: 'external_adcom_member_anniston',
+      name: 'Mr. Anniston Mathews',
+      role: 'HC Member',
+      organization: 'HC',
+    ),
+  ];
+
+  static final List<MeetingMember> _defaultBoardMembers = [
+    MeetingMember(
+      oderId: 'external_board_abel',
+      name: 'Abel Bana',
+      role: 'MAUM',
+      organization: 'MAUM',
+    ),
+    MeetingMember(
+      oderId: 'external_board_nipitpon',
+      name: 'Nipitpon Pongteekatasana',
+      role: 'SEUM CHAIR',
+      organization: 'SEUM',
+    ),
+    MeetingMember(
+      oderId: 'external_board_nelson',
+      name: 'Nelson Bendah',
+      role: 'MAUM',
+      organization: 'MAUM',
+    ),
+    MeetingMember(
+      oderId: 'external_board_lim',
+      name: 'Lim Pheng',
+      role: 'SEUM',
+      organization: 'SEUM',
+    ),
+    MeetingMember(
+      oderId: 'external_board_samorn',
+      name: 'Samorn Namkote',
+      role: 'SEUM',
+      organization: 'SEUM',
+    ),
+    MeetingMember(
+      oderId: 'external_board_joshua',
+      name: 'Joshua Chee',
+      role: 'MAUM',
+      organization: 'MAUM',
+    ),
+    MeetingMember(
+      oderId: 'external_board_chaiwat',
+      name: 'Chaiwat Konratanasak',
+      role: 'SEUM',
+      organization: 'SEUM',
+    ),
+    MeetingMember(
+      oderId: 'external_board_farrel',
+      name: 'Farrel Gara',
+      role: 'MAUM',
+      organization: 'MAUM',
+    ),
+    MeetingMember(
+      oderId: 'external_board_heary',
+      name: 'Heary Healdy Sairin',
+      role: 'HC Secretary',
+      organization: 'HC',
+    ),
+  ];
+
+  List<adcom.AttendanceMember> _buildAttendanceMembers() {
+    return _invitedMembers.map((member) {
+      return adcom.AttendanceMember(
+        name: member.name,
+        affiliation: member.organization ?? 'HC',
+        isPresent: true,
+        isAbsentWithApology: false,
+      );
+    }).toList();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -54,6 +161,8 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
     }
     _loadUsers();
     _setDefaultTitle();
+    _ensureDefaultAdcomMembers();
+    _ensureDefaultBoardMembers();
   }
 
   @override
@@ -70,6 +179,59 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
     _titleController.text = _meetingType == 'board'
         ? 'HC Board Meeting - $monthYear'
         : 'HC ADCOM Meeting - $monthYear';
+  }
+
+  void _ensureDefaultAdcomMembers() {
+    if (_meetingType != 'adcom') return;
+    if (_invitedMembers.isNotEmpty) return;
+    _invitedMembers.addAll([
+      MeetingMember(
+        oderId: 'external_adcom_chair',
+        name: 'Pr. Heary Healdy Sairin',
+        role: 'Chair',
+        organization: 'HC',
+      ),
+      MeetingMember(
+        oderId: 'external_adcom_secretary',
+        name: 'Pr. Kungwalpai Poodjing',
+        role: 'Secretary',
+        organization: 'HC',
+      ),
+      MeetingMember(
+        oderId: 'external_adcom_treasurer',
+        name: 'Archan Samorn Namkote',
+        role: 'SEUM Treasurer',
+        organization: 'SEUM',
+      ),
+      MeetingMember(
+        oderId: 'external_adcom_member_bruno',
+        name: 'Pr. Bruno Barbosa',
+        role: 'HC Member',
+        organization: 'HC',
+      ),
+      MeetingMember(
+        oderId: 'external_adcom_member_doreen',
+        name: 'Mrs. Doreen Neo',
+        role: 'HC Member',
+        organization: 'HC',
+      ),
+      MeetingMember(
+        oderId: 'external_adcom_member_anniston',
+        name: 'Mr. Anniston Mathews',
+        role: 'HC Member',
+        organization: 'HC',
+      ),
+    ]);
+  }
+
+  void _ensureDefaultBoardMembers() {
+    if (_meetingType != 'board') return;
+    final existing = _invitedMembers.map((m) => m.name.trim()).toSet();
+    for (final member in _defaultBoardMembers) {
+      if (!existing.contains(member.name.trim())) {
+        _invitedMembers.add(member);
+      }
+    }
   }
 
   Future<void> _loadUsers() async {
@@ -281,7 +443,7 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
           meetingDate: dateTime,
           meetingTime: DateFormat('h:mm a').format(dateTime),
           location: meeting.location ?? '',
-          attendanceMembers: const [],
+          attendanceMembers: _buildAttendanceMembers(),
           agendaItems: const [],
           status: 'draft',
           startingItemSequence: 1,
@@ -560,6 +722,8 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
           setState(() {
             _meetingType = value;
             _setDefaultTitle();
+            _ensureDefaultAdcomMembers();
+            _ensureDefaultBoardMembers();
           });
         },
         borderRadius: BorderRadius.circular(12),
@@ -775,6 +939,32 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
   }
 
   Widget _buildRolesSection() {
+    final defaultNames = _meetingType == 'adcom'
+        ? _defaultAdcomMembers.map((m) => m.name).toSet()
+        : _meetingType == 'board'
+            ? _defaultBoardMembers.map((m) => m.name).toSet()
+            : <String>{};
+    final filteredMembers = defaultNames.isEmpty
+        ? _invitedMembers
+        : _invitedMembers
+            .where((m) => defaultNames.contains(m.name))
+            .toList();
+    final memberOptions = filteredMembers.isEmpty
+        ? _invitedMembers
+        : filteredMembers
+        .fold<Map<String, MeetingMember>>({}, (acc, member) {
+          acc[member.oderId] = member;
+          return acc;
+        })
+        .values
+        .toList();
+    final chairValue = memberOptions.any((m) => m.oderId == _chairpersonId)
+        ? _chairpersonId
+        : (_chairpersonId == _externalMemberValue ? _chairpersonId : null);
+    final secretaryValue = memberOptions.any((m) => m.oderId == _secretaryId)
+        ? _secretaryId
+        : (_secretaryId == _externalMemberValue ? _secretaryId : null);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -801,17 +991,17 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            value: _chairpersonId,
+            value: chairValue,
             decoration: const InputDecoration(
               labelText: 'Chairperson',
               border: OutlineInputBorder(),
               prefixIcon: Icon(Icons.person),
             ),
             items: [
-              ..._availableUsers.map((user) {
+              ...memberOptions.map((member) {
                 return DropdownMenuItem<String>(
-                  value: user['id'] as String,
-                  child: Text(user['name'] as String),
+                  value: member.oderId,
+                  child: Text(member.name),
                 );
               }),
               DropdownMenuItem<String>(
@@ -841,25 +1031,26 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
                 });
               } else {
                 setState(() {
-                  _chairpersonName = _availableUsers
-                      .firstWhere((u) => u['id'] == value)['name'] as String?;
+                  _chairpersonName = memberOptions
+                      .firstWhere((m) => m.oderId == value)
+                      .name;
                 });
               }
             },
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            value: _secretaryId,
+            value: secretaryValue,
             decoration: const InputDecoration(
               labelText: 'Secretary / Minutes Taker',
               border: OutlineInputBorder(),
               prefixIcon: Icon(Icons.edit_note),
             ),
             items: [
-              ..._availableUsers.map((user) {
+              ...memberOptions.map((member) {
                 return DropdownMenuItem<String>(
-                  value: user['id'] as String,
-                  child: Text(user['name'] as String),
+                  value: member.oderId,
+                  child: Text(member.name),
                 );
               }),
               DropdownMenuItem<String>(
@@ -889,8 +1080,9 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
                 });
               } else {
                 setState(() {
-                  _secretaryName = _availableUsers
-                      .firstWhere((u) => u['id'] == value)['name'] as String?;
+                  _secretaryName = memberOptions
+                      .firstWhere((m) => m.oderId == value)
+                      .name;
                 });
               }
             },

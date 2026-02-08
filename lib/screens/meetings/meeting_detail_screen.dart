@@ -530,7 +530,13 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen>
                   _buildHeaderActionButton(
                     icon: Icons.arrow_back,
                     tooltip: 'Back',
-                    onPressed: () => context.pop(),
+                    onPressed: () {
+                      if (context.canPop()) {
+                        context.pop();
+                      } else {
+                        context.go('/meetings-dashboard');
+                      }
+                    },
                   ),
                   const SizedBox(width: 8),
                   _buildHeaderActionButton(
@@ -1660,6 +1666,98 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen>
   }
 
   Widget _buildMinutesTab() {
+    if (_meeting != null && _meeting!.type != 'adcom') {
+      if (_minutes == null) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.description, size: 64, color: Colors.grey[400]),
+              const SizedBox(height: 16),
+              Text(
+                'No minutes recorded yet',
+                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _createMinutes,
+                icon: const Icon(Icons.add),
+                label: const Text('Create Minutes'),
+              ),
+            ],
+          ),
+        );
+      }
+
+      return RefreshIndicator(
+        onRefresh: _loadMeeting,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          child: ResponsiveContainer(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildMinutesStatusCard(),
+                const SizedBox(height: 16),
+                _buildAttendanceCard(),
+                const SizedBox(height: 16),
+                if (_minutes!.itemRecords.isNotEmpty) ...[
+                  Text(
+                    'Minutes Records',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[800],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ..._minutes!.itemRecords.map(_buildMinutesRecordCard),
+                  const SizedBox(height: 8),
+                ],
+                if (_minutes!.generalNotes != null &&
+                    _minutes!.generalNotes!.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withValues(alpha: 0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'General Notes',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _minutes!.generalNotes!,
+                          style: TextStyle(color: Colors.grey[700]),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 32),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     if (_adcomAgenda == null) {
       return Center(
         child: Column(
@@ -2169,13 +2267,21 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen>
 
     final meeting = _meeting!;
     final now = DateTime.now();
+    final attendanceMembers = meeting.invitedMembers.map((member) {
+      return adcom.AttendanceMember(
+        name: member.name,
+        affiliation: member.organization ?? 'HC',
+        isPresent: true,
+        isAbsentWithApology: false,
+      );
+    }).toList();
     final agenda = adcom.AdcomAgenda(
       id: '',
       organization: AppConstants.organizationName.toUpperCase(),
       meetingDate: meeting.dateTime,
       meetingTime: DateFormat('h:mm a').format(meeting.dateTime),
       location: meeting.location ?? '',
-      attendanceMembers: const [],
+      attendanceMembers: attendanceMembers,
       agendaItems: const [],
       status: 'draft',
       startingItemSequence: 1,

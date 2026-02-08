@@ -115,9 +115,18 @@ class AdcomAgendaService {
       );
       if (itemIndex < items.length) {
         items.removeAt(itemIndex);
-        // Re-order remaining items
+
+        // Get meeting date and starting sequence for regenerating item numbers
+        final meetingDate = (data['meetingDate'] as Timestamp).toDate();
+        final startingSeq = data['startingItemSequence'] ?? 1;
+
+        // Re-order remaining items and regenerate item numbers
         for (int i = 0; i < items.length; i++) {
           items[i]['order'] = i;
+          items[i]['itemNumber'] = AdcomAgenda.generateItemNumber(
+            meetingDate,
+            startingSeq + i,
+          );
         }
         await _firestore.collection(_collection).doc(agendaId).update({
           'agendaItems': items,
@@ -144,9 +153,17 @@ class AdcomAgendaService {
         final item = items.removeAt(oldIndex);
         items.insert(newIndex, item);
 
-        // Update order for all items
+        // Get meeting date and starting sequence for regenerating item numbers
+        final meetingDate = (data['meetingDate'] as Timestamp).toDate();
+        final startingSeq = data['startingItemSequence'] ?? 1;
+
+        // Update order and regenerate item numbers for all items
         for (int i = 0; i < items.length; i++) {
           items[i]['order'] = i;
+          items[i]['itemNumber'] = AdcomAgenda.generateItemNumber(
+            meetingDate,
+            startingSeq + i,
+          );
         }
 
         await _firestore.collection(_collection).doc(agendaId).update({

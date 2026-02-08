@@ -622,14 +622,23 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
               ),
             )
           else
-            ListView.separated(
+            ReorderableListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: _minutes!.minutesItems.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
+              onReorder: _reorderMinutesItems,
               itemBuilder: (context, index) {
                 final item = _minutes!.minutesItems[index];
-                return _buildMinutesItemTile(item, index);
+                return ReorderableDragStartListener(
+                  key: ValueKey(item.id),
+                  index: index,
+                  child: _buildMinutesItemTile(
+                    item,
+                    index,
+                    showDivider: index < _minutes!.minutesItems.length - 1,
+                    showDragHandle: true,
+                  ),
+                );
               },
             ),
         ],
@@ -751,7 +760,12 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
     }
   }
 
-  Widget _buildMinutesItemTile(MinutesItem item, int index) {
+  Widget _buildMinutesItemTile(
+    MinutesItem item,
+    int index, {
+    bool showDivider = false,
+    bool showDragHandle = false,
+  }) {
     Color statusColor;
     IconData statusIcon;
 
@@ -778,6 +792,13 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
       onTap: () => _editMinutesItem(item, index),
       child: Container(
         padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          border: showDivider
+              ? Border(
+                  bottom: BorderSide(color: Colors.grey.shade200, width: 1),
+                )
+              : null,
+        ),
         color: item.isNewItem ? Colors.purple.shade50.withOpacity(0.3) : null,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -785,6 +806,16 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (showDragHandle) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8, top: 2),
+                    child: Icon(
+                      Icons.drag_handle,
+                      size: 18,
+                      color: Colors.grey.shade500,
+                    ),
+                  ),
+                ],
                 // Item number
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -947,6 +978,27 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
         ),
       ),
     );
+  }
+
+  void _reorderMinutesItems(int oldIndex, int newIndex) {
+    if (_minutes == null) return;
+    final items = List<MinutesItem>.from(_minutes!.minutesItems);
+    if (newIndex > oldIndex) newIndex -= 1;
+    final moved = items.removeAt(oldIndex);
+    items.insert(newIndex, moved);
+
+    for (int i = 0; i < items.length; i++) {
+      items[i] = items[i].copyWith(order: i);
+    }
+
+    setState(() {
+      _minutes = _minutes!.copyWith(
+        minutesItems: items,
+        updatedAt: DateTime.now(),
+      );
+    });
+
+    _service.updateMinutes(_minutes!);
   }
 
   Future<void> _editMinutesItem(MinutesItem item, int index) async {

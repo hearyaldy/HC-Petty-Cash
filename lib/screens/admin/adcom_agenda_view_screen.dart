@@ -163,6 +163,11 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
   }
 
   Widget _buildDocumentView() {
+    // Always use the structured view for consistent formatting
+    return _buildStructuredDocumentView();
+  }
+
+  Widget _buildStructuredDocumentView() {
     final presentMembers = _agenda!.attendanceMembers
         .where((m) => m.isPresent)
         .toList();
@@ -177,7 +182,7 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -188,28 +193,46 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Organization Header
+            // Organization Header with Logo
             Center(
               child: Column(
                 children: [
-                  // Organization Name from constants
-                  Text(
-                    AppConstants.organizationName.toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5,
-                    ),
-                    textAlign: TextAlign.center,
+                  // Logo and Organization Name
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Image.asset(
+                        AppConstants.companyLogo,
+                        width: 48,
+                        height: 48,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const SizedBox(width: 48, height: 48),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            AppConstants.organizationName.toUpperCase(),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.5,
+                            ),
+                          ),
+                          if (AppConstants.organizationAddress.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              AppConstants.organizationAddress,
+                              style: TextStyle(fontSize: 10, color: Colors.grey[700]),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
                   ),
-                  if (AppConstants.organizationAddress.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      AppConstants.organizationAddress,
-                      style: TextStyle(fontSize: 10, color: Colors.grey[700]),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
                   const SizedBox(height: 16),
                   const Divider(thickness: 1),
                   const SizedBox(height: 16),
@@ -300,7 +323,7 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
               const SizedBox(height: 24),
             ],
 
-            // Agenda Items
+            // Agenda Items (structured view - only shown when no rich text content)
             if (_agenda!.agendaItems.isNotEmpty) ...[
               const Text(
                 'AGENDA',
@@ -427,12 +450,6 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
 
   Future<void> _generatePdf() async {
     final pdf = pw.Document();
-    final presentMembers = _agenda!.attendanceMembers
-        .where((m) => m.isPresent)
-        .toList();
-    final absentMembers = _agenda!.attendanceMembers
-        .where((m) => m.isAbsentWithApology)
-        .toList();
 
     // Load logo
     pw.ImageProvider? logoImage;
@@ -442,6 +459,14 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
     } catch (_) {
       logoImage = null;
     }
+
+    // Always use structured approach for consistent formatting
+    final presentMembers = _agenda!.attendanceMembers
+        .where((m) => m.isPresent)
+        .toList();
+    final absentMembers = _agenda!.attendanceMembers
+        .where((m) => m.isAbsentWithApology)
+        .toList();
 
     pdf.addPage(
       pw.MultiPage(
@@ -465,6 +490,7 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
                           child: pw.Image(logoImage, fit: pw.BoxFit.contain),
                         ),
                       pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
                           pw.Text(
                             AppConstants.organizationName.toUpperCase(),
@@ -473,7 +499,6 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
                               fontWeight: pw.FontWeight.bold,
                               letterSpacing: 1.5,
                             ),
-                            textAlign: pw.TextAlign.center,
                           ),
                           if (AppConstants.organizationAddress.isNotEmpty) ...[
                             pw.SizedBox(height: 4),
@@ -483,7 +508,6 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
                                 fontSize: 9,
                                 color: PdfColors.grey700,
                               ),
-                              textAlign: pw.TextAlign.center,
                             ),
                           ],
                         ],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
@@ -175,27 +176,45 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Organization Header
+            // Organization Header with Logo
             Center(
               child: Column(
                 children: [
-                  Text(
-                    AppConstants.organizationName.toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5,
-                    ),
-                    textAlign: TextAlign.center,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Image.asset(
+                        AppConstants.companyLogo,
+                        width: 48,
+                        height: 48,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const SizedBox(width: 48, height: 48),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            AppConstants.organizationName.toUpperCase(),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.5,
+                            ),
+                          ),
+                          if (AppConstants.organizationAddress.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              AppConstants.organizationAddress,
+                              style: TextStyle(fontSize: 10, color: Colors.grey[700]),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
                   ),
-                  if (AppConstants.organizationAddress.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      AppConstants.organizationAddress,
-                      style: TextStyle(fontSize: 10, color: Colors.grey[700]),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
                   const SizedBox(height: 16),
                   const Divider(thickness: 1),
                   const SizedBox(height: 16),
@@ -509,6 +528,16 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
 
   Future<void> _generatePdf() async {
     final pdf = pw.Document();
+
+    // Load logo
+    pw.ImageProvider? logoImage;
+    try {
+      final logoData = await rootBundle.load(AppConstants.companyLogo);
+      logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
+    } catch (_) {
+      logoImage = null;
+    }
+
     final presentMembers = _minutes!.attendanceMembers
         .where((m) => m.isPresent)
         .toList();
@@ -522,30 +551,46 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
         margin: const pw.EdgeInsets.all(50),
         build: (pw.Context context) {
           return [
-            // Organization Header
+            // Organization Header with Logo
             pw.Center(
               child: pw.Column(
                 children: [
-                  pw.Text(
-                    AppConstants.organizationName.toUpperCase(),
-                    style: pw.TextStyle(
-                      fontSize: 14,
-                      fontWeight: pw.FontWeight.bold,
-                      letterSpacing: 1.5,
-                    ),
-                    textAlign: pw.TextAlign.center,
-                  ),
-                  if (AppConstants.organizationAddress.isNotEmpty) ...[
-                    pw.SizedBox(height: 4),
-                    pw.Text(
-                      AppConstants.organizationAddress,
-                      style: pw.TextStyle(
-                        fontSize: 9,
-                        color: PdfColors.grey700,
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.center,
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      if (logoImage != null)
+                        pw.Container(
+                          width: 36,
+                          height: 36,
+                          margin: const pw.EdgeInsets.only(right: 8),
+                          child: pw.Image(logoImage, fit: pw.BoxFit.contain),
+                        ),
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text(
+                            AppConstants.organizationName.toUpperCase(),
+                            style: pw.TextStyle(
+                              fontSize: 14,
+                              fontWeight: pw.FontWeight.bold,
+                              letterSpacing: 1.5,
+                            ),
+                          ),
+                          if (AppConstants.organizationAddress.isNotEmpty) ...[
+                            pw.SizedBox(height: 4),
+                            pw.Text(
+                              AppConstants.organizationAddress,
+                              style: pw.TextStyle(
+                                fontSize: 9,
+                                color: PdfColors.grey700,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                      textAlign: pw.TextAlign.center,
-                    ),
-                  ],
+                    ],
+                  ),
                   pw.SizedBox(height: 12),
                   pw.Divider(thickness: 1),
                   pw.SizedBox(height: 12),

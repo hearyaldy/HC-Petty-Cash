@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../models/adcom_agenda.dart';
+import '../../models/staff.dart';
 import '../../services/adcom_agenda_service.dart';
 import '../../services/adcom_minutes_service.dart';
+import '../../services/staff_service.dart';
 import '../../services/ai_text_service.dart';
+import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
 
 class AdcomAgendaEditScreen extends StatefulWidget {
@@ -30,8 +33,7 @@ class _AdcomAgendaEditScreenState extends State<AdcomAgendaEditScreen> {
   final TextEditingController _startTimeController = TextEditingController();
   final TextEditingController _openingPrayerController = TextEditingController();
   final TextEditingController _closingPrayerController = TextEditingController();
-  final TextEditingController _adjournedAtController =
-      TextEditingController();
+  final TextEditingController _adjournedAtController = TextEditingController();
 
   @override
   void initState() {
@@ -165,7 +167,7 @@ class _AdcomAgendaEditScreenState extends State<AdcomAgendaEditScreen> {
               _buildAttendanceCard(),
               const SizedBox(height: 24),
               _buildAgendaItemsCard(),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
               _buildMeetingNotesCard(),
               const SizedBox(height: 32),
             ],
@@ -1310,6 +1312,7 @@ class _EditAttendanceDialog extends StatefulWidget {
 
 class _EditAttendanceDialogState extends State<_EditAttendanceDialog> {
   late List<AttendanceMember> _members;
+  final StaffService _staffService = StaffService();
 
   @override
   void initState() {
@@ -1333,6 +1336,16 @@ class _EditAttendanceDialogState extends State<_EditAttendanceDialog> {
                   onPressed: _addMember,
                   icon: const Icon(Icons.add, size: 18),
                   label: const Text('Add Member'),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: _addFromStaff,
+                  icon: const Icon(Icons.badge, size: 18),
+                  label: const Text('Add From Staff'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.teal,
+                    foregroundColor: Colors.white,
+                  ),
                 ),
               ],
             ),
@@ -1423,6 +1436,26 @@ class _EditAttendanceDialogState extends State<_EditAttendanceDialog> {
     );
     if (result != null) {
       setState(() => _members[index] = result);
+    }
+  }
+
+  Future<void> _addFromStaff() async {
+    final existingNames = _members.map((m) => m.name.trim()).toSet();
+    final selected = await showDialog<List<AttendanceMember>>(
+      context: context,
+      builder: (context) => _SelectStaffDialog(
+        staffService: _staffService,
+        existingNames: existingNames,
+      ),
+    );
+    if (selected != null && selected.isNotEmpty) {
+      setState(() {
+        for (final member in selected) {
+          if (!_members.any((m) => m.name == member.name)) {
+            _members.add(member);
+          }
+        }
+      });
     }
   }
 }
@@ -1543,6 +1576,142 @@ class _EditMemberDialogState extends State<_EditMemberDialog> {
             );
           },
           child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+}
+
+class _SelectStaffDialog extends StatefulWidget {
+  final StaffService staffService;
+  final Set<String> existingNames;
+
+  const _SelectStaffDialog({
+    required this.staffService,
+    required this.existingNames,
+  });
+
+  @override
+  State<_SelectStaffDialog> createState() => _SelectStaffDialogState();
+}
+
+class _SelectStaffDialogState extends State<_SelectStaffDialog> {
+  final Set<String> _selectedStaffIds = {};
+  String _searchQuery = '';
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Select Staff'),
+      content: SizedBox(
+        width: 520,
+        height: 420,
+        child: Column(
+          children: [
+            TextField(
+              decoration: const InputDecoration(
+                hintText: 'Search staff',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (value) => setState(() => _searchQuery = value.trim()),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: StreamBuilder<List<Staff>>(
+                stream: widget.staffService.getAllStaff(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final staff = snapshot.data ?? [];
+                  final filtered = staff.where((member) {
+                    if (_searchQuery.isEmpty) return true;
+                    final q = _searchQuery.toLowerCase();
+                    return member.fullName.toLowerCase().contains(q) ||
+                        member.department.toLowerCase().contains(q) ||
+                        member.position.toLowerCase().contains(q) ||
+                        member.employeeId.toLowerCase().contains(q);
+                  }).toList();
+
+                  if (filtered.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'No staff found',
+                        style: TextStyle(color: Colors.grey.shade600),
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    itemCount: filtered.length,
+                    itemBuilder: (context, index) {
+                      final member = filtered[index];
+                      final isSelected = _selectedStaffIds.contains(member.id);
+                      final isDisabled =
+                          widget.existingNames.contains(member.fullName);
+                      return ListTile(
+                        title: Text(member.fullName),
+                        subtitle: Text(
+                          '${member.department} • ${member.position}',
+                        ),
+                        trailing: Checkbox(
+                          value: isSelected,
+                          onChanged: isDisabled
+                              ? null
+                              : (value) {
+                                  setState(() {
+                                    if (value == true) {
+                                      _selectedStaffIds.add(member.id);
+                                    } else {
+                                      _selectedStaffIds.remove(member.id);
+                                    }
+                                  });
+                                },
+                        ),
+                        enabled: !isDisabled,
+                        onTap: isDisabled
+                            ? null
+                            : () {
+                                setState(() {
+                                  if (isSelected) {
+                                    _selectedStaffIds.remove(member.id);
+                                  } else {
+                                    _selectedStaffIds.add(member.id);
+                                  }
+                                });
+                              },
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            final staff = await widget.staffService.getAllStaff().first;
+            final selected = staff
+                .where((member) => _selectedStaffIds.contains(member.id))
+                .map(
+                  (member) => AttendanceMember(
+                    name: member.fullName,
+                    affiliation: member.department.isNotEmpty
+                        ? member.department
+                        : 'HC',
+                  ),
+                )
+                .toList();
+            Navigator.pop(context, selected);
+          },
+          child: const Text('Add Selected'),
         ),
       ],
     );
