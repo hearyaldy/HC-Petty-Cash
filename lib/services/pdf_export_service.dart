@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import '../models/petty_cash_report.dart';
 import '../models/transaction.dart';
 import '../models/equipment.dart';
+import '../models/enums.dart';
 import '../utils/constants.dart';
 import 'firestore_service.dart';
 
@@ -61,6 +62,42 @@ enum EquipmentPrintField {
 }
 
 class PdfExportService {
+  pw.Font? _regularFont;
+  pw.Font? _boldFont;
+  pw.ThemeData? _pdfTheme;
+
+  Future<pw.ThemeData> _getPdfTheme() async {
+    if (_pdfTheme != null) return _pdfTheme!;
+    pw.Font? regular;
+    pw.Font? bold;
+    try {
+      regular = _regularFont ??
+          pw.Font.ttf(
+            await rootBundle.load('assets/fonts/NotoSansThai-Regular.ttf'),
+          );
+      bold = _boldFont ??
+          pw.Font.ttf(
+            await rootBundle.load('assets/fonts/NotoSansThai-Bold.ttf'),
+          );
+      _regularFont = regular;
+      _boldFont = bold;
+    } catch (e) {
+      // Fall back to built-in fonts if custom fonts fail to load.
+    }
+
+    _pdfTheme = pw.ThemeData.withFont(
+      base: regular ?? pw.Font.helvetica(),
+      bold: bold ?? pw.Font.helveticaBold(),
+      fontFallback: [pw.Font.helvetica(), pw.Font.courier()],
+    );
+    return _pdfTheme!;
+  }
+
+  Future<pw.Document> _createPdfDocument() async {
+    final theme = await _getPdfTheme();
+    return pw.Document(theme: theme);
+  }
+
   /// Export equipment list to PDF with selected fields
   /// Returns the PDF bytes for web compatibility
   Future<List<int>> exportEquipmentListBytes(
@@ -68,7 +105,7 @@ class PdfExportService {
     List<EquipmentPrintField> selectedFields, {
     String? title,
   }) async {
-    final pdf = pw.Document();
+    final pdf = await _createPdfDocument();
     final dateFormat = DateFormat('MMM dd, yyyy');
     final currencyFormat = NumberFormat.currency(symbol: 'THB ', decimalDigits: 2);
 
@@ -493,7 +530,7 @@ class PdfExportService {
   }
 
   Future<String> exportReport(PettyCashReport report) async {
-    final pdf = pw.Document();
+    final pdf = await _createPdfDocument();
     final dateFormat = DateFormat('MMM dd, yyyy');
     final currencyFormat = NumberFormat.currency(symbol: '\$');
 
@@ -579,6 +616,398 @@ class PdfExportService {
     await file.writeAsBytes(await pdf.save());
 
     return filePath;
+  }
+
+  Future<String> exportAdvanceSettlementReport(
+    PettyCashReport report, {
+    List<Transaction>? transactions,
+  }) async {
+    final pdf = await _createPdfDocument();
+    final currencyFormat = NumberFormat('#,##0.00');
+    final dateFormat = DateFormat('dd/MM/yyyy');
+
+    // Load logo
+    pw.ImageProvider? logoImage;
+    try {
+      final logoData = await rootBundle.load(
+        'assets/images/hope_channel_logo.png',
+      );
+      logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
+    } catch (_) {
+      // Logo loading failed, continue without logo
+    }
+
+    final sourceTransactions =
+        transactions ??
+        await FirestoreService().getTransactionsByReportId(report.id);
+    final sortedTransactions = [...sourceTransactions]
+      ..sort((a, b) => a.date.compareTo(b.date));
+
+    final approvedOrProcessed = sortedTransactions
+        .where(
+          (t) =>
+              t.status == TransactionStatus.approved.name ||
+              t.status == TransactionStatus.processed.name,
+        )
+        .toList();
+    final effectiveTransactions = approvedOrProcessed.isNotEmpty
+        ? approvedOrProcessed
+        : sortedTransactions;
+
+    final formRows = effectiveTransactions.take(20).toList();
+    final totalAmount = formRows.fold<double>(0, (sum, t) => sum + t.amount);
+
+    final settlementDate = effectiveTransactions.isNotEmpty
+        ? effectiveTransactions.last.date
+        : report.periodEnd;
+    final purpose = (report.purpose != null && report.purpose!.trim().isNotEmpty)
+        ? report.purpose!.trim()
+        : effectiveTransactions.isNotEmpty
+            ? effectiveTransactions.first.description
+            : report.department;
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.fromLTRB(28, 22, 28, 22),
+        build: (context) => _buildAdvanceSettlementForm(
+          report: report,
+          logoImage: logoImage,
+          rows: formRows,
+          purpose: purpose,
+          settlementDate: settlementDate,
+          totalAmount: totalAmount,
+          dateFormat: dateFormat,
+          currencyFormat: currencyFormat,
+          hasMoreRows: effectiveTransactions.length > 20,
+        ),
+      ),
+    );
+
+    final directory = await getApplicationDocumentsDirectory();
+    final fileName =
+        '${report.reportNumber}_advance_settlement_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    final filePath = '${directory.path}/$fileName';
+
+    final file = File(filePath);
+    await file.writeAsBytes(await pdf.save());
+
+    return filePath;
+  }
+
+  pw.Widget _buildAdvanceSettlementForm({
+    required PettyCashReport report,
+    required pw.ImageProvider? logoImage,
+    required List<Transaction> rows,
+    required String purpose,
+    required DateTime settlementDate,
+    required double totalAmount,
+    required DateFormat dateFormat,
+    required NumberFormat currencyFormat,
+    required bool hasMoreRows,
+  }) {
+    final advanceDate = report.advanceTakenDate ?? report.periodStart;
+
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        _buildAdvanceSettlementHeader(logoImage),
+        pw.SizedBox(height: 8),
+        pw.Row(
+          children: [
+            pw.Expanded(
+              child: pw.Row(
+                children: [
+                  pw.Text('Name: ', style: const pw.TextStyle(fontSize: 10)),
+                  pw.Text(
+                    report.custodianName.toUpperCase(),
+                    style: pw.TextStyle(
+                      fontSize: 10,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            pw.Expanded(
+              child: pw.Text(
+                'ID NO.: ....................',
+                style: const pw.TextStyle(fontSize: 10),
+                textAlign: pw.TextAlign.right,
+              ),
+            ),
+            pw.SizedBox(width: 10),
+            pw.Text(
+              'Date: ${dateFormat.format(settlementDate)}',
+              style: const pw.TextStyle(fontSize: 10),
+            ),
+          ],
+        ),
+        pw.SizedBox(height: 6),
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text(
+              'For the purpose of: ',
+              style: const pw.TextStyle(fontSize: 10),
+            ),
+            pw.Expanded(
+              child: pw.Text(
+                purpose.isNotEmpty
+                    ? purpose
+                    : '........................................',
+                style: pw.TextStyle(
+                  fontSize: 10,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        pw.SizedBox(height: 6),
+        pw.Row(
+          children: [
+            pw.Text('Department: ', style: const pw.TextStyle(fontSize: 10)),
+            pw.Text(
+              (report.companyName ?? report.department).toUpperCase(),
+              style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+            ),
+          ],
+        ),
+        pw.SizedBox(height: 8),
+        pw.Row(
+          children: [
+            _buildCheckBox(
+              label: 'Cash Advance took on ${dateFormat.format(advanceDate)}',
+              checked: false,
+            ),
+            pw.SizedBox(width: 8),
+            pw.Text(
+              'Amount of ........................... Baht',
+              style: const pw.TextStyle(fontSize: 10),
+            ),
+          ],
+        ),
+        pw.SizedBox(height: 4),
+        _buildCheckBox(label: 'Reimbursement', checked: true),
+        pw.SizedBox(height: 8),
+        pw.SizedBox(height: 8),
+        pw.Text(
+          'Details:',
+          style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+        ),
+        pw.SizedBox(height: 2),
+        _buildAdvanceSettlementTable(rows, totalAmount, currencyFormat),
+        pw.SizedBox(height: 10),
+        pw.Row(
+          children: [
+            pw.Text('Reported by: ', style: const pw.TextStyle(fontSize: 10)),
+            pw.Text(
+              report.custodianName.toUpperCase(),
+              style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+            ),
+          ],
+        ),
+        pw.SizedBox(height: 6),
+        pw.Text(
+          'Approved by: .................................',
+          style: const pw.TextStyle(fontSize: 10),
+        ),
+        pw.SizedBox(height: 6),
+        pw.Text(
+          'Date: .......... / .......... / ..........',
+          style: const pw.TextStyle(fontSize: 10),
+        ),
+        pw.SizedBox(height: 6),
+        pw.Text(
+          'Action No. # ........................................',
+          style: const pw.TextStyle(fontSize: 10),
+        ),
+        if (hasMoreRows) ...[
+          pw.SizedBox(height: 4),
+          pw.Text(
+            '* More than 20 items exist in this report; only the first 20 are shown in this form.',
+            style: const pw.TextStyle(fontSize: 8, color: PdfColors.red700),
+          ),
+        ],
+        pw.SizedBox(height: 6),
+        pw.Text(
+          '*Please attach an official/original expenditure receipts with English translation. '
+          'Cash remaining balance from your cash advance, please deposit to bank account '
+          'and submit bank transfer slip to the finance office.',
+          style: const pw.TextStyle(fontSize: 7.5),
+        ),
+      ],
+    );
+  }
+
+  pw.Widget _buildAdvanceSettlementHeader(pw.ImageProvider? logoImage) {
+    return pw.Column(
+      children: [
+        pw.Text(
+          'SOUTHEASTERN ASIA UNION MISSION OF SEVENTH-DAY ADVENTIST FOUNDATION (SEUM)',
+          style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
+          textAlign: pw.TextAlign.center,
+        ),
+        pw.SizedBox(height: 2),
+        pw.Text(
+          'ADVANCE SETTLEMENT REPORT',
+          style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
+          textAlign: pw.TextAlign.center,
+        ),
+        pw.SizedBox(height: 2),
+        pw.Text(
+          AppConstants.organizationAddress,
+          style: const pw.TextStyle(fontSize: 9),
+          textAlign: pw.TextAlign.center,
+        ),
+        pw.SizedBox(height: 6),
+        pw.Row(
+          children: [
+            pw.SizedBox(
+              width: 60,
+              child: logoImage != null
+                  ? pw.Image(logoImage, width: 42, height: 42, fit: pw.BoxFit.contain)
+                  : pw.SizedBox(width: 42, height: 42),
+            ),
+            pw.Expanded(
+              child: pw.SizedBox(height: 42),
+            ),
+            pw.SizedBox(
+              width: 60,
+              child: pw.Text(
+                'NO: ....................',
+                style: const pw.TextStyle(fontSize: 10),
+                textAlign: pw.TextAlign.right,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  pw.Widget _buildCheckBox({required String label, required bool checked}) {
+    return pw.Row(
+      children: [
+        pw.Container(
+          width: 16,
+          height: 16,
+          alignment: pw.Alignment.center,
+          decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black)),
+          child: checked
+              ? pw.Text(
+                  'X',
+                  style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+                )
+              : null,
+        ),
+        pw.SizedBox(width: 6),
+        pw.Text(label, style: const pw.TextStyle(fontSize: 10)),
+      ],
+    );
+  }
+
+  pw.Widget _buildAdvanceSettlementTable(
+    List<Transaction> rows,
+    double totalAmount,
+    NumberFormat currencyFormat,
+  ) {
+    const tableBorder = pw.TableBorder(
+      left: pw.BorderSide(color: PdfColors.black, width: 0.5),
+      right: pw.BorderSide(color: PdfColors.black, width: 0.5),
+      top: pw.BorderSide(color: PdfColors.black, width: 0.5),
+      bottom: pw.BorderSide(color: PdfColors.black, width: 0.5),
+      horizontalInside: pw.BorderSide(color: PdfColors.grey700, width: 0.4),
+      verticalInside: pw.BorderSide(color: PdfColors.grey700, width: 0.4),
+    );
+
+    final bodyRows = <pw.TableRow>[];
+
+    for (var i = 0; i < 20; i++) {
+      if (i < rows.length) {
+        final tx = rows[i];
+        bodyRows.add(
+          pw.TableRow(
+            children: [
+              _cell('${i + 1}.', align: pw.TextAlign.center),
+              _cell(tx.description),
+              _cell('1', align: pw.TextAlign.center),
+              _cell('', align: pw.TextAlign.right),
+              _cell(currencyFormat.format(tx.amount), align: pw.TextAlign.right),
+            ],
+          ),
+        );
+      } else {
+        bodyRows.add(
+          pw.TableRow(
+            children: [
+              _cell(''),
+              _cell(''),
+              _cell(''),
+              _cell(''),
+              _cell(''),
+            ],
+          ),
+        );
+      }
+    }
+
+    bodyRows.add(
+      pw.TableRow(
+        decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+        children: [
+          _cell('TOTAL', bold: true, align: pw.TextAlign.left),
+          _cell(''),
+          _cell(''),
+          _cell(''),
+          _cell(currencyFormat.format(totalAmount), bold: true, align: pw.TextAlign.right),
+        ],
+      ),
+    );
+
+    return pw.Table(
+      border: tableBorder,
+      columnWidths: const {
+        0: pw.FlexColumnWidth(1.0),
+        1: pw.FlexColumnWidth(6.6),
+        2: pw.FlexColumnWidth(1.0),
+        3: pw.FlexColumnWidth(1.8),
+        4: pw.FlexColumnWidth(1.8),
+      },
+      children: [
+        pw.TableRow(
+          decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+          children: [
+            _cell('NO.', bold: true, align: pw.TextAlign.center),
+            _cell('DESCRIPTION', bold: true, align: pw.TextAlign.center),
+            _cell('QTY', bold: true, align: pw.TextAlign.center),
+            _cell('UNIT PRICE', bold: true, align: pw.TextAlign.center),
+            _cell('AMOUNT', bold: true, align: pw.TextAlign.center),
+          ],
+        ),
+        ...bodyRows,
+      ],
+    );
+  }
+
+  pw.Widget _cell(
+    String text, {
+    bool bold = false,
+    pw.TextAlign align = pw.TextAlign.left,
+  }) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+      child: pw.Text(
+        text,
+        style: pw.TextStyle(
+          fontSize: 9,
+          fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+        ),
+        textAlign: align,
+        maxLines: 2,
+      ),
+    );
   }
 
   pw.Widget _buildInfoSection(PettyCashReport report, DateFormat dateFormat) {

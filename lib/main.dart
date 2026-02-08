@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_quill/flutter_quill.dart' as quill;
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -53,6 +55,8 @@ import 'screens/hr/hr_data_submission_screen.dart';
 import 'screens/hr/hr_management_screen.dart';
 import 'screens/hr/my_hr_data_screen.dart';
 import 'screens/hr/hr_data_submissions_screen.dart';
+import 'screens/hr/annual_leave_request_screen.dart';
+import 'screens/hr/annual_leave_requests_screen.dart';
 import 'screens/profile/user_profile_screen.dart';
 import 'screens/income/income_reports_screen.dart';
 import 'screens/income/new_income_report_screen.dart';
@@ -65,6 +69,7 @@ import 'screens/inventory/equipment_detail_screen.dart';
 import 'screens/meetings/meetings_dashboard_screen.dart';
 import 'screens/meetings/meetings_list_screen.dart';
 import 'screens/meetings/new_meeting_screen.dart';
+import 'screens/meetings/edit_meeting_screen.dart';
 import 'screens/meetings/meeting_detail_screen.dart';
 import 'screens/meetings/action_items_screen.dart';
 import 'screens/meetings/edit_agenda_screen.dart';
@@ -190,6 +195,14 @@ class MyApp extends StatelessWidget {
             themeMode: themeProvider.themeMode,
             routerConfig: _createRouter(authProvider),
             debugShowCheckedModeBanner: false,
+            localizationsDelegates: [
+              ...GlobalMaterialLocalizations.delegates,
+              quill.FlutterQuillLocalizations.delegate,
+            ],
+            supportedLocales: const [
+              Locale('en'),
+              // Add other supported locales if needed
+            ],
           );
         },
       ),
@@ -271,7 +284,10 @@ class MyApp extends StatelessWidget {
         ),
         GoRoute(
           path: '/reports',
-          builder: (context, state) => const ReportsListScreen(),
+          builder: (context, state) {
+            final type = state.uri.queryParameters['type'];
+            return ReportsListScreen(initialReportType: type);
+          },
         ),
         GoRoute(
           path: '/reports/new',
@@ -279,7 +295,13 @@ class MyApp extends StatelessWidget {
         ),
         GoRoute(
           path: '/reports/new/petty-cash',
-          builder: (context, state) => const NewReportScreen(),
+          builder: (context, state) =>
+              const NewReportScreen(reportType: 'petty_cash'),
+        ),
+        GoRoute(
+          path: '/reports/new/advance-settlement',
+          builder: (context, state) =>
+              const NewReportScreen(reportType: 'advance_settlement'),
         ),
         GoRoute(
           path: '/reports/new/project',
@@ -555,6 +577,14 @@ class MyApp extends StatelessWidget {
           path: '/hr/data-submissions',
           builder: (context, state) => const HrDataSubmissionsScreen(),
         ),
+        GoRoute(
+          path: '/hr/leave-request',
+          builder: (context, state) => const AnnualLeaveRequestScreen(),
+        ),
+        GoRoute(
+          path: '/hr/leave-requests',
+          builder: (context, state) => const AnnualLeaveRequestsScreen(),
+        ),
         // Purchase Requisition Routes
         GoRoute(
           path: '/purchase-requisitions',
@@ -613,6 +643,13 @@ class MyApp extends StatelessWidget {
           },
         ),
         GoRoute(
+          path: '/meetings/:meetingId/edit',
+          builder: (context, state) {
+            final meetingId = state.pathParameters['meetingId']!;
+            return EditMeetingScreen(meetingId: meetingId);
+          },
+        ),
+        GoRoute(
           path: '/meetings/action-items',
           builder: (context, state) {
             final meetingId = state.uri.queryParameters['meetingId'];
@@ -637,7 +674,8 @@ class MyApp extends StatelessWidget {
           path: '/meetings/:meetingId',
           builder: (context, state) {
             final meetingId = state.pathParameters['meetingId']!;
-            return MeetingDetailScreen(meetingId: meetingId);
+            final tab = state.uri.queryParameters['tab'];
+            return MeetingDetailScreen(meetingId: meetingId, initialTab: tab);
           },
         ),
         // ADCOM Agenda Routes

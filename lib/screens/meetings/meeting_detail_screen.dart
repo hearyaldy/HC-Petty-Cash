@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_quill/flutter_quill.dart' as quill;
+import 'package:flutter/services.dart' show rootBundle;
+import 'dart:typed_data';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import 'package:intl/intl.dart';
 import '../../models/adcom_agenda.dart' as adcom;
 import '../../models/adcom_minutes.dart';
@@ -14,8 +20,13 @@ import '../../utils/responsive_helper.dart';
 
 class MeetingDetailScreen extends StatefulWidget {
   final String meetingId;
+  final String? initialTab; // 'agenda', 'minutes', 'actions'
 
-  const MeetingDetailScreen({super.key, required this.meetingId});
+  const MeetingDetailScreen({
+    super.key,
+    required this.meetingId,
+    this.initialTab,
+  });
 
   @override
   State<MeetingDetailScreen> createState() => _MeetingDetailScreenState();
@@ -35,17 +46,47 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen>
   MeetingMinutes? _minutes;
   List<MeetingActionItem> _actionItems = [];
   bool _isLoading = true;
+  quill.QuillController? _agendaContentController;
+  final FocusNode _agendaContentFocus = FocusNode();
+  final ScrollController _agendaContentScroll = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    final initialIndex = _tabIndexFor(widget.initialTab);
+    _tabController = TabController(length: 3, vsync: this, initialIndex: initialIndex);
     _loadMeeting();
+  }
+
+  @override
+  void didUpdateWidget(covariant MeetingDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialTab != widget.initialTab) {
+      final newIndex = _tabIndexFor(widget.initialTab);
+      if (_tabController.index != newIndex) {
+        _tabController.animateTo(newIndex);
+      }
+    }
+  }
+
+  int _tabIndexFor(String? tab) {
+    switch (tab) {
+      case 'agenda':
+        return 1;
+      case 'minutes':
+        return 2;
+      case 'actions':
+        return 0;
+      default:
+        return 0;
+    }
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _agendaContentFocus.dispose();
+    _agendaContentScroll.dispose();
     super.dispose();
   }
 
@@ -89,6 +130,7 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen>
           _adcomAgenda = adcomAgenda;
           _adcomMinutes = adcomMinutes;
           _minutes = minutes;
+          _agendaContentController = _buildAgendaContentController();
           _isLoading = false;
         });
       }
@@ -100,6 +142,301 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen>
         ).showSnackBar(SnackBar(content: Text('Error loading meeting: $e')));
       }
     }
+  }
+
+  quill.QuillController _buildAgendaContentController() {
+    final content = _adcomAgenda?.agendaContent;
+    final doc = (content != null && content.isNotEmpty)
+        ? quill.Document.fromJson(List<dynamic>.from(content))
+        : quill.Document();
+    return quill.QuillController(
+      document: doc,
+      selection: const TextSelection.collapsed(offset: 0),
+    );
+  }
+
+  Future<void> _saveAgendaContent() async {
+    if (_adcomAgenda == null || _agendaContentController == null) return;
+    try {
+      final updatedAgenda = _adcomAgenda!.copyWith(
+        agendaContent: _agendaContentController!.document.toDelta().toJson(),
+        updatedAt: DateTime.now(),
+      );
+      await _adcomAgendaService.updateAgenda(updatedAgenda);
+      await _loadMeeting();
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Agenda content saved')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving agenda content: $e')),
+        );
+      }
+    }
+  }
+
+  void _viewGeneratedAgenda() {
+    if (_adcomAgenda == null) return;
+    final meetingQuery =
+        _meeting != null ? '?meetingId=${_meeting!.id}&tab=agenda' : '';
+    context.push('/admin/adcom-agenda/${_adcomAgenda!.id}/view$meetingQuery');
+  }
+
+  quill.Document _buildAgendaDocFromItems() {
+    final doc = quill.Document();
+    if (_adcomAgenda == null || _adcomAgenda!.agendaItems.isEmpty) {
+      return doc;
+    }
+
+    for (final item in _adcomAgenda!.agendaItems) {
+      final header =
+          '${item.itemNumber} ${item.title.toUpperCase()} (${item.actionType.displayName})\n';
+      doc.insert(doc.length - 1, header);
+      if (item.description.isNotEmpty) {
+        doc.insert(doc.length - 1, '${item.description}\n');
+      }
+      doc.insert(doc.length - 1, '\n');
+    }
+    return doc;
+  }
+
+  Future<void> _showAgendaPdfPreview() async {
+    if (_adcomAgenda == null) return;
+    final pdfBytes = await _generateAgendaPdfBytes();
+    if (!mounted) return;
+
+    await showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.all(16),
+        child: SizedBox(
+          width: MediaQuery.of(context).size.width * 0.9,
+          height: MediaQuery.of(context).size.height * 0.9,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Agenda Preview',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            _tabController.animateTo(1);
+                          },
+                          icon: const Icon(Icons.edit),
+                          label: const Text('Edit Agenda'),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed: () async {
+                            await Printing.layoutPdf(
+                              onLayout: (_) async =>
+                                  Uint8List.fromList(pdfBytes),
+                            );
+                          },
+                          icon: const Icon(Icons.print),
+                          label: const Text('Print'),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: PdfPreview(
+                    build: (_) async => Uint8List.fromList(pdfBytes),
+                    allowPrinting: true,
+                    allowSharing: true,
+                    canChangePageFormat: false,
+                    canChangeOrientation: false,
+                    canDebug: false,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<List<int>> _generateAgendaPdfBytes() async {
+    final agenda = _adcomAgenda!;
+    final pdf = pw.Document();
+    final presentMembers =
+        agenda.attendanceMembers.where((m) => m.isPresent).toList();
+    final absentMembers =
+        agenda.attendanceMembers.where((m) => m.isAbsentWithApology).toList();
+
+    // Load logo
+    pw.ImageProvider? logoImage;
+    try {
+      final logoData = await rootBundle.load(AppConstants.companyLogo);
+      logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
+    } catch (_) {
+      logoImage = null;
+    }
+
+    final dayFormat = DateFormat('EEEE, MMMM d');
+    final dayName = dayFormat.format(agenda.meetingDate);
+    final time = agenda.meetingTime.isNotEmpty ? agenda.meetingTime : '10:00AM';
+    final location = agenda.location.isNotEmpty
+        ? agenda.location
+        : 'the ${AppConstants.organizationName} Conference Room';
+    final meetingDescription =
+        'Agenda for HC ADCOM Meeting held on $dayName at $time (Thailand) at $location.';
+
+    final agendaDoc = (agenda.agendaContent != null &&
+            agenda.agendaContent!.isNotEmpty)
+        ? quill.Document.fromJson(List<dynamic>.from(agenda.agendaContent!))
+        : _buildAgendaDocFromItems();
+    final agendaPlainText = agendaDoc.toPlainText().trim();
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(50),
+        build: (context) => [
+          pw.Center(
+            child: pw.Column(
+              children: [
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.center,
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    if (logoImage != null)
+                      pw.Container(
+                        width: 36,
+                        height: 36,
+                        margin: const pw.EdgeInsets.only(right: 8),
+                        child: pw.Image(logoImage, fit: pw.BoxFit.contain),
+                      ),
+                    pw.Column(
+                      children: [
+                        pw.Text(
+                          AppConstants.organizationName.toUpperCase(),
+                          style: pw.TextStyle(
+                            fontSize: 14,
+                            fontWeight: pw.FontWeight.bold,
+                            letterSpacing: 1.5,
+                          ),
+                          textAlign: pw.TextAlign.center,
+                        ),
+                        if (AppConstants.organizationAddress.isNotEmpty) ...[
+                          pw.SizedBox(height: 4),
+                          pw.Text(
+                            AppConstants.organizationAddress,
+                            style: pw.TextStyle(
+                              fontSize: 9,
+                              color: PdfColors.grey700,
+                            ),
+                            textAlign: pw.TextAlign.center,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+                pw.SizedBox(height: 12),
+                pw.Divider(thickness: 1),
+                pw.SizedBox(height: 12),
+                pw.Text(
+                  'ADMINISTRATIVE COMMITTEE MEETING',
+                  style: pw.TextStyle(
+                    fontSize: 12,
+                    fontWeight: pw.FontWeight.bold,
+                    letterSpacing: 1,
+                  ),
+                ),
+                pw.SizedBox(height: 16),
+                pw.Text(
+                  meetingDescription,
+                  style: const pw.TextStyle(fontSize: 10),
+                  textAlign: pw.TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 20),
+          if (presentMembers.isNotEmpty || absentMembers.isNotEmpty) ...[
+            pw.Text(
+              'ATTENDANCE',
+              style: pw.TextStyle(
+                fontSize: 11,
+                fontWeight: pw.FontWeight.bold,
+                decoration: pw.TextDecoration.underline,
+              ),
+            ),
+            pw.SizedBox(height: 10),
+            if (presentMembers.isNotEmpty) ...[
+              pw.Text(
+                'Members Present:',
+                style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+              ),
+              pw.SizedBox(height: 4),
+              pw.Text(
+                presentMembers
+                    .map((m) => '${m.name} (${m.affiliation})')
+                    .join(', '),
+                style: const pw.TextStyle(fontSize: 10),
+              ),
+              pw.SizedBox(height: 10),
+            ],
+            if (absentMembers.isNotEmpty) ...[
+              pw.Text(
+                'Members Absent with Apology:',
+                style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+              ),
+              pw.SizedBox(height: 4),
+              pw.Text(
+                absentMembers
+                    .map((m) => '${m.name} (${m.affiliation})')
+                    .join(', '),
+                style: const pw.TextStyle(fontSize: 10),
+              ),
+            ],
+            pw.SizedBox(height: 20),
+            pw.Divider(),
+            pw.SizedBox(height: 20),
+          ],
+          if (agendaPlainText.isNotEmpty) ...[
+            pw.Text(
+              'AGENDA',
+              style: pw.TextStyle(
+                fontSize: 11,
+                fontWeight: pw.FontWeight.bold,
+                decoration: pw.TextDecoration.underline,
+              ),
+            ),
+            pw.SizedBox(height: 12),
+            pw.Text(
+              agendaPlainText,
+              style: const pw.TextStyle(fontSize: 10, height: 1.4),
+            ),
+          ],
+        ],
+      ),
+    );
+
+    return pdf.save();
   }
 
   @override
@@ -436,7 +773,10 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Date & Time Card
-              _buildInfoCard('Date & Time', Icons.event, [
+              _buildInfoCard(
+                'Date & Time',
+                Icons.event,
+                [
                 _buildInfoRow(
                   Icons.calendar_today,
                   'Date',
@@ -447,7 +787,13 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen>
                   'Time',
                   timeFormat.format(_meeting!.dateTime),
                 ),
-              ]),
+                ],
+                trailing: TextButton.icon(
+                  onPressed: () => context.push('/meetings/${_meeting!.id}/edit'),
+                  icon: const Icon(Icons.edit, size: 18),
+                  label: const Text('Edit'),
+                ),
+              ),
               const SizedBox(height: 16),
 
               // Location Card
@@ -509,7 +855,12 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen>
     );
   }
 
-  Widget _buildInfoCard(String title, IconData icon, List<Widget> children) {
+  Widget _buildInfoCard(
+    String title,
+    IconData icon,
+    List<Widget> children, {
+    Widget? trailing,
+  }) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -538,6 +889,10 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen>
                   fontWeight: FontWeight.bold,
                 ),
               ),
+              if (trailing != null) ...[
+                const Spacer(),
+                trailing,
+              ],
             ],
           ),
           const Divider(height: 24),
@@ -816,6 +1171,8 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen>
             children: [
               _buildAdcomAgendaStatusCard(),
               const SizedBox(height: 16),
+              _buildAgendaContentCard(),
+              const SizedBox(height: 16),
               if (_adcomAgenda!.agendaItems.isEmpty)
                 Container(
                   padding: const EdgeInsets.all(24),
@@ -887,6 +1244,106 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen>
     );
   }
 
+  Widget _buildAgendaContentCard() {
+    final isFinalized = _adcomAgenda?.status == 'finalized';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.indigo.shade50,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(12),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.description, color: Colors.indigo.shade600),
+                const SizedBox(width: 12),
+                const Text(
+                  'Agenda Notes',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                if (!isFinalized) ...[
+                  ElevatedButton.icon(
+                    onPressed: _saveAgendaContent,
+                    icon: const Icon(Icons.save, size: 18),
+                    label: const Text('Save'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.indigo,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: _viewGeneratedAgenda,
+                    icon: const Icon(Icons.visibility, size: 18),
+                    label: const Text('View Agenda'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.deepPurple,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (_agendaContentController != null)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  if (!isFinalized)
+                    quill.QuillSimpleToolbar(
+                      controller: _agendaContentController!,
+                      config: const quill.QuillSimpleToolbarConfig(
+                        showAlignmentButtons: true,
+                        showBoldButton: true,
+                        showItalicButton: true,
+                        showUnderLineButton: true,
+                        showListBullets: true,
+                        showListNumbers: true,
+                        showQuote: true,
+                        showCodeBlock: false,
+                        showLink: true,
+                      ),
+                    ),
+                  const SizedBox(height: 12),
+                  Container(
+                    height: 280,
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: quill.QuillEditor.basic(
+                      controller: _agendaContentController!,
+                      config: quill.QuillEditorConfig(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildAdcomAgendaStatusCard() {
     final status = _adcomAgenda!.status;
     Color statusColor;
@@ -923,10 +1380,7 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen>
             ),
             child: Text(
               status.toUpperCase(),
-              style: TextStyle(
-                color: statusColor,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(color: statusColor, fontWeight: FontWeight.bold),
             ),
           ),
           const SizedBox(width: 12),
@@ -975,8 +1429,7 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen>
               ),
               const SizedBox(width: 8),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.indigo.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
@@ -1314,10 +1767,7 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen>
             ),
             child: Text(
               status.toUpperCase(),
-              style: TextStyle(
-                color: statusColor,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(color: statusColor, fontWeight: FontWeight.bold),
             ),
           ),
           const SizedBox(width: 12),
@@ -1366,8 +1816,7 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen>
               ),
               const SizedBox(width: 8),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.teal.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
@@ -1709,7 +2158,7 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen>
         }
         break;
       case 'edit':
-        // TODO: Navigate to edit screen
+        context.push('/meetings/${_meeting!.id}/edit');
         break;
     }
   }
@@ -1770,9 +2219,9 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error creating minutes: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error creating minutes: $e')));
       }
     }
   }

@@ -11,16 +11,17 @@ class ReportService {
   final _uuid = const Uuid();
 
   /// Generate a unique report number
-  Future<String> generateReportNumber() async {
+  Future<String> generateReportNumber({String reportType = 'petty_cash'}) async {
     final now = DateTime.now();
     final formatter = DateFormat('yyyyMMdd');
+    final prefix = reportType == 'advance_settlement' ? 'ASR' : 'PCR';
     final allReports = await _firestoreService.getAllReports();
     final count = allReports
             .where((r) =>
-                r.reportNumber.startsWith('PCR-${formatter.format(now)}'))
+                r.reportNumber.startsWith('${prefix}-${formatter.format(now)}'))
             .length +
         1;
-    return 'PCR-${formatter.format(now)}-${count.toString().padLeft(3, '0')}';
+    return '${prefix}-${formatter.format(now)}-${count.toString().padLeft(3, '0')}';
   }
 
   /// Create a new petty cash report
@@ -30,14 +31,20 @@ class ReportService {
     required String department,
     required User custodian,
     required double openingBalance,
+    String reportType = 'petty_cash',
+    String? purpose,
+    DateTime? advanceTakenDate,
     String? companyName,
     String? notes,
   }) async {
-    final reportNumber = await generateReportNumber();
+    final reportNumber = await generateReportNumber(reportType: reportType);
 
     final report = PettyCashReport(
       id: _uuid.v4(),
       reportNumber: reportNumber,
+      reportType: reportType,
+      purpose: purpose,
+      advanceTakenDate: advanceTakenDate,
       periodStart: periodStart,
       periodEnd: periodEnd,
       department: department,

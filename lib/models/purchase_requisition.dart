@@ -110,6 +110,7 @@ class PurchaseRequisition {
   final String id;
   final String requisitionNumber; // Format: PR-YYYYMMDD-XXX
   final DateTime requisitionDate;
+  final String? requesterId;
   final String requestedBy;
   final String idNo;
   final String chargeToDepartment;
@@ -132,6 +133,7 @@ class PurchaseRequisition {
     required this.id,
     required this.requisitionNumber,
     required this.requisitionDate,
+    this.requesterId,
     required this.requestedBy,
     required this.idNo,
     required this.chargeToDepartment,
@@ -159,6 +161,7 @@ class PurchaseRequisition {
       'id': id,
       'requisitionNumber': requisitionNumber,
       'requisitionDate': Timestamp.fromDate(requisitionDate),
+      'requesterId': requesterId,
       'requestedBy': requestedBy,
       'idNo': idNo,
       'chargeToDepartment': chargeToDepartment,
@@ -199,6 +202,7 @@ class PurchaseRequisition {
       id: data['id'] ?? doc.id,
       requisitionNumber: data['requisitionNumber'] ?? '',
       requisitionDate: parseTimestamp(data['requisitionDate'], now),
+      requesterId: data['requesterId'],
       requestedBy: data['requestedBy'] ?? '',
       idNo: data['idNo'] ?? '',
       chargeToDepartment: data['chargeToDepartment'] ?? '',
@@ -229,6 +233,7 @@ class PurchaseRequisition {
           : DateTime.parse(
               json['requisitionDate'] ?? DateTime.now().toIso8601String(),
             ),
+      requesterId: json['requesterId'],
       requestedBy: json['requestedBy'] ?? '',
       idNo: json['idNo'] ?? '',
       chargeToDepartment: json['chargeToDepartment'] ?? '',
@@ -268,6 +273,7 @@ class PurchaseRequisition {
     String? id,
     String? requisitionNumber,
     DateTime? requisitionDate,
+    String? requesterId,
     String? requestedBy,
     String? idNo,
     String? chargeToDepartment,
@@ -288,6 +294,7 @@ class PurchaseRequisition {
       id: id ?? this.id,
       requisitionNumber: requisitionNumber ?? this.requisitionNumber,
       requisitionDate: requisitionDate ?? this.requisitionDate,
+      requesterId: requesterId ?? this.requesterId,
       requestedBy: requestedBy ?? this.requestedBy,
       idNo: idNo ?? this.idNo,
       chargeToDepartment: chargeToDepartment ?? this.chargeToDepartment,

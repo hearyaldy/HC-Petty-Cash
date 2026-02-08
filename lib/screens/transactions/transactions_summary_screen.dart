@@ -1070,11 +1070,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                         (r) => r?.id == transaction.reportId,
                         orElse: () => null,
                       );
-
-                  // Skip row if report not found
-                  if (report == null) {
-                    return const DataRow(cells: []);
-                  }
+                  final reportNumber = report?.reportNumber ?? 'Unknown';
 
                   return DataRow(
                     cells: [
@@ -1103,7 +1099,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                         ),
                       ),
                       DataCell(_buildStatusChip(transaction.statusEnum)),
-                      DataCell(Text(report.reportNumber)),
+                      DataCell(Text(reportNumber)),
                     ],
                   );
                 }).toList(),

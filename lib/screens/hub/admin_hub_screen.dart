@@ -76,6 +76,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
     final user = authProvider.currentUser;
     final isAdmin = user?.role == 'admin';
     final canApprove = authProvider.canApprove();
+    final hubTitle = isAdmin ? 'Admin Hub' : 'Staff Hub';
 
     return Scaffold(
       backgroundColor: Colors.grey[100],
@@ -115,6 +116,8 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
     final hour = DateTime.now().hour;
     String greeting;
     IconData greetingIcon;
+    final isAdmin = authProvider.currentUser?.role == 'admin';
+    final hubTitle = isAdmin ? 'Admin Hub' : 'Staff Hub';
 
     if (hour < 12) {
       greeting = 'Good Morning';
@@ -151,7 +154,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Admin Hub',
+                hubTitle,
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.9),
                   fontSize: 14,
@@ -294,6 +297,22 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
         color: Colors.green,
         route: '/hr-dashboard',
         visible: isAdmin,
+      ),
+      _SectionCard(
+        title: 'My HR Data',
+        subtitle: 'View and update your profile',
+        icon: Icons.badge,
+        color: Colors.teal,
+        route: '/hr/my-data',
+        visible: !isAdmin,
+      ),
+      _SectionCard(
+        title: 'Annual Leave',
+        subtitle: 'Request your leave',
+        icon: Icons.event_available,
+        color: Colors.teal,
+        route: '/hr/leave-request',
+        visible: !isAdmin,
       ),
       _SectionCard(
         title: 'Inventory',

@@ -17,57 +17,86 @@ class ChooseReportTypeScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: Center(
-        child: Padding(
+      body: SafeArea(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 800),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'Select Report Type',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  Text(
+                    'Select Report Type',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Choose the type of report you want to create',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyLarge?.copyWith(color: Colors.grey[600]),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 48),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildReportTypeCard(
-                        context: context,
-                        title: 'Petty Cash Report',
-                        description:
-                            'Track petty cash disbursements and reconcile cash on hand',
-                        icon: Icons.account_balance_wallet,
-                        color: Colors.blue,
-                        onTap: () => context.go('/reports/new/petty-cash'),
-                      ),
-                    ),
-                    const SizedBox(width: 24),
-                    Expanded(
-                      child: _buildReportTypeCard(
-                        context: context,
-                        title: 'Project Report',
-                        description:
-                            'Manage project budgets and track expenses against allocated funds',
-                        icon: Icons.folder_special,
-                        color: Colors.green,
-                        onTap: () => context.go('/reports/new/project'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  Text(
+                    'Choose the type of report you want to create',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyLarge?.copyWith(color: Colors.grey[600]),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 32),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isNarrow = constraints.maxWidth < 720;
+                      return Wrap(
+                        spacing: 24,
+                        runSpacing: 24,
+                        children: [
+                          SizedBox(
+                            width: isNarrow
+                                ? constraints.maxWidth
+                                : (constraints.maxWidth - 24) / 2,
+                            child: _buildReportTypeCard(
+                              context: context,
+                              title: 'Petty Cash Report',
+                              description:
+                                  'Track petty cash disbursements and reconcile cash on hand',
+                              icon: Icons.account_balance_wallet,
+                              color: Colors.blue,
+                              onTap: () => context.go('/reports/new/petty-cash'),
+                            ),
+                          ),
+                          SizedBox(
+                            width: isNarrow
+                                ? constraints.maxWidth
+                                : (constraints.maxWidth - 24) / 2,
+                            child: _buildReportTypeCard(
+                              context: context,
+                              title: 'Project Report',
+                              description:
+                                  'Manage project budgets and track expenses against allocated funds',
+                              icon: Icons.folder_special,
+                              color: Colors.green,
+                              onTap: () => context.go('/reports/new/project'),
+                            ),
+                          ),
+                          SizedBox(
+                            width: isNarrow
+                                ? constraints.maxWidth
+                                : (constraints.maxWidth - 24) / 2,
+                            child: _buildReportTypeCard(
+                              context: context,
+                              title: 'Advance Settlement Report',
+                              description:
+                                  'Generate the advance settlement form for finance review',
+                              icon: Icons.request_page,
+                              color: Colors.orange,
+                              onTap: () =>
+                                  context.go('/reports/new/advance-settlement'),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         ),

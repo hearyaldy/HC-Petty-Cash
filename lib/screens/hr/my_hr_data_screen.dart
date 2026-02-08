@@ -367,6 +367,13 @@ class _MyHrDataScreenState extends State<MyHrDataScreen> {
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           _buildDataActionButton(
+            icon: Icons.event_available,
+            label: 'Request Leave',
+            color: Colors.teal,
+            onPressed: () => context.go('/hr/leave-request'),
+          ),
+          const SizedBox(width: 12),
+          _buildDataActionButton(
             icon: Icons.print,
             label: 'Print',
             color: Colors.blue,

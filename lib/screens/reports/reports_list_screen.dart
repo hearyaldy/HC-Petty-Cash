@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/report_provider.dart';
 import '../../providers/project_report_provider.dart';
@@ -13,7 +14,12 @@ import '../../models/project_report.dart';
 import '../../utils/responsive_helper.dart';
 
 class ReportsListScreen extends StatefulWidget {
-  const ReportsListScreen({super.key});
+  const ReportsListScreen({
+    super.key,
+    this.initialReportType,
+  });
+
+  final String? initialReportType; // 'petty_cash', 'advance_settlement', 'project'
 
   @override
   State<ReportsListScreen> createState() => _ReportsListScreenState();
@@ -27,19 +33,54 @@ enum ReportsViewMode {
 }
 
 class _ReportsListScreenState extends State<ReportsListScreen> {
+  static const _viewModePrefsKey = 'reports_view_mode';
   ReportStatus? _filterStatus;
   String _searchQuery = '';
-  String _reportType = 'all'; // 'all', 'petty_cash', 'project'
+  String _reportType = 'all'; // 'all', 'petty_cash', 'advance_settlement', 'project'
   ReportsViewMode _viewMode = ReportsViewMode.card;
 
   @override
   void initState() {
     super.initState();
+    if (widget.initialReportType != null) {
+      _reportType = widget.initialReportType!;
+    }
+    _loadViewModePreference();
     // Load reports when screen opens
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ReportProvider>().loadReports();
       context.read<ProjectReportProvider>().loadProjectReports();
     });
+  }
+
+  Future<void> _loadViewModePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getString(_viewModePrefsKey);
+    if (stored == null) return;
+
+    ReportsViewMode? mode;
+    switch (stored) {
+      case 'card':
+        mode = ReportsViewMode.card;
+        break;
+      case 'tableRow':
+        mode = ReportsViewMode.tableRow;
+        break;
+      case 'tableCategory':
+        mode = ReportsViewMode.tableCategory;
+        break;
+    }
+
+    if (mode != null && mounted) {
+      setState(() {
+        _viewMode = mode!;
+      });
+    }
+  }
+
+  Future<void> _saveViewModePreference(ReportsViewMode mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_viewModePrefsKey, mode.name);
   }
 
   @override
@@ -53,12 +94,21 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
     // Combine both types of reports into a unified list
     List<dynamic> allReports = [];
 
-    if (_reportType == 'all' || _reportType == 'petty_cash') {
-      allReports.addAll(reportProvider.reports);
-    }
-
     if (_reportType == 'all' || _reportType == 'project') {
       allReports.addAll(projectReportProvider.projectReports);
+    }
+
+    if (_reportType != 'project') {
+      final pettyCashReports = reportProvider.reports.where((report) {
+        if (_reportType == 'petty_cash') {
+          return report.reportType == 'petty_cash';
+        }
+        if (_reportType == 'advance_settlement') {
+          return report.reportType == 'advance_settlement';
+        }
+        return true;
+      });
+      allReports.addAll(pettyCashReports);
     }
 
     var reports = allReports;
@@ -257,6 +307,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
         setState(() {
           _viewMode = mode;
         });
+        _saveViewModePreference(mode);
       },
       child: Container(
         padding: const EdgeInsets.all(8),
@@ -405,6 +456,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
               children: [
                 _buildTypeFilterChip('All', 'all'),
                 _buildTypeFilterChip('Petty Cash', 'petty_cash'),
+                _buildTypeFilterChip('Advance Settlement', 'advance_settlement'),
                 _buildTypeFilterChip('Projects', 'project'),
               ],
             ),
@@ -422,6 +474,8 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                 _buildTypeFilterChip('All Reports', 'all'),
                 const SizedBox(width: 8),
                 _buildTypeFilterChip('Petty Cash', 'petty_cash'),
+                const SizedBox(width: 8),
+                _buildTypeFilterChip('Advance Settlement', 'advance_settlement'),
                 const SizedBox(width: 8),
                 _buildTypeFilterChip('Projects', 'project'),
               ],
@@ -665,7 +719,14 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
     final currencyFormat = NumberFormat('#,##0.00', 'en_US');
 
     // Separate reports by category
-    final pettyCashReports = reports.whereType<PettyCashReport>().toList();
+    final pettyCashReports = reports
+        .whereType<PettyCashReport>()
+        .where((report) => report.reportType == 'petty_cash')
+        .toList();
+    final advanceSettlementReports = reports
+        .whereType<PettyCashReport>()
+        .where((report) => report.reportType == 'advance_settlement')
+        .toList();
     final projectReports = reports.whereType<ProjectReport>().toList();
 
     return SingleChildScrollView(
@@ -685,6 +746,26 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
             _buildDataTable(
               reports: pettyCashReports,
               isPettyCash: true,
+              headerColor: Colors.blue,
+              transactions: transactions,
+              dateFormat: dateFormat,
+              currencyFormat: currencyFormat,
+            ),
+            const SizedBox(height: 24),
+          ],
+          // Advance Settlement category
+          if (advanceSettlementReports.isNotEmpty) ...[
+            _buildCategoryHeader(
+              'Advance Settlement Reports',
+              Icons.request_page,
+              Colors.orange,
+              advanceSettlementReports.length,
+            ),
+            const SizedBox(height: 8),
+            _buildDataTable(
+              reports: advanceSettlementReports,
+              isPettyCash: true,
+              headerColor: Colors.orange,
               transactions: transactions,
               dateFormat: dateFormat,
               currencyFormat: currencyFormat,
@@ -703,6 +784,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
             _buildDataTable(
               reports: projectReports,
               isPettyCash: false,
+              headerColor: Colors.green,
               transactions: transactions,
               dateFormat: dateFormat,
               currencyFormat: currencyFormat,
@@ -836,7 +918,15 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                 }
 
                 final statusColor = _getStatusColor(report.statusEnum);
-                final themeColor = isPettyCash ? Colors.blue : Colors.green;
+                final themeColor = isPettyCash
+                    ? _getPettyCashTypeColor(report)
+                    : Colors.green;
+                final reportTypeLabel = isPettyCash
+                    ? _getPettyCashTypeLabel(report)
+                    : 'Project';
+                final reportTypeIcon = isPettyCash
+                    ? _getPettyCashTypeIcon(report)
+                    : Icons.folder_special;
 
                 return DataRow(
                   onSelectChanged: (_) {
@@ -863,15 +953,13 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              isPettyCash
-                                  ? Icons.account_balance_wallet
-                                  : Icons.folder_special,
+                              reportTypeIcon,
                               size: 14,
                               color: themeColor.shade700,
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              isPettyCash ? 'Petty Cash' : 'Project',
+                              reportTypeLabel,
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
@@ -1080,6 +1168,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
   Widget _buildDataTable({
     required List<dynamic> reports,
     required bool isPettyCash,
+    required MaterialColor headerColor,
     required List<Transaction> transactions,
     required DateFormat dateFormat,
     required NumberFormat currencyFormat,
@@ -1103,7 +1192,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
           child: DataTable(
             showCheckboxColumn: false,
             headingRowColor: WidgetStateProperty.all(
-              isPettyCash ? Colors.blue.shade50 : Colors.green.shade50,
+              headerColor.shade50,
             ),
             columnSpacing: 20,
             horizontalMargin: 16,
@@ -1364,7 +1453,15 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
     final currencyFormat = NumberFormat('#,##0.00', 'en_US');
     final statusColor = _getStatusColor(report.statusEnum);
     final statusIcon = _getStatusIcon(report.statusEnum);
-    final themeColor = isPettyCash ? Colors.blue : Colors.green;
+    final themeColor = isPettyCash
+        ? _getPettyCashTypeColor(report)
+        : Colors.green;
+    final reportTypeLabel = isPettyCash
+        ? _getPettyCashTypeLabel(report)
+        : 'Project';
+    final reportTypeIcon = isPettyCash
+        ? _getPettyCashTypeIcon(report)
+        : Icons.folder_special;
 
     return Container(
       decoration: BoxDecoration(
@@ -1407,9 +1504,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
-                      isPettyCash
-                          ? Icons.account_balance_wallet
-                          : Icons.folder_special,
+                      reportTypeIcon,
                       color: Colors.white,
                       size: 20,
                     ),
@@ -1431,7 +1526,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                isPettyCash ? 'Petty Cash' : 'Project',
+                                reportTypeLabel,
                                 style: TextStyle(
                                   fontSize: 9,
                                   fontWeight: FontWeight.bold,
@@ -1711,6 +1806,36 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
         return Icons.check_circle;
       case ReportStatus.closed:
         return Icons.lock;
+    }
+  }
+
+  String _getPettyCashTypeLabel(PettyCashReport report) {
+    switch (report.reportType) {
+      case 'advance_settlement':
+        return 'Advance Settlement';
+      case 'petty_cash':
+      default:
+        return 'Petty Cash';
+    }
+  }
+
+  MaterialColor _getPettyCashTypeColor(PettyCashReport report) {
+    switch (report.reportType) {
+      case 'advance_settlement':
+        return Colors.orange;
+      case 'petty_cash':
+      default:
+        return Colors.blue;
+    }
+  }
+
+  IconData _getPettyCashTypeIcon(PettyCashReport report) {
+    switch (report.reportType) {
+      case 'advance_settlement':
+        return Icons.request_page;
+      case 'petty_cash':
+      default:
+        return Icons.account_balance_wallet;
     }
   }
 

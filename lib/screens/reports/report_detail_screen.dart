@@ -212,6 +212,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 await _exportExcel(report, transactions);
               } else if (value == 'export_pdf') {
                 await _exportPdf(report, transactions);
+              } else if (value == 'export_advance_settlement_pdf') {
+                await _exportAdvanceSettlementPdf(report, transactions);
               } else if (value == 'submit') {
                 await _submitReport(report, reportProvider);
               } else if (value == 'approve') {
@@ -250,6 +252,16 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     Icon(Icons.picture_as_pdf),
                     SizedBox(width: 8),
                     Text('Export to PDF'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'export_advance_settlement_pdf',
+                child: Row(
+                  children: [
+                    Icon(Icons.request_page),
+                    SizedBox(width: 8),
+                    Text('Export Advance Settlement'),
                   ],
                 ),
               ),
@@ -1804,6 +1816,34 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     }
   }
 
+  Future<void> _exportAdvanceSettlementPdf(
+    PettyCashReport report,
+    List<Transaction> transactions,
+  ) async {
+    try {
+      final pdfService = PdfExportService();
+      await pdfService.exportAdvanceSettlementReport(
+        report,
+        transactions: transactions,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Advance Settlement PDF exported successfully'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error exporting Advance Settlement PDF: $e'),
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _showEditReportDialog(
     PettyCashReport report,
     ReportProvider provider,
@@ -2363,6 +2403,15 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     // Define constants for pagination
     const maxRowsSinglePage = 18; // Leave room for summary/signature
     final needsSummaryPage = transactions.length > maxRowsSinglePage;
+    final isAdvanceSettlement = report.reportType == 'advance_settlement';
+    final reportSubtitle = isAdvanceSettlement
+        ? (report.purpose?.trim().isNotEmpty == true
+            ? report.purpose!.trim()
+            : report.department)
+        : report.department;
+    final reportHeaderTitle = isAdvanceSettlement
+        ? 'Advance Settlement Report'
+        : 'Transactions Report';
 
     pw.Widget buildSummaryAndSignature() {
       return pw.Column(
@@ -2636,19 +2685,39 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             ],
           ),
           pw.SizedBox(height: 16),
+          if (isAdvanceSettlement)
+            pw.Text(
+              reportHeaderTitle,
+              style: pw.TextStyle(font: boldTtf, fontSize: 18),
+            ),
+          if (isAdvanceSettlement) pw.SizedBox(height: 6),
           pw.Text(
-            '${report.reportNumber} - ${report.department}', // Using report name instead of generic "Transactions Report"
+            '${report.reportNumber} - $reportSubtitle',
             style: pw.TextStyle(font: boldTtf, fontSize: 20),
           ),
           pw.SizedBox(height: 8),
-          pw.Text(
-            'Period: ${dateFormat.format(report.periodStart)} - ${dateFormat.format(report.periodEnd)}',
-            style: pw.TextStyle(font: ttf, fontSize: 10),
-          ),
-          pw.SizedBox(height: 8),
-          pw.Text(
-            'Requested by: ${report.custodianName}',
-            style: pw.TextStyle(font: ttf, fontSize: 10),
+          pw.Row(
+            children: [
+              pw.Expanded(
+                child: pw.Text(
+                  'Period: ${dateFormat.format(report.periodStart)} - ${dateFormat.format(report.periodEnd)}',
+                  style: pw.TextStyle(font: ttf, fontSize: 10),
+                ),
+              ),
+              if (isAdvanceSettlement)
+                pw.Expanded(
+                  child: pw.Text(
+                    'Advance Taken Date: ${dateFormat.format(report.advanceTakenDate ?? report.periodStart)}',
+                    style: pw.TextStyle(font: ttf, fontSize: 10),
+                  ),
+                ),
+              pw.Expanded(
+                child: pw.Text(
+                  'Requested by: ${report.custodianName}',
+                  style: pw.TextStyle(font: ttf, fontSize: 10),
+                ),
+              ),
+            ],
           ),
           pw.SizedBox(height: 12),
           pw.Table.fromTextArray(
@@ -2685,12 +2754,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           if (needsSummaryPage) pw.NewPage(),
           if (needsSummaryPage) ...[
             pw.Text(
-              'Transactions Report - Summary',
+              '${reportHeaderTitle} - Summary',
               style: pw.TextStyle(font: boldTtf, fontSize: 18),
             ),
             pw.SizedBox(height: 6),
             pw.Text(
-              '${report.reportNumber} - ${report.department}',
+              '${report.reportNumber} - $reportSubtitle',
               style: pw.TextStyle(font: ttf, fontSize: 12),
             ),
             pw.Text(
@@ -2725,9 +2794,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Transactions Report Preview',
-                      style: TextStyle(
+                    Text(
+                      isAdvanceSettlement
+                          ? 'Advance Settlement Report Preview'
+                          : 'Transactions Report Preview',
+                      style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),

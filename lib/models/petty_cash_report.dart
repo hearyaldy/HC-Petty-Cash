@@ -5,6 +5,9 @@ import 'transaction.dart';
 class PettyCashReport {
   final String id;
   final String reportNumber;
+  final String reportType; // 'petty_cash', 'advance_settlement'
+  final String? purpose;
+  final DateTime? advanceTakenDate;
   final DateTime periodStart;
   final DateTime periodEnd;
   final String department;
@@ -24,6 +27,9 @@ class PettyCashReport {
   PettyCashReport({
     required this.id,
     required this.reportNumber,
+    this.reportType = 'petty_cash',
+    this.purpose,
+    this.advanceTakenDate,
     required this.periodStart,
     required this.periodEnd,
     required this.department,
@@ -76,6 +82,12 @@ class PettyCashReport {
     return {
       'id': id,
       'reportNumber': reportNumber,
+      'reportType': reportType,
+      'purpose': purpose,
+      'advanceTakenDate':
+          advanceTakenDate != null
+              ? firestore.Timestamp.fromDate(advanceTakenDate!)
+              : null,
       'periodStart': firestore.Timestamp.fromDate(periodStart),
       'periodEnd': firestore.Timestamp.fromDate(periodEnd),
       'department': department,
@@ -100,6 +112,11 @@ class PettyCashReport {
     return PettyCashReport(
       id: doc.id,
       reportNumber: data['reportNumber'] as String,
+      reportType: data['reportType'] as String? ?? 'petty_cash',
+      purpose: data['purpose'] as String?,
+      advanceTakenDate: data['advanceTakenDate'] != null
+          ? (data['advanceTakenDate'] as firestore.Timestamp).toDate()
+          : null,
       periodStart: (data['periodStart'] as firestore.Timestamp).toDate(),
       periodEnd: (data['periodEnd'] as firestore.Timestamp).toDate(),
       department: data['department'] as String,
@@ -125,6 +142,9 @@ class PettyCashReport {
     return {
       'id': id,
       'reportNumber': reportNumber,
+      'reportType': reportType,
+      'purpose': purpose,
+      'advanceTakenDate': advanceTakenDate?.toIso8601String(),
       'periodStart': periodStart.toIso8601String(),
       'periodEnd': periodEnd.toIso8601String(),
       'department': department,
@@ -147,6 +167,12 @@ class PettyCashReport {
     return PettyCashReport(
       id: json['id'] as String,
       reportNumber: json['reportNumber'] as String,
+      reportType: json['reportType'] as String? ?? 'petty_cash',
+      purpose: json['purpose'] as String?,
+      advanceTakenDate:
+          json['advanceTakenDate'] != null
+              ? DateTime.parse(json['advanceTakenDate'] as String)
+              : null,
       periodStart: DateTime.parse(json['periodStart'] as String),
       periodEnd: DateTime.parse(json['periodEnd'] as String),
       department: json['department'] as String,
@@ -171,6 +197,9 @@ class PettyCashReport {
   // Helper method to create a copy with updates
   PettyCashReport copyWith({
     String? reportNumber,
+    String? reportType,
+    String? purpose,
+    DateTime? advanceTakenDate,
     DateTime? periodStart,
     DateTime? periodEnd,
     String? department,
@@ -189,6 +218,9 @@ class PettyCashReport {
     return PettyCashReport(
       id: id,
       reportNumber: reportNumber ?? this.reportNumber,
+      reportType: reportType ?? this.reportType,
+      purpose: purpose ?? this.purpose,
+      advanceTakenDate: advanceTakenDate ?? this.advanceTakenDate,
       periodStart: periodStart ?? this.periodStart,
       periodEnd: periodEnd ?? this.periodEnd,
       department: department ?? this.department,

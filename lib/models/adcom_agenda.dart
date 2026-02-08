@@ -133,6 +133,7 @@ class AdcomAgenda {
   final String location;
   final List<AttendanceMember> attendanceMembers;
   final List<AgendaItem> agendaItems;
+  final List<dynamic>? agendaContent; // Quill delta JSON
   final String? openingPrayer;
   final String? closingPrayer;
   final String? meetingAdjournedAt;
@@ -152,6 +153,7 @@ class AdcomAgenda {
     required this.location,
     this.attendanceMembers = const [],
     this.agendaItems = const [],
+    this.agendaContent,
     this.openingPrayer,
     this.closingPrayer,
     this.meetingAdjournedAt,
@@ -176,6 +178,7 @@ class AdcomAgenda {
               ?.map((m) => AttendanceMember.fromMap(m as Map<String, dynamic>))
               .toList() ??
           [],
+      agendaContent: data['agendaContent'] as List<dynamic>?,
       agendaItems:
           (data['agendaItems'] as List<dynamic>?)
               ?.asMap()
@@ -207,6 +210,7 @@ class AdcomAgenda {
       'startTime': startTime,
       'location': location,
       'attendanceMembers': attendanceMembers.map((m) => m.toMap()).toList(),
+      'agendaContent': agendaContent ?? [],
       'agendaItems': agendaItems.map((a) => a.toMap()).toList(),
       'openingPrayer': openingPrayer,
       'closingPrayer': closingPrayer,
@@ -228,6 +232,7 @@ class AdcomAgenda {
     String? location,
     List<AttendanceMember>? attendanceMembers,
     List<AgendaItem>? agendaItems,
+    List<dynamic>? agendaContent,
     String? openingPrayer,
     String? closingPrayer,
     String? meetingAdjournedAt,
@@ -246,6 +251,7 @@ class AdcomAgenda {
       location: location ?? this.location,
       attendanceMembers: attendanceMembers ?? this.attendanceMembers,
       agendaItems: agendaItems ?? this.agendaItems,
+      agendaContent: agendaContent ?? this.agendaContent,
       openingPrayer: openingPrayer ?? this.openingPrayer,
       closingPrayer: closingPrayer ?? this.closingPrayer,
       meetingAdjournedAt: meetingAdjournedAt ?? this.meetingAdjournedAt,

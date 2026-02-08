@@ -11,7 +11,7 @@ class AppSettings {
   final bool pushNotifications;
   final bool autoBackup;
   final String defaultExportFormat; // 'PDF', 'Excel'
-  final String defaultReportType; // 'petty_cash', 'project'
+  final String defaultReportType; // 'petty_cash', 'advance_settlement', 'project'
   final String organizationName;
   final String organizationNameThai;
   final String organizationAddress;

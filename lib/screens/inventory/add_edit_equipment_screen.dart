@@ -604,6 +604,9 @@ class _AddEditEquipmentScreenState extends State<AddEditEquipmentScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 24),
+            _buildSaveButton(),
+            const SizedBox(height: 32),
           ],
         ),
       ),
@@ -629,27 +632,31 @@ class _AddEditEquipmentScreenState extends State<AddEditEquipmentScreen> {
         const SizedBox(height: 16),
         _buildNotesSection(),
         const SizedBox(height: 24),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: _isLoading ? null : _saveEquipment,
-            icon: _isLoading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.save),
-            label: Text(_isEditing ? 'Update Equipment' : 'Add Equipment'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.indigo,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
-          ),
-        ),
+        _buildSaveButton(),
         const SizedBox(height: 32),
       ],
+    );
+  }
+
+  Widget _buildSaveButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: _isLoading ? null : _saveEquipment,
+        icon: _isLoading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.save),
+        label: Text(_isEditing ? 'Update Equipment' : 'Add Equipment'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.indigo,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+        ),
+      ),
     );
   }
 
@@ -852,17 +859,33 @@ class _AddEditEquipmentScreenState extends State<AddEditEquipmentScreen> {
         const SizedBox(height: 16),
         DropdownButtonFormField<String>(
           value: _assignedToId,
+          isExpanded: true,
           decoration: const InputDecoration(
             labelText: 'Assign to Who',
             prefixIcon: Icon(Icons.person),
             border: OutlineInputBorder(),
           ),
+          selectedItemBuilder: (context) {
+            final items = [
+              const Text('Not Assigned'),
+              ..._availableUsers.map((user) {
+                return Text(
+                  '${user.name} (${user.department})',
+                  overflow: TextOverflow.ellipsis,
+                );
+              }),
+            ];
+            return items;
+          },
           items: [
             const DropdownMenuItem(value: null, child: Text('Not Assigned')),
             ..._availableUsers.map((user) {
               return DropdownMenuItem(
                 value: user.id,
-                child: Text('${user.name} (${user.department})'),
+                child: Text(
+                  '${user.name} (${user.department})',
+                  overflow: TextOverflow.ellipsis,
+                ),
               );
             }),
           ],

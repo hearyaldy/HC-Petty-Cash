@@ -725,6 +725,15 @@ class _HrDashboardScreenState extends State<HrDashboardScreen> {
         const SizedBox(height: 12),
         _buildMenuCard(
           context,
+          title: 'Leave Requests',
+          subtitle: 'Review and approve leave',
+          icon: Icons.event_available,
+          color: Colors.teal,
+          route: '/hr/leave-requests',
+        ),
+        const SizedBox(height: 12),
+        _buildMenuCard(
+          context,
           title: 'My HR Data',
           subtitle: 'View and update your own HR data',
           icon: Icons.person_outline,

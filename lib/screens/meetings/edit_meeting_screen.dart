@@ -1,38 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../models/adcom_agenda.dart' as adcom;
 import '../../models/meeting.dart';
-import '../../providers/auth_provider.dart';
 import '../../services/adcom_agenda_service.dart';
 import '../../services/meeting_service.dart';
-import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
 
-class NewMeetingScreen extends StatefulWidget {
-  final String? preselectedType;
+class EditMeetingScreen extends StatefulWidget {
+  final String meetingId;
 
-  const NewMeetingScreen({super.key, this.preselectedType});
+  const EditMeetingScreen({super.key, required this.meetingId});
 
   @override
-  State<NewMeetingScreen> createState() => _NewMeetingScreenState();
+  State<EditMeetingScreen> createState() => _EditMeetingScreenState();
 }
 
-class _NewMeetingScreenState extends State<NewMeetingScreen> {
+class _EditMeetingScreenState extends State<EditMeetingScreen> {
   static const String _externalMemberValue = '__external__';
   final MeetingService _meetingService = MeetingService();
   final AdcomAgendaService _adcomAgendaService = AdcomAgendaService();
   final _formKey = GlobalKey<FormState>();
 
+  Meeting? _meeting;
   String _meetingType = 'adcom';
   final _titleController = TextEditingController();
   final _locationController = TextEditingController();
   final _virtualLinkController = TextEditingController();
   final _notesController = TextEditingController();
 
-  DateTime _selectedDate = DateTime.now().add(const Duration(days: 1));
+  DateTime _selectedDate = DateTime.now();
   TimeOfDay _selectedTime = const TimeOfDay(hour: 9, minute: 0);
 
   String? _chairpersonId;
@@ -41,19 +38,16 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
   String? _secretaryName;
 
   final List<MeetingMember> _invitedMembers = [];
-  bool _isLoading = false;
-  bool _useTemplate = false;
+  bool _isLoading = true;
+  bool _isSaving = false;
 
   List<Map<String, dynamic>> _availableUsers = [];
 
   @override
   void initState() {
     super.initState();
-    if (widget.preselectedType != null) {
-      _meetingType = widget.preselectedType!;
-    }
     _loadUsers();
-    _setDefaultTitle();
+    _loadMeeting();
   }
 
   @override
@@ -65,11 +59,56 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
     super.dispose();
   }
 
-  void _setDefaultTitle() {
-    final monthYear = DateFormat('MMMM yyyy').format(_selectedDate);
-    _titleController.text = _meetingType == 'board'
-        ? 'HC Board Meeting - $monthYear'
-        : 'HC ADCOM Meeting - $monthYear';
+  Future<void> _loadMeeting() async {
+    setState(() => _isLoading = true);
+    try {
+      final meeting = await _meetingService.getMeeting(widget.meetingId);
+      if (meeting == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Meeting not found')),
+          );
+        }
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      final meetingDateTime = meeting.dateTime;
+      setState(() {
+        _meeting = meeting;
+        _meetingType = meeting.type;
+        _titleController.text = meeting.title;
+        _locationController.text = meeting.location ?? '';
+        _virtualLinkController.text = meeting.virtualLink ?? '';
+        _notesController.text = meeting.notes ?? '';
+        _selectedDate = DateTime(
+          meetingDateTime.year,
+          meetingDateTime.month,
+          meetingDateTime.day,
+        );
+        _selectedTime = TimeOfDay(
+          hour: meetingDateTime.hour,
+          minute: meetingDateTime.minute,
+        );
+        _chairpersonId = meeting.chairpersonId;
+        _chairpersonName = meeting.chairpersonName;
+        _secretaryId = meeting.secretaryId;
+        _secretaryName = meeting.secretaryName;
+        _invitedMembers
+          ..clear()
+          ..addAll(meeting.invitedMembers);
+        _isLoading = false;
+      });
+
+      _normalizeRoleSelections();
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading meeting: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _loadUsers() async {
@@ -90,22 +129,57 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
           };
         }).toList();
       });
+
+      _normalizeRoleSelections();
     } catch (e) {
       debugPrint('Error loading users: $e');
     }
+  }
+
+  void _normalizeRoleSelections() {
+    if (_meeting == null) return;
+    if (_availableUsers.isEmpty) {
+      setState(() {
+        if (_chairpersonId == null && (_chairpersonName ?? '').isNotEmpty) {
+          _chairpersonId = _externalMemberValue;
+        }
+        if (_secretaryId == null && (_secretaryName ?? '').isNotEmpty) {
+          _secretaryId = _externalMemberValue;
+        }
+      });
+      return;
+    }
+
+    bool hasUser(String? id) {
+      if (id == null) return false;
+      return _availableUsers.any((u) => u['id'] == id);
+    }
+
+    setState(() {
+      if (_chairpersonId == null && (_chairpersonName ?? '').isNotEmpty) {
+        _chairpersonId = _externalMemberValue;
+      } else if (_chairpersonId != null && !hasUser(_chairpersonId)) {
+        _chairpersonId = _externalMemberValue;
+      }
+
+      if (_secretaryId == null && (_secretaryName ?? '').isNotEmpty) {
+        _secretaryId = _externalMemberValue;
+      } else if (_secretaryId != null && !hasUser(_secretaryId)) {
+        _secretaryId = _externalMemberValue;
+      }
+    });
   }
 
   Future<void> _selectDate() async {
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
     );
     if (picked != null) {
       setState(() {
         _selectedDate = picked;
-        _setDefaultTitle();
       });
     }
   }
@@ -122,120 +196,13 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
     }
   }
 
-  void _showMemberPicker() {
-    // Create a local copy to track selections in the dialog
-    final selectedMembers = List<MeetingMember>.from(_invitedMembers);
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (bottomSheetContext) {
-        return StatefulBuilder(
-          builder: (context, setBottomSheetState) {
-            return DraggableScrollableSheet(
-              initialChildSize: 0.6,
-              minChildSize: 0.3,
-              maxChildSize: 0.9,
-              expand: false,
-              builder: (context, scrollController) {
-                return Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(20),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Select Internal Members',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              // Update the parent state with selections
-                              setState(() {
-                                // Remove internal members and add the new selection
-                                _invitedMembers.removeWhere(
-                                  (m) => !m.oderId.startsWith('external_'),
-                                );
-                                _invitedMembers.addAll(
-                                  selectedMembers.where(
-                                    (m) => !m.oderId.startsWith('external_'),
-                                  ),
-                                );
-                              });
-                              Navigator.pop(bottomSheetContext);
-                            },
-                            child: const Text('Done'),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: ListView.builder(
-                        controller: scrollController,
-                        itemCount: _availableUsers.length,
-                        itemBuilder: (context, index) {
-                          final user = _availableUsers[index];
-                          final isSelected = selectedMembers.any(
-                            (m) => m.oderId == user['id'],
-                          );
-                          return CheckboxListTile(
-                            value: isSelected,
-                            title: Text(user['name'] as String),
-                            subtitle: Text(user['email'] as String),
-                            onChanged: (value) {
-                              setBottomSheetState(() {
-                                if (value == true) {
-                                  selectedMembers.add(
-                                    MeetingMember(
-                                      oderId: user['id'] as String,
-                                      name: user['name'] as String,
-                                      email: user['email'] as String?,
-                                      role: 'Member',
-                                    ),
-                                  );
-                                } else {
-                                  selectedMembers.removeWhere(
-                                    (m) => m.oderId == user['id'],
-                                  );
-                                }
-                              });
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                );
-              },
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Future<void> _createMeeting() async {
+  Future<void> _updateMeeting() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_meeting == null) return;
 
-    setState(() => _isLoading = true);
+    setState(() => _isSaving = true);
 
     try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final user = authProvider.currentUser;
-
       final dateTime = DateTime(
         _selectedDate.year,
         _selectedDate.month,
@@ -244,8 +211,7 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
         _selectedTime.minute,
       );
 
-      final meeting = Meeting(
-        id: '',
+      final updatedMeeting = _meeting!.copyWith(
         type: _meetingType,
         title: _titleController.text.trim(),
         dateTime: dateTime,
@@ -255,67 +221,61 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
         virtualLink: _virtualLinkController.text.trim().isNotEmpty
             ? _virtualLinkController.text.trim()
             : null,
-        status: 'scheduled',
         chairpersonId: _chairpersonId == _externalMemberValue
             ? null
             : _chairpersonId,
         chairpersonName: _chairpersonName,
-        secretaryId: _secretaryId == _externalMemberValue ? null : _secretaryId,
+        secretaryId: _secretaryId == _externalMemberValue
+            ? null
+            : _secretaryId,
         secretaryName: _secretaryName,
-        invitedMembers: _invitedMembers,
+        invitedMembers: List<MeetingMember>.from(_invitedMembers),
         notes: _notesController.text.trim().isNotEmpty
             ? _notesController.text.trim()
             : null,
-        createdBy: user?.id ?? '',
-        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        createdBy: _meeting!.createdBy,
       );
 
-      final meetingId = await _meetingService.createMeeting(meeting);
+      await _meetingService.updateMeeting(updatedMeeting);
 
-      // Create agenda now if requested (ADCOM agenda format)
-      if (_useTemplate) {
-        final now = DateTime.now();
-        final agenda = adcom.AdcomAgenda(
-          id: '',
-          organization: AppConstants.organizationName.toUpperCase(),
-          meetingDate: dateTime,
-          meetingTime: DateFormat('h:mm a').format(dateTime),
-          location: meeting.location ?? '',
-          attendanceMembers: const [],
-          agendaItems: const [],
-          status: 'draft',
-          startingItemSequence: 1,
-          createdAt: now,
-          updatedAt: now,
-          createdBy: user?.id ?? '',
-        );
-        final agendaId = await _adcomAgendaService.createAgenda(agenda);
-        await _meetingService.updateMeeting(
-          meeting.copyWith(id: meetingId, agendaId: agendaId, updatedAt: now),
-        );
+      if (updatedMeeting.agendaId != null &&
+          updatedMeeting.agendaId!.isNotEmpty) {
+        final agenda =
+            await _adcomAgendaService.getAgendaById(updatedMeeting.agendaId!);
+        if (agenda != null) {
+          final meetingTime = DateFormat('h:mm a').format(dateTime);
+          final updatedAgenda = agenda.copyWith(
+            meetingDate: dateTime,
+            meetingTime: meetingTime,
+            location: updatedMeeting.location ?? '',
+            updatedAt: DateTime.now(),
+          );
+          await _adcomAgendaService.updateAgenda(updatedAgenda);
+        }
       }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Meeting scheduled successfully'),
+            content: Text('Meeting updated successfully'),
             backgroundColor: Colors.green,
           ),
         );
-        context.go('/meetings/$meetingId');
+        context.go('/meetings/${updatedMeeting.id}');
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error creating meeting: $e'),
+            content: Text('Error updating meeting: $e'),
             backgroundColor: Colors.red,
           ),
         );
       }
     } finally {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() => _isSaving = false);
       }
     }
   }
@@ -324,170 +284,72 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: ResponsiveContainer(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 24),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: _buildWelcomeHeader(),
-                ),
-                const SizedBox(height: 24),
-                Form(
-                  key: _formKey,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildMeetingTypeSelector(),
-                        const SizedBox(height: 24),
-                        _buildBasicInfoSection(),
-                        const SizedBox(height: 24),
-                        _buildDateTimeSection(),
-                        const SizedBox(height: 24),
-                        _buildLocationSection(),
-                        const SizedBox(height: 24),
-                        _buildRolesSection(),
-                        const SizedBox(height: 24),
-                        _buildMembersSection(),
-                        const SizedBox(height: 24),
-                        _buildOptionsSection(),
-                        const SizedBox(height: 32),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildWelcomeHeader() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.indigo.shade400, Colors.indigo.shade600],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.indigo.shade200,
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+      appBar: AppBar(
+        title: const Text('Edit Meeting'),
+        actions: [
+          TextButton.icon(
+            onPressed: _isSaving ? null : _updateMeeting,
+            icon: _isSaving
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.save),
+            label: const Text('Save'),
+            style: TextButton.styleFrom(foregroundColor: Colors.white),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  _buildHeaderActionButton(
-                    icon: Icons.close,
-                    tooltip: 'Close',
-                    onPressed: () => context.pop(),
-                  ),
-                  const SizedBox(width: 8),
-                  _buildHeaderActionButton(
-                    icon: Icons.home_outlined,
-                    tooltip: 'Home',
-                    onPressed: () => context.go('/'),
-                  ),
-                ],
-              ),
-              if (!_isLoading)
-                _buildHeaderActionButton(
-                  icon: Icons.check,
-                  tooltip: 'Create',
-                  onPressed: _createMeeting,
-                )
-              else
-                const SizedBox(
-                  width: 36,
-                  height: 36,
-                  child: Padding(
-                    padding: EdgeInsets.all(8),
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.event, color: Colors.white, size: 28),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Schedule Meeting',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _meeting == null
+              ? const Center(child: Text('Meeting not found'))
+              : SafeArea(
+                  child: SingleChildScrollView(
+                    child: ResponsiveContainer(
+                      child: Padding(
+                        padding: ResponsiveHelper.getScreenPadding(context),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildMeetingTypeSelector(),
+                              const SizedBox(height: 16),
+                              _buildBasicInfoSection(),
+                              const SizedBox(height: 16),
+                              _buildDateTimeSection(),
+                              const SizedBox(height: 16),
+                              _buildLocationSection(),
+                              const SizedBox(height: 16),
+                              _buildRolesSection(),
+                              const SizedBox(height: 16),
+                              _buildMembersSection(),
+                              const SizedBox(height: 16),
+                              _buildNotesSection(),
+                              const SizedBox(height: 24),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: _isSaving ? null : _updateMeeting,
+                                  icon: const Icon(Icons.save),
+                                  label: const Text('Save Changes'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blue,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
-                    Text(
-                      'Create a new meeting event',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeaderActionButton({
-    required IconData icon,
-    required String tooltip,
-    required VoidCallback onPressed,
-  }) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: Colors.white, size: 20),
-        ),
-      ),
     );
   }
 
@@ -559,7 +421,6 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
         onTap: () {
           setState(() {
             _meetingType = value;
-            _setDefaultTitle();
           });
         },
         borderRadius: BorderRadius.circular(12),
@@ -636,24 +497,12 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
               return null;
             },
           ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _notesController,
-            decoration: const InputDecoration(
-              labelText: 'Notes (optional)',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.notes),
-            ),
-            maxLines: 3,
-          ),
         ],
       ),
     );
   }
 
   Widget _buildDateTimeSection() {
-    final dateFormat = DateFormat('EEEE, MMMM d, yyyy');
-
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -682,39 +531,30 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
           Row(
             children: [
               Expanded(
-                flex: 2,
-                child: ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.indigo.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.calendar_today,
-                      color: Colors.indigo,
-                    ),
-                  ),
-                  title: const Text('Date'),
-                  subtitle: Text(dateFormat.format(_selectedDate)),
+                child: InkWell(
                   onTap: _selectDate,
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Date',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.calendar_today),
+                    ),
+                    child: Text(DateFormat('MMM dd, yyyy').format(_selectedDate)),
+                  ),
                 ),
               ),
+              const SizedBox(width: 16),
               Expanded(
-                child: ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.indigo.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.access_time, color: Colors.indigo),
-                  ),
-                  title: const Text('Time'),
-                  subtitle: Text(_selectedTime.format(context)),
+                child: InkWell(
                   onTap: _selectTime,
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Time',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.access_time),
+                    ),
+                    child: Text(_selectedTime.format(context)),
+                  ),
                 ),
               ),
             ],
@@ -756,7 +596,6 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
               labelText: 'Physical Location (optional)',
               border: OutlineInputBorder(),
               prefixIcon: Icon(Icons.location_on),
-              hintText: 'e.g., Conference Room A',
             ),
           ),
           const SizedBox(height: 16),
@@ -900,37 +739,6 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
     );
   }
 
-  Future<String?> _promptExternalMemberName(String roleLabel) async {
-    final controller = TextEditingController();
-    return showDialog<String>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text('External $roleLabel'),
-          content: TextField(
-            controller: controller,
-            decoration: const InputDecoration(
-              labelText: 'Name',
-              border: OutlineInputBorder(),
-            ),
-            textCapitalization: TextCapitalization.words,
-            autofocus: true,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, controller.text),
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   Widget _buildMembersSection() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1033,6 +841,148 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
     );
   }
 
+  Widget _buildNotesSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Notes',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[800],
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _notesController,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              labelText: 'Additional Notes (optional)',
+              border: OutlineInputBorder(),
+              alignLabelWithHint: true,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showMemberPicker() {
+    final selectedMembers = List<MeetingMember>.from(_invitedMembers);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (bottomSheetContext) {
+        return StatefulBuilder(
+          builder: (context, setBottomSheetState) {
+            return DraggableScrollableSheet(
+              initialChildSize: 0.6,
+              minChildSize: 0.3,
+              maxChildSize: 0.9,
+              expand: false,
+              builder: (context, scrollController) {
+                return Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(20),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Select Internal Members',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              setState(() {
+                                _invitedMembers.removeWhere(
+                                  (m) => !m.oderId.startsWith('external_'),
+                                );
+                                _invitedMembers.addAll(
+                                  selectedMembers.where(
+                                    (m) => !m.oderId.startsWith('external_'),
+                                  ),
+                                );
+                              });
+                              Navigator.pop(bottomSheetContext);
+                            },
+                            child: const Text('Done'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: ListView.builder(
+                        controller: scrollController,
+                        itemCount: _availableUsers.length,
+                        itemBuilder: (context, index) {
+                          final user = _availableUsers[index];
+                          final isSelected = selectedMembers.any(
+                            (m) => m.oderId == user['id'],
+                          );
+                          return CheckboxListTile(
+                            value: isSelected,
+                            title: Text(user['name'] as String),
+                            subtitle: Text(user['email'] as String),
+                            onChanged: (value) {
+                              setBottomSheetState(() {
+                                if (value == true) {
+                                  selectedMembers.add(
+                                    MeetingMember(
+                                      oderId: user['id'] as String,
+                                      name: user['name'] as String,
+                                      email: user['email'] as String?,
+                                      role: 'Member',
+                                    ),
+                                  );
+                                } else {
+                                  selectedMembers.removeWhere(
+                                    (m) => m.oderId == user['id'],
+                                  );
+                                }
+                              });
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _showAddExternalMemberDialog() {
     final nameController = TextEditingController();
     final emailController = TextEditingController();
@@ -1124,8 +1074,8 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
                           : 'Guest',
                       organization:
                           organizationController.text.trim().isNotEmpty
-                          ? organizationController.text.trim()
-                          : null,
+                              ? organizationController.text.trim()
+                              : null,
                     ),
                   );
                 });
@@ -1139,45 +1089,34 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
     );
   }
 
-  Widget _buildOptionsSection() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Options',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey[800],
+  Future<String?> _promptExternalMemberName(String roleLabel) async {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('External $roleLabel'),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(
+              labelText: 'Name',
+              border: OutlineInputBorder(),
             ),
+            textCapitalization: TextCapitalization.words,
+            autofocus: true,
           ),
-          const SizedBox(height: 8),
-          SwitchListTile(
-            value: _useTemplate,
-            onChanged: (value) {
-              setState(() => _useTemplate = value);
-            },
-            title: const Text('Create agenda now (optional)'),
-            subtitle: Text(
-              'If off, you can create the agenda later from the meeting\'s Agenda tab',
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
             ),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ],
-      ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, controller.text),
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
     );
   }
 }

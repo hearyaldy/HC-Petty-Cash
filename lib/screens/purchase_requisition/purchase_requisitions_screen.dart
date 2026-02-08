@@ -63,6 +63,20 @@ class _PurchaseRequisitionsScreenState
     }
   }
 
+  Stream<List<PurchaseRequisition>> _getRequisitionsStream(
+    AuthProvider authProvider,
+  ) {
+    final isAdmin = authProvider.canManageUsers();
+    final user = authProvider.currentUser;
+    if (isAdmin) {
+      return _firestoreService.purchaseRequisitionsStream();
+    }
+    if (user == null) {
+      return Stream.value([]);
+    }
+    return _firestoreService.purchaseRequisitionsByRequesterIdStream(user.id);
+  }
+
   Future<void> _createNewRequisition() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final user = authProvider.currentUser;
@@ -93,6 +107,7 @@ class _PurchaseRequisitionsScreenState
           id: const Uuid().v4(),
           requisitionNumber: requisitionNumber,
           requisitionDate: result['requisitionDate'] as DateTime,
+          requesterId: user.id,
           requestedBy: result['requestedBy'] as String,
           idNo: result['idNo'] as String,
           chargeToDepartment: result['chargeToDepartment'] as String,
@@ -772,7 +787,9 @@ class _PurchaseRequisitionsScreenState
 
   Widget _buildStatCardsMobile(BuildContext context) {
     return StreamBuilder<List<PurchaseRequisition>>(
-      stream: _firestoreService.purchaseRequisitionsStream(),
+      stream: _getRequisitionsStream(
+        Provider.of<AuthProvider>(context, listen: false),
+      ),
       builder: (context, snapshot) {
         final requisitions = snapshot.data ?? [];
 
@@ -896,7 +913,9 @@ class _PurchaseRequisitionsScreenState
     final dateFormat = DateFormat('MMM dd, yyyy');
 
     return StreamBuilder<List<PurchaseRequisition>>(
-      stream: _firestoreService.purchaseRequisitionsStream(),
+      stream: _getRequisitionsStream(
+        Provider.of<AuthProvider>(context, listen: false),
+      ),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -1190,7 +1209,9 @@ class _PurchaseRequisitionsScreenState
 
   Widget _buildStatCards(BuildContext context) {
     return StreamBuilder<List<PurchaseRequisition>>(
-      stream: _firestoreService.purchaseRequisitionsStream(),
+      stream: _getRequisitionsStream(
+        Provider.of<AuthProvider>(context, listen: false),
+      ),
       builder: (context, snapshot) {
         final requisitions = snapshot.data ?? [];
 
@@ -1563,7 +1584,9 @@ class _PurchaseRequisitionsScreenState
 
   Widget _buildRequisitionList(BuildContext context, bool isAdmin) {
     return StreamBuilder<List<PurchaseRequisition>>(
-      stream: _firestoreService.purchaseRequisitionsStream(),
+      stream: _getRequisitionsStream(
+        Provider.of<AuthProvider>(context, listen: false),
+      ),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(child: Text('Error: ${snapshot.error}'));

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -119,6 +120,20 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
             ),
           ),
           const Spacer(),
+          if (widget.returnToMeetingId != null) ...[
+            ElevatedButton.icon(
+              onPressed: () => context.go(
+                '/meetings/${widget.returnToMeetingId}?tab=agenda',
+              ),
+              icon: const Icon(Icons.edit),
+              label: const Text('Edit Agenda'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.grey[800],
+              ),
+            ),
+            const SizedBox(width: 12),
+          ],
           ElevatedButton.icon(
             onPressed: _generatePdf,
             icon: const Icon(Icons.print),
@@ -140,10 +155,11 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
   }
 
   void _handleBack() {
-    final meetingQuery = widget.returnToMeetingId != null
-        ? '?meetingId=${widget.returnToMeetingId}'
-        : '';
-    context.go('/admin/adcom-agenda/${widget.agendaId}$meetingQuery');
+    if (widget.returnToMeetingId != null) {
+      context.go('/meetings/${widget.returnToMeetingId}?tab=agenda');
+      return;
+    }
+    context.go('/admin/adcom-agenda/${widget.agendaId}');
   }
 
   Widget _buildDocumentView() {
@@ -226,6 +242,23 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
                   decoration: TextDecoration.underline,
                 ),
               ),
+              const SizedBox(height: 8),
+              if ((_agenda!.startTime ?? '').isNotEmpty)
+                Text(
+                  'START TIME: ${_agenda!.startTime}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              if ((_agenda!.openingPrayer ?? '').isNotEmpty)
+                Text(
+                  'OPENING PRAYER: ${_agenda!.openingPrayer}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               const SizedBox(height: 12),
               if (presentMembers.isNotEmpty) ...[
                 const Text(
@@ -289,45 +322,22 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
             const SizedBox(height: 32),
             const Divider(),
             const SizedBox(height: 16),
-            if ((_agenda!.startTime ?? '').isNotEmpty ||
-                (_agenda!.openingPrayer ?? '').isNotEmpty ||
-                (_agenda!.closingPrayer ?? '').isNotEmpty ||
-                (_agenda!.meetingAdjournedAt ?? '').isNotEmpty) ...[
-              const Text(
-                'MEETING NOTES',
-                style: TextStyle(
-                  fontSize: 12,
+            if ((_agenda!.closingPrayer ?? '').isNotEmpty)
+              Text(
+                'CLOSING PRAYER: ${_agenda!.closingPrayer}',
+                style: const TextStyle(
+                  fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  decoration: TextDecoration.underline,
                 ),
               ),
-              const SizedBox(height: 8),
-              if ((_agenda!.startTime ?? '').isNotEmpty)
-                Text(
-                  'Start Time: ${_agenda!.startTime}',
-                  style: const TextStyle(fontSize: 11),
+            if ((_agenda!.meetingAdjournedAt ?? '').isNotEmpty)
+              Text(
+                'MEETING ADJOURNED AT: ${_agenda!.meetingAdjournedAt}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
                 ),
-              if ((_agenda!.openingPrayer ?? '').isNotEmpty)
-                Text(
-                  'Opening Prayer: ${_agenda!.openingPrayer}',
-                  style: const TextStyle(fontSize: 11),
-                ),
-              if ((_agenda!.closingPrayer ?? '').isNotEmpty)
-                Text(
-                  'Closing Prayer: ${_agenda!.closingPrayer}',
-                  style: const TextStyle(fontSize: 11),
-                ),
-              if ((_agenda!.meetingAdjournedAt ?? '').isNotEmpty)
-                Text(
-                  'Meeting Adjourned At: ${_agenda!.meetingAdjournedAt}',
-                  style: const TextStyle(fontSize: 11),
-                ),
-              const SizedBox(height: 16),
-            ],
-            const Text(
-              'MEETING ADJOURNED',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-            ),
+              ),
           ],
         ),
       ),
@@ -424,36 +434,62 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
         .where((m) => m.isAbsentWithApology)
         .toList();
 
+    // Load logo
+    pw.ImageProvider? logoImage;
+    try {
+      final logoData = await rootBundle.load(AppConstants.companyLogo);
+      logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
+    } catch (_) {
+      logoImage = null;
+    }
+
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(50),
         build: (pw.Context context) {
           return [
-            // Organization Header
+            // Organization Header with logo
             pw.Center(
               child: pw.Column(
                 children: [
-                  pw.Text(
-                    AppConstants.organizationName.toUpperCase(),
-                    style: pw.TextStyle(
-                      fontSize: 14,
-                      fontWeight: pw.FontWeight.bold,
-                      letterSpacing: 1.5,
-                    ),
-                    textAlign: pw.TextAlign.center,
-                  ),
-                  if (AppConstants.organizationAddress.isNotEmpty) ...[
-                    pw.SizedBox(height: 4),
-                    pw.Text(
-                      AppConstants.organizationAddress,
-                      style: pw.TextStyle(
-                        fontSize: 9,
-                        color: PdfColors.grey700,
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.center,
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      if (logoImage != null)
+                        pw.Container(
+                          width: 36,
+                          height: 36,
+                          margin: const pw.EdgeInsets.only(right: 8),
+                          child: pw.Image(logoImage, fit: pw.BoxFit.contain),
+                        ),
+                      pw.Column(
+                        children: [
+                          pw.Text(
+                            AppConstants.organizationName.toUpperCase(),
+                            style: pw.TextStyle(
+                              fontSize: 14,
+                              fontWeight: pw.FontWeight.bold,
+                              letterSpacing: 1.5,
+                            ),
+                            textAlign: pw.TextAlign.center,
+                          ),
+                          if (AppConstants.organizationAddress.isNotEmpty) ...[
+                            pw.SizedBox(height: 4),
+                            pw.Text(
+                              AppConstants.organizationAddress,
+                              style: pw.TextStyle(
+                                fontSize: 9,
+                                color: PdfColors.grey700,
+                              ),
+                              textAlign: pw.TextAlign.center,
+                            ),
+                          ],
+                        ],
                       ),
-                      textAlign: pw.TextAlign.center,
-                    ),
-                  ],
+                    ],
+                  ),
                   pw.SizedBox(height: 12),
                   pw.Divider(thickness: 1),
                   pw.SizedBox(height: 12),
@@ -486,6 +522,23 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
                   decoration: pw.TextDecoration.underline,
                 ),
               ),
+              pw.SizedBox(height: 6),
+              if ((_agenda!.startTime ?? '').isNotEmpty)
+                pw.Text(
+                  'START TIME: ${_agenda!.startTime}',
+                  style: pw.TextStyle(
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+              if ((_agenda!.openingPrayer ?? '').isNotEmpty)
+                pw.Text(
+                  'OPENING PRAYER: ${_agenda!.openingPrayer}',
+                  style: pw.TextStyle(
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
               pw.SizedBox(height: 10),
               if (presentMembers.isNotEmpty) ...[
                 pw.Text(
@@ -543,45 +596,22 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
             pw.SizedBox(height: 30),
             pw.Divider(),
             pw.SizedBox(height: 15),
-            if ((_agenda!.startTime ?? '').isNotEmpty ||
-                (_agenda!.openingPrayer ?? '').isNotEmpty ||
-                (_agenda!.closingPrayer ?? '').isNotEmpty ||
-                (_agenda!.meetingAdjournedAt ?? '').isNotEmpty) ...[
+            if ((_agenda!.closingPrayer ?? '').isNotEmpty)
               pw.Text(
-                'MEETING NOTES',
+                'CLOSING PRAYER: ${_agenda!.closingPrayer}',
                 style: pw.TextStyle(
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: pw.FontWeight.bold,
-                  decoration: pw.TextDecoration.underline,
                 ),
               ),
-              pw.SizedBox(height: 8),
-              if ((_agenda!.startTime ?? '').isNotEmpty)
-                pw.Text(
-                  'Start Time: ${_agenda!.startTime}',
-                  style: const pw.TextStyle(fontSize: 10),
+            if ((_agenda!.meetingAdjournedAt ?? '').isNotEmpty)
+              pw.Text(
+                'MEETING ADJOURNED AT: ${_agenda!.meetingAdjournedAt}',
+                style: pw.TextStyle(
+                  fontSize: 10,
+                  fontWeight: pw.FontWeight.bold,
                 ),
-              if ((_agenda!.openingPrayer ?? '').isNotEmpty)
-                pw.Text(
-                  'Opening Prayer: ${_agenda!.openingPrayer}',
-                  style: const pw.TextStyle(fontSize: 10),
-                ),
-              if ((_agenda!.closingPrayer ?? '').isNotEmpty)
-                pw.Text(
-                  'Closing Prayer: ${_agenda!.closingPrayer}',
-                  style: const pw.TextStyle(fontSize: 10),
-                ),
-              if ((_agenda!.meetingAdjournedAt ?? '').isNotEmpty)
-                pw.Text(
-                  'Meeting Adjourned At: ${_agenda!.meetingAdjournedAt}',
-                  style: const pw.TextStyle(fontSize: 10),
-                ),
-              pw.SizedBox(height: 12),
-            ],
-            pw.Text(
-              'MEETING ADJOURNED',
-              style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
-            ),
+              ),
           ];
         },
       ),

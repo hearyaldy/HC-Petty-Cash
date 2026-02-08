@@ -996,6 +996,8 @@ class _SettingsScreenImplState extends State<SettingsScreenImpl> {
     switch (type) {
       case 'petty_cash':
         return 'Petty Cash Report';
+      case 'advance_settlement':
+        return 'Advance Settlement Report';
       case 'project':
         return 'Project Report';
       default:
@@ -1283,6 +1285,16 @@ class _SettingsScreenImplState extends State<SettingsScreenImpl> {
               onTap: () {
                 _updateSetting(
                   _settings!.copyWith(defaultReportType: 'petty_cash'),
+                );
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.request_page),
+              title: const Text('Advance Settlement Report'),
+              onTap: () {
+                _updateSetting(
+                  _settings!.copyWith(defaultReportType: 'advance_settlement'),
                 );
                 Navigator.pop(context);
               },

@@ -141,6 +141,13 @@ class AppDrawer extends StatelessWidget {
               route: '/hr/data-submission',
               iconColor: Colors.orange,
             ),
+            _buildDrawerItem(
+              context,
+              icon: Icons.event_available,
+              title: 'Annual Leave Request',
+              route: '/hr/leave-request',
+              iconColor: Colors.teal,
+            ),
           ],
 
           // ADMIN SECTION
@@ -167,6 +174,12 @@ class AppDrawer extends StatelessWidget {
                   icon: Icons.people,
                   title: 'HR Dashboard',
                   route: '/hr',
+                ),
+                _buildSubMenuItem(
+                  context,
+                  icon: Icons.event_available,
+                  title: 'Leave Requests',
+                  route: '/hr/leave-requests',
                 ),
                 _buildSubMenuItem(
                   context,

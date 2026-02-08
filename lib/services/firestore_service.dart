@@ -1304,6 +1304,26 @@ class FirestoreService {
     }
   }
 
+  /// Get purchase requisitions by requester ID
+  Future<List<PurchaseRequisition>> getPurchaseRequisitionsByRequesterId(
+    String requesterId,
+  ) async {
+    try {
+      final snapshot = await _purchaseRequisitionsCollection
+          .where('requesterId', isEqualTo: requesterId)
+          .orderBy('createdAt', descending: true)
+          .get();
+      return snapshot.docs
+          .map((doc) => PurchaseRequisition.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      AppLogger.severe(
+        'Error getting purchase requisitions by requesterId: $e',
+      );
+      rethrow;
+    }
+  }
+
   /// Get purchase requisitions by status
   Future<List<PurchaseRequisition>> getPurchaseRequisitionsByStatus(
     String status,
@@ -1358,6 +1378,21 @@ class FirestoreService {
   ) {
     return _purchaseRequisitionsCollection
         .where('requestedBy', isEqualTo: requestedBy)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => PurchaseRequisition.fromFirestore(doc))
+              .toList(),
+        );
+  }
+
+  /// Stream purchase requisitions by requester ID
+  Stream<List<PurchaseRequisition>> purchaseRequisitionsByRequesterIdStream(
+    String requesterId,
+  ) {
+    return _purchaseRequisitionsCollection
+        .where('requesterId', isEqualTo: requesterId)
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map(

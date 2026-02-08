@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/responsive_helper.dart';
 import '../../utils/constants.dart';
@@ -23,6 +24,8 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
   // Financial statistics
   double _totalPettyCashReceived = 0;
   double _totalPettyCashUsed = 0;
+  double _totalAdvanceReceived = 0;
+  double _totalAdvanceUsed = 0;
   double _totalProjectBudget = 0;
   double _totalProjectExpenses = 0;
   double _totalIncomeAmount = 0;
@@ -76,9 +79,22 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
       // Calculate petty cash totals
       double pettyCashReceived = 0;
       double pettyCashUsed = 0;
+      double advanceReceived = 0;
+      double advanceUsed = 0;
       for (var doc in allReportsQuery.docs) {
-        pettyCashReceived += (doc.data()['openingBalance'] ?? 0).toDouble();
-        pettyCashUsed += (doc.data()['totalDisbursements'] ?? 0).toDouble();
+        final data = doc.data();
+        final reportType = (data['reportType'] as String?) ?? 'petty_cash';
+        final openingBalance = (data['openingBalance'] ?? 0).toDouble();
+        final totalDisbursements =
+            (data['totalDisbursements'] ?? 0).toDouble();
+
+        if (reportType == 'advance_settlement') {
+          advanceReceived += openingBalance;
+          advanceUsed += totalDisbursements;
+        } else {
+          pettyCashReceived += openingBalance;
+          pettyCashUsed += totalDisbursements;
+        }
       }
 
       // Calculate project budget totals
@@ -109,6 +125,8 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
           _pendingIncomeReports = incomeQuery.docs.length;
           _totalPettyCashReceived = pettyCashReceived;
           _totalPettyCashUsed = pettyCashUsed;
+          _totalAdvanceReceived = advanceReceived;
+          _totalAdvanceUsed = advanceUsed;
           _totalProjectBudget = projectBudget;
           _totalProjectExpenses = projectExpenses;
           _totalIncomeAmount = incomeAmount;
@@ -354,6 +372,7 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
       decimalDigits: 2,
     );
     final pettyCashBalance = _totalPettyCashReceived - _totalPettyCashUsed;
+    final advanceBalance = _totalAdvanceReceived - _totalAdvanceUsed;
     final projectRemaining = _totalProjectBudget - _totalProjectExpenses;
 
     return Column(
@@ -437,6 +456,84 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
                       'Balance',
                       currencyFormat.format(pettyCashBalance),
                       pettyCashBalance >= 0 ? Colors.blue : Colors.red,
+                      Icons.account_balance,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        // Advance Settlement Summary
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withValues(alpha: 0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.request_page,
+                      color: Colors.orange.shade600,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Advance Settlement Summary',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatTile(
+                      'Advanced',
+                      currencyFormat.format(_totalAdvanceReceived),
+                      Colors.orange,
+                      Icons.arrow_downward,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildStatTile(
+                      'Used',
+                      currencyFormat.format(_totalAdvanceUsed),
+                      Colors.deepOrange,
+                      Icons.arrow_upward,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildStatTile(
+                      'Balance',
+                      currencyFormat.format(advanceBalance),
+                      advanceBalance >= 0 ? Colors.blue : Colors.red,
                       Icons.account_balance,
                     ),
                   ),
@@ -774,6 +871,20 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
         badge: _pendingReports > 0 ? _pendingReports : null,
       ),
       _MenuItem(
+        title: 'Advance Settlement',
+        subtitle: 'View advance reports in table',
+        icon: Icons.request_page,
+        color: Colors.orange,
+        route: '/reports?type=advance_settlement',
+        onTap: (context) async {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('reports_view_mode', 'tableRow');
+          if (context.mounted) {
+            context.push('/reports?type=advance_settlement');
+          }
+        },
+      ),
+      _MenuItem(
         title: 'Transactions',
         subtitle: 'Transaction summary',
         icon: Icons.receipt_long,
@@ -858,7 +969,13 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => context.push(item.route),
+        onTap: () async {
+          if (item.onTap != null) {
+            await item.onTap!(context);
+          } else {
+            context.push(item.route);
+          }
+        },
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.all(16),
@@ -1022,6 +1139,7 @@ class _MenuItem {
   final String route;
   final int? badge;
   final bool visible;
+  final Future<void> Function(BuildContext context)? onTap;
 
   _MenuItem({
     required this.title,
@@ -1031,5 +1149,6 @@ class _MenuItem {
     required this.route,
     this.badge,
     this.visible = true,
+    this.onTap,
   });
 }

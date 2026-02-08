@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../models/adcom_agenda.dart';
 import '../../models/adcom_minutes.dart';
+import '../../services/adcom_agenda_service.dart';
 import '../../services/adcom_minutes_service.dart';
 import '../../services/ai_text_service.dart';
 import '../../utils/responsive_helper.dart';
@@ -23,8 +25,11 @@ class AdcomMinutesEditScreen extends StatefulWidget {
 
 class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
   final AdcomMinutesService _service = AdcomMinutesService();
+  final AdcomAgendaService _agendaService = AdcomAgendaService();
   final AITextService _aiService = AITextService();
   AdcomMinutes? _minutes;
+  AdcomAgenda? _agenda;
+  StreamSubscription<AdcomAgenda?>? _agendaSubscription;
   bool _isLoading = true;
   final dateFormat = DateFormat('dd MMM yyyy');
   final TextEditingController _startTimeController = TextEditingController();
@@ -43,8 +48,25 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
     setState(() => _isLoading = true);
     try {
       final minutes = await _service.getMinutesById(widget.minutesId);
+      _agendaSubscription?.cancel();
+      AdcomAgenda? agenda;
+      if (minutes != null && minutes.agendaId.isNotEmpty) {
+        agenda = await _agendaService.getAgendaById(minutes.agendaId);
+        _agendaSubscription = _agendaService
+            .streamAgendaById(minutes.agendaId)
+            .listen((updatedAgenda) {
+              if (!mounted) return;
+              setState(() {
+                _agenda = updatedAgenda;
+              });
+              if (updatedAgenda != null) {
+                _syncMinutesFromAgenda(updatedAgenda);
+              }
+            });
+      }
       setState(() {
         _minutes = minutes;
+        _agenda = agenda;
         _isLoading = false;
         _startTimeController.text = _minutes?.startTime ?? '';
         _openingPrayerController.text = _minutes?.openingPrayer ?? '';
@@ -63,11 +85,69 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
 
   @override
   void dispose() {
+    _agendaSubscription?.cancel();
     _startTimeController.dispose();
     _openingPrayerController.dispose();
     _closingPrayerController.dispose();
     _adjournedAtController.dispose();
     super.dispose();
+  }
+
+  bool _attendanceEquals(
+    List<AttendanceMember> a,
+    List<AttendanceMember> b,
+  ) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i].name != b[i].name ||
+          a[i].affiliation != b[i].affiliation ||
+          a[i].isPresent != b[i].isPresent ||
+          a[i].isAbsentWithApology != b[i].isAbsentWithApology) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  Future<void> _syncMinutesFromAgenda(AdcomAgenda agenda) async {
+    final minutes = _minutes;
+    if (minutes == null) return;
+    if (minutes.status == 'finalized') return;
+
+    final attendanceChanged = !_attendanceEquals(
+      minutes.attendanceMembers,
+      agenda.attendanceMembers,
+    );
+    final notesChanged =
+        (minutes.startTime ?? '') != (agenda.startTime ?? '') ||
+        (minutes.openingPrayer ?? '') != (agenda.openingPrayer ?? '') ||
+        (minutes.closingPrayer ?? '') != (agenda.closingPrayer ?? '') ||
+        (minutes.meetingAdjournedAt ?? '') != (agenda.meetingAdjournedAt ?? '');
+
+    if (!attendanceChanged && !notesChanged) return;
+
+    final updatedMinutes = minutes.copyWith(
+      attendanceMembers:
+          attendanceChanged ? agenda.attendanceMembers : minutes.attendanceMembers,
+      startTime: agenda.startTime ?? '',
+      openingPrayer: agenda.openingPrayer ?? '',
+      closingPrayer: agenda.closingPrayer ?? '',
+      meetingAdjournedAt: agenda.meetingAdjournedAt ?? '',
+      updatedAt: DateTime.now(),
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _minutes = updatedMinutes;
+      if (notesChanged) {
+        _startTimeController.text = agenda.startTime ?? '';
+        _openingPrayerController.text = agenda.openingPrayer ?? '';
+        _closingPrayerController.text = agenda.closingPrayer ?? '';
+        _adjournedAtController.text = agenda.meetingAdjournedAt ?? '';
+      }
+    });
+
+    await _service.updateMinutes(updatedMinutes);
   }
 
   @override
@@ -288,6 +368,10 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
   }
 
   Widget _buildMeetingInfoCard() {
+    final organization = _agenda?.organization ?? _minutes!.organization;
+    final meetingDate = _agenda?.meetingDate ?? _minutes!.meetingDate;
+    final meetingTime = _agenda?.meetingTime ?? _minutes!.meetingTime;
+    final location = _agenda?.location ?? _minutes!.location;
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -326,22 +410,15 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
             padding: const EdgeInsets.all(20),
             child: Column(
               children: [
-                _buildDetailRow('Organization', _minutes!.organization),
-                _buildDetailRow(
-                  'Date',
-                  dateFormat.format(_minutes!.meetingDate),
-                ),
+                _buildDetailRow('Organization', organization),
+                _buildDetailRow('Date', dateFormat.format(meetingDate)),
                 _buildDetailRow(
                   'Time',
-                  _minutes!.meetingTime.isNotEmpty
-                      ? _minutes!.meetingTime
-                      : 'Not set',
+                  meetingTime.isNotEmpty ? meetingTime : 'Not set',
                 ),
                 _buildDetailRow(
                   'Location',
-                  _minutes!.location.isNotEmpty
-                      ? _minutes!.location
-                      : 'Not set',
+                  location.isNotEmpty ? location : 'Not set',
                 ),
               ],
             ),
@@ -522,9 +599,9 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
                 ),
                 const Spacer(),
                 ElevatedButton.icon(
-                  onPressed: _addNewItem,
+                  onPressed: _addAgendaItems,
                   icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Add Item'),
+                  label: const Text('Add From Agenda'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.purple.shade600,
                     foregroundColor: Colors.white,
@@ -535,10 +612,10 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
           ),
           if (_minutes!.minutesItems.isEmpty)
             const Center(
-              child: Padding(
+                child: Padding(
                 padding: EdgeInsets.all(40),
                 child: Text(
-                  'No items yet. Add items from the agenda or create new ones.',
+                  'No items yet. Add items from the agenda to start minutes.',
                   style: TextStyle(color: Colors.grey),
                   textAlign: TextAlign.center,
                 ),
@@ -877,7 +954,10 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
       text: item.resolution ?? '',
     );
     final notesController = TextEditingController(text: item.notes ?? '');
-    MinutesItemStatus selectedStatus = item.status;
+    final allowedStatuses = _allowedStatusesFor(item.actionType);
+    MinutesItemStatus selectedStatus = allowedStatuses.contains(item.status)
+        ? item.status
+        : MinutesItemStatus.pending;
 
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
@@ -931,7 +1011,7 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: MinutesItemStatus.values.map((status) {
+                      children: allowedStatuses.map((status) {
                         final isSelected = selectedStatus == status;
                         Color color;
                         switch (status) {
@@ -1169,6 +1249,10 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
     }
   }
 
+  List<MinutesItemStatus> _allowedStatusesFor(AgendaActionType actionType) {
+    return const [MinutesItemStatus.voted, MinutesItemStatus.tabled];
+  }
+
   Future<void> _confirmDeleteItem(int index) async {
     Navigator.pop(context); // Close edit dialog first
 
@@ -1211,163 +1295,68 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
     }
   }
 
-  Future<void> _addNewItem() async {
-    final titleController = TextEditingController();
-    final descriptionController = TextEditingController();
-    AgendaActionType selectedActionType = AgendaActionType.forDiscussion;
+  List<AgendaItem> _availableAgendaItems() {
+    if (_agenda == null || _minutes == null) return [];
+    final existingNumbers = _minutes!.minutesItems
+        .map((item) => item.itemNumber)
+        .toSet();
+    final available = _agenda!.agendaItems
+        .where((item) => !existingNumbers.contains(item.itemNumber))
+        .toList();
+    available.sort((a, b) => a.order.compareTo(b.order));
+    return available;
+  }
 
-    final result = await showDialog<Map<String, dynamic>>(
+  Future<void> _addAgendaItems() async {
+    if (_minutes == null) return;
+    if (_agenda == null) {
+      _showAIError('Agenda data not available yet.');
+      return;
+    }
+
+    final availableItems = _availableAgendaItems();
+    if (availableItems.isEmpty) {
+      _showAIError('All agenda items are already in the minutes.');
+      return;
+    }
+
+    final selected = List<bool>.filled(availableItems.length, false);
+    final selectedItems = await showDialog<List<AgendaItem>>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
+          final canAdd = selected.any((value) => value);
           return AlertDialog(
             title: const Row(
               children: [
-                Icon(Icons.add_circle_outline),
+                Icon(Icons.playlist_add),
                 SizedBox(width: 8),
-                Text('Add New Item'),
+                Text('Add Agenda Items'),
               ],
             ),
             content: SizedBox(
-              width: 500,
+              width: 520,
               child: SingleChildScrollView(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Title
-                    Row(
-                      children: [
-                        const Text(
-                          'Title',
-                          style: TextStyle(fontWeight: FontWeight.w600),
+                    ...availableItems.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final item = entry.value;
+                      return CheckboxListTile(
+                        value: selected[index],
+                        onChanged: (value) {
+                          setDialogState(() {
+                            selected[index] = value ?? false;
+                          });
+                        },
+                        title: Text(item.title),
+                        subtitle: Text(
+                          '${item.itemNumber} • ${item.actionType.displayName}',
                         ),
-                        const Spacer(),
-                        _buildAIButton(
-                          icon: Icons.spellcheck,
-                          label: 'Spell',
-                          tooltip: 'Spell Check Title',
-                          onPressed: () async {
-                            if (titleController.text.isEmpty) return;
-                            final result = await _aiService.checkSpelling(
-                              titleController.text,
-                            );
-                            if (result.success) {
-                              if (result.hasIssues) {
-                                _showSpellCheckResult(result, (corrected) {
-                                  titleController.text = corrected;
-                                  setDialogState(() {});
-                                });
-                              } else {
-                                _showNoSpellingErrors();
-                              }
-                            } else {
-                              _showAIError(result.error ?? 'Unknown error');
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: titleController,
-                      decoration: InputDecoration(
-                        hintText: 'Enter item title',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    // Action Type
-                    const Text(
-                      'Action Type',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: AgendaActionType.values.map((type) {
-                        final isSelected = selectedActionType == type;
-                        return ChoiceChip(
-                          label: Text(type.displayName),
-                          selected: isSelected,
-                          selectedColor: Colors.indigo.shade100,
-                          onSelected: (selected) {
-                            if (selected) {
-                              setDialogState(() {
-                                selectedActionType = type;
-                              });
-                            }
-                          },
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 16),
-                    // Description
-                    Row(
-                      children: [
-                        const Text(
-                          'Description',
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        const Spacer(),
-                        _buildAIButton(
-                          icon: Icons.auto_awesome,
-                          label: 'Enhance',
-                          tooltip: 'AI Enhance Text',
-                          onPressed: () async {
-                            if (descriptionController.text.isEmpty) return;
-                            final result = await _aiService.enhanceText(
-                              descriptionController.text,
-                              context: 'ADCOM meeting agenda item description',
-                            );
-                            if (result.success && result.text != null) {
-                              descriptionController.text = result.text!;
-                              setDialogState(() {});
-                            } else {
-                              _showAIError(result.error ?? 'Unknown error');
-                            }
-                          },
-                        ),
-                        const SizedBox(width: 4),
-                        _buildAIButton(
-                          icon: Icons.spellcheck,
-                          label: 'Spell',
-                          tooltip: 'Spell Check',
-                          onPressed: () async {
-                            if (descriptionController.text.isEmpty) return;
-                            final result = await _aiService.checkSpelling(
-                              descriptionController.text,
-                            );
-                            if (result.success) {
-                              if (result.hasIssues) {
-                                _showSpellCheckResult(result, (corrected) {
-                                  descriptionController.text = corrected;
-                                  setDialogState(() {});
-                                });
-                              } else {
-                                _showNoSpellingErrors();
-                              }
-                            } else {
-                              _showAIError(result.error ?? 'Unknown error');
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: descriptionController,
-                      maxLines: 4,
-                      decoration: InputDecoration(
-                        hintText: 'Enter item description',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
+                        controlAffinity: ListTileControlAffinity.leading,
+                      );
+                    }),
                   ],
                 ),
               ),
@@ -1378,16 +1367,18 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
                 child: const Text('Cancel'),
               ),
               ElevatedButton(
-                onPressed: () {
-                  if (titleController.text.isNotEmpty) {
-                    Navigator.pop(context, {
-                      'title': titleController.text,
-                      'actionType': selectedActionType,
-                      'description': descriptionController.text,
-                    });
-                  }
-                },
-                child: const Text('Add'),
+                onPressed: canAdd
+                    ? () {
+                        final picked = <AgendaItem>[];
+                        for (int i = 0; i < availableItems.length; i++) {
+                          if (selected[i]) {
+                            picked.add(availableItems[i]);
+                          }
+                        }
+                        Navigator.pop(context, picked);
+                      }
+                    : null,
+                child: const Text('Add Selected'),
               ),
             ],
           );
@@ -1395,37 +1386,26 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
       ),
     );
 
-    if (result != null) {
-      final newOrder = _minutes!.minutesItems.length;
-      final newSequence = _minutes!.startingItemSequence + newOrder;
-      final itemNumber = AdcomMinutes.generateItemNumber(
-        _minutes!.meetingDate,
-        newSequence,
-      );
+    if (selectedItems == null || selectedItems.isEmpty) return;
 
-      final newItem = MinutesItem(
-        id: 'new_${DateTime.now().millisecondsSinceEpoch}',
-        itemNumber: itemNumber,
-        title: result['title'] as String,
-        actionType: result['actionType'] as AgendaActionType,
-        description: result['description'] as String,
-        status: MinutesItemStatus.pending,
+    final updatedItems = List<MinutesItem>.from(_minutes!.minutesItems);
+    for (final agendaItem in selectedItems) {
+      final newOrder = updatedItems.length;
+      final newItem = MinutesItem.fromAgendaItem(agendaItem).copyWith(
         order: newOrder,
-        isNewItem: true,
+        isNewItem: false,
       );
-
-      final updatedItems = List<MinutesItem>.from(_minutes!.minutesItems);
       updatedItems.add(newItem);
-
-      setState(() {
-        _minutes = _minutes!.copyWith(
-          minutesItems: updatedItems,
-          updatedAt: DateTime.now(),
-        );
-      });
-
-      await _service.updateMinutes(_minutes!);
     }
+
+    setState(() {
+      _minutes = _minutes!.copyWith(
+        minutesItems: updatedItems,
+        updatedAt: DateTime.now(),
+      );
+    });
+
+    await _service.updateMinutes(_minutes!);
   }
 
   Widget _buildAIButton({

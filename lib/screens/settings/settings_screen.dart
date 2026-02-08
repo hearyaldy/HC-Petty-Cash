@@ -20,6 +20,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _pushNotifications = false;
   bool _autoBackup = true;
   String _defaultExportFormat = 'PDF';
+  String _defaultReportType = 'Petty Cash Report';
   String _dateFormat = 'dd/MM/yyyy';
   String _currency = 'THB (฿)';
 
@@ -121,7 +122,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _buildListTile(
                     icon: Icons.receipt_long,
                     title: 'Default Report Type',
-                    subtitle: 'Petty Cash Report',
+                    subtitle: _defaultReportType,
                     onTap: () => _showReportTypeDialog(),
                   ),
                   _buildListTile(
@@ -650,11 +651,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             ListTile(
               title: const Text('Petty Cash Report'),
-              onTap: () => Navigator.pop(context),
+              onTap: () {
+                setState(() => _defaultReportType = 'Petty Cash Report');
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              title: const Text('Advance Settlement Report'),
+              onTap: () {
+                setState(() => _defaultReportType = 'Advance Settlement Report');
+                Navigator.pop(context);
+              },
             ),
             ListTile(
               title: const Text('Project Report'),
-              onTap: () => Navigator.pop(context),
+              onTap: () {
+                setState(() => _defaultReportType = 'Project Report');
+                Navigator.pop(context);
+              },
             ),
           ],
         ),

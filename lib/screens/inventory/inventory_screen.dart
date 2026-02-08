@@ -3,14 +3,31 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:printing/printing.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../models/equipment.dart';
 import '../../services/equipment_service.dart';
+import '../../services/inventory_import_service.dart';
 import '../../services/pdf_export_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/dashboard_section.dart';
 import '../../utils/responsive_helper.dart';
 
 enum ViewType { card, table, list }
+enum ImportAction { create, update, skip }
+
+class _ImportPlanItem {
+  _ImportPlanItem({
+    required this.row,
+    required this.action,
+    this.match,
+    this.matchReason,
+  });
+
+  final InventoryImportRow row;
+  final Equipment? match;
+  final String? matchReason;
+  ImportAction action;
+}
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -421,6 +438,409 @@ class _InventoryScreenState extends State<InventoryScreen> {
         selectedFields.toList()..sort((a, b) => a.index.compareTo(b.index)),
       );
     }
+  }
+
+  Future<void> _importInventory() async {
+    final authProvider = context.read<AuthProvider>();
+    final canAdd = authProvider.canAddInventory();
+    final canEdit = authProvider.canEditInventory();
+    if (!canAdd && !canEdit) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You do not have permission to import inventory'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: InventoryImportService.allowedExtensions,
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    final file = result.files.first;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: SizedBox(
+          height: 80,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ),
+    );
+
+    InventoryImportResult parsed;
+    try {
+      parsed = await InventoryImportService().parseFile(file);
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Import failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    if (mounted) Navigator.pop(context);
+
+    if (parsed.rows.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No rows found to import'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final plan = _buildImportPlan(parsed.rows, canAdd: canAdd, canEdit: canEdit);
+    await _showImportPreviewDialog(plan, parsed.warnings);
+  }
+
+  List<_ImportPlanItem> _buildImportPlan(
+    List<InventoryImportRow> rows, {
+    required bool canAdd,
+    required bool canEdit,
+  }) {
+    final byAssetCode = <String, Equipment>{};
+    final bySerial = <String, Equipment>{};
+    final byAssetTag = <String, Equipment>{};
+    final byNameBrandModel = <String, Equipment>{};
+
+    String norm(String? value) => (value ?? '').trim().toLowerCase();
+    String keyForName(Equipment equipment) {
+      return '${norm(equipment.name)}|${norm(equipment.brand)}|${norm(equipment.model)}';
+    }
+
+    for (final equipment in _equipment) {
+      final assetCode = norm(equipment.assetCode);
+      final serial = norm(equipment.serialNumber);
+      final assetTag = norm(equipment.assetTag);
+      if (assetCode.isNotEmpty) byAssetCode.putIfAbsent(assetCode, () => equipment);
+      if (serial.isNotEmpty) bySerial.putIfAbsent(serial, () => equipment);
+      if (assetTag.isNotEmpty) byAssetTag.putIfAbsent(assetTag, () => equipment);
+      byNameBrandModel.putIfAbsent(keyForName(equipment), () => equipment);
+    }
+
+    final plan = <_ImportPlanItem>[];
+    for (final row in rows) {
+      Equipment? match;
+      String? reason;
+      final assetCode = norm(row.assetCode);
+      final serial = norm(row.serialNumber);
+      final assetTag = norm(row.assetTag);
+      final nameKey =
+          '${norm(row.name)}|${norm(row.brand)}|${norm(row.model)}';
+
+      if (assetCode.isNotEmpty && byAssetCode.containsKey(assetCode)) {
+        match = byAssetCode[assetCode];
+        reason = 'Matched by assetCode';
+      } else if (serial.isNotEmpty && bySerial.containsKey(serial)) {
+        match = bySerial[serial];
+        reason = 'Matched by serialNumber';
+      } else if (assetTag.isNotEmpty && byAssetTag.containsKey(assetTag)) {
+        match = byAssetTag[assetTag];
+        reason = 'Matched by assetTag';
+      } else if (nameKey != '||' && byNameBrandModel.containsKey(nameKey)) {
+        match = byNameBrandModel[nameKey];
+        reason = 'Matched by name/brand/model';
+      }
+
+      ImportAction action = match != null ? ImportAction.update : ImportAction.create;
+      if (action == ImportAction.create && !canAdd) {
+        action = ImportAction.skip;
+      }
+      if (action == ImportAction.update && !canEdit) {
+        action = ImportAction.skip;
+      }
+      if (match == null && (row.name == null || row.name!.trim().isEmpty)) {
+        action = ImportAction.skip;
+        reason = reason ?? 'Missing name for new item';
+      }
+
+      plan.add(
+        _ImportPlanItem(
+          row: row,
+          match: match,
+          matchReason: reason,
+          action: action,
+        ),
+      );
+    }
+
+    return plan;
+  }
+
+  Future<void> _showImportPreviewDialog(
+    List<_ImportPlanItem> plan,
+    List<String> warnings,
+  ) async {
+    final authProvider = context.read<AuthProvider>();
+    final canAdd = authProvider.canAddInventory();
+    final canEdit = authProvider.canEditInventory();
+
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final actionable = plan.where((p) => p.action != ImportAction.skip).length;
+          return AlertDialog(
+            title: const Text('Import Inventory Preview'),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 520,
+              child: Column(
+                children: [
+                  if (warnings.isNotEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.orange.shade200),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: warnings
+                            .map(
+                              (w) => Row(
+                                children: [
+                                  Icon(Icons.warning_amber, color: Colors.orange.shade700, size: 16),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: Text(w)),
+                                ],
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    ),
+                  Expanded(
+                    child: ListView.separated(
+                      itemCount: plan.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final item = plan[index];
+                        final row = item.row;
+                        final displayName = row.name ?? item.match?.name ?? '(Unnamed)';
+                        final subtitle = item.matchReason ?? (item.match != null ? 'Matched' : 'New item');
+
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                          title: Text(displayName, maxLines: 1, overflow: TextOverflow.ellipsis),
+                          subtitle: Text(
+                            'Row ${row.index} • $subtitle',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: DropdownButton<ImportAction>(
+                            value: item.action,
+                            onChanged: (value) {
+                              if (value == null) return;
+                              if (value == ImportAction.create && !canAdd) return;
+                              if (value == ImportAction.update && !canEdit) return;
+                              setDialogState(() => item.action = value);
+                            },
+                            items: [
+                              DropdownMenuItem(
+                                value: ImportAction.create,
+                                enabled: canAdd,
+                                child: const Text('Create'),
+                              ),
+                              DropdownMenuItem(
+                                value: ImportAction.update,
+                                enabled: canEdit && item.match != null,
+                                child: const Text('Update'),
+                              ),
+                              const DropdownMenuItem(
+                                value: ImportAction.skip,
+                                child: Text('Skip'),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton.icon(
+                onPressed: actionable == 0
+                    ? null
+                    : () async {
+                        Navigator.pop(context);
+                        await _applyImportPlan(plan);
+                      },
+                icon: const Icon(Icons.upload),
+                label: Text('Import $actionable'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.indigo,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _applyImportPlan(List<_ImportPlanItem> plan) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: SizedBox(
+          height: 80,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ),
+    );
+
+    int created = 0;
+    int updated = 0;
+    int skipped = 0;
+    int failed = 0;
+
+    final authProvider = context.read<AuthProvider>();
+    final userId = authProvider.currentUser?.id;
+
+    for (final item in plan) {
+      try {
+        if (item.action == ImportAction.skip) {
+          skipped++;
+          continue;
+        }
+        if (item.action == ImportAction.create) {
+          final equipment = _buildNewEquipment(item.row, userId);
+          await _equipmentService.createEquipment(equipment);
+          created++;
+        } else if (item.action == ImportAction.update) {
+          if (item.match == null) {
+            failed++;
+            continue;
+          }
+          final equipment = _mergeEquipment(item.match!, item.row);
+          await _equipmentService.updateEquipment(equipment);
+          updated++;
+        }
+      } catch (e) {
+        failed++;
+        debugPrint('Import error for row ${item.row.index}: $e');
+      }
+    }
+
+    if (mounted) Navigator.pop(context);
+    await _loadEquipment(forceRefresh: true);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Import complete: $created created, $updated updated, $skipped skipped${failed > 0 ? ', $failed failed' : ''}.',
+          ),
+          backgroundColor: failed > 0 ? Colors.orange : Colors.green,
+        ),
+      );
+    }
+  }
+
+  Equipment _buildNewEquipment(InventoryImportRow row, String? userId) {
+    final now = DateTime.now();
+    final purchaseDate = parseDate(row.purchaseDate);
+    final purchaseYear = parseInt(row.purchaseYear) ?? purchaseDate?.year;
+    return Equipment(
+      id: '',
+      name: row.name ?? row.assetCode ?? 'Unnamed Equipment',
+      description: row.description,
+      category: row.category ?? 'Other',
+      brand: row.brand,
+      model: row.model,
+      serialNumber: row.serialNumber,
+      assetTag: row.assetTag,
+      assetCode: row.assetCode,
+      accountingPeriod: row.accountingPeriod,
+      location: row.location,
+      status: parseStatus(row.status) ?? EquipmentStatus.available,
+      condition: parseCondition(row.condition) ?? EquipmentCondition.good,
+      purchasePrice: parseDouble(row.purchasePrice),
+      purchaseDate: purchaseDate,
+      purchaseYear: purchaseYear,
+      supplier: row.supplier,
+      warrantyExpiry: parseDate(row.warrantyExpiry),
+      notes: row.notes,
+      assignedToId: row.assignedToId,
+      assignedToName: row.assignedToName,
+      currentHolderId: row.currentHolderId,
+      currentHolderName: row.currentHolderName,
+      quantity: parseInt(row.quantity) ?? 1,
+      unitCost: parseDouble(row.unitCost),
+      depreciationPercentage: parseDouble(row.depreciationPercentage),
+      monthsDepreciated: parseInt(row.monthsDepreciated),
+      createdAt: now,
+      updatedAt: now,
+      createdBy: userId,
+    );
+  }
+
+  Equipment _mergeEquipment(Equipment existing, InventoryImportRow row) {
+    String? pickString(String? value) =>
+        value != null && value.trim().isNotEmpty ? value.trim() : null;
+
+    final purchaseDate = parseDate(row.purchaseDate) ?? existing.purchaseDate;
+    final purchaseYear =
+        parseInt(row.purchaseYear) ?? purchaseDate?.year ?? existing.purchaseYear;
+
+    return existing.copyWith(
+      name: pickString(row.name) ?? existing.name,
+      description: pickString(row.description) ?? existing.description,
+      category: pickString(row.category) ?? existing.category,
+      brand: pickString(row.brand) ?? existing.brand,
+      model: pickString(row.model) ?? existing.model,
+      serialNumber: pickString(row.serialNumber) ?? existing.serialNumber,
+      assetTag: pickString(row.assetTag) ?? existing.assetTag,
+      assetCode: pickString(row.assetCode) ?? existing.assetCode,
+      accountingPeriod:
+          pickString(row.accountingPeriod) ?? existing.accountingPeriod,
+      location: pickString(row.location) ?? existing.location,
+      status: parseStatus(row.status) ?? existing.status,
+      condition: parseCondition(row.condition) ?? existing.condition,
+      purchasePrice: parseDouble(row.purchasePrice) ?? existing.purchasePrice,
+      purchaseDate: purchaseDate,
+      purchaseYear: purchaseYear,
+      supplier: pickString(row.supplier) ?? existing.supplier,
+      warrantyExpiry: parseDate(row.warrantyExpiry) ?? existing.warrantyExpiry,
+      notes: pickString(row.notes) ?? existing.notes,
+      assignedToId: pickString(row.assignedToId) ?? existing.assignedToId,
+      assignedToName: pickString(row.assignedToName) ?? existing.assignedToName,
+      currentHolderId:
+          pickString(row.currentHolderId) ?? existing.currentHolderId,
+      currentHolderName:
+          pickString(row.currentHolderName) ?? existing.currentHolderName,
+      quantity: parseInt(row.quantity) ?? existing.quantity,
+      unitCost: parseDouble(row.unitCost) ?? existing.unitCost,
+      depreciationPercentage: parseDouble(row.depreciationPercentage) ??
+          existing.depreciationPercentage,
+      monthsDepreciated:
+          parseInt(row.monthsDepreciated) ?? existing.monthsDepreciated,
+      updatedAt: DateTime.now(),
+    );
   }
 
   Widget _buildFieldGroup(
@@ -1378,6 +1798,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     icon: Icons.print,
                     tooltip: 'Print Equipment List',
                     onPressed: _showPrintDialog,
+                  ),
+                  _buildHeaderActionButton(
+                    icon: Icons.upload_file,
+                    tooltip: 'Import Inventory (CSV/XLSX)',
+                    onPressed: _importInventory,
                   ),
                   if (canAdd)
                     _buildHeaderActionButton(

@@ -1728,7 +1728,11 @@ class _EditAgendaItemDialogState extends State<_EditAgendaItemDialog> {
               ...result.issues.map(
                 (issue) => Padding(
                   padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
+                  child: Wrap(
+                    alignment: WrapAlignment.start,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 4,
+                    runSpacing: 4,
                     children: [
                       Icon(
                         issue.type == 'spelling'
@@ -1737,7 +1741,6 @@ class _EditAgendaItemDialogState extends State<_EditAgendaItemDialog> {
                         size: 16,
                         color: Colors.orange,
                       ),
-                      const SizedBox(width: 8),
                       Text(
                         '"${issue.original}"',
                         style: const TextStyle(

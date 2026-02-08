@@ -201,8 +201,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final myReports = user != null
         ? allReports.where((r) => r.custodianId == user.id).toList()
         : [];
+    final myPettyCashReports =
+        myReports.where((r) => r.reportType == 'petty_cash').toList();
+    final myAdvanceSettlementReports =
+        myReports.where((r) => r.reportType == 'advance_settlement').toList();
     final totalReportsCount = canViewAll ? allReports.length : myReports.length;
     final reportsForSummary = canViewAll ? allReports : myReports;
+    final pettyCashReportsForSummary = reportsForSummary
+        .where((r) => r.reportType == 'petty_cash')
+        .toList();
 
     final myProjectReports = user != null
         ? allProjectReports.where((r) => r.custodianId == user.id).toList()
@@ -217,11 +224,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final pendingApprovals = transactionProvider.getPendingApprovals();
 
     // Calculate petty cash totals
-    final pettyCashReceived = reportsForSummary.fold<double>(
+    final pettyCashReceived = pettyCashReportsForSummary.fold<double>(
       0.0,
       (acc, report) => acc + report.openingBalance,
     );
-    final pettyCashUsed = reportsForSummary.fold<double>(
+    final pettyCashUsed = pettyCashReportsForSummary.fold<double>(
       0.0,
       (acc, report) => acc + report.totalDisbursements,
     );
@@ -287,6 +294,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   totalReportsCount,
                   allReports,
                   myReports,
+                  myPettyCashReports,
+                  myAdvanceSettlementReports,
                   draftReports,
                   pendingApprovals,
                   pettyCashReceived,
@@ -307,6 +316,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   totalReportsCount,
                   allReports,
                   myReports,
+                  myPettyCashReports,
+                  myAdvanceSettlementReports,
                   draftReports,
                   pendingApprovals,
                   pettyCashReceived,
@@ -327,6 +338,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   totalReportsCount,
                   allReports,
                   myReports,
+                  myPettyCashReports,
+                  myAdvanceSettlementReports,
                   draftReports,
                   pendingApprovals,
                   pettyCashReceived,
@@ -564,6 +577,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     int totalReportsCount,
     List allReports,
     List myReports,
+    List myPettyCashReports,
+    List myAdvanceSettlementReports,
     List draftReports,
     List pendingApprovals,
     double pettyCashReceived,
@@ -683,7 +698,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                 child: Column(
                   children: [
-                    _buildPettyCashReports(context, myReports),
+                    _buildPettyCashReports(context, myPettyCashReports),
+                    const SizedBox(height: 16),
+                    _buildAdvanceSettlementReports(
+                      context,
+                      myAdvanceSettlementReports,
+                    ),
                     const SizedBox(height: 16),
                     _buildProjectReports(context),
                   ],
@@ -781,6 +801,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     int totalReportsCount,
     List allReports,
     List myReports,
+    List myPettyCashReports,
+    List myAdvanceSettlementReports,
     List draftReports,
     List pendingApprovals,
     double pettyCashReceived,
@@ -913,7 +935,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildPettyCashReports(context, myReports),
+                          _buildPettyCashReports(context, myPettyCashReports),
+                          const SizedBox(height: 16),
+                          _buildAdvanceSettlementReports(
+                            context,
+                            myAdvanceSettlementReports,
+                          ),
                           const SizedBox(height: 16),
                           _buildProjectReports(context),
                         ],
@@ -1032,6 +1059,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     int totalReportsCount,
     List allReports,
     List myReports,
+    List myPettyCashReports,
+    List myAdvanceSettlementReports,
     List draftReports,
     List pendingApprovals,
     double pettyCashReceived,
@@ -1156,7 +1185,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
               initiallyExpanded: true,
               child: Padding(
                 padding: const EdgeInsets.all(20),
-                child: _buildPettyCashReports(context, myReports),
+                child: _buildPettyCashReports(context, myPettyCashReports),
+              ),
+            ),
+            SizedBox(height: spacing),
+
+            // Advance Settlement Reports (full width)
+            DashboardSection(
+              title: 'Advance Settlement Reports',
+              icon: Icons.request_page,
+              iconColor: Colors.orange,
+              initiallyExpanded: true,
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: _buildAdvanceSettlementReports(
+                  context,
+                  myAdvanceSettlementReports,
+                ),
               ),
             ),
             SizedBox(height: spacing),
@@ -1994,6 +2039,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         gradient: [Colors.orange.shade400, Colors.orange.shade600],
         onPressed: () => context.go('/hr/data-submission'),
       ),
+      _ActionData(
+        label: 'My HR Data',
+        icon: Icons.badge,
+        gradient: [Colors.cyan.shade400, Colors.cyan.shade600],
+        onPressed: () => context.go('/hr/my-data'),
+      ),
       if (authProvider.canManageUsers() ||
           authProvider.canCreatePurchaseRequisitions())
         _ActionData(
@@ -2189,6 +2240,162 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 16),
                   Text(
                     'No petty cash reports yet',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Create your first report to get started!',
+                    style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        if (reports.isNotEmpty)
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: reports.length > 5 ? 5 : reports.length,
+            itemBuilder: (context, index) {
+              final report = reports[index];
+              return Card(
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: _getStatusColor(report.statusEnum),
+                    child: const Icon(Icons.description, color: Colors.white),
+                  ),
+                  title: Text(report.reportNumber),
+                  subtitle: Text(
+                    '${report.department} • ${report.statusEnum.displayName}',
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '${AppConstants.currencySymbol}${report.totalDisbursements.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      PopupMenuButton<String>(
+                        icon: const Icon(Icons.more_vert),
+                        onSelected: (String choice) {
+                          if (choice == 'edit') {
+                            context.go('/reports/${report.id}');
+                          } else if (choice == 'delete') {
+                            _showDeleteConfirmation(context, report, true);
+                          }
+                        },
+                        itemBuilder: (BuildContext context) => [
+                          const PopupMenuItem<String>(
+                            value: 'edit',
+                            child: Row(
+                              children: [
+                                Icon(Icons.edit, size: 20),
+                                SizedBox(width: 8),
+                                Text('Edit'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem<String>(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete, size: 20, color: Colors.red),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Delete',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  onTap: () => context.go('/reports/${report.id}'),
+                ),
+              );
+            },
+          ),
+      ],
+    );
+  }
+
+  Widget _buildAdvanceSettlementReports(BuildContext context, List reports) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.orange.shade50, Colors.orange.shade100],
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.orange,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.request_page,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: Text(
+                        'My Advance Settlement Reports',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange.shade900,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              TextButton.icon(
+                onPressed: () => context.go('/reports'),
+                icon: const Icon(Icons.arrow_forward),
+                label: const Text('View All'),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (reports.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(48),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Center(
+              child: Column(
+                children: [
+                  Icon(Icons.inbox, size: 64, color: Colors.grey.shade300),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No advance settlement reports yet',
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.grey.shade600,

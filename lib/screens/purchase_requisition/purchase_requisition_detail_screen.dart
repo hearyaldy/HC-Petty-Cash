@@ -600,6 +600,7 @@ class _PurchaseRequisitionDetailScreenState
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final isAdmin = authProvider.canManageUsers();
+    final user = authProvider.currentUser;
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -729,6 +730,32 @@ class _PurchaseRequisitionDetailScreenState
           final requisition = snapshot.data;
           if (requisition == null) {
             return const Center(child: Text('Requisition not found'));
+          }
+
+          if (!isAdmin &&
+              user != null &&
+              requisition.requesterId != user.id) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.lock_outline, size: 48, color: Colors.red.shade300),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Access Denied',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'You can only view your own purchase requisitions.',
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+              ),
+            );
           }
 
           return _buildRequisitionContent(requisition);

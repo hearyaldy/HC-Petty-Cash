@@ -8,7 +8,12 @@ import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
 
 class NewReportScreen extends StatefulWidget {
-  const NewReportScreen({super.key});
+  const NewReportScreen({
+    super.key,
+    this.reportType = 'petty_cash',
+  });
+
+  final String reportType; // 'petty_cash', 'advance_settlement'
 
   @override
   State<NewReportScreen> createState() => _NewReportScreenState();
@@ -20,7 +25,10 @@ class _NewReportScreenState extends State<NewReportScreen> {
   final _companyNameController = TextEditingController();
   final _openingBalanceController = TextEditingController();
   final _notesController = TextEditingController();
+  final _purposeController = TextEditingController();
+  DateTime? _advanceTakenDate;
 
+  late String _reportType;
   DateTime _periodStart = DateTime.now();
   DateTime _periodEnd = DateTime.now().add(const Duration(days: 7));
 
@@ -29,6 +37,10 @@ class _NewReportScreenState extends State<NewReportScreen> {
     super.initState();
     // Set default company name to Hope Channel Southeast Asia
     _companyNameController.text = AppConstants.companyName;
+    _reportType = widget.reportType;
+    if (_reportType == 'advance_settlement') {
+      _advanceTakenDate = DateTime.now();
+    }
   }
 
   @override
@@ -37,6 +49,7 @@ class _NewReportScreenState extends State<NewReportScreen> {
     _companyNameController.dispose();
     _openingBalanceController.dispose();
     _notesController.dispose();
+    _purposeController.dispose();
     super.dispose();
   }
 
@@ -44,7 +57,11 @@ class _NewReportScreenState extends State<NewReportScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create New Report'),
+        title: Text(
+          _reportType == 'advance_settlement'
+              ? 'Create Advance Settlement Report'
+              : 'Create New Report',
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.home_outlined),
@@ -71,6 +88,31 @@ class _NewReportScreenState extends State<NewReportScreen> {
                             style: Theme.of(context).textTheme.headlineSmall,
                           ),
                           const SizedBox(height: 24),
+                          DropdownButtonFormField<String>(
+                            value: _reportType,
+                            decoration: const InputDecoration(
+                              labelText: 'Report Type',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.assignment),
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'petty_cash',
+                                child: Text('Petty Cash Report'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'advance_settlement',
+                                child: Text('Advance Settlement Report'),
+                              ),
+                            ],
+                            onChanged: (value) {
+                              if (value == null) return;
+                              setState(() {
+                                _reportType = value;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 16),
                           TextFormField(
                             controller: _companyNameController,
                             decoration: const InputDecoration(
@@ -84,23 +126,79 @@ class _NewReportScreenState extends State<NewReportScreen> {
                           const SizedBox(height: 16),
                           TextFormField(
                             controller: _reportNameController,
-                            decoration: const InputDecoration(
-                              labelText: 'Report Name',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.description),
+                            decoration: InputDecoration(
+                              labelText: _reportType == 'advance_settlement'
+                                  ? 'Department'
+                                  : 'Report Name',
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.description),
+                              helperText: _reportType == 'advance_settlement'
+                                  ? 'Department or unit responsible for this report'
+                                  : null,
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
-                                return 'Please enter a report name';
+                                return _reportType == 'advance_settlement'
+                                    ? 'Please enter a department'
+                                    : 'Please enter a report name';
                               }
                               return null;
                             },
                           ),
                           const SizedBox(height: 16),
+                          if (_reportType == 'advance_settlement') ...[
+                            TextFormField(
+                              controller: _purposeController,
+                              decoration: const InputDecoration(
+                                labelText: 'For the Purpose of',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.assignment_outlined),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) {
+                                  return 'Please enter the purpose';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            InkWell(
+                              onTap: () async {
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate:
+                                      _advanceTakenDate ?? DateTime.now(),
+                                  firstDate: DateTime(2020),
+                                  lastDate: DateTime(2030),
+                                );
+                                if (picked != null) {
+                                  setState(() {
+                                    _advanceTakenDate = picked;
+                                  });
+                                }
+                              },
+                              child: InputDecorator(
+                                decoration: const InputDecoration(
+                                  labelText: 'Advance Taken Date',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.event),
+                                ),
+                                child: Text(
+                                  DateFormat('MMM dd, yyyy').format(
+                                    _advanceTakenDate ?? DateTime.now(),
+                                  ),
+                                  style: const TextStyle(fontSize: 16),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
                           TextFormField(
                             controller: _openingBalanceController,
                             decoration: InputDecoration(
-                              labelText: 'Opening Balance',
+                              labelText: _reportType == 'advance_settlement'
+                                  ? 'Advance Amount'
+                                  : 'Opening Balance',
                               border: const OutlineInputBorder(),
                               prefixIcon: const Icon(
                                 Icons.account_balance_wallet,
@@ -292,6 +390,12 @@ class _NewReportScreenState extends State<NewReportScreen> {
         reportName: _reportNameController.text,
         custodian: user,
         openingBalance: double.parse(_openingBalanceController.text),
+        reportType: _reportType,
+        purpose: _reportType == 'advance_settlement'
+            ? _purposeController.text.trim()
+            : null,
+        advanceTakenDate:
+            _reportType == 'advance_settlement' ? _advanceTakenDate : null,
         companyName: _companyNameController.text.isEmpty
             ? null
             : _companyNameController.text,

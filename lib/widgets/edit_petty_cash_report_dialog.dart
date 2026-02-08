@@ -21,6 +21,8 @@ class _EditPettyCashReportDialogState extends State<EditPettyCashReportDialog> {
   late TextEditingController _openingBalanceController;
   late TextEditingController _companyNameController;
   late TextEditingController _notesController;
+  late TextEditingController _purposeController;
+  DateTime? _advanceTakenDate;
   late DateTime _periodStart;
   late DateTime _periodEnd;
 
@@ -34,6 +36,8 @@ class _EditPettyCashReportDialogState extends State<EditPettyCashReportDialog> {
     _companyNameController =
         TextEditingController(text: widget.report.companyName ?? '');
     _notesController = TextEditingController(text: widget.report.notes ?? '');
+    _purposeController = TextEditingController(text: widget.report.purpose ?? '');
+    _advanceTakenDate = widget.report.advanceTakenDate;
     _periodStart = widget.report.periodStart;
     _periodEnd = widget.report.periodEnd;
   }
@@ -44,6 +48,7 @@ class _EditPettyCashReportDialogState extends State<EditPettyCashReportDialog> {
     _openingBalanceController.dispose();
     _companyNameController.dispose();
     _notesController.dispose();
+    _purposeController.dispose();
     super.dispose();
   }
 
@@ -76,6 +81,10 @@ class _EditPettyCashReportDialogState extends State<EditPettyCashReportDialog> {
         notes: _notesController.text.trim().isEmpty
             ? null
             : _notesController.text.trim(),
+        purpose: _purposeController.text.trim().isEmpty
+            ? null
+            : _purposeController.text.trim(),
+        advanceTakenDate: _advanceTakenDate,
         periodStart: _periodStart,
         periodEnd: _periodEnd,
         updatedAt: DateTime.now(),
@@ -160,6 +169,51 @@ class _EditPettyCashReportDialogState extends State<EditPettyCashReportDialog> {
                 },
               ),
               const SizedBox(height: 16),
+
+              if (widget.report.reportType == 'advance_settlement') ...[
+                TextFormField(
+                  controller: _purposeController,
+                  decoration: const InputDecoration(
+                    labelText: 'For the Purpose of',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter the purpose';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                InkWell(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _advanceTakenDate ?? DateTime.now(),
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2030),
+                    );
+                    if (picked != null) {
+                      setState(() {
+                        _advanceTakenDate = picked;
+                      });
+                    }
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Advance Taken Date',
+                      border: OutlineInputBorder(),
+                      suffixIcon: Icon(Icons.calendar_today),
+                    ),
+                    child: Text(
+                      DateFormat('MMM dd, yyyy').format(
+                        _advanceTakenDate ?? DateTime.now(),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
 
               // Period Start and End
               Row(

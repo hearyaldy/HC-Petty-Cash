@@ -48,6 +48,9 @@ class ReportProvider extends ChangeNotifier {
     required String reportName,
     required User custodian,
     required double openingBalance,
+    String reportType = 'petty_cash',
+    String? purpose,
+    DateTime? advanceTakenDate,
     String? companyName,
     String? notes,
   }) async {
@@ -62,6 +65,9 @@ class ReportProvider extends ChangeNotifier {
         department: reportName, // Using reportName as department for backward compatibility
         custodian: custodian,
         openingBalance: openingBalance,
+        reportType: reportType,
+        purpose: purpose,
+        advanceTakenDate: advanceTakenDate,
         companyName: companyName,
         notes: notes,
       );

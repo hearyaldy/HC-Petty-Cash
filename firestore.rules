@@ -297,8 +297,13 @@ service cloud.firestore {
 
     // Purchase Requisitions collection
     match /purchase_requisitions/{requisitionId} {
-      // All authenticated users can read
-      allow read: if isAuthenticated();
+      // Owners can read their own requisitions, HR/Admin can read all
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.requesterId ||
+        isAdmin() ||
+        isManager() ||
+        isFinance()
+      );
 
       // Any authenticated user can create requisitions
       allow create: if isAuthenticated();
@@ -317,8 +322,15 @@ service cloud.firestore {
 
     // Purchase Requisition Items collection
     match /purchase_requisition_items/{itemId} {
-      // All authenticated users can read
-      allow read: if isAuthenticated();
+      // Owners can read their own requisition items, HR/Admin can read all
+      allow read: if isAuthenticated() &&
+        exists(/databases/$(database)/documents/purchase_requisitions/$(resource.data.requisitionId)) &&
+        (
+          get(/databases/$(database)/documents/purchase_requisitions/$(resource.data.requisitionId)).data.requesterId == request.auth.uid ||
+          isAdmin() ||
+          isManager() ||
+          isFinance()
+        );
 
       // Create only if the parent requisition is draft
       allow create: if isAuthenticated()
@@ -423,6 +435,36 @@ service cloud.firestore {
       // Users can delete their own submissions, admins can delete any
       allow delete: if isAuthenticated() &&
         (request.auth.uid == resource.data.submittedBy || isAdmin());
+    }
+
+    // Annual Leave Requests collection
+    match /annual_leave_requests/{requestId} {
+      // Staff can create their own requests
+      allow create: if isAuthenticated() &&
+        request.resource.data.requesterId == request.auth.uid &&
+        request.resource.data.status == 'submitted' &&
+        request.resource.data.approvedBy == null &&
+        request.resource.data.approvedAt == null &&
+        request.resource.data.actionNumber == null;
+
+      // Owner can read their own, HR/Admin can read all
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.requesterId ||
+        isAdmin() ||
+        isManager() ||
+        isFinance()
+      );
+
+      // Only HR/Admin can approve/reject/update
+      allow update: if isAuthenticated() && (
+        isAdmin() || isManager() || isFinance()
+      ) && (
+        // Prevent changing requester ownership
+        request.resource.data.requesterId == resource.data.requesterId
+      );
+
+      // Only admin can delete
+      allow delete: if isAdmin();
     }
 
     // Equipment Inventory collection

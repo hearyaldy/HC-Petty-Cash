@@ -238,6 +238,23 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
                   decoration: TextDecoration.underline,
                 ),
               ),
+              const SizedBox(height: 8),
+              if ((_minutes!.startTime ?? '').isNotEmpty)
+                Text(
+                  'START TIME: ${_minutes!.startTime}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              if ((_minutes!.openingPrayer ?? '').isNotEmpty)
+                Text(
+                  'OPENING PRAYER: ${_minutes!.openingPrayer}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               const SizedBox(height: 12),
               if (presentMembers.isNotEmpty) ...[
                 const Text(
@@ -301,45 +318,22 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
             const SizedBox(height: 32),
             const Divider(),
             const SizedBox(height: 16),
-            if ((_minutes!.startTime ?? '').isNotEmpty ||
-                (_minutes!.openingPrayer ?? '').isNotEmpty ||
-                (_minutes!.closingPrayer ?? '').isNotEmpty ||
-                (_minutes!.meetingAdjournedAt ?? '').isNotEmpty) ...[
-              const Text(
-                'MEETING NOTES',
-                style: TextStyle(
-                  fontSize: 12,
+            if ((_minutes!.closingPrayer ?? '').isNotEmpty)
+              Text(
+                'CLOSING PRAYER: ${_minutes!.closingPrayer}',
+                style: const TextStyle(
+                  fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  decoration: TextDecoration.underline,
                 ),
               ),
-              const SizedBox(height: 8),
-              if ((_minutes!.startTime ?? '').isNotEmpty)
-                Text(
-                  'Start Time: ${_minutes!.startTime}',
-                  style: const TextStyle(fontSize: 11),
+            if ((_minutes!.meetingAdjournedAt ?? '').isNotEmpty)
+              Text(
+                'MEETING ADJOURNED AT: ${_minutes!.meetingAdjournedAt}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
                 ),
-              if ((_minutes!.openingPrayer ?? '').isNotEmpty)
-                Text(
-                  'Opening Prayer: ${_minutes!.openingPrayer}',
-                  style: const TextStyle(fontSize: 11),
-                ),
-              if ((_minutes!.closingPrayer ?? '').isNotEmpty)
-                Text(
-                  'Closing Prayer: ${_minutes!.closingPrayer}',
-                  style: const TextStyle(fontSize: 11),
-                ),
-              if ((_minutes!.meetingAdjournedAt ?? '').isNotEmpty)
-                Text(
-                  'Meeting Adjourned At: ${_minutes!.meetingAdjournedAt}',
-                  style: const TextStyle(fontSize: 11),
-                ),
-              const SizedBox(height: 16),
-            ],
-            const Text(
-              'MEETING ADJOURNED',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-            ),
+              ),
           ],
         ),
       ),
@@ -594,6 +588,23 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
                   decoration: pw.TextDecoration.underline,
                 ),
               ),
+              pw.SizedBox(height: 6),
+              if ((_minutes!.startTime ?? '').isNotEmpty)
+                pw.Text(
+                  'START TIME: ${_minutes!.startTime}',
+                  style: pw.TextStyle(
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+              if ((_minutes!.openingPrayer ?? '').isNotEmpty)
+                pw.Text(
+                  'OPENING PRAYER: ${_minutes!.openingPrayer}',
+                  style: pw.TextStyle(
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
               pw.SizedBox(height: 10),
               if (presentMembers.isNotEmpty) ...[
                 pw.Text(
@@ -653,45 +664,22 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
             pw.SizedBox(height: 30),
             pw.Divider(),
             pw.SizedBox(height: 15),
-            if ((_minutes!.startTime ?? '').isNotEmpty ||
-                (_minutes!.openingPrayer ?? '').isNotEmpty ||
-                (_minutes!.closingPrayer ?? '').isNotEmpty ||
-                (_minutes!.meetingAdjournedAt ?? '').isNotEmpty) ...[
+            if ((_minutes!.closingPrayer ?? '').isNotEmpty)
               pw.Text(
-                'MEETING NOTES',
+                'CLOSING PRAYER: ${_minutes!.closingPrayer}',
                 style: pw.TextStyle(
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: pw.FontWeight.bold,
-                  decoration: pw.TextDecoration.underline,
                 ),
               ),
-              pw.SizedBox(height: 8),
-              if ((_minutes!.startTime ?? '').isNotEmpty)
-                pw.Text(
-                  'Start Time: ${_minutes!.startTime}',
-                  style: const pw.TextStyle(fontSize: 10),
+            if ((_minutes!.meetingAdjournedAt ?? '').isNotEmpty)
+              pw.Text(
+                'MEETING ADJOURNED AT: ${_minutes!.meetingAdjournedAt}',
+                style: pw.TextStyle(
+                  fontSize: 10,
+                  fontWeight: pw.FontWeight.bold,
                 ),
-              if ((_minutes!.openingPrayer ?? '').isNotEmpty)
-                pw.Text(
-                  'Opening Prayer: ${_minutes!.openingPrayer}',
-                  style: const pw.TextStyle(fontSize: 10),
-                ),
-              if ((_minutes!.closingPrayer ?? '').isNotEmpty)
-                pw.Text(
-                  'Closing Prayer: ${_minutes!.closingPrayer}',
-                  style: const pw.TextStyle(fontSize: 10),
-                ),
-              if ((_minutes!.meetingAdjournedAt ?? '').isNotEmpty)
-                pw.Text(
-                  'Meeting Adjourned At: ${_minutes!.meetingAdjournedAt}',
-                  style: const pw.TextStyle(fontSize: 10),
-                ),
-              pw.SizedBox(height: 12),
-            ],
-            pw.Text(
-              'MEETING ADJOURNED',
-              style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
-            ),
+              ),
           ];
         },
       ),

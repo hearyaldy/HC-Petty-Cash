@@ -1059,6 +1059,15 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
       transactionChunks.add(transactions.sublist(i, end));
     }
 
+    final actualExpenses = transactions
+        .where(
+          (t) =>
+              t.statusEnum == TransactionStatus.approved ||
+              t.statusEnum == TransactionStatus.processed,
+        )
+        .fold<double>(0.0, (sum, t) => sum + t.amount);
+    final remainingBudget = report.budget - actualExpenses;
+
     // Add pages for each chunk of transactions
     for (int pageIndex = 0; pageIndex < transactionChunks.length; pageIndex++) {
       final chunk = transactionChunks[pageIndex];
@@ -1362,11 +1371,11 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
                           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                           children: [
                             pw.Text(
-                              'Opening Balance:',
+                              'Total Budget:',
                               style: pw.TextStyle(font: ttf, fontSize: 10),
                             ),
                             pw.Text(
-                              currencyFormat.format(report.openingBalance),
+                              currencyFormat.format(report.budget),
                               style: pw.TextStyle(font: ttf, fontSize: 10),
                             ),
                           ],
@@ -1376,16 +1385,11 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
                           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                           children: [
                             pw.Text(
-                              'Total Disbursements:',
+                              'Total Expenses:',
                               style: pw.TextStyle(font: ttf, fontSize: 10),
                             ),
                             pw.Text(
-                              currencyFormat.format(
-                                transactions.fold<double>(
-                                  0,
-                                  (sum, t) => sum + t.amount,
-                                ),
-                              ),
+                              currencyFormat.format(actualExpenses),
                               style: pw.TextStyle(font: ttf, fontSize: 10),
                             ),
                           ],
@@ -1399,20 +1403,14 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
                                   pw.MainAxisAlignment.spaceBetween,
                               children: [
                                 pw.Text(
-                                  'Balance:',
+                                  'Remaining Budget:',
                                   style: pw.TextStyle(
                                     font: boldTtf,
                                     fontSize: 11,
                                   ),
                                 ),
                                 pw.Text(
-                                  currencyFormat.format(
-                                    report.openingBalance -
-                                        transactions.fold<double>(
-                                          0,
-                                          (sum, t) => sum + t.amount,
-                                        ),
-                                  ),
+                                  currencyFormat.format(remainingBudget),
                                   style: pw.TextStyle(
                                     font: boldTtf,
                                     fontSize: 11,
@@ -1422,7 +1420,7 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
                             ),
                             pw.SizedBox(height: 4),
                             pw.Text(
-                              '(${_convertToWords(report.openingBalance - transactions.fold<double>(0, (sum, t) => sum + t.amount))})',
+                              '(${_convertToWords(remainingBudget)})',
                               style: pw.TextStyle(
                                 font: ttf,
                                 fontSize: 9,
@@ -1580,18 +1578,22 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
   }
 
   String _convertToWords(double amount) {
-    final baht = amount.floor();
-    final satang = ((amount - baht) * 100).round();
+    final isNegative = amount < 0;
+    final absAmount = amount.abs();
+    final baht = absAmount.floor();
+    final satang = ((absAmount - baht) * 100).round();
 
     final bahtInWords = _numberToWords(baht);
     final satangInWords = satang > 0
         ? 'and ${_numberToWords(satang)} Satang'
         : '';
 
-    return '${bahtInWords.toUpperCase()} BAHT $satangInWords'.trim();
+    final base = '${bahtInWords.toUpperCase()} BAHT $satangInWords'.trim();
+    return isNegative ? 'NEGATIVE $base' : base;
   }
 
   String _numberToWords(int number) {
+    if (number < 0) return 'Negative ${_numberToWords(-number)}';
     if (number == 0) return 'Zero';
 
     final ones = [

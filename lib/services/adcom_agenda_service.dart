@@ -27,6 +27,16 @@ class AdcomAgendaService {
     return null;
   }
 
+  /// Stream a single agenda by ID
+  Stream<AdcomAgenda?> streamAgendaById(String id) {
+    return _firestore.collection(_collection).doc(id).snapshots().map((doc) {
+      if (doc.exists) {
+        return AdcomAgenda.fromFirestore(doc);
+      }
+      return null;
+    });
+  }
+
   /// Create a new agenda
   Future<String> createAgenda(AdcomAgenda agenda) async {
     final docRef = await _firestore.collection(_collection).add(agenda.toMap());
