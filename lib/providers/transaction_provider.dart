@@ -183,6 +183,7 @@ class TransactionProvider extends ChangeNotifier {
         }
         // Delete transaction from Firestore
         await _firestoreService.deleteTransaction(transactionId);
+        await _resequenceReceiptNumbers(transaction.reportId);
         await loadTransactionsByReportId(transaction.reportId);
         // Update financial summary for the report
         await _updateReportFinancialSummary(transaction.reportId);
@@ -205,6 +206,30 @@ class TransactionProvider extends ChangeNotifier {
   void selectTransaction(Transaction? transaction) {
     _selectedTransaction = transaction;
     notifyListeners();
+  }
+
+  Future<void> _resequenceReceiptNumbers(String reportId) async {
+    final transactions = await _firestoreService.getTransactionsByReportId(
+      reportId,
+    );
+    if (transactions.isEmpty) return;
+
+    final sorted = [...transactions]..sort((a, b) {
+      final aNum = int.tryParse(a.receiptNo) ?? 0;
+      final bNum = int.tryParse(b.receiptNo) ?? 0;
+      return aNum.compareTo(bNum);
+    });
+
+    for (var i = 0; i < sorted.length; i++) {
+      final desired = (i + 1).toString().padLeft(3, '0');
+      final transaction = sorted[i];
+      if (transaction.receiptNo == desired) continue;
+      final updated = transaction.copyWith(
+        receiptNo: desired,
+        updatedAt: DateTime.now(),
+      );
+      await _firestoreService.updateTransaction(updated);
+    }
   }
 
   Future<void> submitForApproval(String transactionId) async {

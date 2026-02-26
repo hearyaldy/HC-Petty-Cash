@@ -27,6 +27,9 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
   Map<String, int> _categoryCount = {};
   int _recentCheckouts = 0;
 
+  // Organization info
+  String? _organizationName;
+
   @override
   void initState() {
     super.initState();
@@ -36,7 +39,30 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
   Future<void> _loadStats() async {
     try {
       final firestore = FirebaseFirestore.instance;
-      final allEquipment = await firestore.collection('equipment').get();
+
+      // Get current user's organization from auth provider
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final currentUser = authProvider.currentUser;
+      final userOrgId = currentUser?.organizationId;
+      final isAdmin = currentUser?.role == 'admin';
+
+      // Store organization name for display
+      if (mounted) {
+        setState(() {
+          _organizationName = currentUser?.organizationName;
+        });
+      }
+
+      // Build query based on user's organization
+      Query<Map<String, dynamic>> query = firestore.collection('equipment');
+
+      // If user has an organization assigned, filter by it
+      // Admin users without organization see all equipment
+      if (userOrgId != null && userOrgId.isNotEmpty) {
+        query = query.where('organizationId', isEqualTo: userOrgId);
+      }
+
+      final allEquipment = await query.get();
 
       int available = 0;
       int checkedOut = 0;
@@ -86,11 +112,17 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
       // Get recent checkouts (last 7 days) - separate try-catch as this may fail
       try {
         final weekAgo = DateTime.now().subtract(const Duration(days: 7));
-        final recentQuery = await firestore
+        Query<Map<String, dynamic>> historyQuery = firestore
             .collection('equipment_history')
             .where('action', isEqualTo: 'checkout')
-            .where('timestamp', isGreaterThan: Timestamp.fromDate(weekAgo))
-            .get();
+            .where('timestamp', isGreaterThan: Timestamp.fromDate(weekAgo));
+
+        // Filter history by organization if user has one
+        if (userOrgId != null && userOrgId.isNotEmpty) {
+          historyQuery = historyQuery.where('organizationId', isEqualTo: userOrgId);
+        }
+
+        final recentQuery = await historyQuery.get();
 
         if (mounted) {
           setState(() {
@@ -244,7 +276,9 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Equipment tracking & asset management',
+                            _organizationName != null
+                                ? '$_organizationName Inventory'
+                                : 'All Organizations - Equipment Tracking',
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.9),
                               fontSize: 14,
@@ -345,13 +379,35 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Inventory Statistics',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.grey[800],
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Inventory Statistics',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[800],
+                ),
+              ),
+            ),
+            if (_organizationName != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.purple.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  _organizationName!,
+                  style: TextStyle(
+                    color: Colors.purple.shade700,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 12),
         // Status Overview
@@ -845,6 +901,17 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
           route: '/inventory',
           badge: _maintenanceEquipment > 0 ? _maintenanceEquipment : null,
         ),
+        if (isAdmin) ...[
+          const SizedBox(height: 12),
+          _buildMenuCard(
+            context,
+            title: 'Organizations',
+            subtitle: 'Manage inventory organizations',
+            icon: Icons.business_outlined,
+            color: Colors.indigo,
+            route: '/admin/organizations',
+          ),
+        ],
       ],
     );
   }
@@ -976,7 +1043,7 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
                 context,
                 icon: Icons.qr_code_scanner,
                 label: 'Scan QR',
-                route: '/inventory',
+                route: '/inventory/scan',
                 color: Colors.blue,
               ),
               _buildQuickActionChip(

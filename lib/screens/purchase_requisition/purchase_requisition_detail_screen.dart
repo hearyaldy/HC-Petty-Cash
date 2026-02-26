@@ -10,6 +10,7 @@ import '../../providers/auth_provider.dart';
 import '../../widgets/edit_purchase_requisition_dialog.dart';
 import '../../widgets/purchase_requisition_item_dialog.dart';
 import '../../widgets/support_document_upload_dialog.dart';
+import '../../utils/responsive_helper.dart';
 
 class PurchaseRequisitionDetailScreen extends StatefulWidget {
   final String requisitionId;
@@ -57,6 +58,8 @@ class _PurchaseRequisitionDetailScreenState
           requestedBy: result['requestedBy'] as String,
           idNo: result['idNo'] as String,
           chargeToDepartment: result['chargeToDepartment'] as String,
+          purchaseReason: result['purchaseReason'] as String?,
+          actionNo: result['actionNo'] as String?,
           notes: result['notes'] as String?,
           updatedAt: DateTime.now(),
         );
@@ -304,7 +307,7 @@ class _PurchaseRequisitionDetailScreenState
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
             child: const Text('Submit'),
           ),
         ],
@@ -602,120 +605,7 @@ class _PurchaseRequisitionDetailScreenState
     final isAdmin = authProvider.canManageUsers();
     final user = authProvider.currentUser;
     return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text('Purchase Requisition'),
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Colors.purple.shade400, Colors.purple.shade600],
-            ),
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.home_outlined),
-            onPressed: () => context.go('/admin-hub'),
-            tooltip: 'Home',
-          ),
-          PopupMenuButton<String>(
-            onSelected: (value) async {
-              final requisition = await _firestoreService.getPurchaseRequisition(
-                widget.requisitionId,
-              );
-              if (requisition == null) return;
-
-              switch (value) {
-                case 'edit':
-                  _editRequisition(requisition);
-                  break;
-                case 'submit':
-                  _submitRequisition(requisition);
-                  break;
-                case 'print':
-                  _printRequisition(requisition);
-                  break;
-                case 'approve':
-                  _approveRequisition(requisition);
-                  break;
-                case 'reject':
-                  _rejectRequisition(requisition);
-                  break;
-                case 'revert':
-                  _revertToDraft(requisition);
-                  break;
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'edit',
-                child: Row(
-                  children: [
-                    Icon(Icons.edit, size: 20),
-                    SizedBox(width: 12),
-                    Text('Edit Requisition'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'submit',
-                child: Row(
-                  children: [
-                    Icon(Icons.send, size: 20),
-                    SizedBox(width: 12),
-                    Text('Submit'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'print',
-                child: Row(
-                  children: [
-                    Icon(Icons.print, size: 20),
-                    SizedBox(width: 12),
-                    Text('Print'),
-                  ],
-                ),
-              ),
-              if (isAdmin) ...[
-                const PopupMenuDivider(),
-                const PopupMenuItem(
-                  value: 'approve',
-                  child: Row(
-                    children: [
-                      Icon(Icons.check_circle, size: 20, color: Colors.green),
-                      SizedBox(width: 12),
-                      Text('Approve'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'reject',
-                  child: Row(
-                    children: [
-                      Icon(Icons.cancel, size: 20, color: Colors.red),
-                      SizedBox(width: 12),
-                      Text('Reject'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'revert',
-                  child: Row(
-                    children: [
-                      Icon(Icons.undo, size: 20, color: Colors.orange),
-                      SizedBox(width: 12),
-                      Text('Revert to Draft'),
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ],
-      ),
+      backgroundColor: Colors.grey[100],
       body: StreamBuilder<PurchaseRequisition?>(
         stream: _firestoreService.purchaseRequisitionStream(widget.requisitionId),
         builder: (context, snapshot) {
@@ -758,35 +648,39 @@ class _PurchaseRequisitionDetailScreenState
             );
           }
 
-          return _buildRequisitionContent(requisition);
+          return _buildRequisitionContent(requisition, isAdmin);
         },
       ),
     );
   }
 
-  Widget _buildRequisitionContent(PurchaseRequisition requisition) {
-    return Center(
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 1200),
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              _buildRequisitionHeader(requisition),
-              _buildInfoSection(requisition),
-              _buildItemsSection(requisition),
-              _buildSummarySection(requisition),
-              _buildNoteSection(),
-              _buildSignatureSection(requisition),
-              _buildSupportDocumentsSection(requisition),
-              const SizedBox(height: 24),
-            ],
-          ),
+  Widget _buildRequisitionContent(
+    PurchaseRequisition requisition,
+    bool isAdmin,
+  ) {
+    final spacing = ResponsiveHelper.getSpacing(context);
+    return SingleChildScrollView(
+      child: ResponsiveContainer(
+        child: Column(
+          children: [
+            _buildRequisitionHeader(requisition, isAdmin),
+            _buildInfoSection(requisition),
+            _buildItemsSection(requisition),
+            _buildSummarySection(requisition),
+            _buildNoteSection(),
+            _buildSignatureSection(requisition),
+            _buildSupportDocumentsSection(requisition),
+            SizedBox(height: spacing),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildRequisitionHeader(PurchaseRequisition requisition) {
+  Widget _buildRequisitionHeader(
+    PurchaseRequisition requisition,
+    bool isAdmin,
+  ) {
     final dateFormat = DateFormat('MMM dd, yyyy');
     final statusColor = _getStatusColor(requisition.status);
     IconData statusIcon;
@@ -812,95 +706,144 @@ class _PurchaseRequisitionDetailScreenState
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Colors.purple.shade400, Colors.purple.shade600],
+          colors: [Colors.blue.shade400, Colors.blue.shade600],
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.purple.shade200,
+            color: Colors.blue.shade200,
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Row(
+          Positioned(
+            right: -24,
+            top: -24,
+            child: Container(
+              width: 110,
+              height: 110,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.1),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 40,
+            bottom: -30,
+            child: Container(
+              width: 90,
+              height: 90,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+          ),
+          Column(
             children: [
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: const Center(
-                  child: Icon(
-                    Icons.shopping_cart,
-                    color: Colors.white,
-                    size: 32,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildHeaderActionButton(
+                    icon: Icons.arrow_back,
+                    tooltip: 'Back to Purchase Requisitions',
+                    onPressed: () => context.go('/purchase-requisitions'),
                   ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'PURCHASE REQUISITION',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 1.2,
+                  Row(
+                    children: [
+                      _buildHeaderActionButton(
+                        icon: Icons.home_outlined,
+                        tooltip: 'Home',
+                        onPressed: () => context.go('/admin-hub'),
                       ),
+                      const SizedBox(width: 8),
+                      _buildHeaderMenuButton(isAdmin),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'No: ${requisition.requisitionNumber}',
-                      style: const TextStyle(
+                    child: const Center(
+                      child: Icon(
+                        Icons.shopping_cart,
                         color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                        size: 32,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Date: ${dateFormat.format(requisition.requisitionDate)}',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        fontSize: 14,
-                      ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'PURCHASE REQUISITION',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'No: ${requisition.requisitionNumber}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Date: ${dateFormat.format(requisition.requisitionDate)}',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(statusIcon, size: 16, color: statusColor),
-                    const SizedBox(width: 6),
-                    Text(
-                      requisition.status.toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: statusColor,
-                      ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
                     ),
-                  ],
-                ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(statusIcon, size: 16, color: statusColor),
+                        const SizedBox(width: 6),
+                        Text(
+                          requisition.status.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: statusColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -909,7 +852,134 @@ class _PurchaseRequisitionDetailScreenState
     );
   }
 
+  Widget _buildHeaderActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.18),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeaderMenuButton(bool isAdmin) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.18),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: PopupMenuButton<String>(
+        icon: const Icon(Icons.more_vert, color: Colors.white),
+        onSelected: (value) async {
+          final requisition = await _firestoreService.getPurchaseRequisition(
+            widget.requisitionId,
+          );
+          if (requisition == null) return;
+
+          switch (value) {
+            case 'edit':
+              _editRequisition(requisition);
+              break;
+            case 'submit':
+              _submitRequisition(requisition);
+              break;
+            case 'print':
+              _printRequisition(requisition);
+              break;
+            case 'approve':
+              _approveRequisition(requisition);
+              break;
+            case 'reject':
+              _rejectRequisition(requisition);
+              break;
+            case 'revert':
+              _revertToDraft(requisition);
+              break;
+          }
+        },
+        itemBuilder: (context) => [
+          const PopupMenuItem(
+            value: 'edit',
+            child: Row(
+              children: [
+                Icon(Icons.edit, size: 20),
+                SizedBox(width: 12),
+                Text('Edit Requisition'),
+              ],
+            ),
+          ),
+          const PopupMenuItem(
+            value: 'submit',
+            child: Row(
+              children: [
+                Icon(Icons.send, size: 20),
+                SizedBox(width: 12),
+                Text('Submit'),
+              ],
+            ),
+          ),
+          const PopupMenuItem(
+            value: 'print',
+            child: Row(
+              children: [
+                Icon(Icons.print, size: 20),
+                SizedBox(width: 12),
+                Text('Print'),
+              ],
+            ),
+          ),
+          if (isAdmin) ...[
+            const PopupMenuDivider(),
+            const PopupMenuItem(
+              value: 'approve',
+              child: Row(
+                children: [
+                  Icon(Icons.check_circle, size: 20, color: Colors.green),
+                  SizedBox(width: 12),
+                  Text('Approve'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'reject',
+              child: Row(
+                children: [
+                  Icon(Icons.cancel, size: 20, color: Colors.red),
+                  SizedBox(width: 12),
+                  Text('Reject'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'revert',
+              child: Row(
+                children: [
+                  Icon(Icons.undo, size: 20, color: Colors.orange),
+                  SizedBox(width: 12),
+                  Text('Revert to Draft'),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildInfoSection(PurchaseRequisition requisition) {
+    final isMobile = ResponsiveHelper.isMobile(context);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(20),
@@ -929,7 +999,7 @@ class _PurchaseRequisitionDetailScreenState
         children: [
           Row(
             children: [
-              Icon(Icons.info_outline, color: Colors.purple.shade600, size: 24),
+              Icon(Icons.info_outline, color: Colors.blue.shade600, size: 24),
               const SizedBox(width: 8),
               const Text(
                 'Request Information',
@@ -938,41 +1008,73 @@ class _PurchaseRequisitionDetailScreenState
             ],
           ),
           const Divider(height: 24),
-          Row(
-            children: [
-              Expanded(
-                child: _buildDetailRow(
-                  Icons.person,
-                  'Requested By',
-                  requisition.requestedBy,
+          if (isMobile) ...[
+            _buildDetailRow(
+              Icons.person,
+              'Requested By',
+              requisition.requestedBy,
+            ),
+            const SizedBox(height: 12),
+            _buildDetailRow(
+              Icons.badge,
+              'ID No.',
+              requisition.idNo,
+            ),
+          ] else
+            Row(
+              children: [
+                Expanded(
+                  child: _buildDetailRow(
+                    Icons.person,
+                    'Requested By',
+                    requisition.requestedBy,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildDetailRow(
-                  Icons.badge,
-                  'ID No.',
-                  requisition.idNo,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildDetailRow(
+                    Icons.badge,
+                    'ID No.',
+                    requisition.idNo,
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
           const SizedBox(height: 16),
           _buildDetailRow(
             Icons.business,
             'Charge to Department',
             requisition.chargeToDepartment,
           ),
+          if (requisition.purchaseReason != null &&
+              requisition.purchaseReason!.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _buildDetailRow(
+              Icons.help_outline,
+              'Purchase Reason',
+              requisition.purchaseReason!,
+            ),
+          ],
+          if (requisition.actionNo != null &&
+              requisition.actionNo!.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _buildDetailRow(
+              Icons.confirmation_number,
+              'Action No.',
+              requisition.actionNo!,
+              highlight: true,
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildDetailRow(IconData icon, String label, String value) {
+  Widget _buildDetailRow(IconData icon, String label, String value, {bool highlight = false}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 20, color: Colors.grey.shade600),
+        Icon(icon, size: 20, color: highlight ? Colors.orange.shade600 : Colors.grey.shade600),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -982,16 +1084,29 @@ class _PurchaseRequisitionDetailScreenState
                 label,
                 style: TextStyle(
                   fontSize: 12,
-                  color: Colors.grey.shade600,
+                  color: highlight ? Colors.orange.shade700 : Colors.grey.shade600,
                   fontWeight: FontWeight.w500,
                 ),
               ),
               const SizedBox(height: 2),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
+              Container(
+                padding: highlight
+                    ? const EdgeInsets.symmetric(horizontal: 8, vertical: 4)
+                    : EdgeInsets.zero,
+                decoration: highlight
+                    ? BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.orange.shade200),
+                      )
+                    : null,
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: highlight ? Colors.orange.shade800 : null,
+                  ),
                 ),
               ),
             ],
@@ -1026,7 +1141,7 @@ class _PurchaseRequisitionDetailScreenState
                 children: [
                   Icon(
                     Icons.list_alt,
-                    color: Colors.purple.shade600,
+                    color: Colors.blue.shade600,
                     size: 24,
                   ),
                   const SizedBox(width: 8),
@@ -1042,7 +1157,7 @@ class _PurchaseRequisitionDetailScreenState
                   icon: const Icon(Icons.add, size: 18),
                   label: const Text('Add Item'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.purple.shade600,
+                    backgroundColor: Colors.blue.shade600,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
@@ -1115,77 +1230,89 @@ class _PurchaseRequisitionDetailScreenState
     List<PurchaseRequisitionItem> items,
   ) {
     final currencyFormat = NumberFormat('#,##0.00', 'en_US');
+    // Minimum table width: No(40) + Qty(60) + UnitPrice(100) + Total(100) + Docs(50) + Description(150) + Remark(100) + Actions(80) = 680
+    const double minTableWidth = 680;
 
-    return Column(
-      children: [
-        // Table Header
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-          decoration: BoxDecoration(
-            color: Colors.purple.shade50,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-          ),
-          child: Row(
-            children: [
-              const SizedBox(
-                width: 40,
-                child: Text(
-                  'No.',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                  textAlign: TextAlign.center,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tableWidth = constraints.maxWidth < minTableWidth
+            ? minTableWidth
+            : constraints.maxWidth;
+
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            width: tableWidth,
+            child: Column(
+              children: [
+                // Table Header
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                  ),
+                  child: Row(
+                    children: [
+                      const SizedBox(
+                        width: 40,
+                        child: Text(
+                          'No.',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const Expanded(
+                        flex: 3,
+                        child: Text(
+                          'Description',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                      ),
+                      const SizedBox(
+                        width: 60,
+                        child: Text(
+                          'Qty',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(
+                        width: 100,
+                        child: Text(
+                          'Unit Price',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
+                      const SizedBox(
+                        width: 100,
+                        child: Text(
+                          'Total',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
+                      const Expanded(
+                        flex: 2,
+                        child: Text(
+                          'Remark',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(
+                        width: 50,
+                        child: Text(
+                          'Docs',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      if (requisition.status == 'draft') const SizedBox(width: 80),
+                    ],
+                  ),
                 ),
-              ),
-              const Expanded(
-                flex: 3,
-                child: Text(
-                  'Description',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                ),
-              ),
-              const SizedBox(
-                width: 60,
-                child: Text(
-                  'Qty',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              const SizedBox(
-                width: 100,
-                child: Text(
-                  'Unit Price',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                  textAlign: TextAlign.right,
-                ),
-              ),
-              const SizedBox(
-                width: 100,
-                child: Text(
-                  'Total',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                  textAlign: TextAlign.right,
-                ),
-              ),
-              const Expanded(
-                flex: 2,
-                child: Text(
-                  'Remark',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              const SizedBox(
-                width: 50,
-                child: Text(
-                  'Docs',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              if (requisition.status == 'draft') const SizedBox(width: 80),
-            ],
-          ),
-        ),
         // Table Rows
         ListView.separated(
           shrinkWrap: true,
@@ -1325,34 +1452,35 @@ class _PurchaseRequisitionDetailScreenState
                       width: 80,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          IconButton(
-                            icon: Icon(
-                              Icons.edit,
-                              size: 18,
-                              color: Colors.blue.shade600,
+                          SizedBox(
+                            width: 36,
+                            height: 36,
+                            child: IconButton(
+                              icon: Icon(
+                                Icons.edit,
+                                size: 16,
+                                color: Colors.blue.shade600,
+                              ),
+                              padding: EdgeInsets.zero,
+                              onPressed: () => _editItem(requisition, item),
+                              tooltip: 'Edit',
                             ),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(
-                              minWidth: 32,
-                              minHeight: 32,
-                            ),
-                            onPressed: () => _editItem(requisition, item),
-                            tooltip: 'Edit',
                           ),
-                          IconButton(
-                            icon: Icon(
-                              Icons.delete,
-                              size: 18,
-                              color: Colors.red.shade600,
+                          SizedBox(
+                            width: 36,
+                            height: 36,
+                            child: IconButton(
+                              icon: Icon(
+                                Icons.delete,
+                                size: 16,
+                                color: Colors.red.shade600,
+                              ),
+                              padding: EdgeInsets.zero,
+                              onPressed: () => _deleteItem(requisition, item),
+                              tooltip: 'Delete',
                             ),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(
-                              minWidth: 32,
-                              minHeight: 32,
-                            ),
-                            onPressed: () => _deleteItem(requisition, item),
-                            tooltip: 'Delete',
                           ),
                         ],
                       ),
@@ -1362,11 +1490,16 @@ class _PurchaseRequisitionDetailScreenState
             );
           },
         ),
-      ],
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
   Widget _buildSummarySection(PurchaseRequisition requisition) {
+    final isMobile = ResponsiveHelper.isMobile(context);
     final currencyFormat = NumberFormat('#,##0.00', 'en_US');
 
     return Container(
@@ -1376,55 +1509,95 @@ class _PurchaseRequisitionDetailScreenState
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Colors.purple.shade400, Colors.purple.shade600],
+          colors: [Colors.blue.shade400, Colors.blue.shade600],
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.purple.shade200,
+            color: Colors.blue.shade200,
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8),
+      child: isMobile
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.account_balance_wallet,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'TOTAL',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
-                child: const Icon(
-                  Icons.account_balance_wallet,
-                  color: Colors.white,
-                  size: 24,
+                const SizedBox(height: 12),
+                Text(
+                  '฿${currencyFormat.format(requisition.totalAmount)}',
+                  style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              const Text(
-                'TOTAL',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+              ],
+            )
+          : Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.account_balance_wallet,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'TOTAL',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
-          Text(
-            '฿${currencyFormat.format(requisition.totalAmount)}',
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+                Text(
+                  '฿${currencyFormat.format(requisition.totalAmount)}',
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -1470,6 +1643,7 @@ class _PurchaseRequisitionDetailScreenState
   }
 
   Widget _buildSignatureSection(PurchaseRequisition requisition) {
+    final isMobile = ResponsiveHelper.isMobile(context);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(20),
@@ -1489,7 +1663,7 @@ class _PurchaseRequisitionDetailScreenState
         children: [
           Row(
             children: [
-              Icon(Icons.draw, color: Colors.purple.shade600, size: 24),
+              Icon(Icons.draw, color: Colors.blue.shade600, size: 24),
               const SizedBox(width: 8),
               const Text(
                 'Signature Section',
@@ -1498,33 +1672,46 @@ class _PurchaseRequisitionDetailScreenState
             ],
           ),
           const Divider(height: 24),
-          Row(
-            children: [
-              Expanded(
-                child: _buildSignatureBox(
-                  'Requested By',
-                  requisition.requestedBy,
-                ),
+          if (isMobile) ...[
+            _buildSignatureBox('Requested By', requisition.requestedBy),
+            const SizedBox(height: 12),
+            _buildSignatureBox('Approved By', requisition.approvedBy),
+            if (requisition.requiresActionNo) ...[
+              const SizedBox(height: 12),
+              _buildSignatureBox(
+                'Action No.\n(for amount > 20,000฿)',
+                requisition.actionNo,
+                isActionNo: true,
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildSignatureBox(
-                  'Approved By',
-                  requisition.approvedBy,
+            ],
+          ] else
+            Row(
+              children: [
+                Expanded(
+                  child: _buildSignatureBox(
+                    'Requested By',
+                    requisition.requestedBy,
+                  ),
                 ),
-              ),
-              if (requisition.requiresActionNo) ...[
                 const SizedBox(width: 16),
                 Expanded(
                   child: _buildSignatureBox(
-                    'Action No.\n(for amount > 20,000฿)',
-                    requisition.actionNo,
-                    isActionNo: true,
+                    'Approved By',
+                    requisition.approvedBy,
                   ),
                 ),
+                if (requisition.requiresActionNo) ...[
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildSignatureBox(
+                      'Action No.\n(for amount > 20,000฿)',
+                      requisition.actionNo,
+                      isActionNo: true,
+                    ),
+                  ),
+                ],
               ],
-            ],
-          ),
+            ),
         ],
       ),
     );
@@ -1574,7 +1761,7 @@ class _PurchaseRequisitionDetailScreenState
       builder: (context) => AlertDialog(
         title: Row(
           children: [
-            Icon(Icons.attach_file, color: Colors.purple.shade600),
+            Icon(Icons.attach_file, color: Colors.blue.shade600),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -1640,7 +1827,7 @@ class _PurchaseRequisitionDetailScreenState
                       : 'Manage Documents',
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.purple.shade600,
+                  backgroundColor: Colors.blue.shade600,
                   foregroundColor: Colors.white,
                 ),
               ),
@@ -1797,7 +1984,7 @@ class _PurchaseRequisitionDetailScreenState
         children: [
           Row(
             children: [
-              Icon(Icons.attach_file, color: Colors.purple.shade600, size: 24),
+              Icon(Icons.attach_file, color: Colors.blue.shade600, size: 24),
               const SizedBox(width: 8),
               const Text(
                 'Support Documents',
@@ -1837,7 +2024,7 @@ class _PurchaseRequisitionDetailScreenState
               icon: const Icon(Icons.upload_file, size: 18),
               label: const Text('Upload Support Documents'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.purple.shade600,
+                backgroundColor: Colors.blue.shade600,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),

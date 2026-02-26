@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:barcode/barcode.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
@@ -7,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import '../models/petty_cash_report.dart';
 import '../models/transaction.dart';
 import '../models/equipment.dart';
+import '../models/income_report.dart';
 import '../models/enums.dart';
 import '../utils/constants.dart';
 import 'firestore_service.dart';
@@ -14,6 +16,7 @@ import 'firestore_service.dart';
 /// Enum for equipment fields that can be included in the print export
 enum EquipmentPrintField {
   assetCode('Asset Code'),
+  itemStickerTag('Item Sticker Tag'),
   name('Asset Name'),
   description('Description'),
   category('Category'),
@@ -21,6 +24,8 @@ enum EquipmentPrintField {
   model('Model'),
   serialNumber('Serial Number'),
   assetTag('Asset Tag'),
+  assetTagQr('Asset Tag QR'),
+  assetTagBarcode('Asset Tag Barcode'),
   accountingPeriod('Accounting Period'),
   location('Location'),
   assignedTo('Assigned To'),
@@ -47,6 +52,7 @@ enum EquipmentPrintField {
   /// Get default fields for quick print
   static List<EquipmentPrintField> get defaultFields => [
         EquipmentPrintField.assetCode,
+        EquipmentPrintField.itemStickerTag,
         EquipmentPrintField.name,
         EquipmentPrintField.category,
         EquipmentPrintField.brand,
@@ -96,6 +102,460 @@ class PdfExportService {
   Future<pw.Document> _createPdfDocument() async {
     final theme = await _getPdfTheme();
     return pw.Document(theme: theme);
+  }
+
+  /// Export equipment sticker sheet to PDF bytes
+  Future<List<int>> exportEquipmentStickerSheetBytes(
+    List<Equipment> equipment,
+    StickerPrintConfig config,
+  ) async {
+    final pdf = await _createPdfDocument();
+    final stickerItems =
+        equipment.where((e) => e.itemStickerTag != null).toList();
+    final totalPerPage = config.rows * config.columns;
+    if (totalPerPage <= 0) return await pdf.save();
+
+    final pageContentWidthPt = config.stickerWidthPt * config.columns +
+        config.horizontalGapPt * (config.columns - 1);
+    final availableWidthPt = config.pageFormat.width - (2 * config.marginPt);
+    final double extraLeftPaddingPt =
+        (availableWidthPt - pageContentWidthPt) > 0
+            ? (availableWidthPt - pageContentWidthPt) / 2
+            : 0.0;
+
+    // Calculate start position (convert 1-indexed to 0-indexed)
+    final startRowIndex = (config.startRow - 1).clamp(0, config.rows - 1);
+    final startColIndex = (config.startColumn - 1).clamp(0, config.columns - 1);
+    final startSlotIndex = startRowIndex * config.columns + startColIndex;
+
+    // Build a map of slot index -> equipment item
+    final Map<int, Equipment> slotMap = {};
+    int currentItemIndex = 0;
+    int currentSlot = startSlotIndex; // Start from the user-specified position
+
+    while (currentItemIndex < stickerItems.length) {
+      slotMap[currentSlot] = stickerItems[currentItemIndex];
+      currentItemIndex++;
+      currentSlot++;
+    }
+
+    // Calculate how many pages we need
+    final lastSlot = currentSlot - 1;
+    final totalPages = (lastSlot ~/ totalPerPage) + 1;
+
+    for (int pageNumber = 0; pageNumber < totalPages; pageNumber++) {
+      final pageStartSlot = pageNumber * totalPerPage;
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: config.pageFormat,
+          margin: pw.EdgeInsets.all(config.marginPt),
+          build: (context) {
+            return pw.Column(
+              mainAxisAlignment: pw.MainAxisAlignment.start,
+              children: List.generate(config.rows, (rowIndex) {
+                return pw.Padding(
+                  padding: pw.EdgeInsets.only(
+                    bottom: rowIndex == config.rows - 1
+                        ? 0
+                        : config.verticalGapPt,
+                  ),
+                  child: pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.center,
+                    children: List.generate(config.columns, (colIndex) {
+                      final slotIndex =
+                          pageStartSlot + rowIndex * config.columns + colIndex;
+                      final item = slotMap[slotIndex];
+                      return pw.Padding(
+                        padding: pw.EdgeInsets.only(
+                          left: colIndex == 0
+                              ? (extraLeftPaddingPt +
+                                  config.offsetLeftPt -
+                                  config.offsetRightPt)
+                              : 0.0,
+                          right: colIndex == config.columns - 1
+                              ? 0
+                              : config.horizontalGapPt,
+                        ),
+                        child: _buildStickerCell(item, config),
+                      );
+                    }),
+                  ),
+                );
+              }),
+            );
+          },
+        ),
+      );
+    }
+
+    return await pdf.save();
+  }
+
+  /// Export a receipt for a single income entry
+  Future<List<int>> exportIncomeReceiptBytes(
+    IncomeReport report,
+    IncomeEntry entry,
+    String receiptNumber,
+  ) async {
+    final pdf = await _createPdfDocument();
+    final dateFormat = DateFormat('MMM dd, yyyy');
+    final currencyFormat = NumberFormat.currency(
+      symbol: '${AppConstants.currencySymbol} ',
+      decimalDigits: 2,
+    );
+
+    pw.ImageProvider? logoImage;
+    try {
+      final logoData = await rootBundle.load(
+        'assets/images/hope_channel_logo.png',
+      );
+      logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
+    } catch (e) {
+      // Logo loading failed, will use fallback
+    }
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(28),
+        build: (context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Header
+              pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  if (logoImage != null)
+                    pw.Container(
+                      width: 48,
+                      height: 48,
+                      child: pw.Image(logoImage, fit: pw.BoxFit.contain),
+                    )
+                  else
+                    pw.Container(
+                      width: 48,
+                      height: 48,
+                      decoration: pw.BoxDecoration(
+                        color: PdfColors.grey300,
+                        borderRadius: pw.BorderRadius.circular(6),
+                      ),
+                      child: pw.Center(
+                        child: pw.Text(
+                          'H',
+                          style: pw.TextStyle(
+                            fontSize: 20,
+                            fontWeight: pw.FontWeight.bold,
+                            color: PdfColors.grey700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  pw.SizedBox(width: 12),
+                  pw.Expanded(
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          AppConstants.organizationName,
+                          style: pw.TextStyle(
+                            fontSize: 12,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                        pw.Text(
+                          AppConstants.organizationAddress,
+                          style: const pw.TextStyle(fontSize: 9),
+                        ),
+                      ],
+                    ),
+                  ),
+                  pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.green100,
+                      borderRadius: pw.BorderRadius.circular(6),
+                    ),
+                    child: pw.Text(
+                      'RECEIPT',
+                      style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.green800,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 16),
+              pw.Divider(color: PdfColors.grey300),
+              pw.SizedBox(height: 12),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    'Receipt No: $receiptNumber',
+                    style: pw.TextStyle(fontSize: 10),
+                  ),
+                  pw.Text(
+                    'Date: ${dateFormat.format(entry.dateReceived)}',
+                    style: pw.TextStyle(fontSize: 10),
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 14),
+              pw.Container(
+                width: double.infinity,
+                padding: const pw.EdgeInsets.all(14),
+                decoration: pw.BoxDecoration(
+                  color: PdfColors.grey100,
+                  borderRadius: pw.BorderRadius.circular(8),
+                ),
+                child: pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Text(
+                      'Amount Received',
+                      style: pw.TextStyle(
+                        fontSize: 10,
+                        color: PdfColors.grey700,
+                      ),
+                    ),
+                    pw.Text(
+                      currencyFormat.format(entry.amount),
+                      style: pw.TextStyle(
+                        fontSize: 16,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.green800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              pw.SizedBox(height: 16),
+              pw.Container(
+                width: double.infinity,
+                padding: const pw.EdgeInsets.all(14),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(color: PdfColors.grey300),
+                  borderRadius: pw.BorderRadius.circular(8),
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    _buildReceiptRow('Payer', entry.sourceName),
+                    _buildReceiptRow(
+                      'Report',
+                      '${report.reportNumber} - ${report.reportName}',
+                    ),
+                    _buildReceiptRow(
+                      'Category',
+                      incomeCategoryFromString(entry.category).displayName,
+                    ),
+                    _buildReceiptRow(
+                      'Payment Method',
+                      paymentMethodFromString(entry.paymentMethod).displayName,
+                    ),
+                    if (entry.referenceNumber != null &&
+                        entry.referenceNumber!.isNotEmpty)
+                      _buildReceiptRow('Reference', entry.referenceNumber!),
+                    pw.SizedBox(height: 8),
+                    pw.Text(
+                      'Description',
+                      style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                    ),
+                    pw.SizedBox(height: 4),
+                    pw.Text(entry.description),
+                  ],
+                ),
+              ),
+              pw.Spacer(),
+              pw.Divider(color: PdfColors.grey300),
+              pw.SizedBox(height: 12),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Expanded(
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text('Received By',
+                            style: const pw.TextStyle(fontSize: 9)),
+                        pw.SizedBox(height: 24),
+                        pw.Container(
+                          height: 1,
+                          width: 180,
+                          color: PdfColors.grey400,
+                        ),
+                        pw.SizedBox(height: 4),
+                        pw.Text(
+                          'Signature',
+                          style: const pw.TextStyle(
+                            fontSize: 8,
+                            color: PdfColors.grey600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  pw.SizedBox(width: 24),
+                  pw.Expanded(
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text('Payer',
+                            style: const pw.TextStyle(fontSize: 9)),
+                        pw.SizedBox(height: 24),
+                        pw.Container(
+                          height: 1,
+                          width: 180,
+                          color: PdfColors.grey400,
+                        ),
+                        pw.SizedBox(height: 4),
+                        pw.Text(
+                          'Signature',
+                          style: const pw.TextStyle(
+                            fontSize: 8,
+                            color: PdfColors.grey600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              pw.Text(
+                'Issued on ${dateFormat.format(DateTime.now())}',
+                style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    return await pdf.save();
+  }
+
+  pw.Widget _buildReceiptRow(String label, String value, {bool isBold = false}) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 6),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.SizedBox(
+            width: 110,
+            child: pw.Text(
+              label,
+              style: pw.TextStyle(
+                fontWeight: pw.FontWeight.bold,
+                fontSize: 10,
+              ),
+            ),
+          ),
+          pw.Expanded(
+            child: pw.Text(
+              value,
+              style: pw.TextStyle(
+                fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
+                fontSize: 10,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildStickerCell(Equipment? item, StickerPrintConfig config) {
+    return pw.Container(
+      width: config.stickerWidthPt,
+      height: config.stickerHeightPt,
+      padding: pw.EdgeInsets.only(
+        left: 4 + config.stickerLeftPaddingPt,
+        right: 4,
+        top: 4,
+        bottom: 4,
+      ),
+      child: item == null
+          ? pw.SizedBox()
+          : pw.Center(
+              child: pw.Padding(
+                padding: const pw.EdgeInsets.all(2),
+                child: pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.center,
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
+                  children: [
+                    if (config.includeQr) ...[
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(vertical: 4),
+                        child: pw.BarcodeWidget(
+                          barcode: Barcode.qrCode(),
+                          data: item.itemStickerTag!,
+                          width: config.qrSizePt * 0.9,
+                          height: config.qrSizePt * 0.9,
+                          drawText: false,
+                        ),
+                      ),
+                      pw.SizedBox(width: 4),
+                    ],
+                    pw.Expanded(
+                      child: pw.Column(
+                        mainAxisAlignment: pw.MainAxisAlignment.center,
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          // Organization Name
+                          if (item.organizationName != null &&
+                              item.organizationName!.isNotEmpty)
+                            pw.Text(
+                              item.organizationName!,
+                              style: pw.TextStyle(
+                                fontSize: config.textSize - 2,
+                                fontWeight: pw.FontWeight.bold,
+                              ),
+                              maxLines: 1,
+                            ),
+                          // Item Sticker Tag
+                          pw.Text(
+                            item.itemStickerTag!,
+                            style: pw.TextStyle(
+                              fontSize: config.textSize - 1,
+                              fontWeight: pw.FontWeight.bold,
+                            ),
+                            maxLines: 1,
+                          ),
+                          if (config.includeBarcode) ...[
+                            pw.SizedBox(height: 2),
+                            pw.BarcodeWidget(
+                              barcode: Barcode.code128(),
+                              data: item.itemStickerTag!,
+                              width: config.barcodeWidthPt * 0.9,
+                              height: config.barcodeHeightPt * 0.9,
+                              drawText: false,
+                            ),
+                          ],
+                          // Item Name under barcode
+                          pw.SizedBox(height: 1),
+                          pw.Text(
+                            item.name,
+                            style: pw.TextStyle(
+                              fontSize: config.textSize - 3,
+                            ),
+                            maxLines: 1,
+                            overflow: pw.TextOverflow.clip,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+    );
   }
 
   /// Export equipment list to PDF with selected fields
@@ -370,7 +830,10 @@ class PdfExportService {
           return 12;
         case EquipmentPrintField.serialNumber:
         case EquipmentPrintField.assetTag:
+        case EquipmentPrintField.assetTagQr:
+        case EquipmentPrintField.assetTagBarcode:
         case EquipmentPrintField.accountingPeriod:
+        case EquipmentPrintField.itemStickerTag:
           return 12;
         case EquipmentPrintField.purchasePrice:
         case EquipmentPrintField.unitCost:
@@ -392,12 +855,14 @@ class PdfExportService {
     NumberFormat currencyFormat,
   ) {
     // Build header row
-    final headerCells = selectedFields.map((field) => field.displayName).toList();
+    final headerCells = selectedFields
+        .map((field) => pw.Text(field.displayName))
+        .toList();
 
     // Build data rows
     final rows = equipment.map((item) {
       return selectedFields.map((field) {
-        return _getFieldValue(item, field, dateFormat, currencyFormat);
+        return _buildFieldWidget(item, field, dateFormat, currencyFormat);
       }).toList();
     }).toList();
 
@@ -421,6 +886,8 @@ class PdfExportService {
     switch (field) {
       case EquipmentPrintField.assetCode:
         return item.assetCode ?? '-';
+      case EquipmentPrintField.itemStickerTag:
+        return item.itemStickerTag ?? '-';
       case EquipmentPrintField.name:
         return item.name;
       case EquipmentPrintField.description:
@@ -434,6 +901,9 @@ class PdfExportService {
       case EquipmentPrintField.serialNumber:
         return item.serialNumber ?? '-';
       case EquipmentPrintField.assetTag:
+        return item.assetTag ?? '-';
+      case EquipmentPrintField.assetTagQr:
+      case EquipmentPrintField.assetTagBarcode:
         return item.assetTag ?? '-';
       case EquipmentPrintField.accountingPeriod:
         return item.accountingPeriod ?? '-';
@@ -495,7 +965,7 @@ class PdfExportService {
   }
 
   pw.Widget _buildEquipmentTableRow(
-    List<String> cells,
+    List<pw.Widget> cells,
     List<int> flexes, {
     bool isHeader = false,
   }) {
@@ -516,16 +986,55 @@ class PdfExportService {
             flex: flexes[index],
             child: pw.Padding(
               padding: const pw.EdgeInsets.symmetric(horizontal: 2),
-              child: pw.Text(
-                cells[index],
+              child: pw.DefaultTextStyle(
                 style: styles,
-                maxLines: 2,
-                overflow: pw.TextOverflow.clip,
+                child: cells[index],
               ),
             ),
           );
         }),
       ),
+    );
+  }
+
+  pw.Widget _buildFieldWidget(
+    Equipment item,
+    EquipmentPrintField field,
+    DateFormat dateFormat,
+    NumberFormat currencyFormat,
+  ) {
+    if (field == EquipmentPrintField.assetTagQr) {
+      final tag = item.assetTag;
+      if (tag == null || tag.isEmpty) return pw.Text('-');
+      return pw.Center(
+        child: pw.BarcodeWidget(
+          barcode: Barcode.qrCode(),
+          data: tag,
+          width: 40,
+          height: 40,
+          drawText: false,
+        ),
+      );
+    }
+
+    if (field == EquipmentPrintField.assetTagBarcode) {
+      final tag = item.assetTag;
+      if (tag == null || tag.isEmpty) return pw.Text('-');
+      return pw.Center(
+        child: pw.BarcodeWidget(
+          barcode: Barcode.code128(),
+          data: tag,
+          width: 80,
+          height: 24,
+          drawText: false,
+        ),
+      );
+    }
+
+    return pw.Text(
+      _getFieldValue(item, field, dateFormat, currencyFormat),
+      maxLines: 2,
+      overflow: pw.TextOverflow.clip,
     );
   }
 
@@ -583,25 +1092,31 @@ class PdfExportService {
           ),
           pw.SizedBox(height: 10),
           _buildTransactionsTable(transactions, dateFormat, currencyFormat),
-          pw.SizedBox(height: 20),
+          pw.SizedBox(height: 15),
 
-          // Summary
-          _buildSummarySection(report, currencyFormat),
+          // Summary and Signature Section combined to stay together
+          pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Summary
+              _buildSummarySection(report, currencyFormat),
 
-          // Notes
-          if (report.notes != null && report.notes!.isNotEmpty) ...[
-            pw.SizedBox(height: 20),
-            pw.Text(
-              'Notes:',
-              style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-            ),
-            pw.SizedBox(height: 5),
-            pw.Text(report.notes!),
-          ],
+              // Notes
+              if (report.notes != null && report.notes!.isNotEmpty) ...[
+                pw.SizedBox(height: 15),
+                pw.Text(
+                  'Notes:',
+                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                ),
+                pw.SizedBox(height: 5),
+                pw.Text(report.notes!),
+              ],
 
-          // Signature Section
-          pw.SizedBox(height: 30),
-          _buildSignatureSection(),
+              // Signature Section
+              pw.SizedBox(height: 15),
+              _buildSignatureSection(),
+            ],
+          ),
         ],
       ),
     );
@@ -1301,7 +1816,7 @@ class PdfExportService {
 
   pw.Widget _buildSignatureSection() {
     return pw.Container(
-      padding: const pw.EdgeInsets.all(16),
+      padding: const pw.EdgeInsets.all(10),
       decoration: pw.BoxDecoration(
         border: pw.Border.all(color: PdfColors.grey300),
         borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
@@ -1327,7 +1842,7 @@ class PdfExportService {
             title,
             style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
           ),
-          pw.SizedBox(height: 30),
+          pw.SizedBox(height: 20),
           pw.Container(
             decoration: const pw.BoxDecoration(
               border: pw.Border(bottom: pw.BorderSide(color: PdfColors.black)),
@@ -1435,4 +1950,67 @@ class PdfExportService {
 
     return number.toString(); // Fallback for very large numbers
   }
+}
+
+class StickerPrintConfig {
+  StickerPrintConfig({
+    required this.stickerWidthMm,
+    required this.stickerHeightMm,
+    required this.sheetWidthMm,
+    required this.sheetHeightMm,
+    required this.rows,
+    required this.columns,
+    this.marginMm = 0,
+    this.horizontalGapMm = 0,
+    this.verticalGapMm = 0,
+    this.offsetLeftMm = 0,
+    this.offsetRightMm = 0,
+    this.stickerLeftPaddingMm = 0,
+    this.includeQr = true,
+    this.includeBarcode = true,
+    this.startRow = 1,
+    this.startColumn = 1,
+  });
+
+  final double stickerWidthMm;
+  final double stickerHeightMm;
+  final double sheetWidthMm;
+  final double sheetHeightMm;
+  final int rows;
+  final int columns;
+  final double marginMm;
+  final double horizontalGapMm;
+  final double verticalGapMm;
+  final double offsetLeftMm;
+  final double offsetRightMm;
+  final double stickerLeftPaddingMm;
+  final bool includeQr;
+  final bool includeBarcode;
+  // Start position (1-indexed: 1 = first row/column)
+  final int startRow;
+  final int startColumn;
+
+  /// Calculate how many sticker positions to skip on first page
+  int get skipPositions {
+    final row = (startRow - 1).clamp(0, rows - 1);
+    final col = (startColumn - 1).clamp(0, columns - 1);
+    return row * columns + col;
+  }
+
+  double get stickerWidthPt => _mmToPt(stickerWidthMm);
+  double get stickerHeightPt => _mmToPt(stickerHeightMm);
+  double get marginPt => _mmToPt(marginMm);
+  double get horizontalGapPt => _mmToPt(horizontalGapMm);
+  double get verticalGapPt => _mmToPt(verticalGapMm);
+  double get offsetLeftPt => _mmToPt(offsetLeftMm);
+  double get offsetRightPt => _mmToPt(offsetRightMm);
+  double get stickerLeftPaddingPt => _mmToPt(stickerLeftPaddingMm);
+  double get qrSizePt => _mmToPt(18);
+  double get barcodeWidthPt => _mmToPt(40);
+  double get barcodeHeightPt => _mmToPt(10);
+  double get textSize => 8;
+  PdfPageFormat get pageFormat =>
+      PdfPageFormat(_mmToPt(sheetWidthMm), _mmToPt(sheetHeightMm));
+
+  static double _mmToPt(double mm) => mm * 72 / 25.4;
 }

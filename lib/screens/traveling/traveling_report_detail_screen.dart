@@ -11,6 +11,7 @@ import '../../providers/auth_provider.dart';
 import '../../widgets/edit_traveling_report_dialog.dart';
 import '../../widgets/traveling_per_diem_entry_dialog.dart';
 import '../../widgets/support_document_upload_dialog.dart';
+import '../../utils/responsive_helper.dart';
 
 class TravelingReportDetailScreen extends StatefulWidget {
   final String reportId;
@@ -587,19 +588,18 @@ class _TravelingReportDetailScreenState
   }
 
   Widget _buildReportContent(TravelingReport report) {
-    return Center(
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 1200),
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              _buildReportHeader(report),
-              _buildTravelingDetails(report),
-              _buildMileageSection(report),
-              _buildPerDiemSection(report),
-              _buildSummarySection(report),
-            ],
-          ),
+    final spacing = ResponsiveHelper.getSpacing(context);
+    return SingleChildScrollView(
+      child: ResponsiveContainer(
+        child: Column(
+          children: [
+            _buildReportHeader(report),
+            _buildTravelingDetails(report),
+            _buildMileageSection(report),
+            _buildPerDiemSection(report),
+            _buildSummarySection(report),
+            SizedBox(height: spacing),
+          ],
         ),
       ),
     );

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class AppConstants {
-  static const String appName = 'Petty Cash Manager';
+  static const String appName = 'HC Data and Financial Management';
   static const String appVersion = '1.0.0';
 
   // Organization Information

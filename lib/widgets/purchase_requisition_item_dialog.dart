@@ -215,9 +215,9 @@ class _PurchaseRequisitionItemDialogState
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.purple.shade50,
+                    color: Colors.blue.shade50,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.purple.shade200),
+                    border: Border.all(color: Colors.blue.shade200),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -226,7 +226,7 @@ class _PurchaseRequisitionItemDialogState
                         'Total Price:',
                         style: TextStyle(
                           fontWeight: FontWeight.w500,
-                          color: Colors.purple.shade700,
+                          color: Colors.blue.shade700,
                         ),
                       ),
                       Text(
@@ -234,7 +234,7 @@ class _PurchaseRequisitionItemDialogState
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 18,
-                          color: Colors.purple.shade700,
+                          color: Colors.blue.shade700,
                         ),
                       ),
                     ],
@@ -299,7 +299,7 @@ class _PurchaseRequisitionItemDialogState
                     ElevatedButton(
                       onPressed: _save,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.purple,
+                        backgroundColor: Colors.blue,
                         foregroundColor: Colors.white,
                       ),
                       child: Text(isNew ? 'Add' : 'Save'),

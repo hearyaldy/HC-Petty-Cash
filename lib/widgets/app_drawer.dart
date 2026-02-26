@@ -62,6 +62,13 @@ class AppDrawer extends StatelessWidget {
               route: '/purchase-requisitions',
               iconColor: Colors.purple,
             ),
+            _buildDrawerItem(
+              context,
+              icon: Icons.request_quote,
+              title: 'Cash Advances',
+              route: '/cash-advances',
+              iconColor: Colors.indigo,
+            ),
 
             // INVENTORY MANAGEMENT
             _buildSectionHeader('Studio'),
@@ -71,6 +78,37 @@ class AppDrawer extends StatelessWidget {
               title: 'Equipment Inventory',
               route: '/inventory',
               iconColor: Colors.blueGrey,
+            ),
+
+            // MEDIA PRODUCTION
+            _buildSectionHeader('Media Production'),
+            _buildDrawerItem(
+              context,
+              icon: Icons.video_library,
+              title: 'Media Dashboard',
+              route: '/media-dashboard',
+              iconColor: Colors.pink,
+            ),
+            _buildDrawerItem(
+              context,
+              icon: Icons.movie_creation,
+              title: 'Productions',
+              route: '/media/productions',
+              iconColor: Colors.deepPurple,
+            ),
+            _buildDrawerItem(
+              context,
+              icon: Icons.analytics,
+              title: 'Engagement Data',
+              route: '/media/engagement',
+              iconColor: Colors.blue,
+            ),
+            _buildDrawerItem(
+              context,
+              icon: Icons.assessment,
+              title: 'Annual Report',
+              route: '/media/reports/annual',
+              iconColor: Colors.orange,
             ),
 
             // TRANSACTIONS & APPROVALS

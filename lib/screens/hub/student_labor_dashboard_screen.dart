@@ -60,19 +60,28 @@ class _StudentLaborDashboardScreenState
       for (var doc in allReportsQuery.docs) {
         final data = doc.data();
         final status = data['status'] ?? '';
+        final paymentStatus = data['paymentStatus'];
         final amount = (data['totalAmount'] ?? 0).toDouble();
         final hours = (data['totalHours'] ?? 0).toDouble();
 
         totalHours += hours;
 
-        if (status == 'submitted' || status == 'approved') {
-          unpaidAmount += amount;
-        }
         if (status == 'approved') {
           approvedCount++;
         }
-        if (status == 'paid' || status == 'processed') {
+
+        final isPaid = paymentStatus == 'paid' ||
+            status == 'paid' ||
+            status == 'processed';
+        final isUnpaid = paymentStatus == 'not_paid' ||
+            paymentStatus == 'review' ||
+            status == 'submitted' ||
+            status == 'approved';
+
+        if (isPaid) {
           paidAmount += amount;
+        } else if (isUnpaid) {
+          unpaidAmount += amount;
         }
       }
 

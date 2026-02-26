@@ -25,6 +25,7 @@ import 'screens/reports/project_report_detail_screen.dart';
 import 'screens/approval/approvals_screen.dart';
 import 'screens/admin/admin_screen.dart';
 import 'screens/admin/user_management_screen.dart';
+import 'screens/admin/organization_management_screen.dart';
 import 'screens/admin/payment_rate_screen.dart';
 import 'screens/admin/admin_student_reports_screen.dart';
 import 'screens/admin/admin_student_report_detail_screen.dart';
@@ -63,9 +64,13 @@ import 'screens/income/new_income_report_screen.dart';
 import 'screens/income/income_report_detail_screen.dart';
 import 'screens/purchase_requisition/purchase_requisitions_screen.dart';
 import 'screens/purchase_requisition/purchase_requisition_detail_screen.dart';
+import 'screens/cash_advance/cash_advances_screen.dart';
+import 'screens/cash_advance/cash_advance_detail_screen.dart';
+import 'screens/cash_advance/new_cash_advance_screen.dart';
 import 'screens/inventory/inventory_screen.dart';
 import 'screens/inventory/add_edit_equipment_screen.dart';
 import 'screens/inventory/equipment_detail_screen.dart';
+import 'screens/inventory/qr_scan_screen.dart';
 import 'screens/meetings/meetings_dashboard_screen.dart';
 import 'screens/meetings/meetings_list_screen.dart';
 import 'screens/meetings/new_meeting_screen.dart';
@@ -76,6 +81,7 @@ import 'screens/meetings/edit_agenda_screen.dart';
 import 'screens/meetings/edit_minutes_screen.dart';
 import 'screens/hub/admin_hub_screen.dart';
 import 'screens/hub/finance_dashboard_screen.dart';
+import 'screens/hub/finance_ai_report_screen.dart';
 import 'screens/hub/student_labor_dashboard_screen.dart';
 import 'screens/hub/hr_dashboard_screen.dart';
 import 'screens/hub/inventory_dashboard_screen.dart';
@@ -84,7 +90,21 @@ import 'screens/admin/adcom_agenda_edit_screen.dart';
 import 'screens/admin/adcom_agenda_view_screen.dart';
 import 'screens/admin/adcom_minutes_edit_screen.dart';
 import 'screens/admin/adcom_minutes_view_screen.dart';
+import 'screens/admin/meeting_template_list_screen.dart';
+import 'screens/admin/meeting_template_edit_screen.dart';
 import 'providers/income_report_provider.dart';
+import 'providers/media_production_provider.dart';
+import 'providers/cash_advance_provider.dart';
+import 'screens/hub/media_dashboard_screen.dart';
+import 'screens/media/media_productions_screen.dart';
+import 'screens/media/add_edit_production_screen.dart';
+import 'screens/media/media_production_detail_screen.dart';
+import 'screens/media/add_edit_engagement_screen.dart';
+import 'screens/media/media_engagement_screen.dart';
+import 'screens/media/media_annual_report_screen.dart';
+import 'screens/media/media_yearly_stats_screen.dart';
+import 'screens/media/media_period_reports_screen.dart';
+import 'screens/media/media_production_budget_screen.dart';
 import 'utils/constants.dart';
 import 'utils/logger.dart';
 import 'utils/responsive_theme.dart';
@@ -185,6 +205,8 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ProjectReportProvider()),
         ChangeNotifierProvider(create: (_) => TransactionProvider()),
         ChangeNotifierProvider(create: (_) => IncomeReportProvider()),
+        ChangeNotifierProvider(create: (_) => MediaProductionProvider()),
+        ChangeNotifierProvider(create: (_) => CashAdvanceProvider()),
       ],
       child: Consumer2<AuthProvider, ThemeProvider>(
         builder: (context, authProvider, themeProvider, _) {
@@ -300,8 +322,13 @@ class MyApp extends StatelessWidget {
         ),
         GoRoute(
           path: '/reports/new/advance-settlement',
-          builder: (context, state) =>
-              const NewReportScreen(reportType: 'advance_settlement'),
+          builder: (context, state) {
+            final cashAdvanceId = state.uri.queryParameters['cashAdvanceId'];
+            return NewReportScreen(
+              reportType: 'advance_settlement',
+              cashAdvanceId: cashAdvanceId,
+            );
+          },
         ),
         GoRoute(
           path: '/reports/new/project',
@@ -375,6 +402,10 @@ class MyApp extends StatelessWidget {
           builder: (context, state) => const FinanceDashboardScreen(),
         ),
         GoRoute(
+          path: '/finance-ai-report',
+          builder: (context, state) => const FinanceAiReportScreen(),
+        ),
+        GoRoute(
           path: '/student-labor-dashboard',
           builder: (context, state) => const StudentLaborDashboardScreen(),
         ),
@@ -386,9 +417,71 @@ class MyApp extends StatelessWidget {
           path: '/inventory-dashboard',
           builder: (context, state) => const InventoryDashboardScreen(),
         ),
+        // Media Production Routes
+        GoRoute(
+          path: '/media-dashboard',
+          builder: (context, state) => const MediaDashboardScreen(),
+        ),
+        GoRoute(
+          path: '/media/productions',
+          builder: (context, state) => const MediaProductionsScreen(),
+        ),
+        GoRoute(
+          path: '/media/productions/add',
+          builder: (context, state) => const AddEditProductionScreen(),
+        ),
+        GoRoute(
+          path: '/media/productions/:id',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            return MediaProductionDetailScreen(productionId: id);
+          },
+        ),
+        GoRoute(
+          path: '/media/productions/:id/edit',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            return AddEditProductionScreen(productionId: id);
+          },
+        ),
+        GoRoute(
+          path: '/media/productions/:id/engagement/add',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            return AddEditEngagementScreen(productionId: id);
+          },
+        ),
+        GoRoute(
+          path: '/media/engagement',
+          builder: (context, state) => const MediaEngagementScreen(),
+        ),
+        GoRoute(
+          path: '/media/engagement/add',
+          builder: (context, state) => const AddEditEngagementScreen(),
+        ),
+        GoRoute(
+          path: '/media/reports/annual',
+          builder: (context, state) => const MediaAnnualReportScreen(),
+        ),
+        GoRoute(
+          path: '/media/stats/yearly',
+          builder: (context, state) => const MediaYearlyStatsScreen(),
+        ),
+        GoRoute(
+          path: '/media/stats/period',
+          builder: (context, state) => const MediaPeriodReportsScreen(),
+        ),
+        GoRoute(
+          path: '/media/production-budget',
+          builder: (context, state) => const MediaProductionBudgetScreen(),
+        ),
         GoRoute(
           path: '/admin/users',
           builder: (context, state) => const UserManagementScreen(),
+        ),
+        GoRoute(
+          path: '/admin/organizations',
+          builder: (context, state) => const OrganizationManagementScreen(),
         ),
         GoRoute(
           path: '/admin/staff',
@@ -599,6 +692,34 @@ class MyApp extends StatelessWidget {
             );
           },
         ),
+        // Cash Advance Routes
+        GoRoute(
+          path: '/cash-advances',
+          builder: (context, state) {
+            final view = state.uri.queryParameters['view'];
+            final initialViewMode =
+                view == 'table' ? CashAdvancesViewMode.table : null;
+            return CashAdvancesScreen(initialViewMode: initialViewMode);
+          },
+        ),
+        GoRoute(
+          path: '/cash-advances/new',
+          builder: (context, state) => const NewCashAdvanceScreen(),
+        ),
+        GoRoute(
+          path: '/cash-advances/:advanceId',
+          builder: (context, state) {
+            final advanceId = state.pathParameters['advanceId']!;
+            return CashAdvanceDetailScreen(advanceId: advanceId);
+          },
+        ),
+        GoRoute(
+          path: '/cash-advances/:advanceId/edit',
+          builder: (context, state) {
+            final advanceId = state.pathParameters['advanceId']!;
+            return NewCashAdvanceScreen(advanceId: advanceId);
+          },
+        ),
         // Equipment Inventory Routes
         GoRoute(
           path: '/inventory',
@@ -621,6 +742,10 @@ class MyApp extends StatelessWidget {
             final equipmentId = state.pathParameters['equipmentId']!;
             return EquipmentDetailScreen(equipmentId: equipmentId);
           },
+        ),
+        GoRoute(
+          path: '/inventory/scan',
+          builder: (context, state) => const QrScanScreen(),
         ),
         // Meeting Routes
         GoRoute(
@@ -750,6 +875,18 @@ class MyApp extends StatelessWidget {
               isPrintMode: true,
               returnToMeetingId: meetingId,
             );
+          },
+        ),
+        // Meeting Template Routes
+        GoRoute(
+          path: '/admin/meeting-templates',
+          builder: (context, state) => const MeetingTemplateListScreen(),
+        ),
+        GoRoute(
+          path: '/admin/meeting-template/:id',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            return MeetingTemplateEditScreen(templateId: id);
           },
         ),
       ],

@@ -57,6 +57,66 @@ class VoucherExportService {
     );
   }
 
+  /// Print all vouchers from a list of transactions in one PDF
+  Future<void> printAllVouchers(
+    List<Transaction> transactions,
+    PettyCashReport report,
+  ) async {
+    if (transactions.isEmpty) {
+      throw Exception('No vouchers to print');
+    }
+
+    final pdf = pw.Document();
+    final dateFormat = DateFormat('dd/MM/yyyy');
+
+    // Load Thai font for proper rendering, with fallback to default fonts
+    pw.Font? ttf;
+    pw.Font? ttfBold;
+
+    try {
+      final fontData = await rootBundle.load(
+        'assets/fonts/NotoSansThai-Regular.ttf',
+      );
+      ttf = pw.Font.ttf(fontData);
+      final fontBoldData = await rootBundle.load(
+        'assets/fonts/NotoSansThai-Bold.ttf',
+      );
+      ttfBold = pw.Font.ttf(fontBoldData);
+    } catch (e) {
+      AppLogger.warning('Failed to load custom fonts: $e');
+    }
+
+    // Load logo
+    pw.ImageProvider? logoImage;
+    try {
+      final logoData = await rootBundle.load('assets/images/hope_channel_logo.png');
+      logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
+    } catch (e) {
+      // Logo loading failed, will use fallback
+    }
+
+    for (final transaction in transactions) {
+      final requestor = await FirestoreService().getUser(transaction.requestorId);
+      pdf.addPage(
+        _buildVoucherPage(
+          transaction,
+          report,
+          requestor,
+          dateFormat,
+          ttf,
+          ttfBold,
+          logoImage,
+        ),
+      );
+    }
+
+    final bytes = await pdf.save();
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => bytes,
+      name: 'Vouchers_${report.reportNumber ?? report.id}',
+    );
+  }
+
   /// Generate PDF document for voucher (shared logic for export and print)
   Future<pw.Document> _generateVoucherPdf(
     Transaction transaction,
@@ -92,63 +152,91 @@ class VoucherExportService {
       // Logo loading failed, will use fallback
     }
 
-    // Get user information
     final requestor = await FirestoreService().getUser(transaction.requestorId);
-
     pdf.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.a5,
-        margin: const pw.EdgeInsets.all(20),
-        theme: pw.ThemeData.withFont(
-          base: ttf ?? pw.Font.helvetica(),
-          bold: ttfBold ?? pw.Font.helveticaBold(),
-          fontFallback: [pw.Font.helvetica()],
-        ),
-        build: (context) => pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            // Header with organization details
-            _buildHeader(ttf, ttfBold, logoImage),
-            pw.SizedBox(height: 10),
-
-            // Voucher Title
-            _buildTitle(ttf, ttfBold),
-            pw.SizedBox(height: 12),
-
-            // Voucher Information Section
-            _buildVoucherInfoSection(
-              transaction,
-              report,
-              requestor,
-              dateFormat,
-              ttf,
-              ttfBold,
-            ),
-            pw.SizedBox(height: 12),
-
-            // Description Section
-            _buildDescriptionSection(transaction, ttf, ttfBold),
-            pw.SizedBox(height: 12),
-
-            // Amount Section
-            _buildAmountSection(transaction, ttf, ttfBold),
-            pw.SizedBox(height: 12),
-
-            // Spacer to push signature section to bottom
-            pw.Expanded(child: pw.Container()),
-
-            // Signature Section
-            _buildSignatureSection(transaction, ttf, ttfBold),
-
-            // Footer with voucher ID and timestamp
-            pw.SizedBox(height: 12),
-            _buildFooter(transaction, dateFormat, ttf),
-          ],
-        ),
+      _buildVoucherPage(
+        transaction,
+        report,
+        requestor,
+        dateFormat,
+        ttf,
+        ttfBold,
+        logoImage,
       ),
     );
 
     return pdf;
+  }
+
+  pw.Page _buildVoucherPage(
+    Transaction transaction,
+    PettyCashReport report,
+    dynamic requestor,
+    DateFormat dateFormat,
+    pw.Font? ttf,
+    pw.Font? ttfBold,
+    pw.ImageProvider? logoImage,
+  ) {
+    return pw.Page(
+      pageFormat: PdfPageFormat.a4,
+      margin: const pw.EdgeInsets.all(30),
+      theme: pw.ThemeData.withFont(
+        base: ttf ?? pw.Font.helvetica(),
+        bold: ttfBold ?? pw.Font.helveticaBold(),
+        fontFallback: [pw.Font.helvetica()],
+      ),
+      build: (context) => pw.Align(
+        alignment: pw.Alignment.topCenter,
+        child: pw.Container(
+          width: context.page.pageFormat.availableWidth,
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Voucher number on top right corner
+              pw.Container(
+                alignment: pw.Alignment.topRight,
+                child: pw.Container(
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border.all(color: PdfColors.grey800, width: 1.5),
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                  ),
+                  child: pw.Text(
+                    'Voucher No: ${transaction.receiptNo}',
+                    style: pw.TextStyle(
+                      fontSize: 20,
+                      fontWeight: pw.FontWeight.bold,
+                      font: ttfBold ?? pw.Font.helvetica(),
+                    ),
+                  ),
+                ),
+              ),
+              pw.SizedBox(height: 12),
+              _buildHeader(ttf, ttfBold, logoImage),
+              pw.SizedBox(height: 12),
+              _buildTitle(ttf, ttfBold),
+              pw.SizedBox(height: 12),
+              _buildVoucherInfoSection(
+                transaction,
+                report,
+                requestor,
+                dateFormat,
+                ttf,
+                ttfBold,
+              ),
+              pw.SizedBox(height: 12),
+              _buildDescriptionSection(transaction, ttf, ttfBold),
+              pw.SizedBox(height: 12),
+              _buildAmountSection(transaction, ttf, ttfBold),
+              pw.SizedBox(height: 12),
+              _buildSignatureSection(transaction, ttf, ttfBold),
+              pw.SizedBox(height: 12),
+              _buildFooter(transaction, dateFormat, ttf),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   pw.Widget _buildHeader(pw.Font? font, pw.Font? fontBold, pw.ImageProvider? logoImage) {
@@ -691,8 +779,11 @@ class VoucherExportService {
   /// Print support document for a transaction
   Future<void> printSupportDocument(
     String documentUrl,
-    String transactionReceiptNo,
-  ) async {
+    String transactionReceiptNo, {
+    String description = '',
+    double amount = 0,
+    String notes = '',
+  }) async {
     try {
       AppLogger.info('Fetching support document: $documentUrl');
 
@@ -759,7 +850,7 @@ class VoucherExportService {
 
       final image = pw.MemoryImage(imageBytes);
 
-      // Create PDF with the image
+      // Create PDF with the image using proper layout format
       final pdf = pw.Document();
       pdf.addPage(
         pw.Page(
@@ -770,24 +861,71 @@ class VoucherExportService {
             fontFallback: [pw.Font.helvetica(), pw.Font.courier()],
           ),
           margin: const pw.EdgeInsets.all(24),
-          build: (context) => pw.Center(
-            child: pw.Column(
-              mainAxisAlignment: pw.MainAxisAlignment.center,
-              children: [
-                pw.Text(
-                  'Support Document - Voucher $transactionReceiptNo',
-                  style: pw.TextStyle(
-                    fontSize: 16,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
+          build: (context) => pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Header section with voucher info
+              pw.Container(
+                padding: const pw.EdgeInsets.all(12),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(color: PdfColors.grey400),
+                  borderRadius: pw.BorderRadius.circular(4),
                 ),
-                pw.SizedBox(height: 20),
-                pw.Container(
-                  height: PdfPageFormat.a4.height * 0.7,
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text(
+                          'Support Document',
+                          style: pw.TextStyle(
+                            fontSize: 16,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                        pw.Text(
+                          'Page 1 of 1',
+                          style: pw.TextStyle(
+                            fontSize: 12,
+                            color: PdfColors.grey600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    pw.SizedBox(height: 8),
+                    pw.Divider(),
+                    pw.SizedBox(height: 4),
+                    pw.Text(
+                      'Voucher No: $transactionReceiptNo',
+                      style: const pw.TextStyle(fontSize: 12),
+                    ),
+                    if (description.isNotEmpty)
+                      pw.Text(
+                        'Description: $description',
+                        style: const pw.TextStyle(fontSize: 12),
+                      ),
+                    if (amount > 0)
+                      pw.Text(
+                        'Amount: ${NumberFormat.currency(symbol: "THB ", decimalDigits: 2).format(amount)}',
+                        style: const pw.TextStyle(fontSize: 12),
+                      ),
+                    if (notes.isNotEmpty)
+                      pw.Text(
+                        'Notes: $notes',
+                        style: const pw.TextStyle(fontSize: 12),
+                      ),
+                  ],
+                ),
+              ),
+              pw.SizedBox(height: 12),
+              // Image
+              pw.Expanded(
+                child: pw.Center(
                   child: pw.Image(image, fit: pw.BoxFit.contain),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       );

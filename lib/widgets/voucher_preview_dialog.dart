@@ -97,25 +97,29 @@ class VoucherPreviewDialog extends StatelessWidget {
           ),
           const Divider(height: 1),
 
-          // Preview Content (Professional A5 Layout)
+          // Preview Content (Professional A4 Layout)
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
-              child: Container(
-                constraints: const BoxConstraints(
-                  maxWidth: 420,
-                ), // A5 proportion
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // Organization Header
-                    _buildHeader(),
-                    const SizedBox(height: 16),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: 595,
+                  ), // A4 proportion
+                  child: Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        _buildVoucherNumber(),
+                        const SizedBox(height: 12),
+                        // Organization Header
+                        _buildHeader(),
+                        const SizedBox(height: 16),
 
                     // Title
                     _buildTitle(),
@@ -148,8 +152,10 @@ class VoucherPreviewDialog extends StatelessWidget {
 
                     // Footer
                     const SizedBox(height: 16),
-                    _buildFooter(dateFormat),
-                  ],
+                        _buildFooter(dateFormat),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -255,6 +261,26 @@ class VoucherPreviewDialog extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVoucherNumber() {
+    return Align(
+      alignment: Alignment.topRight,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade700, width: 1.5),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          'Voucher No: ${transaction.receiptNo}',
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
     );

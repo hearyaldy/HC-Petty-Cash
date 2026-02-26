@@ -8,7 +8,6 @@ import '../../models/meeting.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/adcom_agenda_service.dart';
 import '../../services/meeting_service.dart';
-import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
 
 class NewMeetingScreen extends StatefulWidget {
@@ -27,6 +26,7 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
   final _formKey = GlobalKey<FormState>();
 
   String _meetingType = 'adcom';
+  MeetingMode _meetingMode = MeetingMode.faceToFace;
   final _titleController = TextEditingController();
   final _locationController = TextEditingController();
   final _virtualLinkController = TextEditingController();
@@ -417,6 +417,7 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
         virtualLink: _virtualLinkController.text.trim().isNotEmpty
             ? _virtualLinkController.text.trim()
             : null,
+        meetingModeValue: _meetingMode.value,
         status: 'scheduled',
         chairpersonId: _chairpersonId == _externalMemberValue
             ? null
@@ -434,12 +435,16 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
 
       final meetingId = await _meetingService.createMeeting(meeting);
 
-      // Create agenda now if requested (ADCOM agenda format)
+      // Create agenda now if requested (ADCOM/Board agenda format)
       if (_useTemplate) {
         final now = DateTime.now();
+        // Determine organization label for item number format
+        final organizationLabel = _meetingType == 'adcom'
+            ? 'ADCOM'
+            : 'HC Board';
         final agenda = adcom.AdcomAgenda(
           id: '',
-          organization: AppConstants.organizationName.toUpperCase(),
+          organization: organizationLabel,
           meetingDate: dateTime,
           meetingTime: DateFormat('h:mm a').format(dateTime),
           location: meeting.location ?? '',
@@ -906,7 +911,7 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Location',
+            'Meeting Mode & Location',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -914,26 +919,130 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          TextFormField(
-            controller: _locationController,
-            decoration: const InputDecoration(
-              labelText: 'Physical Location (optional)',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.location_on),
-              hintText: 'e.g., Conference Room A',
-            ),
+          // Meeting Mode Selector
+          Row(
+            children: [
+              Expanded(
+                child: _buildMeetingModeOption(
+                  MeetingMode.faceToFace,
+                  'Face to Face',
+                  Icons.groups,
+                  Colors.green,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildMeetingModeOption(
+                  MeetingMode.virtual,
+                  'Virtual',
+                  Icons.videocam,
+                  Colors.blue,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildMeetingModeOption(
+                  MeetingMode.evote,
+                  'E-Vote',
+                  Icons.how_to_vote,
+                  Colors.orange,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
-          TextFormField(
-            controller: _virtualLinkController,
-            decoration: const InputDecoration(
-              labelText: 'Virtual Meeting Link (optional)',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.videocam),
-              hintText: 'e.g., Zoom or Teams link',
+          // Show location field only for face-to-face meetings
+          if (_meetingMode == MeetingMode.faceToFace)
+            TextFormField(
+              controller: _locationController,
+              decoration: const InputDecoration(
+                labelText: 'Physical Location',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.location_on),
+                hintText: 'e.g., Conference Room A',
+              ),
+            ),
+          // Show virtual link field for virtual meetings
+          if (_meetingMode == MeetingMode.virtual)
+            TextFormField(
+              controller: _virtualLinkController,
+              decoration: const InputDecoration(
+                labelText: 'Virtual Meeting Link',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.videocam),
+                hintText: 'e.g., Zoom or Teams link',
+              ),
+            ),
+          // Show info for E-Vote
+          if (_meetingMode == MeetingMode.evote)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.orange.shade700),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'E-Vote meeting will be conducted via electronic voting system.',
+                      style: TextStyle(color: Colors.orange.shade700),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMeetingModeOption(
+    MeetingMode mode,
+    String label,
+    IconData icon,
+    Color color,
+  ) {
+    final isSelected = _meetingMode == mode;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _meetingMode = mode;
+          });
+        },
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? color.withValues(alpha: 0.1) : Colors.grey[50],
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isSelected ? color : Colors.grey.shade300,
+              width: isSelected ? 2 : 1,
             ),
           ),
-        ],
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: isSelected ? color : Colors.grey, size: 24),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected ? color : Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

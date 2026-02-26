@@ -53,6 +53,7 @@ class ReportProvider extends ChangeNotifier {
     DateTime? advanceTakenDate,
     String? companyName,
     String? notes,
+    String? cashAdvanceId,
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -70,6 +71,7 @@ class ReportProvider extends ChangeNotifier {
         advanceTakenDate: advanceTakenDate,
         companyName: companyName,
         notes: notes,
+        cashAdvanceId: cashAdvanceId,
       );
 
       await loadReports();

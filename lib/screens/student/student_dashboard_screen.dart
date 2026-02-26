@@ -41,6 +41,50 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
   List<StudentTimesheet> _recentTimesheets = [];
   List<Map<String, dynamic>> _monthlyReports = [];
 
+  String _formatReportPeriod(Map<String, dynamic> report) {
+    final startRaw = report['periodStart'];
+    final endRaw = report['periodEnd'];
+    if (startRaw is Timestamp && endRaw is Timestamp) {
+      final start = startRaw.toDate();
+      final end = endRaw.toDate();
+      final format = DateFormat('MMM dd, yyyy');
+      return '${format.format(start)} - ${format.format(end)}';
+    }
+
+    final month = report['month'] ?? '';
+    try {
+      final parts = month.split('-');
+      if (parts.length == 2) {
+        final monthDate = DateTime(
+          int.parse(parts[0]),
+          int.parse(parts[1]),
+        );
+        return DateFormat('MMMM yyyy').format(monthDate);
+      }
+    } catch (_) {}
+
+    return month.isNotEmpty ? month : 'Unknown';
+  }
+
+  DateTime? _reportPeriodStart(Map<String, dynamic> report) {
+    final startRaw = report['periodStart'];
+    if (startRaw is Timestamp) {
+      return startRaw.toDate();
+    }
+    final month = report['month'];
+    if (month is String) {
+      final parts = month.split('-');
+      if (parts.length == 2) {
+        final year = int.tryParse(parts[0]);
+        final monthNum = int.tryParse(parts[1]);
+        if (year != null && monthNum != null) {
+          return DateTime(year, monthNum, 1);
+        }
+      }
+    }
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -96,6 +140,17 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
         final data = doc.data();
         return {'id': doc.id, ...data};
       }).toList();
+
+      _monthlyReports.sort((a, b) {
+        final startA = _reportPeriodStart(a);
+        final startB = _reportPeriodStart(b);
+        if (startA != null && startB != null) {
+          return startB.compareTo(startA);
+        }
+        final monthA = a['month'] ?? '';
+        final monthB = b['month'] ?? '';
+        return monthB.compareTo(monthA);
+      });
 
       _pendingReports = _monthlyReports
           .where((report) => (report['status'] ?? '') == 'submitted')
@@ -251,7 +306,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                       color: Colors.orange.shade600,
                     ),
                     title: Text(
-                      report['monthDisplay'] ?? '',
+                      _formatReportPeriod(report),
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     subtitle: Text(
@@ -284,7 +339,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                         extra: {
                           'reportId': report['id'],
                           'month': report['month'],
-                          'monthDisplay': report['monthDisplay'],
+                          'monthDisplay': _formatReportPeriod(report),
                         },
                       );
                     },
@@ -307,7 +362,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: Colors.grey[100],
       body: SafeArea(
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
@@ -319,9 +374,9 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 24),
                         _buildWelcomeCard(),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 24),
                         _buildStatsGrid(),
                         const SizedBox(height: 24),
                         _buildQuickActions(),
@@ -343,88 +398,146 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
     final userName = authProvider.currentUser?.name ?? 'Student';
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Colors.orange.shade400, Colors.orange.shade600],
+          colors: [
+            Colors.orange.shade400,
+            Colors.orange.shade600,
+            Colors.deepOrange.shade700,
+          ],
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.orange.shade200,
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: Colors.orange.shade300,
+            blurRadius: 15,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          // Top action bar
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Student Dashboard',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.9),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
+          Positioned(
+            right: -30,
+            top: -30,
+            child: Container(
+              width: 150,
+              height: 150,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.1),
               ),
+            ),
+          ),
+          Positioned(
+            right: 50,
+            bottom: -40,
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.08),
+              ),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Top action bar
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _buildHeaderActionButton(
-                    icon: Icons.refresh,
-                    tooltip: 'Refresh',
-                    onPressed: _loadDashboardData,
+                  Text(
+                    'Student Dashboard',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  _buildHeaderActionButton(
-                    icon: Icons.settings,
-                    tooltip: 'Settings',
-                    onPressed: () => context.go('/settings'),
-                  ),
-                  const SizedBox(width: 8),
-                  _buildHeaderActionButton(
-                    icon: Icons.logout,
-                    tooltip: 'Logout',
-                    onPressed: _handleLogout,
+                  Row(
+                    children: [
+                      _buildHeaderActionButton(
+                        icon: Icons.refresh,
+                        tooltip: 'Refresh',
+                        onPressed: _loadDashboardData,
+                      ),
+                      const SizedBox(width: 8),
+                      _buildHeaderActionButton(
+                        icon: Icons.settings,
+                        tooltip: 'Settings',
+                        onPressed: () => context.go('/settings'),
+                      ),
+                      const SizedBox(width: 8),
+                      _buildHeaderActionButton(
+                        icon: Icons.logout,
+                        tooltip: 'Logout',
+                        onPressed: _handleLogout,
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child:
+                        const Icon(Icons.person, color: Colors.white, size: 32),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Welcome back,',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 14,
+                          ),
+                        ),
+                        Text(
+                          userName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.2),
-                  shape: BoxShape.circle,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.person, color: Colors.white, size: 32),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Welcome back,',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
-                        fontSize: 14,
-                      ),
+                    const Text(
+                      'Hourly Rate:',
+                      style: TextStyle(color: Colors.white, fontSize: 16),
                     ),
                     Text(
-                      userName,
+                      '฿${_profile?.hourlyRate.toStringAsFixed(2) ?? '0.00'}/hr',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 24,
+                        fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -432,31 +545,6 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Hourly Rate:',
-                  style: TextStyle(color: Colors.white, fontSize: 16),
-                ),
-                Text(
-                  '฿${_profile?.hourlyRate.toStringAsFixed(2) ?? '0.00'}/hr',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
           ),
         ],
       ),
@@ -751,25 +839,10 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
           )
         else
           ..._monthlyReports.take(5).map((report) {
-            final month = report['month'] ?? '';
             final status = report['status'] ?? 'draft';
             final totalHours = (report['totalHours'] ?? 0.0).toDouble();
             final totalAmount = (report['totalAmount'] ?? 0.0).toDouble();
-
-            // Format month display
-            String monthDisplay = month;
-            try {
-              final parts = month.split('-');
-              if (parts.length == 2) {
-                final monthDate = DateTime(
-                  int.parse(parts[0]),
-                  int.parse(parts[1]),
-                );
-                monthDisplay = DateFormat('MMMM yyyy').format(monthDate);
-              }
-            } catch (e) {
-              // Keep original if parsing fails
-            }
+            final monthDisplay = _formatReportPeriod(report);
 
             Color statusColor;
             IconData statusIcon;
@@ -812,7 +885,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                     '/student-monthly-report-detail',
                     extra: {
                       'reportId': report['id'],
-                      'month': month,
+                      'month': report['month'],
                       'monthDisplay': monthDisplay,
                     },
                   );
@@ -1466,6 +1539,21 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
         return;
       }
 
+      final today = DateTime.now();
+      final maxDate = DateTime(today.year, today.month, today.day);
+      final minDate = maxDate.subtract(const Duration(days: 7));
+      if (_selectedDate.isBefore(minDate) || _selectedDate.isAfter(maxDate)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Date must be within the last 7 days'),
+            ),
+          );
+        }
+        setState(() => _isSaving = false);
+        return;
+      }
+
       // Update timesheet
       await FirebaseFirestore.instance
           .collection('student_timesheets')
@@ -1509,11 +1597,21 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
   }
 
   Future<void> _selectDate() async {
+    final today = DateTime.now();
+    final maxDate = DateTime(today.year, today.month, today.day);
+    final minDate = maxDate.subtract(const Duration(days: 7));
+    DateTime initialDate = _selectedDate;
+    if (initialDate.isBefore(minDate)) {
+      initialDate = minDate;
+    } else if (initialDate.isAfter(maxDate)) {
+      initialDate = maxDate;
+    }
+
     final picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
+      initialDate: initialDate,
+      firstDate: minDate,
+      lastDate: maxDate,
     );
 
     if (picked != null) {
@@ -1911,6 +2009,8 @@ class _EditMonthlyReportDialog extends StatefulWidget {
 class _EditMonthlyReportDialogState extends State<_EditMonthlyReportDialog> {
   late TextEditingController _monthController;
   late TextEditingController _statusController;
+  late DateTime _periodStart;
+  late DateTime _periodEnd;
   bool _isSaving = false;
 
   @override
@@ -1922,6 +2022,19 @@ class _EditMonthlyReportDialogState extends State<_EditMonthlyReportDialog> {
     _statusController = TextEditingController(
       text: widget.report['status'] ?? 'draft',
     );
+
+    final startRaw = widget.report['periodStart'];
+    final endRaw = widget.report['periodEnd'];
+    if (startRaw is Timestamp) {
+      _periodStart = startRaw.toDate();
+    } else {
+      _periodStart = _deriveMonthStart(_monthController.text);
+    }
+    if (endRaw is Timestamp) {
+      _periodEnd = endRaw.toDate();
+    } else {
+      _periodEnd = _deriveMonthEnd(_monthController.text);
+    }
   }
 
   @override
@@ -1929,6 +2042,80 @@ class _EditMonthlyReportDialogState extends State<_EditMonthlyReportDialog> {
     _monthController.dispose();
     _statusController.dispose();
     super.dispose();
+  }
+
+  DateTime _deriveMonthStart(String month) {
+    final parts = month.split('-');
+    if (parts.length == 2) {
+      final year = int.tryParse(parts[0]);
+      final monthNum = int.tryParse(parts[1]);
+      if (year != null && monthNum != null) {
+        return DateTime(year, monthNum, 1);
+      }
+    }
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, 1);
+  }
+
+  DateTime _deriveMonthEnd(String month) {
+    final parts = month.split('-');
+    if (parts.length == 2) {
+      final year = int.tryParse(parts[0]);
+      final monthNum = int.tryParse(parts[1]);
+      if (year != null && monthNum != null) {
+        return DateTime(year, monthNum + 1, 0);
+      }
+    }
+    final now = DateTime.now();
+    return DateTime(now.year, now.month + 1, 0);
+  }
+
+  Future<void> _selectPeriodStart() async {
+    final monthStart = _deriveMonthStart(_monthController.text);
+    final monthEnd = _deriveMonthEnd(_monthController.text);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _periodStart.isBefore(monthStart)
+          ? monthStart
+          : _periodStart.isAfter(monthEnd)
+              ? monthEnd
+              : _periodStart,
+      firstDate: monthStart,
+      lastDate: monthEnd,
+    );
+
+    if (picked != null) {
+      setState(() {
+        _periodStart = picked;
+        if (_periodStart.isAfter(_periodEnd)) {
+          _periodEnd = _periodStart;
+        }
+      });
+    }
+  }
+
+  Future<void> _selectPeriodEnd() async {
+    final monthStart = _deriveMonthStart(_monthController.text);
+    final monthEnd = _deriveMonthEnd(_monthController.text);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _periodEnd.isBefore(monthStart)
+          ? monthStart
+          : _periodEnd.isAfter(monthEnd)
+              ? monthEnd
+              : _periodEnd,
+      firstDate: monthStart,
+      lastDate: monthEnd,
+    );
+
+    if (picked != null) {
+      setState(() {
+        _periodEnd = picked;
+        if (_periodEnd.isBefore(_periodStart)) {
+          _periodStart = _periodEnd;
+        }
+      });
+    }
   }
 
   Future<void> _saveChanges() async {
@@ -1962,12 +2149,75 @@ class _EditMonthlyReportDialogState extends State<_EditMonthlyReportDialog> {
         return;
       }
 
+      final monthStart = _deriveMonthStart(month);
+      final monthEnd = _deriveMonthEnd(month);
+      if (_periodStart.isBefore(monthStart) ||
+          _periodEnd.isAfter(monthEnd) ||
+          _periodStart.isAfter(_periodEnd)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Report period must be within the selected month'),
+            ),
+          );
+        }
+        setState(() => _isSaving = false);
+        return;
+      }
+
+      // Check overlap with other reports in same month
+      final studentId = widget.report['studentId'];
+      if (studentId != null) {
+        final existingReport = await FirebaseFirestore.instance
+            .collection('student_monthly_reports')
+            .where('studentId', isEqualTo: studentId)
+            .where('month', isEqualTo: month)
+            .get();
+
+        for (final doc in existingReport.docs) {
+          if (doc.id == widget.report['id']) continue;
+          final data = doc.data();
+          DateTime existingStart;
+          DateTime existingEnd;
+          if (data['periodStart'] is Timestamp &&
+              data['periodEnd'] is Timestamp) {
+            existingStart = (data['periodStart'] as Timestamp).toDate();
+            existingEnd = (data['periodEnd'] as Timestamp).toDate();
+          } else {
+            existingStart = monthStart;
+            existingEnd = monthEnd;
+          }
+
+          final overlaps = !_periodEnd.isBefore(existingStart) &&
+              !_periodStart.isAfter(existingEnd);
+          if (overlaps) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Report period overlaps with another report in this month',
+                  ),
+                ),
+              );
+            }
+            setState(() => _isSaving = false);
+            return;
+          }
+        }
+      }
+
+      final monthDisplay =
+          DateFormat('MMMM yyyy').format(DateTime.parse('$month-01'));
+
       // Update monthly report
       await FirebaseFirestore.instance
           .collection('student_monthly_reports')
           .doc(widget.report['id'])
           .update({
             'month': month,
+            'monthDisplay': monthDisplay,
+            'periodStart': Timestamp.fromDate(_periodStart),
+            'periodEnd': Timestamp.fromDate(_periodEnd),
             'status': status,
             'updatedAt': FieldValue.serverTimestamp(),
           });
@@ -1991,6 +2241,7 @@ class _EditMonthlyReportDialogState extends State<_EditMonthlyReportDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final dayFormat = DateFormat('MMM dd, yyyy');
     return AlertDialog(
       title: const Text('Edit Monthly Report'),
       content: SingleChildScrollView(
@@ -2006,6 +2257,39 @@ class _EditMonthlyReportDialogState extends State<_EditMonthlyReportDialog> {
                 hintText: '2024-01',
                 border: OutlineInputBorder(),
               ),
+            ),
+            const SizedBox(height: 16),
+            // Period fields
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: _selectPeriodStart,
+                    borderRadius: BorderRadius.circular(8),
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Period Start',
+                        border: OutlineInputBorder(),
+                      ),
+                      child: Text(dayFormat.format(_periodStart)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    onTap: _selectPeriodEnd,
+                    borderRadius: BorderRadius.circular(8),
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Period End',
+                        border: OutlineInputBorder(),
+                      ),
+                      child: Text(dayFormat.format(_periodEnd)),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
 

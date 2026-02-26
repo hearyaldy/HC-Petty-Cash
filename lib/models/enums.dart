@@ -1,3 +1,5 @@
+import 'dart:ui' show Color;
+
 enum UserRole {
   requester,
   manager,
@@ -310,5 +312,301 @@ enum Gender {
       case Gender.preferNotToSay:
         return 'Prefer not to say';
     }
+  }
+}
+
+// Media Production enums
+enum MediaLanguage {
+  english,
+  malay,
+  thai,
+  khmer,
+  laos,
+  chinese,
+  vietnamese;
+
+  String get displayName {
+    switch (this) {
+      case MediaLanguage.english:
+        return 'English';
+      case MediaLanguage.malay:
+        return 'Malay';
+      case MediaLanguage.thai:
+        return 'Thai';
+      case MediaLanguage.khmer:
+        return 'Khmer';
+      case MediaLanguage.laos:
+        return 'Laos';
+      case MediaLanguage.chinese:
+        return 'Chinese';
+      case MediaLanguage.vietnamese:
+        return 'Vietnamese';
+    }
+  }
+
+  String get code {
+    switch (this) {
+      case MediaLanguage.english:
+        return 'en';
+      case MediaLanguage.malay:
+        return 'ms';
+      case MediaLanguage.thai:
+        return 'th';
+      case MediaLanguage.khmer:
+        return 'km';
+      case MediaLanguage.laos:
+        return 'lo';
+      case MediaLanguage.chinese:
+        return 'zh';
+      case MediaLanguage.vietnamese:
+        return 'vi';
+    }
+  }
+}
+
+extension MediaLanguageExtension on String {
+  String get mediaLanguageDisplayName {
+    final language = MediaLanguage.values.firstWhere(
+      (e) => e.name == this || e.code == this,
+      orElse: () => MediaLanguage.english,
+    );
+    return language.displayName;
+  }
+
+  MediaLanguage toMediaLanguage() {
+    return MediaLanguage.values.firstWhere(
+      (e) => e.name == this || e.code == this,
+      orElse: () => MediaLanguage.english,
+    );
+  }
+}
+
+enum MediaPlatform {
+  youtube,
+  facebook,
+  instagram,
+  tiktok;
+
+  String get displayName {
+    switch (this) {
+      case MediaPlatform.youtube:
+        return 'YouTube';
+      case MediaPlatform.facebook:
+        return 'Facebook';
+      case MediaPlatform.instagram:
+        return 'Instagram';
+      case MediaPlatform.tiktok:
+        return 'TikTok';
+    }
+  }
+
+  String get icon {
+    switch (this) {
+      case MediaPlatform.youtube:
+        return 'youtube';
+      case MediaPlatform.facebook:
+        return 'facebook';
+      case MediaPlatform.instagram:
+        return 'instagram';
+      case MediaPlatform.tiktok:
+        return 'tiktok';
+    }
+  }
+}
+
+extension MediaPlatformExtension on String {
+  String get mediaPlatformDisplayName {
+    final platform = MediaPlatform.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => MediaPlatform.youtube,
+    );
+    return platform.displayName;
+  }
+
+  MediaPlatform toMediaPlatform() {
+    return MediaPlatform.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => MediaPlatform.youtube,
+    );
+  }
+}
+
+enum ProductionType {
+  series,
+  standalone,
+  liveStream,
+  short;
+
+  String get displayName {
+    switch (this) {
+      case ProductionType.series:
+        return 'Series';
+      case ProductionType.standalone:
+        return 'Standalone Video';
+      case ProductionType.liveStream:
+        return 'Live Stream';
+      case ProductionType.short:
+        return 'Short/Reel';
+    }
+  }
+}
+
+extension ProductionTypeExtension on String {
+  String get productionTypeDisplayName {
+    final type = ProductionType.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => ProductionType.standalone,
+    );
+    return type.displayName;
+  }
+
+  ProductionType toProductionType() {
+    return ProductionType.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => ProductionType.standalone,
+    );
+  }
+}
+
+enum ProductionStatus {
+  planning,
+  inProduction,
+  postProduction,
+  published,
+  archived;
+
+  String get displayName {
+    switch (this) {
+      case ProductionStatus.planning:
+        return 'Planning';
+      case ProductionStatus.inProduction:
+        return 'In Production';
+      case ProductionStatus.postProduction:
+        return 'Post Production';
+      case ProductionStatus.published:
+        return 'Published';
+      case ProductionStatus.archived:
+        return 'Archived';
+    }
+  }
+}
+
+extension ProductionStatusExtension on String {
+  String get productionStatusDisplayName {
+    final status = ProductionStatus.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => ProductionStatus.planning,
+    );
+    return status.displayName;
+  }
+
+  ProductionStatus toProductionStatus() {
+    return ProductionStatus.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => ProductionStatus.planning,
+    );
+  }
+}
+
+enum EpisodeStatus {
+  draft,
+  editing,
+  scheduled,
+  published;
+
+  String get displayName {
+    switch (this) {
+      case EpisodeStatus.draft:
+        return 'Draft';
+      case EpisodeStatus.editing:
+        return 'Editing';
+      case EpisodeStatus.scheduled:
+        return 'Scheduled';
+      case EpisodeStatus.published:
+        return 'Published';
+    }
+  }
+}
+
+extension EpisodeStatusExtension on String {
+  String get episodeStatusDisplayName {
+    final status = EpisodeStatus.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => EpisodeStatus.draft,
+    );
+    return status.displayName;
+  }
+
+  EpisodeStatus toEpisodeStatus() {
+    return EpisodeStatus.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => EpisodeStatus.draft,
+    );
+  }
+}
+
+// Cash Advance enums
+enum CashAdvanceStatus {
+  draft,
+  submitted,
+  approved,
+  disbursed,
+  settled,
+  rejected,
+  cancelled;
+
+  String get displayName {
+    switch (this) {
+      case CashAdvanceStatus.draft:
+        return 'Draft';
+      case CashAdvanceStatus.submitted:
+        return 'Pending Approval';
+      case CashAdvanceStatus.approved:
+        return 'Approved';
+      case CashAdvanceStatus.disbursed:
+        return 'Disbursed';
+      case CashAdvanceStatus.settled:
+        return 'Settled';
+      case CashAdvanceStatus.rejected:
+        return 'Rejected';
+      case CashAdvanceStatus.cancelled:
+        return 'Cancelled';
+    }
+  }
+
+  Color get color {
+    switch (this) {
+      case CashAdvanceStatus.draft:
+        return const Color(0xFF9E9E9E); // Grey
+      case CashAdvanceStatus.submitted:
+        return const Color(0xFFFFA726); // Orange
+      case CashAdvanceStatus.approved:
+        return const Color(0xFF42A5F5); // Blue
+      case CashAdvanceStatus.disbursed:
+        return const Color(0xFF66BB6A); // Green
+      case CashAdvanceStatus.settled:
+        return const Color(0xFF7E57C2); // Purple
+      case CashAdvanceStatus.rejected:
+        return const Color(0xFFEF5350); // Red
+      case CashAdvanceStatus.cancelled:
+        return const Color(0xFF78909C); // Blue Grey
+    }
+  }
+}
+
+extension CashAdvanceStatusExtension on String {
+  String get cashAdvanceStatusDisplayName {
+    final status = CashAdvanceStatus.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => CashAdvanceStatus.draft,
+    );
+    return status.displayName;
+  }
+
+  CashAdvanceStatus toCashAdvanceStatus() {
+    return CashAdvanceStatus.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => CashAdvanceStatus.draft,
+    );
   }
 }

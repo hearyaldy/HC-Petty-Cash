@@ -272,6 +272,26 @@ class PurchaseRequisitionPdfExportService {
               ),
             ],
           ),
+          if (requisition.purchaseReason != null &&
+              requisition.purchaseReason!.isNotEmpty) ...[
+            pw.SizedBox(height: 8),
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  'Purchase Reason:',
+                  style: pw.TextStyle(
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.Text(
+                  requisition.purchaseReason!,
+                  style: const pw.TextStyle(fontSize: 11),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );

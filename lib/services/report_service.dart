@@ -11,17 +11,22 @@ class ReportService {
   final _uuid = const Uuid();
 
   /// Generate a unique report number
-  Future<String> generateReportNumber({String reportType = 'petty_cash'}) async {
+  Future<String> generateReportNumber({
+    String reportType = 'petty_cash',
+  }) async {
     final now = DateTime.now();
     final formatter = DateFormat('yyyyMMdd');
     final prefix = reportType == 'advance_settlement' ? 'ASR' : 'PCR';
     final allReports = await _firestoreService.getAllReports();
-    final count = allReports
-            .where((r) =>
-                r.reportNumber.startsWith('${prefix}-${formatter.format(now)}'))
+    final count =
+        allReports
+            .where(
+              (r) =>
+                  r.reportNumber.startsWith('$prefix-${formatter.format(now)}'),
+            )
             .length +
         1;
-    return '${prefix}-${formatter.format(now)}-${count.toString().padLeft(3, '0')}';
+    return '$prefix-${formatter.format(now)}-${count.toString().padLeft(3, '0')}';
   }
 
   /// Create a new petty cash report
@@ -36,6 +41,7 @@ class ReportService {
     DateTime? advanceTakenDate,
     String? companyName,
     String? notes,
+    String? cashAdvanceId,
   }) async {
     final reportNumber = await generateReportNumber(reportType: reportType);
 
@@ -55,6 +61,7 @@ class ReportService {
       createdAt: DateTime.now(),
       companyName: companyName,
       notes: notes,
+      cashAdvanceId: cashAdvanceId,
     );
 
     await _firestoreService.saveReport(report);
@@ -84,13 +91,15 @@ class ReportService {
 
   /// Get reports by custodian
   Future<List<PettyCashReport>> getReportsByCustodian(
-      String custodianId) async {
+    String custodianId,
+  ) async {
     return await _firestoreService.getReportsByCustodian(custodianId);
   }
 
   /// Get reports by department
   Future<List<PettyCashReport>> getReportsByDepartment(
-      String department) async {
+    String department,
+  ) async {
     return await _firestoreService.getReportsByDepartment(department);
   }
 
@@ -103,8 +112,10 @@ class ReportService {
   Future<void> submitReport(String reportId) async {
     final report = await _firestoreService.getReport(reportId);
     if (report != null) {
-      final updated =
-          report.copyWith(status: ReportStatus.submitted.name, updatedAt: DateTime.now());
+      final updated = report.copyWith(
+        status: ReportStatus.submitted.name,
+        updatedAt: DateTime.now(),
+      );
       await _firestoreService.updateReport(updated);
     }
   }
@@ -113,8 +124,10 @@ class ReportService {
   Future<void> approveReport(String reportId) async {
     final report = await _firestoreService.getReport(reportId);
     if (report != null) {
-      final updated =
-          report.copyWith(status: ReportStatus.approved.name, updatedAt: DateTime.now());
+      final updated = report.copyWith(
+        status: ReportStatus.approved.name,
+        updatedAt: DateTime.now(),
+      );
       await _firestoreService.updateReport(updated);
     }
   }
@@ -123,8 +136,10 @@ class ReportService {
   Future<void> closeReport(String reportId) async {
     final report = await _firestoreService.getReport(reportId);
     if (report != null) {
-      final updated =
-          report.copyWith(status: ReportStatus.closed.name, updatedAt: DateTime.now());
+      final updated = report.copyWith(
+        status: ReportStatus.closed.name,
+        updatedAt: DateTime.now(),
+      );
       await _firestoreService.updateReport(updated);
     }
   }
@@ -133,8 +148,9 @@ class ReportService {
   Future<void> recalculateTotals(String reportId) async {
     final report = await _firestoreService.getReport(reportId);
     if (report != null) {
-      final transactions =
-          await _firestoreService.getTransactionsByReportId(reportId);
+      final transactions = await _firestoreService.getTransactionsByReportId(
+        reportId,
+      );
       final updated = report.calculateTotals(transactions);
       await _firestoreService.updateReport(updated);
     }
@@ -142,12 +158,14 @@ class ReportService {
 
   /// Get report with its transactions
   Future<ReportWithTransactions?> getReportWithTransactions(
-      String reportId) async {
+    String reportId,
+  ) async {
     final report = await _firestoreService.getReport(reportId);
     if (report == null) return null;
 
-    final transactions =
-        await _firestoreService.getTransactionsByReportId(reportId);
+    final transactions = await _firestoreService.getTransactionsByReportId(
+      reportId,
+    );
     return ReportWithTransactions(report: report, transactions: transactions);
   }
 
@@ -161,8 +179,5 @@ class ReportWithTransactions {
   final PettyCashReport report;
   final List<app.Transaction> transactions;
 
-  ReportWithTransactions({
-    required this.report,
-    required this.transactions,
-  });
+  ReportWithTransactions({required this.report, required this.transactions});
 }

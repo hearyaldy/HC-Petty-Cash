@@ -110,7 +110,7 @@ class _AdcomAgendaListScreenState extends State<AdcomAgendaListScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'ADCOM Meeting Agendas',
+                      'Meeting Agendas',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: isMobile ? 20 : 24,
@@ -119,7 +119,7 @@ class _AdcomAgendaListScreenState extends State<AdcomAgendaListScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Manage administrative committee meeting agendas',
+                      'Manage meeting agendas',
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.9),
                         fontSize: isMobile ? 12 : 14,
@@ -310,7 +310,7 @@ class _AdcomAgendaListScreenState extends State<AdcomAgendaListScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'ADCOM Meeting',
+                          '${agenda.organization} Meeting',
                           style: TextStyle(
                             fontSize: isMobile ? 16 : 18,
                             fontWeight: FontWeight.bold,

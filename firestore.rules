@@ -27,6 +27,25 @@ service cloud.firestore {
       return isManager() || isFinance() || isAdmin();
     }
 
+    function canReadMedia() {
+      return isAuthenticated();
+    }
+
+    function canWriteMediaProduction(production) {
+      return isAuthenticated();
+    }
+
+    function canWriteMediaEngagement(engagement) {
+      return isAuthenticated() && (
+        isAdmin() ||
+        engagement.enteredById == request.auth.uid
+      );
+    }
+
+    function canWriteMediaForProductionId(productionId) {
+      return isAuthenticated();
+    }
+
     // Check if user owns a staff record (staff.userId == auth.uid)
     function isStaffOwner(staffId) {
       return isAuthenticated() && 
@@ -76,6 +95,30 @@ service cloud.firestore {
 
       // Only admin can delete reports
       allow delete: if isAdmin();
+    }
+
+    // Cash Advances collection
+    match /cash_advances/{advanceId} {
+      // Owners and approvers can read
+      allow read: if isAuthenticated() && (
+        resource.data.requesterId == request.auth.uid || canApprove()
+      );
+
+      // Any authenticated user can create their own cash advance
+      allow create: if isAuthenticated() &&
+        request.resource.data.requesterId == request.auth.uid;
+
+      // Owner can update draft advances; approvers can update any
+      allow update: if isAuthenticated() && (
+        (resource.data.requesterId == request.auth.uid && resource.data.status == 'draft') ||
+        canApprove()
+      );
+
+      // Owner can delete draft advances; admin can delete any
+      allow delete: if isAuthenticated() && (
+        (resource.data.requesterId == request.auth.uid && resource.data.status == 'draft') ||
+        isAdmin()
+      );
     }
 
     // Project Reports collection
@@ -136,14 +179,14 @@ service cloud.firestore {
 
     // Student profiles collection
     match /student_profiles/{userId} {
-      // Students can read their own profile, admins can read all
-      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      // Students can read their own profile, admins/managers/finance can read all
+      allow read: if isAuthenticated() && (isOwner(userId) || canApprove());
 
       // Students can create their own profile during onboarding
       allow create: if isAuthenticated() && request.auth.uid == userId;
 
-      // Students can update their own profile, admins can update any
-      allow update: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      // Students can update their own profile, admins/managers can update any
+      allow update: if isAuthenticated() && (isOwner(userId) || isAdmin() || isManager());
 
       // Only admins can delete profiles
       allow delete: if isAdmin();
@@ -181,6 +224,50 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && (
         resource.data.studentId == request.auth.uid || isAdmin()
       );
+    }
+
+    // Media Productions collection
+    match /media_productions/{productionId} {
+      allow read: if canReadMedia();
+      allow create: if canWriteMediaProduction(request.resource.data);
+      allow update: if canWriteMediaProduction(resource.data);
+      allow delete: if isAdmin();
+    }
+
+    // Media Seasons collection
+    match /media_seasons/{seasonId} {
+      allow read: if canReadMedia();
+      allow create: if canWriteMediaForProductionId(request.resource.data.productionId);
+      allow update: if canWriteMediaForProductionId(resource.data.productionId);
+      allow delete: if isAdmin();
+    }
+
+    // Media Episodes collection
+    match /media_episodes/{episodeId} {
+      allow read: if canReadMedia();
+      allow create: if canWriteMediaForProductionId(request.resource.data.productionId);
+      allow update: if canWriteMediaForProductionId(resource.data.productionId);
+      allow delete: if isAdmin();
+    }
+
+    // Media Engagements collection
+    match /media_engagements/{engagementId} {
+      allow read: if canReadMedia();
+      allow create: if canWriteMediaEngagement(request.resource.data);
+      allow update: if canWriteMediaEngagement(resource.data);
+      allow delete: if canWriteMediaEngagement(resource.data);
+    }
+
+    match /media_yearly_stats/{statsId} {
+      allow read: if canReadMedia();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /media_period_reports/{reportId} {
+      allow read: if canReadMedia();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAuthenticated();
     }
 
     // Traveling Reports Collection
@@ -609,6 +696,36 @@ service cloud.firestore {
       allow update: if isAdmin();
 
       // Only admins can delete ADCOM minutes
+      allow delete: if isAdmin();
+    }
+
+    // Meeting Templates collection
+    match /meetingTemplates/{templateId} {
+      // All authenticated users can read meeting templates
+      allow read: if isAuthenticated();
+
+      // Only admins can create meeting templates
+      allow create: if isAdmin();
+
+      // Only admins can update meeting templates
+      allow update: if isAdmin();
+
+      // Only admins can delete meeting templates
+      allow delete: if isAdmin();
+    }
+
+    // Organizations collection (for inventory separation)
+    match /organizations/{organizationId} {
+      // All authenticated users can read organizations
+      allow read: if isAuthenticated();
+
+      // Only admins can create organizations
+      allow create: if isAdmin();
+
+      // Only admins can update organizations
+      allow update: if isAdmin();
+
+      // Only admins can delete organizations
       allow delete: if isAdmin();
     }
   }

@@ -7,7 +7,6 @@ import '../../services/adcom_agenda_service.dart';
 import '../../services/adcom_minutes_service.dart';
 import '../../services/staff_service.dart';
 import '../../services/ai_text_service.dart';
-import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
 
 class AdcomAgendaEditScreen extends StatefulWidget {
@@ -31,8 +30,10 @@ class _AdcomAgendaEditScreenState extends State<AdcomAgendaEditScreen> {
   bool _isLoading = true;
   final dateFormat = DateFormat('dd MMM yyyy');
   final TextEditingController _startTimeController = TextEditingController();
-  final TextEditingController _openingPrayerController = TextEditingController();
-  final TextEditingController _closingPrayerController = TextEditingController();
+  final TextEditingController _openingPrayerController =
+      TextEditingController();
+  final TextEditingController _closingPrayerController =
+      TextEditingController();
   final TextEditingController _adjournedAtController = TextEditingController();
 
   @override
@@ -96,7 +97,9 @@ class _AdcomAgendaEditScreenState extends State<AdcomAgendaEditScreen> {
           final meetingQuery = widget.returnToMeetingId != null
               ? '?meetingId=${widget.returnToMeetingId}'
               : '';
-          context.push('/admin/adcom-minutes/${existingMinutes.id}$meetingQuery');
+          context.push(
+            '/admin/adcom-minutes/${existingMinutes.id}$meetingQuery',
+          );
         }
       } else {
         // Create new minutes from agenda
@@ -143,10 +146,7 @@ class _AdcomAgendaEditScreenState extends State<AdcomAgendaEditScreen> {
           const SizedBox(height: 16),
           const Text('Agenda not found'),
           const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: _handleBack,
-            child: const Text('Go Back'),
-          ),
+          ElevatedButton(onPressed: _handleBack, child: const Text('Go Back')),
         ],
       ),
     );
@@ -264,7 +264,7 @@ class _AdcomAgendaEditScreenState extends State<AdcomAgendaEditScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Edit ADCOM Agenda',
+                      'Edit ${_agenda!.organization} Agenda',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: isMobile ? 20 : 24,
@@ -836,15 +836,15 @@ class _AdcomAgendaEditScreenState extends State<AdcomAgendaEditScreen> {
       await _service.updateAgenda(updatedAgenda);
       await _loadAgenda();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Meeting notes saved')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Meeting notes saved')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving notes: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error saving notes: $e')));
       }
     }
   }
@@ -1044,6 +1044,7 @@ class _AdcomAgendaEditScreenState extends State<AdcomAgendaEditScreen> {
     final itemNumber = AdcomAgenda.generateItemNumber(
       _agenda!.meetingDate,
       nextSeq,
+      organization: _agenda!.organization,
     );
 
     final result = await showDialog<AgendaItem>(
@@ -1648,8 +1649,9 @@ class _SelectStaffDialogState extends State<_SelectStaffDialog> {
                     itemBuilder: (context, index) {
                       final member = filtered[index];
                       final isSelected = _selectedStaffIds.contains(member.id);
-                      final isDisabled =
-                          widget.existingNames.contains(member.fullName);
+                      final isDisabled = widget.existingNames.contains(
+                        member.fullName,
+                      );
                       return ListTile(
                         title: Text(member.fullName),
                         subtitle: Text(

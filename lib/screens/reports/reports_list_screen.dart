@@ -577,7 +577,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
   Widget _buildEmptyState() {
     return Container(
       margin: const EdgeInsets.only(top: 32),
-      padding: const EdgeInsets.all(48),
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 32),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -589,41 +589,57 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
           ),
         ],
       ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.description_outlined, size: 80, color: Colors.grey[300]),
-            const SizedBox(height: 24),
-            Text(
-              'No reports found',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[700],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isTight = constraints.maxWidth < 360;
+          return SingleChildScrollView(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.description_outlined,
+                    size: isTight ? 64 : 80,
+                    color: Colors.grey[300],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No reports found',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: isTight ? 20 : 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Create your first report to get started',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: isTight ? 14 : 16,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    onPressed: () => context.go('/reports/new'),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Create Report'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Create your first report to get started',
-              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () => context.go('/reports/new'),
-              icon: const Icon(Icons.add),
-              label: const Text('Create Report'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -1673,37 +1689,75 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                   color: themeColor.shade50,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildAmountColumn(
-                      isPettyCash ? 'Opening' : 'Budget',
-                      '฿${currencyFormat.format(isPettyCash ? report.openingBalance : (report as ProjectReport).budget)}',
-                      Icons.account_balance,
-                      themeColor,
-                    ),
-                    Container(width: 1, height: 32, color: themeColor.shade200),
-                    _buildAmountColumn(
-                      isPettyCash ? 'Disbursed' : 'Expenses',
-                      '฿${currencyFormat.format(isPettyCash ? report.totalDisbursements : projectExpenses)}',
-                      Icons.payments,
-                      Colors.red,
-                    ),
-                    Container(width: 1, height: 32, color: themeColor.shade200),
-                    _buildAmountColumn(
-                      isPettyCash ? 'Balance' : 'Remaining',
-                      '฿${currencyFormat.format(isPettyCash ? report.closingBalance : projectRemaining)}',
-                      Icons.account_balance_wallet,
-                      Colors.green,
-                      isTotal: true,
-                    ),
-                  ],
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isNarrow = constraints.maxWidth < 360;
+                    final children = [
+                      _buildAmountColumn(
+                        isPettyCash ? 'Opening' : 'Budget',
+                        '฿${currencyFormat.format(isPettyCash ? report.openingBalance : (report as ProjectReport).budget)}',
+                        Icons.account_balance,
+                        themeColor,
+                      ),
+                      _buildAmountColumn(
+                        isPettyCash ? 'Disbursed' : 'Expenses',
+                        '฿${currencyFormat.format(isPettyCash ? report.totalDisbursements : projectExpenses)}',
+                        Icons.payments,
+                        Colors.red,
+                      ),
+                      _buildAmountColumn(
+                        isPettyCash ? 'Balance' : 'Remaining',
+                        '฿${currencyFormat.format(isPettyCash ? report.closingBalance : projectRemaining)}',
+                        Icons.account_balance_wallet,
+                        Colors.green,
+                        isTotal: true,
+                      ),
+                    ];
+
+                    if (isNarrow) {
+                      return Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
+                            children: children.sublist(0, 2),
+                          ),
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: children[2],
+                          ),
+                        ],
+                      );
+                    }
+
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        children[0],
+                        Container(
+                          width: 1,
+                          height: 32,
+                          color: themeColor.shade200,
+                        ),
+                        children[1],
+                        Container(
+                          width: 1,
+                          height: 32,
+                          color: themeColor.shade200,
+                        ),
+                        children[2],
+                      ],
+                    );
+                  },
                 ),
               ),
               const SizedBox(height: 16),
               // Action Buttons Row
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                alignment: WrapAlignment.end,
                 children: [
                   TextButton.icon(
                     onPressed: () {
@@ -1719,8 +1773,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                       foregroundColor: Colors.blue.shade700,
                     ),
                   ),
-                  if (report.statusEnum == ReportStatus.draft) ...[
-                    const SizedBox(width: 8),
+                  if (report.statusEnum == ReportStatus.draft)
                     TextButton.icon(
                       onPressed: () => _submitReport(report, isPettyCash),
                       icon: const Icon(Icons.send, size: 16),
@@ -1729,8 +1782,6 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                         foregroundColor: Colors.orange.shade700,
                       ),
                     ),
-                  ],
-                  const SizedBox(width: 8),
                   TextButton.icon(
                     onPressed: () => _deleteReport(report, isPettyCash),
                     icon: const Icon(Icons.delete, size: 16),

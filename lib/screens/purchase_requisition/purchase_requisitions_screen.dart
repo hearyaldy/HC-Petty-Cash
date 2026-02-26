@@ -427,7 +427,7 @@ class _PurchaseRequisitionsScreenState
     }
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: Colors.grey[100],
       body: SafeArea(
         child: ResponsiveBuilder(
           mobile: SingleChildScrollView(
@@ -478,7 +478,7 @@ class _PurchaseRequisitionsScreenState
       ),
       child: Row(
         children: [
-          Icon(Icons.filter_list, color: Colors.purple.shade600, size: 20),
+          Icon(Icons.filter_list, color: Colors.blue.shade600, size: 20),
           const SizedBox(width: 8),
           Expanded(
             child: DropdownButtonHideUnderline(
@@ -486,7 +486,7 @@ class _PurchaseRequisitionsScreenState
                 value: _selectedStatus ?? 'all',
                 isExpanded: true,
                 isDense: true,
-                icon: Icon(Icons.arrow_drop_down, color: Colors.purple.shade600),
+                icon: Icon(Icons.arrow_drop_down, color: Colors.blue.shade600),
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.grey.shade800,
@@ -570,98 +570,130 @@ class _PurchaseRequisitionsScreenState
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.purple.shade600, Colors.purple.shade400],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
+          colors: [
+            Colors.blue.shade400,
+            Colors.blue.shade600,
+            Colors.blue.shade800,
+          ],
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.purple.withValues(alpha: 0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+            color: Colors.blue.shade300,
+            blurRadius: 15,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
-      child: Column(
+      child: Stack(
         children: [
-          // Top action bar
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Back/Home button
-              _buildHeaderActionButton(
-                icon: Icons.arrow_back,
-                tooltip: 'Back to Dashboard',
-                onPressed: () => context.go('/admin-hub'),
+          Positioned(
+            right: -30,
+            top: -30,
+            child: Container(
+              width: 140,
+              height: 140,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.1),
               ),
-              // Action buttons
+            ),
+          ),
+          Positioned(
+            right: 50,
+            bottom: -40,
+            child: Container(
+              width: 110,
+              height: 110,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+          ),
+          Column(
+            children: [
+              // Top action bar
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  if (isAdmin)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: _buildHeaderActionButton(
-                        icon: Icons.admin_panel_settings,
-                        tooltip: 'Admin',
-                        onPressed: () => context.go('/admin'),
-                      ),
-                    ),
+                  // Back/Home button
                   _buildHeaderActionButton(
-                    icon: Icons.add_circle_outline,
-                    tooltip: 'New Requisition',
-                    onPressed: _createNewRequisition,
+                    icon: Icons.arrow_back,
+                    tooltip: 'Back to Dashboard',
+                    onPressed: () => context.go('/admin-hub'),
+                  ),
+                  // Action buttons
+                  Row(
+                    children: [
+                      if (isAdmin)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: _buildHeaderActionButton(
+                            icon: Icons.admin_panel_settings,
+                            tooltip: 'Admin',
+                            onPressed: () => context.go('/admin'),
+                          ),
+                        ),
+                      _buildHeaderActionButton(
+                        icon: Icons.add_circle_outline,
+                        tooltip: 'New Requisition',
+                        onPressed: _createNewRequisition,
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          // Content row
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Purchase Requisitions',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.white.withValues(alpha: 0.9),
-                      ),
+              const SizedBox(height: 20),
+              // Content row
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Purchase Requisitions',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.white.withValues(alpha: 0.9),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Manage your purchase requests',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Track, approve, and manage purchase requisitions',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.white.withValues(alpha: 0.8),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Manage your purchase requests',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Track, approve, and manage purchase requisitions',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.white.withValues(alpha: 0.8),
-                      ),
+                    child: const Icon(
+                      Icons.shopping_cart,
+                      size: 48,
+                      color: Colors.white,
                     ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.shopping_cart,
-                  size: 48,
-                  color: Colors.white,
-                ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -700,83 +732,115 @@ class _PurchaseRequisitionsScreenState
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.purple.shade600, Colors.purple.shade400],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
+          colors: [
+            Colors.blue.shade400,
+            Colors.blue.shade600,
+            Colors.blue.shade800,
+          ],
         ),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          // Top action bar
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Back/Home button
-              _buildHeaderActionButton(
-                icon: Icons.arrow_back,
-                tooltip: 'Back to Dashboard',
-                onPressed: () => context.go('/admin-hub'),
+          Positioned(
+            right: -24,
+            top: -24,
+            child: Container(
+              width: 90,
+              height: 90,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.1),
               ),
-              // Action buttons
+            ),
+          ),
+          Positioned(
+            right: 40,
+            bottom: -30,
+            child: Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Top action bar
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  if (isAdmin)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: _buildHeaderActionButton(
-                        icon: Icons.admin_panel_settings,
-                        tooltip: 'Admin',
-                        onPressed: () => context.go('/admin'),
-                      ),
-                    ),
+                  // Back/Home button
                   _buildHeaderActionButton(
-                    icon: Icons.add_circle_outline,
-                    tooltip: 'New Requisition',
-                    onPressed: _createNewRequisition,
+                    icon: Icons.arrow_back,
+                    tooltip: 'Back to Dashboard',
+                    onPressed: () => context.go('/admin-hub'),
+                  ),
+                  // Action buttons
+                  Row(
+                    children: [
+                      if (isAdmin)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: _buildHeaderActionButton(
+                            icon: Icons.admin_panel_settings,
+                            tooltip: 'Admin',
+                            onPressed: () => context.go('/admin'),
+                          ),
+                        ),
+                      _buildHeaderActionButton(
+                        icon: Icons.add_circle_outline,
+                        tooltip: 'New Requisition',
+                        onPressed: _createNewRequisition,
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.shopping_cart,
-                  size: 28,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Purchase Requisitions',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
                     ),
-                    Text(
-                      'Manage your purchase requests',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.white.withValues(alpha: 0.8),
-                      ),
+                    child: const Icon(
+                      Icons.shopping_cart,
+                      size: 28,
+                      color: Colors.white,
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Purchase Requisitions',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        Text(
+                          'Manage your purchase requests',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white.withValues(alpha: 0.8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -812,7 +876,7 @@ class _PurchaseRequisitionsScreenState
                     'Total',
                     requisitions.length.toString(),
                     Icons.shopping_cart,
-                    Colors.purple,
+                    Colors.blue,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -1114,6 +1178,11 @@ class _PurchaseRequisitionsScreenState
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
                             Icon(
                               Icons.business,
                               size: 14,
@@ -1159,7 +1228,7 @@ class _PurchaseRequisitionsScreenState
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.purple.shade50,
+                                color: Colors.blue.shade50,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -1167,7 +1236,7 @@ class _PurchaseRequisitionsScreenState
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
-                                  color: Colors.purple.shade700,
+                                  color: Colors.blue.shade700,
                                 ),
                               ),
                             ),
@@ -1230,8 +1299,8 @@ class _PurchaseRequisitionsScreenState
             title: 'Total Requisitions',
             value: requisitions.length.toString(),
             icon: Icons.shopping_cart,
-            gradient: [Colors.purple.shade400, Colors.purple.shade600],
-            lightColor: Colors.purple.shade50,
+            gradient: [Colors.blue.shade400, Colors.blue.shade600],
+            lightColor: Colors.blue.shade50,
           ),
           _StatData(
             title: 'Draft Requisitions',
@@ -1393,7 +1462,7 @@ class _PurchaseRequisitionsScreenState
                     ),
                     prefixIcon: Icon(
                       Icons.label,
-                      color: Colors.purple.shade600,
+                      color: Colors.blue.shade600,
                     ),
                   ),
                   items: _statusOptions.map((status) {
@@ -1462,8 +1531,8 @@ class _PurchaseRequisitionsScreenState
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          Colors.purple.shade400,
-                          Colors.purple.shade600,
+                          Colors.blue.shade400,
+                          Colors.blue.shade600,
                         ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
@@ -1525,7 +1594,7 @@ class _PurchaseRequisitionsScreenState
                           'Total Value',
                           '฿${currencyFormat.format(totalAmount)}',
                           Icons.account_balance,
-                          Colors.purple,
+                          Colors.blue,
                         ),
                       ),
                     ],

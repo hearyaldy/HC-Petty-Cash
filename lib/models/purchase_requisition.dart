@@ -115,6 +115,7 @@ class PurchaseRequisition {
   final String idNo;
   final String chargeToDepartment;
   final double totalAmount;
+  final String? purchaseReason;
   final String? notes;
 
   // Status and approval
@@ -138,6 +139,7 @@ class PurchaseRequisition {
     required this.idNo,
     required this.chargeToDepartment,
     this.totalAmount = 0.0,
+    this.purchaseReason,
     this.notes,
     this.status = 'draft',
     required this.createdAt,
@@ -166,6 +168,7 @@ class PurchaseRequisition {
       'idNo': idNo,
       'chargeToDepartment': chargeToDepartment,
       'totalAmount': totalAmount,
+      'purchaseReason': purchaseReason,
       'notes': notes,
       'status': status,
       'createdAt': Timestamp.fromDate(createdAt),
@@ -207,6 +210,7 @@ class PurchaseRequisition {
       idNo: data['idNo'] ?? '',
       chargeToDepartment: data['chargeToDepartment'] ?? '',
       totalAmount: (data['totalAmount'] ?? 0.0).toDouble(),
+      purchaseReason: data['purchaseReason'],
       notes: data['notes'],
       status: data['status'] ?? 'draft',
       createdAt: parseTimestamp(data['createdAt'], now),
@@ -238,6 +242,7 @@ class PurchaseRequisition {
       idNo: json['idNo'] ?? '',
       chargeToDepartment: json['chargeToDepartment'] ?? '',
       totalAmount: (json['totalAmount'] ?? 0.0).toDouble(),
+      purchaseReason: json['purchaseReason'],
       notes: json['notes'],
       status: json['status'] ?? 'draft',
       createdAt: json['createdAt'] is Timestamp
@@ -278,6 +283,7 @@ class PurchaseRequisition {
     String? idNo,
     String? chargeToDepartment,
     double? totalAmount,
+    String? purchaseReason,
     String? notes,
     String? status,
     DateTime? createdAt,
@@ -299,6 +305,7 @@ class PurchaseRequisition {
       idNo: idNo ?? this.idNo,
       chargeToDepartment: chargeToDepartment ?? this.chargeToDepartment,
       totalAmount: totalAmount ?? this.totalAmount,
+      purchaseReason: purchaseReason ?? this.purchaseReason,
       notes: notes ?? this.notes,
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,

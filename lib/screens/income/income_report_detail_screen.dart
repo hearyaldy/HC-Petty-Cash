@@ -1,9 +1,13 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:printing/printing.dart';
 import '../../providers/income_report_provider.dart';
 import '../../models/income_report.dart';
+import '../../services/pdf_export_service.dart';
+import '../../services/income_report_pdf_export_service.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
 
@@ -37,123 +41,35 @@ class _IncomeReportDetailScreenState extends State<IncomeReportDetailScreen> {
 
         if (provider.isLoading) {
           return Scaffold(
-            appBar: AppBar(
-              title: const Text('Income Report'),
-              backgroundColor: Colors.green.shade600,
-              foregroundColor: Colors.white,
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.home_outlined),
-                  onPressed: () => context.go('/admin-hub'),
-                  tooltip: 'Dashboard',
-                ),
-              ],
+            backgroundColor: Colors.grey[50],
+            body: const SafeArea(
+              child: Center(child: CircularProgressIndicator()),
             ),
-            body: const Center(child: CircularProgressIndicator()),
           );
         }
 
         if (report == null) {
           return Scaffold(
-            appBar: AppBar(
-              title: const Text('Income Report'),
-              backgroundColor: Colors.green.shade600,
-              foregroundColor: Colors.white,
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.home_outlined),
-                  onPressed: () => context.go('/admin-hub'),
-                  tooltip: 'Dashboard',
-                ),
-              ],
+            backgroundColor: Colors.grey[50],
+            body: const SafeArea(
+              child: Center(child: Text('Report not found')),
             ),
-            body: const Center(child: Text('Report not found')),
           );
         }
 
         return Scaffold(
           backgroundColor: Colors.grey[50],
-          appBar: AppBar(
-            title: Text(report.reportNumber),
-            backgroundColor: Colors.green.shade600,
-            foregroundColor: Colors.white,
-            actions: [
-              // Edit button - visible for draft reports
-              if (report.status == 'draft')
-                IconButton(
-                  icon: const Icon(Icons.edit),
-                  onPressed: () => _showEditReportDialog(report),
-                  tooltip: 'Edit Report',
-                ),
-              // Home button - always visible
-              IconButton(
-                icon: const Icon(Icons.home_outlined),
-                onPressed: () => context.go('/admin-hub'),
-                tooltip: 'Dashboard',
-              ),
-              // More options menu
-              PopupMenuButton<String>(
-                onSelected: (value) => _handleMenuAction(value, report),
-                itemBuilder: (context) => [
-                  if (report.status == 'draft') ...[
-                    const PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(Icons.edit, size: 20),
-                          SizedBox(width: 8),
-                          Text('Edit Report'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'submit',
-                      child: Row(
-                        children: [
-                          Icon(Icons.send, size: 20),
-                          SizedBox(width: 8),
-                          Text('Submit for Approval'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(Icons.delete, color: Colors.red, size: 20),
-                          SizedBox(width: 8),
-                          Text(
-                            'Delete Report',
-                            style: TextStyle(color: Colors.red),
-                          ),
-                        ],
-                      ),
-                    ),
+          body: SafeArea(
+            child: ResponsiveContainer(
+              padding: EdgeInsets.zero,
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    _buildReportHeader(report),
+                    _buildSummaryCards(report, entries),
+                    _buildEntriesList(entries, report),
                   ],
-                  // Back to income list option - always available
-                  const PopupMenuItem(
-                    value: 'back_to_list',
-                    child: Row(
-                      children: [
-                        Icon(Icons.list, size: 20),
-                        SizedBox(width: 8),
-                        Text('Back to Income List'),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          body: ResponsiveContainer(
-            padding: EdgeInsets.zero,
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  _buildReportHeader(report),
-                  _buildSummaryCards(report, entries),
-                  _buildEntriesList(entries, report.status),
-                ],
+                ),
               ),
             ),
           ),
@@ -186,6 +102,101 @@ class _IncomeReportDetailScreenState extends State<IncomeReportDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildHeaderActionButton(
+                icon: Icons.arrow_back,
+                tooltip: 'Back to Income List',
+                onPressed: () => context.go('/income'),
+              ),
+              Row(
+                children: [
+                  if (report.status == 'draft')
+                    _buildHeaderActionButton(
+                      icon: Icons.edit,
+                      tooltip: 'Edit Report',
+                      onPressed: () => _showEditReportDialog(report),
+                    ),
+                  const SizedBox(width: 8),
+                  _buildHeaderActionButton(
+                    icon: Icons.print,
+                    tooltip: 'Print Report',
+                    onPressed: () => _printIncomeReport(report),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildHeaderActionButton(
+                    icon: Icons.home_outlined,
+                    tooltip: 'Dashboard',
+                    onPressed: () => context.go('/admin-hub'),
+                  ),
+                  const SizedBox(width: 8),
+                  PopupMenuButton<String>(
+                    onSelected: (value) => _handleMenuAction(value, report),
+                    icon: const Icon(Icons.more_vert, color: Colors.white),
+                    itemBuilder: (context) => [
+                      if (report.status == 'draft') ...[
+                        const PopupMenuItem(
+                          value: 'edit',
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit, size: 20),
+                              SizedBox(width: 8),
+                              Text('Edit Report'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'submit',
+                          child: Row(
+                            children: [
+                              Icon(Icons.send, size: 20),
+                              SizedBox(width: 8),
+                              Text('Submit for Approval'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete, color: Colors.red, size: 20),
+                              SizedBox(width: 8),
+                              Text(
+                                'Delete Report',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      const PopupMenuItem(
+                        value: 'print',
+                        child: Row(
+                          children: [
+                            Icon(Icons.print, size: 20),
+                            SizedBox(width: 8),
+                            Text('Print Report'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'back_to_list',
+                        child: Row(
+                          children: [
+                            Icon(Icons.list, size: 20),
+                            SizedBox(width: 8),
+                            Text('Back to Income List'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -238,6 +249,28 @@ class _IncomeReportDetailScreenState extends State<IncomeReportDetailScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
       ),
     );
   }
@@ -441,7 +474,8 @@ class _IncomeReportDetailScreenState extends State<IncomeReportDetailScreen> {
     );
   }
 
-  Widget _buildEntriesList(List<IncomeEntry> entries, String reportStatus) {
+  Widget _buildEntriesList(List<IncomeEntry> entries, IncomeReport report) {
+    final reportStatus = report.status;
     final currencyFormat = NumberFormat('#,##0.00', 'en_US');
     final dateFormat = DateFormat('MMM dd, yyyy');
     final screenPadding = ResponsiveHelper.getScreenPadding(context);
@@ -483,7 +517,9 @@ class _IncomeReportDetailScreenState extends State<IncomeReportDetailScreen> {
               ),
             )
           else
-            ...entries.map((entry) {
+            ...entries.asMap().entries.map((entryPair) {
+              final index = entryPair.key;
+              final entry = entryPair.value;
               final category = incomeCategoryFromString(entry.category);
               final paymentMethod = paymentMethodFromString(
                 entry.paymentMethod,
@@ -516,13 +552,31 @@ class _IncomeReportDetailScreenState extends State<IncomeReportDetailScreen> {
                                 ),
                               ),
                             ),
-                            Text(
-                              '${AppConstants.currencySymbol}${currencyFormat.format(entry.amount)}',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.green.shade700,
-                              ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '${AppConstants.currencySymbol}${currencyFormat.format(entry.amount)}',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green.shade700,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  tooltip: 'Print Receipt',
+                                  icon: Icon(
+                                    Icons.receipt_long,
+                                    color: Colors.blue.shade700,
+                                  ),
+                                  onPressed: () => _printIncomeReceipt(
+                                    report,
+                                    entry,
+                                    index + 1,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -610,6 +664,57 @@ class _IncomeReportDetailScreenState extends State<IncomeReportDetailScreen> {
     );
   }
 
+  Future<void> _printIncomeReceipt(
+    IncomeReport report,
+    IncomeEntry entry,
+    int receiptIndex,
+  ) async {
+    try {
+      final pdfService = PdfExportService();
+      final receiptNumber =
+          '${report.reportNumber}-${receiptIndex.toString().padLeft(3, '0')}';
+      final pdfBytes =
+          await pdfService.exportIncomeReceiptBytes(
+        report,
+        entry,
+        receiptNumber,
+      );
+
+      if (!mounted) return;
+
+      await Printing.layoutPdf(
+        onLayout: (format) async => Uint8List.fromList(pdfBytes),
+        name: 'Income_Receipt_$receiptNumber',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to print receipt: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _printIncomeReport(IncomeReport report) async {
+    final provider = context.read<IncomeReportProvider>();
+    final entries = provider.currentEntries;
+
+    try {
+      final pdfService = IncomeReportPdfExportService();
+      await pdfService.printIncomeReport(report, entries);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to print report: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   void _handleMenuAction(String action, IncomeReport report) async {
     switch (action) {
       case 'edit':
@@ -620,6 +725,9 @@ class _IncomeReportDetailScreenState extends State<IncomeReportDetailScreen> {
         break;
       case 'delete':
         _deleteReport(report);
+        break;
+      case 'print':
+        _printIncomeReport(report);
         break;
       case 'back_to_list':
         context.go('/income');

@@ -17,6 +17,7 @@ class _EditMinutesScreenState extends State<EditMinutesScreen>
     with SingleTickerProviderStateMixin {
   final MeetingService _meetingService = MeetingService();
   late TabController _tabController;
+  final _customHeadingController = TextEditingController();
 
   Meeting? _meeting;
   MeetingMinutes? _minutes;
@@ -35,6 +36,7 @@ class _EditMinutesScreenState extends State<EditMinutesScreen>
   @override
   void dispose() {
     _tabController.dispose();
+    _customHeadingController.dispose();
     super.dispose();
   }
 
@@ -52,6 +54,7 @@ class _EditMinutesScreenState extends State<EditMinutesScreen>
           _minutes = minutes;
           _attendance = minutes?.attendance ?? [];
           _itemRecords = minutes?.itemRecords ?? [];
+          _customHeadingController.text = meeting?.customHeading ?? '';
           _isLoading = false;
         });
       }
@@ -77,6 +80,15 @@ class _EditMinutesScreenState extends State<EditMinutesScreen>
       );
       await _meetingService.updateMinutes(updatedMinutes);
 
+      if (_meeting != null) {
+        final heading = _customHeadingController.text.trim();
+        final updatedMeeting = _meeting!.copyWith(
+          customHeading: heading.isNotEmpty ? heading : null,
+          updatedAt: DateTime.now(),
+        );
+        await _meetingService.updateMeeting(updatedMeeting);
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -84,7 +96,7 @@ class _EditMinutesScreenState extends State<EditMinutesScreen>
             backgroundColor: Colors.green,
           ),
         );
-        context.pop();
+        context.pop(true);
       }
     } catch (e) {
       if (mounted) {
@@ -666,9 +678,14 @@ class _EditMinutesScreenState extends State<EditMinutesScreen>
   }
 
   Widget _buildRecordsTab() {
-    return _itemRecords.isEmpty
-        ? Center(
-            child: Column(
+    return ResponsiveContainer(
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _buildHeadingFieldCard(),
+          const SizedBox(height: 16),
+          if (_itemRecords.isEmpty)
+            Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(Icons.description, size: 64, color: Colors.grey[400]),
@@ -683,17 +700,55 @@ class _EditMinutesScreenState extends State<EditMinutesScreen>
                   style: TextStyle(color: Colors.grey[500], fontSize: 12),
                 ),
               ],
+            )
+          else
+            ..._itemRecords.asMap().entries.map(
+              (entry) => _buildRecordCard(entry.value, entry.key),
             ),
-          )
-        : ResponsiveContainer(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _itemRecords.length,
-              itemBuilder: (context, index) {
-                return _buildRecordCard(_itemRecords[index], index);
-              },
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeadingFieldCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Document Heading',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _customHeadingController,
+            decoration: const InputDecoration(
+              labelText: 'Custom Heading (optional)',
+              hintText:
+                  'e.g. HC ADCOM MINUTES or HOPE CHANNEL SEA BOARD MEETING MINUTES',
+              border: OutlineInputBorder(),
             ),
-          );
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Used for both Agenda and Minutes previews/PDF.',
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildRecordCard(MinutesItemRecord record, int index) {

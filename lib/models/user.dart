@@ -1,6 +1,89 @@
 import 'package:cloud_firestore/cloud_firestore.dart' as firestore;
 import 'enums.dart';
 
+/// Media production permission settings for a user
+class MediaPermissions {
+  final bool canView;
+  final bool canAdd;
+  final bool canEdit;
+  final bool canDelete;
+  final List<String> assignedLanguages; // Language codes: ['en', 'th', 'km', etc.]
+
+  const MediaPermissions({
+    this.canView = false,
+    this.canAdd = false,
+    this.canEdit = false,
+    this.canDelete = false,
+    this.assignedLanguages = const [],
+  });
+
+  factory MediaPermissions.fromMap(Map<String, dynamic>? map) {
+    if (map == null) return const MediaPermissions();
+    return MediaPermissions(
+      canView: map['canView'] as bool? ?? false,
+      canAdd: map['canAdd'] as bool? ?? false,
+      canEdit: map['canEdit'] as bool? ?? false,
+      canDelete: map['canDelete'] as bool? ?? false,
+      assignedLanguages: (map['assignedLanguages'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'canView': canView,
+      'canAdd': canAdd,
+      'canEdit': canEdit,
+      'canDelete': canDelete,
+      'assignedLanguages': assignedLanguages,
+    };
+  }
+
+  MediaPermissions copyWith({
+    bool? canView,
+    bool? canAdd,
+    bool? canEdit,
+    bool? canDelete,
+    List<String>? assignedLanguages,
+  }) {
+    return MediaPermissions(
+      canView: canView ?? this.canView,
+      canAdd: canAdd ?? this.canAdd,
+      canEdit: canEdit ?? this.canEdit,
+      canDelete: canDelete ?? this.canDelete,
+      assignedLanguages: assignedLanguages ?? this.assignedLanguages,
+    );
+  }
+
+  /// Returns full permissions with all languages
+  static MediaPermissions get full => const MediaPermissions(
+        canView: true,
+        canAdd: true,
+        canEdit: true,
+        canDelete: true,
+        assignedLanguages: ['en', 'ms', 'th', 'km', 'lo', 'zh', 'vi'],
+      );
+
+  /// Returns view-only permissions with all languages
+  static MediaPermissions get viewOnly => const MediaPermissions(
+        canView: true,
+        canAdd: false,
+        canEdit: false,
+        canDelete: false,
+        assignedLanguages: ['en', 'ms', 'th', 'km', 'lo', 'zh', 'vi'],
+      );
+
+  /// Returns no permissions
+  static MediaPermissions get none => const MediaPermissions();
+
+  /// Check if user can manage a specific language
+  bool canManageLanguage(String languageCode) {
+    return assignedLanguages.contains(languageCode);
+  }
+}
+
 /// Inventory permission settings for a user
 class InventoryPermissions {
   final bool canView;
@@ -83,9 +166,12 @@ class User {
   final String role; // Store as string: 'requester', 'manager', 'finance', 'admin'
   final String department;
   final String? photoUrl;
+  final String? organizationId; // Organization ID for inventory access
+  final String? organizationName; // Organization name for display
   final DateTime createdAt;
   final DateTime? updatedAt;
   final InventoryPermissions inventoryPermissions;
+  final MediaPermissions mediaPermissions;
 
   User({
     required this.id,
@@ -94,9 +180,12 @@ class User {
     required this.role,
     required this.department,
     this.photoUrl,
+    this.organizationId,
+    this.organizationName,
     required this.createdAt,
     this.updatedAt,
     this.inventoryPermissions = const InventoryPermissions(),
+    this.mediaPermissions = const MediaPermissions(),
   });
 
   // Get UserRole enum from string
@@ -114,9 +203,12 @@ class User {
       'role': role,
       'department': department,
       'photoUrl': photoUrl,
+      'organizationId': organizationId,
+      'organizationName': organizationName,
       'createdAt': firestore.Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt != null ? firestore.Timestamp.fromDate(updatedAt!) : null,
       'inventoryPermissions': inventoryPermissions.toMap(),
+      'mediaPermissions': mediaPermissions.toMap(),
     };
   }
 
@@ -151,10 +243,15 @@ class User {
       role: data['role'] as String? ?? 'requester',
       department: data['department'] as String? ?? 'Unknown',
       photoUrl: data['photoUrl'] as String?,
+      organizationId: data['organizationId'] as String?,
+      organizationName: data['organizationName'] as String?,
       createdAt: createdAt,
       updatedAt: updatedAt,
       inventoryPermissions: InventoryPermissions.fromMap(
         data['inventoryPermissions'] as Map<String, dynamic>?,
+      ),
+      mediaPermissions: MediaPermissions.fromMap(
+        data['mediaPermissions'] as Map<String, dynamic>?,
       ),
     );
   }
@@ -168,9 +265,12 @@ class User {
       'role': role,
       'department': department,
       'photoUrl': photoUrl,
+      'organizationId': organizationId,
+      'organizationName': organizationName,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
       'inventoryPermissions': inventoryPermissions.toMap(),
+      'mediaPermissions': mediaPermissions.toMap(),
     };
   }
 
@@ -182,12 +282,17 @@ class User {
       role: json['role'] as String,
       department: json['department'] as String,
       photoUrl: json['photoUrl'] as String?,
+      organizationId: json['organizationId'] as String?,
+      organizationName: json['organizationName'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: json['updatedAt'] != null
           ? DateTime.parse(json['updatedAt'] as String)
           : null,
       inventoryPermissions: InventoryPermissions.fromMap(
         json['inventoryPermissions'] as Map<String, dynamic>?,
+      ),
+      mediaPermissions: MediaPermissions.fromMap(
+        json['mediaPermissions'] as Map<String, dynamic>?,
       ),
     );
   }
@@ -199,8 +304,11 @@ class User {
     String? role,
     String? department,
     String? photoUrl,
+    String? organizationId,
+    String? organizationName,
     DateTime? updatedAt,
     InventoryPermissions? inventoryPermissions,
+    MediaPermissions? mediaPermissions,
   }) {
     return User(
       id: id,
@@ -209,9 +317,12 @@ class User {
       role: role ?? this.role,
       department: department ?? this.department,
       photoUrl: photoUrl ?? this.photoUrl,
+      organizationId: organizationId ?? this.organizationId,
+      organizationName: organizationName ?? this.organizationName,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       inventoryPermissions: inventoryPermissions ?? this.inventoryPermissions,
+      mediaPermissions: mediaPermissions ?? this.mediaPermissions,
     );
   }
 }

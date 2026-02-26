@@ -263,12 +263,25 @@ class AdcomAgenda {
     );
   }
 
-  /// Generate item number based on meeting date and sequence
-  /// Format: DD/MM-ADXXX (e.g., 05/02-AD001)
-  static String generateItemNumber(DateTime meetingDate, int sequence) {
+  /// Generate item number based on meeting date, sequence, and organization
+  /// Format for ADCOM: DD/MM-ADXXX (e.g., 05/02-AD001)
+  /// Format for HC Board: DD/MM-XXX (e.g., 10/02-024)
+  static String generateItemNumber(
+    DateTime meetingDate,
+    int sequence, {
+    String organization = 'ADCOM',
+  }) {
     final day = meetingDate.day.toString().padLeft(2, '0');
     final month = meetingDate.month.toString().padLeft(2, '0');
     final seq = sequence.toString().padLeft(3, '0');
-    return '$day/$month-AD$seq';
+
+    // Check if organization is ADCOM (case-insensitive)
+    final isAdcom = organization.toUpperCase().contains('ADCOM');
+
+    if (isAdcom) {
+      return '$day/$month-AD$seq';
+    } else {
+      return '$day/$month-$seq';
+    }
   }
 }

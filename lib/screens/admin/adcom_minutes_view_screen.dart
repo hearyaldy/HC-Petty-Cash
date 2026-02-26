@@ -6,8 +6,13 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../../models/adcom_minutes.dart';
+import '../../models/meeting_template.dart';
 import '../../services/adcom_minutes_service.dart';
+import '../../services/meeting_service.dart';
+import '../../services/meeting_template_service.dart';
 import '../../utils/constants.dart';
+import '../../utils/responsive_helper.dart';
+import '../../models/meeting.dart';
 
 class AdcomMinutesViewScreen extends StatefulWidget {
   final String minutesId;
@@ -27,7 +32,13 @@ class AdcomMinutesViewScreen extends StatefulWidget {
 
 class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
   final AdcomMinutesService _service = AdcomMinutesService();
+  final MeetingService _meetingService = MeetingService();
+  final MeetingTemplateService _templateService = MeetingTemplateService();
   AdcomMinutes? _minutes;
+  Meeting? _meeting;
+  MeetingTemplate? _minutesHeaderTemplate;
+  MeetingTemplate? _openingPrayerTemplate;
+  MeetingTemplate? _closingPrayerTemplate;
   bool _isLoading = true;
 
   @override
@@ -40,10 +51,39 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
     setState(() => _isLoading = true);
     try {
       final minutes = await _service.getMinutesById(widget.minutesId);
-      setState(() {
-        _minutes = minutes;
-        _isLoading = false;
-      });
+      final meeting = widget.returnToMeetingId != null
+          ? await _meetingService.getMeeting(widget.returnToMeetingId!)
+          : null;
+      if (minutes != null) {
+        final templates = await Future.wait([
+          _templateService.getTemplate(
+            minutes.organization,
+            MeetingTemplateType.minutesHeader,
+          ),
+          _templateService.getTemplate(
+            minutes.organization,
+            MeetingTemplateType.openingPrayer,
+          ),
+          _templateService.getTemplate(
+            minutes.organization,
+            MeetingTemplateType.closingPrayer,
+          ),
+        ]);
+        setState(() {
+          _minutes = minutes;
+          _meeting = meeting;
+          _minutesHeaderTemplate = templates[0];
+          _openingPrayerTemplate = templates[1];
+          _closingPrayerTemplate = templates[2];
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _minutes = minutes;
+          _meeting = meeting;
+          _isLoading = false;
+        });
+      }
 
       // Auto-print if in print mode
       if (widget.isPrintMode && minutes != null) {
@@ -89,13 +129,17 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
   }
 
   Widget _buildContent() {
+    final isMobile = ResponsiveHelper.isMobile(context);
     return Column(
       children: [
         _buildToolbar(),
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Center(child: _buildDocumentView()),
+            padding: EdgeInsets.all(isMobile ? 12 : 24),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Center(child: _buildDocumentView()),
+            ),
           ),
         ),
       ],
@@ -103,6 +147,60 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
   }
 
   Widget _buildToolbar() {
+    final isMobile = ResponsiveHelper.isMobile(context);
+    if (isMobile) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        color: Colors.teal[700],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: _handleBack,
+                  tooltip: 'Back to Edit',
+                ),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Minutes Preview',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.home_outlined, color: Colors.white),
+                  onPressed: () => context.go('/admin-hub'),
+                  tooltip: 'Home',
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: _generatePdf,
+                  icon: const Icon(Icons.print),
+                  label: const Text('Print / Save PDF'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.teal,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       color: Colors.teal[700],
@@ -157,6 +255,12 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
     final absentMembers = _minutes!.attendanceMembers
         .where((m) => m.isAbsentWithApology)
         .toList();
+    final minutesHeaderText = _buildMinutesHeaderText();
+    final headingText = (_meeting?.customHeading ?? '').trim().isNotEmpty
+        ? _meeting!.customHeading!.trim()
+        : _minutes!.organization.toUpperCase().contains('ADCOM')
+        ? 'HC ADCOM MINUTES'
+        : 'HOPE CHANNEL SEA BOARD MEETING MINUTES';
 
     return Container(
       width: 816, // A4 width in pixels at 96 DPI
@@ -218,24 +322,47 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
                   const SizedBox(height: 16),
                   const Divider(thickness: 1),
                   const SizedBox(height: 16),
-                  const Text(
-                    'ADMINISTRATIVE COMMITTEE MEETING',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1,
+                  if (minutesHeaderText == null) ...[
+                    Text(
+                      '${_minutes!.organization.toUpperCase()} MEETING',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'MINUTES',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 2,
-                      decoration: TextDecoration.underline,
+                    const SizedBox(height: 8),
+                    Text(
+                      headingText,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2,
+                        decoration: TextDecoration.underline,
+                      ),
                     ),
-                  ),
+                  ] else ...[
+                    Text(
+                      minutesHeaderText,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
+                        height: 1.3,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      headingText,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   Text(
                     _buildMeetingDescriptionText(),
@@ -266,9 +393,9 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-              if ((_minutes!.openingPrayer ?? '').isNotEmpty)
+              if (_resolveOpeningPrayerText() != null)
                 Text(
-                  'OPENING PRAYER: ${_minutes!.openingPrayer}',
+                  'OPENING PRAYER: ${_resolveOpeningPrayerText()}',
                   style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
@@ -337,9 +464,9 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
             const SizedBox(height: 32),
             const Divider(),
             const SizedBox(height: 16),
-            if ((_minutes!.closingPrayer ?? '').isNotEmpty)
+            if (_resolveClosingPrayerText() != null)
               Text(
-                'CLOSING PRAYER: ${_minutes!.closingPrayer}',
+                'CLOSING PRAYER: ${_resolveClosingPrayerText()}',
                 style: const TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
@@ -523,7 +650,63 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
         ? _minutes!.location
         : 'the ${AppConstants.organizationName} Conference Room';
 
-    return 'Minutes of the HC ADCOM Meeting held on $dayName at $time (Thailand) at $location.';
+    final organizationLabel = _minutes!.organization == 'HC Board'
+        ? 'Hope Channel SEA Board'
+        : _minutes!.organization;
+    return 'Minutes of the $organizationLabel Meeting held on $dayName at $time (Thailand) at $location.';
+  }
+
+  String? _buildMinutesHeaderText() {
+    final template = _minutesHeaderTemplate;
+    if (template != null) {
+      final text = template.processContent(
+        meetingDate: _minutes!.meetingDate,
+        customOrganization: _minutes!.organization,
+      );
+      final trimmed = text.trim();
+      if (trimmed.isNotEmpty) {
+        return trimmed;
+      }
+    }
+    return null;
+  }
+
+  String? _resolveOpeningPrayerText() {
+    final direct = _minutes!.openingPrayer?.trim();
+    if (direct != null && direct.isNotEmpty) {
+      return direct;
+    }
+    final template = _openingPrayerTemplate;
+    if (template != null) {
+      final text = template.processContent(
+        meetingDate: _minutes!.meetingDate,
+        customOrganization: _minutes!.organization,
+      );
+      final trimmed = text.trim();
+      if (trimmed.isNotEmpty) {
+        return trimmed;
+      }
+    }
+    return null;
+  }
+
+  String? _resolveClosingPrayerText() {
+    final direct = _minutes!.closingPrayer?.trim();
+    if (direct != null && direct.isNotEmpty) {
+      return direct;
+    }
+    final template = _closingPrayerTemplate;
+    if (template != null) {
+      final text = template.processContent(
+        meetingDate: _minutes!.meetingDate,
+        customOrganization: _minutes!.organization,
+      );
+      final trimmed = text.trim();
+      if (trimmed.isNotEmpty) {
+        return trimmed;
+      }
+    }
+    return null;
   }
 
   Future<void> _generatePdf() async {
@@ -544,6 +727,12 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
     final absentMembers = _minutes!.attendanceMembers
         .where((m) => m.isAbsentWithApology)
         .toList();
+    final minutesHeaderText = _buildMinutesHeaderText();
+    final headingText = (_meeting?.customHeading ?? '').trim().isNotEmpty
+        ? _meeting!.customHeading!.trim()
+        : _minutes!.organization.toUpperCase().contains('ADCOM')
+        ? 'HC ADCOM MINUTES'
+        : 'HOPE CHANNEL SEA BOARD MEETING MINUTES';
 
     pdf.addPage(
       pw.MultiPage(
@@ -594,24 +783,47 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
                   pw.SizedBox(height: 12),
                   pw.Divider(thickness: 1),
                   pw.SizedBox(height: 12),
-                  pw.Text(
-                    'ADMINISTRATIVE COMMITTEE MEETING',
-                    style: pw.TextStyle(
-                      fontSize: 12,
-                      fontWeight: pw.FontWeight.bold,
-                      letterSpacing: 1,
+                  if (minutesHeaderText == null) ...[
+                    pw.Text(
+                      '${_minutes!.organization.toUpperCase()} MEETING',
+                      style: pw.TextStyle(
+                        fontSize: 12,
+                        fontWeight: pw.FontWeight.bold,
+                        letterSpacing: 1,
+                      ),
                     ),
-                  ),
-                  pw.SizedBox(height: 6),
-                  pw.Text(
-                    'MINUTES',
-                    style: pw.TextStyle(
-                      fontSize: 14,
-                      fontWeight: pw.FontWeight.bold,
-                      letterSpacing: 2,
-                      decoration: pw.TextDecoration.underline,
+                    pw.SizedBox(height: 6),
+                    pw.Text(
+                      headingText,
+                      style: pw.TextStyle(
+                        fontSize: 14,
+                        fontWeight: pw.FontWeight.bold,
+                        letterSpacing: 2,
+                        decoration: pw.TextDecoration.underline,
+                      ),
                     ),
-                  ),
+                  ] else ...[
+                    pw.Text(
+                      minutesHeaderText,
+                      style: pw.TextStyle(
+                        fontSize: 12,
+                        fontWeight: pw.FontWeight.bold,
+                        letterSpacing: 1,
+                        lineSpacing: 1.3,
+                      ),
+                      textAlign: pw.TextAlign.center,
+                    ),
+                    pw.SizedBox(height: 6),
+                    pw.Text(
+                      headingText,
+                      style: pw.TextStyle(
+                        fontSize: 14,
+                        fontWeight: pw.FontWeight.bold,
+                        letterSpacing: 2,
+                        decoration: pw.TextDecoration.underline,
+                      ),
+                    ),
+                  ],
                   pw.SizedBox(height: 16),
                   pw.Text(
                     _buildMeetingDescriptionText(),
@@ -642,9 +854,9 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
                     fontWeight: pw.FontWeight.bold,
                   ),
                 ),
-              if ((_minutes!.openingPrayer ?? '').isNotEmpty)
+              if (_resolveOpeningPrayerText() != null)
                 pw.Text(
-                  'OPENING PRAYER: ${_minutes!.openingPrayer}',
+                  'OPENING PRAYER: ${_resolveOpeningPrayerText()}',
                   style: pw.TextStyle(
                     fontSize: 10,
                     fontWeight: pw.FontWeight.bold,
@@ -709,9 +921,9 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
             pw.SizedBox(height: 30),
             pw.Divider(),
             pw.SizedBox(height: 15),
-            if ((_minutes!.closingPrayer ?? '').isNotEmpty)
+            if (_resolveClosingPrayerText() != null)
               pw.Text(
-                'CLOSING PRAYER: ${_minutes!.closingPrayer}',
+                'CLOSING PRAYER: ${_resolveClosingPrayerText()}',
                 style: pw.TextStyle(
                   fontSize: 10,
                   fontWeight: pw.FontWeight.bold,
@@ -733,7 +945,7 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
     await Printing.layoutPdf(
       onLayout: (format) async => pdf.save(),
       name:
-          'ADCOM_Minutes_${DateFormat('yyyy-MM-dd').format(_minutes!.meetingDate)}',
+          '${_minutes!.organization.replaceAll(' ', '_')}_Minutes_${DateFormat('yyyy-MM-dd').format(_minutes!.meetingDate)}',
     );
   }
 

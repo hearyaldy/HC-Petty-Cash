@@ -6,8 +6,13 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../../models/adcom_agenda.dart';
+import '../../models/meeting_template.dart';
 import '../../services/adcom_agenda_service.dart';
+import '../../services/meeting_service.dart';
+import '../../services/meeting_template_service.dart';
 import '../../utils/constants.dart';
+import '../../utils/responsive_helper.dart';
+import '../../models/meeting.dart' hide AgendaItem;
 
 class AdcomAgendaViewScreen extends StatefulWidget {
   final String agendaId;
@@ -27,8 +32,23 @@ class AdcomAgendaViewScreen extends StatefulWidget {
 
 class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
   final AdcomAgendaService _service = AdcomAgendaService();
+  final MeetingService _meetingService = MeetingService();
+  final MeetingTemplateService _templateService = MeetingTemplateService();
   AdcomAgenda? _agenda;
+  Meeting? _meeting;
+  MeetingTemplate? _agendaIntroTemplate;
+  MeetingTemplate? _openingPrayerTemplate;
+  MeetingTemplate? _closingPrayerTemplate;
   bool _isLoading = true;
+  String _resolveHeadingText() {
+    final customHeading = (_meeting?.customHeading ?? '').trim();
+    if (customHeading.isNotEmpty) {
+      return customHeading;
+    }
+    return _agenda!.organization.toUpperCase().contains('ADCOM')
+        ? 'HC ADCOM AGENDA'
+        : 'HOPE CHANNEL SEA BOARD MEETING AGENDA';
+  }
 
   @override
   void initState() {
@@ -40,10 +60,39 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
     setState(() => _isLoading = true);
     try {
       final agenda = await _service.getAgendaById(widget.agendaId);
-      setState(() {
-        _agenda = agenda;
-        _isLoading = false;
-      });
+      final meeting = widget.returnToMeetingId != null
+          ? await _meetingService.getMeeting(widget.returnToMeetingId!)
+          : null;
+      if (agenda != null) {
+        final templates = await Future.wait([
+          _templateService.getTemplate(
+            agenda.organization,
+            MeetingTemplateType.agendaIntroduction,
+          ),
+          _templateService.getTemplate(
+            agenda.organization,
+            MeetingTemplateType.openingPrayer,
+          ),
+          _templateService.getTemplate(
+            agenda.organization,
+            MeetingTemplateType.closingPrayer,
+          ),
+        ]);
+        setState(() {
+          _agenda = agenda;
+          _meeting = meeting;
+          _agendaIntroTemplate = templates[0];
+          _openingPrayerTemplate = templates[1];
+          _closingPrayerTemplate = templates[2];
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _agenda = agenda;
+          _meeting = meeting;
+          _isLoading = false;
+        });
+      }
 
       // Auto-print if in print mode
       if (widget.isPrintMode && agenda != null) {
@@ -86,13 +135,17 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
   }
 
   Widget _buildContent() {
+    final isMobile = ResponsiveHelper.isMobile(context);
     return Column(
       children: [
         _buildToolbar(),
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Center(child: _buildDocumentView()),
+            padding: EdgeInsets.all(isMobile ? 12 : 24),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Center(child: _buildDocumentView()),
+            ),
           ),
         ),
       ],
@@ -100,6 +153,74 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
   }
 
   Widget _buildToolbar() {
+    final isMobile = ResponsiveHelper.isMobile(context);
+    if (isMobile) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        color: Colors.grey[800],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: _handleBack,
+                  tooltip: 'Back to Edit',
+                ),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Document Preview',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.home_outlined, color: Colors.white),
+                  onPressed: () => context.go('/admin-hub'),
+                  tooltip: 'Home',
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                if (widget.returnToMeetingId != null)
+                  ElevatedButton.icon(
+                    onPressed: () => context.go(
+                      '/meetings/${widget.returnToMeetingId}?tab=agenda',
+                    ),
+                    icon: const Icon(Icons.edit),
+                    label: const Text('Edit Agenda'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.grey[800],
+                    ),
+                  ),
+                ElevatedButton.icon(
+                  onPressed: _generatePdf,
+                  icon: const Icon(Icons.print),
+                  label: const Text('Print / Save PDF'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.grey[800],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    final headingText = _resolveHeadingText();
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       color: Colors.grey[800],
@@ -236,17 +357,27 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
                   const SizedBox(height: 16),
                   const Divider(thickness: 1),
                   const SizedBox(height: 16),
-                  const Text(
-                    'ADMINISTRATIVE COMMITTEE MEETING',
-                    style: TextStyle(
+                  Text(
+                    '${_agenda!.organization.toUpperCase()} MEETING',
+                    style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1,
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _resolveHeadingText(),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
                   const SizedBox(height: 20),
                   Text(
-                    _buildMeetingDescriptionText(),
+                    _buildAgendaIntroductionText(),
                     style: const TextStyle(fontSize: 11, height: 1.4),
                     textAlign: TextAlign.center,
                   ),
@@ -274,9 +405,9 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-              if ((_agenda!.openingPrayer ?? '').isNotEmpty)
+              if (_resolveOpeningPrayerText() != null)
                 Text(
-                  'OPENING PRAYER: ${_agenda!.openingPrayer}',
+                  'OPENING PRAYER: ${_resolveOpeningPrayerText()}',
                   style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
@@ -326,7 +457,7 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
             // Agenda Items (structured view - only shown when no rich text content)
             if (_agenda!.agendaItems.isNotEmpty) ...[
               const Text(
-                'AGENDA',
+                'AGENDA ITEMS',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -345,9 +476,9 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
             const SizedBox(height: 32),
             const Divider(),
             const SizedBox(height: 16),
-            if ((_agenda!.closingPrayer ?? '').isNotEmpty)
+            if (_resolveClosingPrayerText() != null)
               Text(
-                'CLOSING PRAYER: ${_agenda!.closingPrayer}',
+                'CLOSING PRAYER: ${_resolveClosingPrayerText()}',
                 style: const TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
@@ -445,7 +576,64 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
         ? _agenda!.location
         : 'the ${AppConstants.organizationName} Conference Room';
 
-    return 'Agenda for HC ADCOM Meeting held on $dayName at $time (Thailand) at $location.';
+    final organizationLabel = _agenda!.organization == 'HC Board'
+        ? 'Hope Channel SEA Board'
+        : _agenda!.organization;
+
+    return 'Agenda for $organizationLabel Meeting held on $dayName at $time (Thailand) at $location.';
+  }
+
+  String _buildAgendaIntroductionText() {
+    final template = _agendaIntroTemplate;
+    if (template != null) {
+      final text = template.processContent(
+        meetingDate: _agenda!.meetingDate,
+        customOrganization: _agenda!.organization,
+      );
+      final trimmed = text.trim();
+      if (trimmed.isNotEmpty) {
+        return trimmed;
+      }
+    }
+    return _buildMeetingDescriptionText();
+  }
+
+  String? _resolveOpeningPrayerText() {
+    final direct = _agenda!.openingPrayer?.trim();
+    if (direct != null && direct.isNotEmpty) {
+      return direct;
+    }
+    final template = _openingPrayerTemplate;
+    if (template != null) {
+      final text = template.processContent(
+        meetingDate: _agenda!.meetingDate,
+        customOrganization: _agenda!.organization,
+      );
+      final trimmed = text.trim();
+      if (trimmed.isNotEmpty) {
+        return trimmed;
+      }
+    }
+    return null;
+  }
+
+  String? _resolveClosingPrayerText() {
+    final direct = _agenda!.closingPrayer?.trim();
+    if (direct != null && direct.isNotEmpty) {
+      return direct;
+    }
+    final template = _closingPrayerTemplate;
+    if (template != null) {
+      final text = template.processContent(
+        meetingDate: _agenda!.meetingDate,
+        customOrganization: _agenda!.organization,
+      );
+      final trimmed = text.trim();
+      if (trimmed.isNotEmpty) {
+        return trimmed;
+      }
+    }
+    return null;
   }
 
   Future<void> _generatePdf() async {
@@ -467,6 +655,8 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
     final absentMembers = _agenda!.attendanceMembers
         .where((m) => m.isAbsentWithApology)
         .toList();
+
+    final pdfHeadingText = _resolveHeadingText();
 
     pdf.addPage(
       pw.MultiPage(
@@ -518,16 +708,26 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
                   pw.Divider(thickness: 1),
                   pw.SizedBox(height: 12),
                   pw.Text(
-                    'ADMINISTRATIVE COMMITTEE MEETING',
+                    '${_agenda!.organization.toUpperCase()} MEETING',
                     style: pw.TextStyle(
                       fontSize: 12,
                       fontWeight: pw.FontWeight.bold,
                       letterSpacing: 1,
                     ),
                   ),
+                  pw.SizedBox(height: 6),
+                  pw.Text(
+                    pdfHeadingText,
+                    style: pw.TextStyle(
+                      fontSize: 14,
+                      fontWeight: pw.FontWeight.bold,
+                      letterSpacing: 2,
+                      decoration: pw.TextDecoration.underline,
+                    ),
+                  ),
                   pw.SizedBox(height: 16),
                   pw.Text(
-                    _buildMeetingDescriptionText(),
+                    _buildAgendaIntroductionText(),
                     style: const pw.TextStyle(fontSize: 10),
                     textAlign: pw.TextAlign.center,
                   ),
@@ -555,9 +755,9 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
                     fontWeight: pw.FontWeight.bold,
                   ),
                 ),
-              if ((_agenda!.openingPrayer ?? '').isNotEmpty)
+              if (_resolveOpeningPrayerText() != null)
                 pw.Text(
-                  'OPENING PRAYER: ${_agenda!.openingPrayer}',
+                  'OPENING PRAYER: ${_resolveOpeningPrayerText()}',
                   style: pw.TextStyle(
                     fontSize: 10,
                     fontWeight: pw.FontWeight.bold,
@@ -605,7 +805,7 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
             // Agenda Items
             if (_agenda!.agendaItems.isNotEmpty) ...[
               pw.Text(
-                'AGENDA',
+                'AGENDA ITEMS',
                 style: pw.TextStyle(
                   fontSize: 11,
                   fontWeight: pw.FontWeight.bold,
@@ -620,9 +820,9 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
             pw.SizedBox(height: 30),
             pw.Divider(),
             pw.SizedBox(height: 15),
-            if ((_agenda!.closingPrayer ?? '').isNotEmpty)
+            if (_resolveClosingPrayerText() != null)
               pw.Text(
-                'CLOSING PRAYER: ${_agenda!.closingPrayer}',
+                'CLOSING PRAYER: ${_resolveClosingPrayerText()}',
                 style: pw.TextStyle(
                   fontSize: 10,
                   fontWeight: pw.FontWeight.bold,

@@ -37,6 +37,50 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
     'rejected',
   ];
 
+  String _formatReportPeriod(Map<String, dynamic> reportData) {
+    final startRaw = reportData['periodStart'];
+    final endRaw = reportData['periodEnd'];
+    if (startRaw is Timestamp && endRaw is Timestamp) {
+      final start = startRaw.toDate();
+      final end = endRaw.toDate();
+      final format = DateFormat('MMM dd, yyyy');
+      return '${format.format(start)} - ${format.format(end)}';
+    }
+
+    final month = reportData['month'] ?? '';
+    try {
+      final parts = month.split('-');
+      if (parts.length == 2) {
+        final monthDate = DateTime(
+          int.parse(parts[0]),
+          int.parse(parts[1]),
+        );
+        return DateFormat('MMMM yyyy').format(monthDate);
+      }
+    } catch (_) {}
+
+    return month.isNotEmpty ? month : 'Unknown';
+  }
+
+  DateTime? _reportPeriodStart(Map<String, dynamic> reportData) {
+    final startRaw = reportData['periodStart'];
+    if (startRaw is Timestamp) {
+      return startRaw.toDate();
+    }
+    final month = reportData['month'];
+    if (month is String) {
+      final parts = month.split('-');
+      if (parts.length == 2) {
+        final year = int.tryParse(parts[0]);
+        final monthNum = int.tryParse(parts[1]);
+        if (year != null && monthNum != null) {
+          return DateTime(year, monthNum, 1);
+        }
+      }
+    }
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -139,6 +183,11 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
     // Sort reports within each student by month (newest first)
     for (final reports in _groupedReports.values) {
       reports.sort((a, b) {
+        final startA = _reportPeriodStart(a);
+        final startB = _reportPeriodStart(b);
+        if (startA != null && startB != null) {
+          return startB.compareTo(startA);
+        }
         final monthA = a['month'] ?? '';
         final monthB = b['month'] ?? '';
         return monthB.compareTo(monthA);
@@ -149,14 +198,14 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: Colors.grey[100],
       body: SafeArea(
         child: ResponsiveContainer(
           child: Column(
             children: [
               _buildWelcomeHeader(),
               _buildFilterBar(),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
               Expanded(child: _buildReportsList()),
             ],
           ),
@@ -167,87 +216,120 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
 
   Widget _buildWelcomeHeader() {
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Colors.orange.shade400, Colors.orange.shade600],
+          colors: [
+            Colors.orange.shade400,
+            Colors.orange.shade600,
+            Colors.deepOrange.shade700,
+          ],
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.orange.shade200,
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: Colors.orange.shade300,
+            blurRadius: 15,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
-      child: Column(
+      child: Stack(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Student Reports',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.9),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
+          Positioned(
+            right: -30,
+            top: -30,
+            child: Container(
+              width: 150,
+              height: 150,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.1),
               ),
+            ),
+          ),
+          Positioned(
+            right: 50,
+            bottom: -40,
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.08),
+              ),
+            ),
+          ),
+          Column(
+            children: [
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _buildHeaderActionButton(
-                    icon: Icons.refresh,
-                    tooltip: 'Refresh',
-                    onPressed: _loadReports,
+                  Text(
+                    'Student Reports',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  _buildHeaderActionButton(
-                    icon: Icons.home_outlined,
-                    tooltip: 'Home',
-                    onPressed: () => context.go('/admin-hub'),
+                  Row(
+                    children: [
+                      _buildHeaderActionButton(
+                        icon: Icons.refresh,
+                        tooltip: 'Refresh',
+                        onPressed: _loadReports,
+                      ),
+                      const SizedBox(width: 8),
+                      _buildHeaderActionButton(
+                        icon: Icons.home_outlined,
+                        tooltip: 'Home',
+                        onPressed: () => context.go('/admin-hub'),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.school, color: Colors.white, size: 32),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Student Reports Management',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${_reports.length} total reports',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
-                        fontSize: 14,
-                      ),
+                    child:
+                        const Icon(Icons.school, color: Colors.white, size: 32),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Student Reports Management',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${_reports.length} total reports',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -561,17 +643,7 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
         statusIcon = Icons.edit_document;
     }
 
-    // Format month display
-    String monthDisplay = month;
-    try {
-      final parts = month.split('-');
-      if (parts.length == 2) {
-        final monthDate = DateTime(int.parse(parts[0]), int.parse(parts[1]));
-        monthDisplay = DateFormat('MMMM yyyy').format(monthDate);
-      }
-    } catch (e) {
-      // Keep original
-    }
+    final monthDisplay = _formatReportPeriod(reportData);
 
     return InkWell(
       onTap: () {
@@ -608,31 +680,54 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      Text(
-                        '$timesheetCount entries',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                      ),
-                      const SizedBox(width: 8),
-                      Text('•', style: TextStyle(color: Colors.grey[400])),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${totalHours.toStringAsFixed(1)}h',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                      ),
-                      const SizedBox(width: 8),
-                      Text('•', style: TextStyle(color: Colors.grey[400])),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${AppConstants.currencySymbol}${totalAmount.toStringAsFixed(2)}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isTight = constraints.maxWidth < 200;
+                      final mutedStyle =
+                          TextStyle(fontSize: 12, color: Colors.grey[600]);
+                      if (isTight) {
+                        return Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: [
+                            Text('$timesheetCount entries', style: mutedStyle),
+                            Text('${totalHours.toStringAsFixed(1)}h',
+                                style: mutedStyle),
+                            Text(
+                              '${AppConstants.currencySymbol}${totalAmount.toStringAsFixed(2)}',
+                              style: mutedStyle.copyWith(
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        );
+                      }
+
+                      return Row(
+                        children: [
+                          Text(
+                            '$timesheetCount entries',
+                            style: mutedStyle,
+                          ),
+                          const SizedBox(width: 8),
+                          Text('•', style: TextStyle(color: Colors.grey[400])),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${totalHours.toStringAsFixed(1)}h',
+                            style: mutedStyle,
+                          ),
+                          const SizedBox(width: 8),
+                          Text('•', style: TextStyle(color: Colors.grey[400])),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${AppConstants.currencySymbol}${totalAmount.toStringAsFixed(2)}',
+                            style: mutedStyle.copyWith(
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),
@@ -659,8 +754,76 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-            Icon(Icons.chevron_right, color: Colors.grey[400], size: 20),
+            const SizedBox(width: 4),
+            PopupMenuButton<String>(
+              tooltip: 'Actions',
+              onSelected: (value) async {
+                if (value == 'delete') {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Delete Report'),
+                      content: const Text(
+                        'Are you sure you want to delete this report? This action cannot be undone.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(false),
+                          child: const Text('Cancel'),
+                        ),
+                        ElevatedButton(
+                          onPressed: () => Navigator.of(context).pop(true),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                          ),
+                          child: const Text('Delete'),
+                        ),
+                      ],
+                    ),
+                  );
+
+                  if (confirm == true) {
+                    try {
+                      await FirebaseFirestore.instance
+                          .collection('student_monthly_reports')
+                          .doc(reportId)
+                          .delete();
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Report deleted'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                        _loadReports();
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Error deleting report: $e'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    }
+                  }
+                }
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem<String>(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete, size: 18, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('Delete', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ),
+              ],
+              icon: Icon(Icons.more_vert, color: Colors.grey[500], size: 20),
+            ),
           ],
         ),
       ),
@@ -685,80 +848,97 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _isLoadingStudents
-                      ? const Center(child: CircularProgressIndicator())
-                      : DropdownButtonFormField<String>(
-                          value: _selectedStudentId,
-                          decoration: InputDecoration(
-                            labelText: 'Student',
-                            border: const OutlineInputBorder(),
-                            prefixIcon: const Icon(Icons.person),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            filled: true,
-                            fillColor: Colors.grey[100],
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isNarrow = constraints.maxWidth < 520;
+                final studentField = _isLoadingStudents
+                    ? const Center(child: CircularProgressIndicator())
+                    : DropdownButtonFormField<String>(
+                        value: _selectedStudentId,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          labelText: 'Student',
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.person),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
                           ),
-                          items: [
-                            const DropdownMenuItem(
-                              value: null,
-                              child: Text('All Students'),
-                            ),
-                            ..._students.map(
-                              (student) => DropdownMenuItem(
-                                value: student['id'].toString(),
-                                child: Text(student['name']),
-                              ),
-                            ),
-                          ],
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedStudentId = value;
-                            });
-                            _loadReports();
-                          },
+                          filled: true,
+                          fillColor: Colors.grey[100],
                         ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _selectedStatus,
-                    decoration: InputDecoration(
-                      labelText: 'Status',
-                      border: const OutlineInputBorder(),
-                      prefixIcon: const Icon(Icons.flag),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey[100],
+                        items: [
+                          const DropdownMenuItem(
+                            value: null,
+                            child: Text('All Students'),
+                          ),
+                          ..._students.map(
+                            (student) => DropdownMenuItem(
+                              value: student['id'].toString(),
+                              child: Text(student['name']),
+                            ),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedStudentId = value;
+                          });
+                          _loadReports();
+                        },
+                      );
+
+                final statusField = DropdownButtonFormField<String>(
+                  value: _selectedStatus,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: 'Status',
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.flag),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
                     ),
-                    items: [
-                      const DropdownMenuItem(
-                        value: null,
-                        child: Text('All Status'),
-                      ),
-                      ..._statusOptions.map(
-                        (status) => DropdownMenuItem(
-                          value: status,
-                          child: Text(status.toUpperCase()),
-                        ),
-                      ),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedStatus = value;
-                      });
-                      _loadReports();
-                    },
+                    filled: true,
+                    fillColor: Colors.grey[100],
                   ),
-                ),
-              ],
+                  items: [
+                    const DropdownMenuItem(
+                      value: null,
+                      child: Text('All Status'),
+                    ),
+                    ..._statusOptions.map(
+                      (status) => DropdownMenuItem(
+                        value: status,
+                        child: Text(status.toUpperCase()),
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedStatus = value;
+                    });
+                    _loadReports();
+                  },
+                );
+
+                if (isNarrow) {
+                  return Column(
+                    children: [
+                      studentField,
+                      const SizedBox(height: 12),
+                      statusField,
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    Expanded(child: studentField),
+                    const SizedBox(width: 16),
+                    Expanded(child: statusField),
+                  ],
+                );
+              },
             ),
           ],
         ),

@@ -32,6 +32,84 @@ class _StudentMonthlyReportDetailScreenState
   bool _isLoading = true;
   Map<String, dynamic>? _reportData;
   List<StudentTimesheet> _timesheets = [];
+  bool _isUpdatingReport = false;
+
+  DateTime _dateOnly(DateTime value) =>
+      DateTime(value.year, value.month, value.day);
+
+  DateTime _fallbackPeriodStart() {
+    final parts = widget.month.split('-');
+    if (parts.length == 2) {
+      final year = int.tryParse(parts[0]);
+      final month = int.tryParse(parts[1]);
+      if (year != null && month != null) {
+        return DateTime(year, month, 1);
+      }
+    }
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, 1);
+  }
+
+  DateTime _fallbackPeriodEnd() {
+    final parts = widget.month.split('-');
+    if (parts.length == 2) {
+      final year = int.tryParse(parts[0]);
+      final month = int.tryParse(parts[1]);
+      if (year != null && month != null) {
+        return DateTime(year, month + 1, 0);
+      }
+    }
+    final now = DateTime.now();
+    return DateTime(now.year, now.month + 1, 0);
+  }
+
+  DateTime _getPeriodStart() {
+    final raw = _reportData?['periodStart'];
+    if (raw is Timestamp) {
+      return _dateOnly(raw.toDate());
+    }
+    return _fallbackPeriodStart();
+  }
+
+  DateTime _getPeriodEnd() {
+    final raw = _reportData?['periodEnd'];
+    if (raw is Timestamp) {
+      return _dateOnly(raw.toDate());
+    }
+    return _fallbackPeriodEnd();
+  }
+
+  String _formatPeriodDisplay() {
+    final dateFormat = DateFormat('MMM dd, yyyy');
+    return '${dateFormat.format(_getPeriodStart())} - ${dateFormat.format(_getPeriodEnd())}';
+  }
+
+  DateTime _backdateMin() {
+    final today = _dateOnly(DateTime.now());
+    return today.subtract(const Duration(days: 7));
+  }
+
+  DateTime _backdateMax() => _dateOnly(DateTime.now());
+
+  DateTime? _getAllowedDateMin() {
+    final min = _getPeriodStart();
+    final backdateMin = _backdateMin();
+    return min.isAfter(backdateMin) ? min : backdateMin;
+  }
+
+  DateTime? _getAllowedDateMax() {
+    final max = _getPeriodEnd();
+    final backdateMax = _backdateMax();
+    return max.isBefore(backdateMax) ? max : backdateMax;
+  }
+
+  bool _isDateAllowed(DateTime date) {
+    final min = _getAllowedDateMin();
+    final max = _getAllowedDateMax();
+    if (min == null || max == null) return false;
+    if (max.isBefore(min)) return false;
+    return !date.isBefore(min) && !date.isAfter(max);
+  }
 
   Widget _buildHeaderActionButton({
     required IconData icon,
@@ -55,6 +133,435 @@ class _StudentMonthlyReportDetailScreenState
     );
   }
 
+  Future<void> _showEditReportDialog() async {
+    if (_reportData == null) return;
+    if ((_reportData?['isFinalized'] ?? false) == true) return;
+
+    String monthValue = _reportData?['month'] ?? widget.month;
+    final monthDisplayFormat = DateFormat('MMMM yyyy');
+    final monthController = TextEditingController(
+      text: monthDisplayFormat.format(DateTime.parse('$monthValue-01')),
+    );
+    final statusController = TextEditingController(
+      text: _reportData?['status'] ?? 'draft',
+    );
+    final notesController = TextEditingController(
+      text: _reportData?['notes'] ?? '',
+    );
+    DateTime periodStart = _getPeriodStart();
+    DateTime periodEnd = _getPeriodEnd();
+    final dayFormat = DateFormat('MMM dd, yyyy');
+
+    DateTime deriveMonthStart(String month) {
+      final parts = month.split('-');
+      if (parts.length == 2) {
+        final year = int.tryParse(parts[0]);
+        final monthNum = int.tryParse(parts[1]);
+        if (year != null && monthNum != null) {
+          return DateTime(year, monthNum, 1);
+        }
+      }
+      final now = DateTime.now();
+      return DateTime(now.year, now.month, 1);
+    }
+
+    DateTime deriveMonthEnd(String month) {
+      final parts = month.split('-');
+      if (parts.length == 2) {
+        final year = int.tryParse(parts[0]);
+        final monthNum = int.tryParse(parts[1]);
+        if (year != null && monthNum != null) {
+          return DateTime(year, monthNum + 1, 0);
+        }
+      }
+      final now = DateTime.now();
+      return DateTime(now.year, now.month + 1, 0);
+    }
+
+    Future<void> selectPeriodStart(StateSetter setState) async {
+      final monthStart = deriveMonthStart(monthValue);
+      final monthEnd = deriveMonthEnd(monthValue);
+      final picked = await showDatePicker(
+        context: context,
+        initialDate: periodStart.isBefore(monthStart)
+            ? monthStart
+            : periodStart.isAfter(monthEnd)
+                ? monthEnd
+                : periodStart,
+        firstDate: monthStart,
+        lastDate: monthEnd,
+      );
+      if (picked != null) {
+        setState(() {
+          periodStart = picked;
+          if (periodStart.isAfter(periodEnd)) {
+            periodEnd = periodStart;
+          }
+        });
+      }
+    }
+
+    Future<void> selectPeriodEnd(StateSetter setState) async {
+      final monthStart = deriveMonthStart(monthValue);
+      final monthEnd = deriveMonthEnd(monthValue);
+      final picked = await showDatePicker(
+        context: context,
+        initialDate: periodEnd.isBefore(monthStart)
+            ? monthStart
+            : periodEnd.isAfter(monthEnd)
+                ? monthEnd
+                : periodEnd,
+        firstDate: monthStart,
+        lastDate: monthEnd,
+      );
+      if (picked != null) {
+        setState(() {
+          periodEnd = picked;
+          if (periodEnd.isBefore(periodStart)) {
+            periodStart = periodEnd;
+          }
+        });
+      }
+    }
+
+    Future<void> selectMonth(StateSetter setState) async {
+      final initial = DateTime.parse('$monthValue-01');
+      final picked = await showDatePicker(
+        context: context,
+        initialDate: initial,
+        firstDate: DateTime(2020),
+        lastDate: DateTime.now().add(const Duration(days: 365)),
+      );
+      if (picked != null) {
+        setState(() {
+          monthValue = DateFormat('yyyy-MM').format(picked);
+          monthController.text = monthDisplayFormat.format(picked);
+          final monthStart = deriveMonthStart(monthValue);
+          final monthEnd = deriveMonthEnd(monthValue);
+          if (periodStart.isBefore(monthStart) ||
+              periodStart.isAfter(monthEnd)) {
+            periodStart = monthStart;
+          }
+          if (periodEnd.isBefore(monthStart) || periodEnd.isAfter(monthEnd)) {
+            periodEnd = monthEnd;
+          }
+          if (periodEnd.isBefore(periodStart)) {
+            periodEnd = periodStart;
+          }
+        });
+      }
+    }
+
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: const Text('Edit Report'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                InkWell(
+                  onTap: () => selectMonth(setDialogState),
+                  borderRadius: BorderRadius.circular(8),
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Month',
+                      border: OutlineInputBorder(),
+                    ),
+                    child: Text(monthController.text),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => selectPeriodStart(setDialogState),
+                        borderRadius: BorderRadius.circular(8),
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'Period Start',
+                            border: OutlineInputBorder(),
+                          ),
+                          child: Text(dayFormat.format(periodStart)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => selectPeriodEnd(setDialogState),
+                        borderRadius: BorderRadius.circular(8),
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'Period End',
+                            border: OutlineInputBorder(),
+                          ),
+                          child: Text(dayFormat.format(periodEnd)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: statusController.text,
+                  decoration: const InputDecoration(
+                    labelText: 'Status',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'draft', child: Text('Draft')),
+                    DropdownMenuItem(
+                      value: 'submitted',
+                      child: Text('Submitted'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'approved',
+                      child: Text('Approved'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'rejected',
+                      child: Text('Rejected'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      statusController.text = value;
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: notesController,
+                  decoration: const InputDecoration(
+                    labelText: 'Notes',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 3,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: _isUpdatingReport
+                  ? null
+                  : () async {
+                      final month = monthValue;
+                      final status = statusController.text.trim();
+                      final notes = notesController.text.trim();
+
+                      if (status.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Status cannot be empty'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
+
+                      final monthStart = deriveMonthStart(month);
+                      final monthEnd = deriveMonthEnd(month);
+                      if (periodStart.isBefore(monthStart) ||
+                          periodEnd.isAfter(monthEnd) ||
+                          periodStart.isAfter(periodEnd)) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Report period must be within the selected month',
+                            ),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
+
+                      final studentId = _reportData?['studentId'];
+                      if (studentId != null) {
+                        final existingReport = await FirebaseFirestore.instance
+                            .collection('student_monthly_reports')
+                            .where('studentId', isEqualTo: studentId)
+                            .where('month', isEqualTo: month)
+                            .get();
+
+                        for (final doc in existingReport.docs) {
+                          if (doc.id == widget.reportId) continue;
+                          final data = doc.data();
+                          DateTime existingStart;
+                          DateTime existingEnd;
+                          if (data['periodStart'] is Timestamp &&
+                              data['periodEnd'] is Timestamp) {
+                            existingStart =
+                                (data['periodStart'] as Timestamp).toDate();
+                            existingEnd =
+                                (data['periodEnd'] as Timestamp).toDate();
+                          } else {
+                            existingStart = monthStart;
+                            existingEnd = monthEnd;
+                          }
+
+                          final overlaps = !periodEnd.isBefore(existingStart) &&
+                              !periodStart.isAfter(existingEnd);
+                          if (overlaps) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Report period overlaps with another report in this month',
+                                ),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                            return;
+                          }
+                        }
+                      }
+
+                      setState(() => _isUpdatingReport = true);
+                      try {
+                      final monthDisplay = DateFormat('MMMM yyyy')
+                          .format(DateTime.parse('$month-01'));
+                        final Map<String, dynamic> updates = {
+                          'month': month,
+                          'monthDisplay': monthDisplay,
+                          'periodStart': Timestamp.fromDate(periodStart),
+                          'periodEnd': Timestamp.fromDate(periodEnd),
+                          'status': status,
+                          'notes': notes.isEmpty ? null : notes,
+                          'updatedAt': FieldValue.serverTimestamp(),
+                        };
+
+                        if (status == 'draft') {
+                          updates['submittedAt'] = null;
+                          updates['submittedBy'] = null;
+                        } else if (status == 'submitted') {
+                          updates['submittedAt'] = DateTime.now();
+                          updates['submittedBy'] = context
+                                  .read<AuthProvider>()
+                                  .currentUser
+                                  ?.name ??
+                              'Student';
+                        }
+
+                        await FirebaseFirestore.instance
+                            .collection('student_monthly_reports')
+                            .doc(widget.reportId)
+                            .update(updates);
+
+                        final timesheetQuery = await FirebaseFirestore.instance
+                            .collection('student_timesheets')
+                            .where('reportId', isEqualTo: widget.reportId)
+                            .get();
+                        final batch = FirebaseFirestore.instance.batch();
+                        for (final doc in timesheetQuery.docs) {
+                          batch.update(doc.reference, {'status': status});
+                        }
+                        await batch.commit();
+                        if (mounted) {
+                          Navigator.pop(dialogContext);
+                          await _loadReportDetails();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Report updated successfully'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error updating report: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      } finally {
+                        if (mounted) {
+                          setState(() => _isUpdatingReport = false);
+                        }
+                      }
+                    },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _unsubmitReport() async {
+    if ((_reportData?['status'] ?? 'draft') != 'submitted') return;
+    if ((_reportData?['isFinalized'] ?? false) == true) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Unsubmit Report'),
+        content: const Text('Move this report back to draft?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('student_monthly_reports')
+          .doc(widget.reportId)
+          .update({
+            'status': 'draft',
+            'submittedAt': null,
+            'submittedBy': null,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+
+      final timesheetQuery = await FirebaseFirestore.instance
+          .collection('student_timesheets')
+          .where('reportId', isEqualTo: widget.reportId)
+          .get();
+      final batch = FirebaseFirestore.instance.batch();
+      for (final doc in timesheetQuery.docs) {
+        batch.update(doc.reference, {'status': 'draft'});
+      }
+      await batch.commit();
+
+      if (mounted) {
+        await _loadReportDetails();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Report moved back to draft'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error unsubmit report: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Widget _buildWelcomeHeader() {
     final isMobile = ResponsiveHelper.isMobile(context);
     final status = _reportData?['status'] ?? 'draft';
@@ -75,113 +582,188 @@ class _StudentMonthlyReportDetailScreenState
     }
 
     return Container(
-      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      padding: EdgeInsets.all(isMobile ? 20 : 24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.orange.shade600, Colors.orange.shade400],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
+          colors: [
+            Colors.orange.shade400,
+            Colors.orange.shade600,
+            Colors.deepOrange.shade700,
+          ],
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.orange.withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+            color: Colors.orange.shade300,
+            blurRadius: 15,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
-      child: Column(
+      child: Stack(
         children: [
-          // Top action bar
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildHeaderActionButton(
-                icon: Icons.arrow_back,
-                tooltip: 'Back',
-                onPressed: () => context.pop(),
+          Positioned(
+            right: -30,
+            top: -30,
+            child: Container(
+              width: 140,
+              height: 140,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.1),
               ),
+            ),
+          ),
+          Positioned(
+            right: 50,
+            bottom: -40,
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.08),
+              ),
+            ),
+          ),
+          Column(
+            children: [
+              // Top action bar
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _buildHeaderActionButton(
-                    icon: Icons.print,
-                    tooltip: 'Print Report',
-                    onPressed: _generatePdf,
+                    icon: Icons.arrow_back,
+                    tooltip: 'Back',
+                    onPressed: () => context.pop(),
                   ),
-                  const SizedBox(width: 8),
-                  _buildHeaderActionButton(
-                    icon: Icons.picture_as_pdf,
-                    tooltip: 'Export as PDF',
-                    onPressed: _generatePdf,
-                  ),
-                  const SizedBox(width: 8),
-                  _buildHeaderActionButton(
-                    icon: Icons.table_chart,
-                    tooltip: 'Export as Excel',
-                    onPressed: _generateExcel,
+                  Row(
+                    children: [
+                      _buildHeaderActionButton(
+                        icon: Icons.print,
+                        tooltip: 'Print Report',
+                        onPressed: _generatePdf,
+                      ),
+                      const SizedBox(width: 8),
+                      if ((_reportData?['status'] ?? 'draft') == 'submitted' &&
+                          (_reportData?['isFinalized'] ?? false) == false)
+                        _buildHeaderActionButton(
+                          icon: Icons.undo,
+                          tooltip: 'Unsubmit Report',
+                          onPressed: _unsubmitReport,
+                        ),
+                      if ((_reportData?['status'] ?? 'draft') == 'draft' &&
+                          (_reportData?['isFinalized'] ?? false) == false)
+                        _buildHeaderActionButton(
+                          icon: Icons.edit_calendar,
+                          tooltip: 'Edit Report Period',
+                          onPressed: _showEditReportDialog,
+                        ),
+                      if ((_reportData?['status'] ?? 'draft') == 'draft' &&
+                          (_reportData?['isFinalized'] ?? false) == false)
+                        const SizedBox(width: 8),
+                      _buildHeaderActionButton(
+                        icon: Icons.picture_as_pdf,
+                        tooltip: 'Export as PDF',
+                        onPressed: _generatePdf,
+                      ),
+                      const SizedBox(width: 8),
+                      _buildHeaderActionButton(
+                        icon: Icons.table_chart,
+                        tooltip: 'Export as Excel',
+                        onPressed: _generateExcel,
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-          SizedBox(height: isMobile ? 16 : 20),
-          // Content with icon and title
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.description,
-                  size: 32,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Report Details',
-                      style: TextStyle(
-                        fontSize: isMobile ? 20 : 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
+              SizedBox(height: isMobile ? 16 : 20),
+              // Content with icon and title
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.monthDisplay,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.white.withOpacity(0.9),
-                      ),
+                    child: const Icon(
+                      Icons.description,
+                      size: 32,
+                      color: Colors.white,
                     ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  status.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: statusColor,
                   ),
-                ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Report Details',
+                          style: TextStyle(
+                            fontSize: isMobile ? 20 : 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _formatPeriodDisplay(),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.white.withOpacity(0.9),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          status.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: statusColor,
+                          ),
+                        ),
+                      ),
+                      if ((_reportData?['isFinalized'] ?? false) == true) ...[
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.9),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const Text(
+                            'FINALIZED',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.red,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
               ),
             ],
           ),
@@ -268,7 +850,7 @@ class _StudentMonthlyReportDetailScreenState
     final pdfBytes = await service.exportStudentReport(
       studentName: _reportData?['studentName'] ?? 'Unknown',
       studentNumber: _reportData?['studentNumber'] ?? 'Unknown',
-      monthDisplay: widget.monthDisplay,
+      monthDisplay: _formatPeriodDisplay(),
       reportId: widget.reportId,
       status: _reportData?['status'] ?? 'draft',
       hourlyRate: _reportData?['hourlyRate'] ?? 0.0,
@@ -302,7 +884,7 @@ class _StudentMonthlyReportDetailScreenState
           ),
         )
         .value = excel_package.TextCellValue(
-      'Student Labour Report - ${widget.monthDisplay}',
+      'Student Labour Report - ${_formatPeriodDisplay()}',
     );
     rowIndex++;
 
@@ -371,7 +953,7 @@ class _StudentMonthlyReportDetailScreenState
           ),
         )
         .value = excel_package.TextCellValue(
-      widget.monthDisplay,
+      _formatPeriodDisplay(),
     );
     rowIndex++;
 
@@ -722,6 +1304,7 @@ class _StudentMonthlyReportDetailScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[100],
       body: SafeArea(
         child: _isLoading
             ? ResponsiveContainer(
@@ -749,7 +1332,8 @@ class _StudentMonthlyReportDetailScreenState
               )
             : _buildContent(),
       ),
-      floatingActionButton: (_reportData?['status'] ?? 'draft') == 'draft'
+      floatingActionButton: (_reportData?['status'] ?? 'draft') == 'draft' &&
+              (_reportData?['isFinalized'] ?? false) == false
           ? FloatingActionButton.extended(
               onPressed: _showAddTimesheetDialog,
               backgroundColor: Colors.orange.shade600,
@@ -763,56 +1347,88 @@ class _StudentMonthlyReportDetailScreenState
   Widget _buildLoadingHeader() {
     final isMobile = ResponsiveHelper.isMobile(context);
     return Container(
-      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      padding: EdgeInsets.all(isMobile ? 20 : 24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.orange.shade600, Colors.orange.shade400],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
+          colors: [
+            Colors.orange.shade400,
+            Colors.orange.shade600,
+            Colors.deepOrange.shade700,
+          ],
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.orange.withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+            color: Colors.orange.shade300,
+            blurRadius: 15,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
-      child: Column(
+      child: Stack(
         children: [
-          Row(
-            children: [
-              _buildHeaderActionButton(
-                icon: Icons.arrow_back,
-                tooltip: 'Back',
-                onPressed: () => context.pop(),
+          Positioned(
+            right: -24,
+            top: -24,
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.1),
               ),
-            ],
+            ),
           ),
-          SizedBox(height: isMobile ? 16 : 20),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.description,
-                  size: 32,
-                  color: Colors.white,
-                ),
+          Positioned(
+            right: 40,
+            bottom: -34,
+            child: Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.08),
               ),
-              const SizedBox(width: 16),
-              const Text(
-                'Loading...',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+            ),
+          ),
+          Column(
+            children: [
+              Row(
+                children: [
+                  _buildHeaderActionButton(
+                    icon: Icons.arrow_back,
+                    tooltip: 'Back',
+                    onPressed: () => context.pop(),
+                  ),
+                ],
+              ),
+              SizedBox(height: isMobile ? 16 : 20),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.description,
+                      size: 32,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  const Text(
+                    'Loading...',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -824,56 +1440,88 @@ class _StudentMonthlyReportDetailScreenState
   Widget _buildErrorHeader() {
     final isMobile = ResponsiveHelper.isMobile(context);
     return Container(
-      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      padding: EdgeInsets.all(isMobile ? 20 : 24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.orange.shade600, Colors.orange.shade400],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
+          colors: [
+            Colors.orange.shade400,
+            Colors.orange.shade600,
+            Colors.deepOrange.shade700,
+          ],
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.orange.withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+            color: Colors.orange.shade300,
+            blurRadius: 15,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
-      child: Column(
+      child: Stack(
         children: [
-          Row(
-            children: [
-              _buildHeaderActionButton(
-                icon: Icons.arrow_back,
-                tooltip: 'Back',
-                onPressed: () => context.pop(),
+          Positioned(
+            right: -24,
+            top: -24,
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.1),
               ),
-            ],
+            ),
           ),
-          SizedBox(height: isMobile ? 16 : 20),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.error_outline,
-                  size: 32,
-                  color: Colors.white,
-                ),
+          Positioned(
+            right: 40,
+            bottom: -34,
+            child: Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.08),
               ),
-              const SizedBox(width: 16),
-              const Text(
-                'Error',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+            ),
+          ),
+          Column(
+            children: [
+              Row(
+                children: [
+                  _buildHeaderActionButton(
+                    icon: Icons.arrow_back,
+                    tooltip: 'Back',
+                    onPressed: () => context.pop(),
+                  ),
+                ],
+              ),
+              SizedBox(height: isMobile ? 16 : 20),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.error_outline,
+                      size: 32,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  const Text(
+                    'Error',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1316,10 +1964,13 @@ class _StudentMonthlyReportDetailScreenState
                                                     ],
                                                   ),
                                                 ),
-                                                // Only show Edit/Delete when report is draft
+                                                // Only show Edit/Delete when report is draft and not finalized
                                                 if ((_reportData?['status'] ??
                                                         'draft') ==
-                                                    'draft') ...[
+                                                    'draft' &&
+                                                    (_reportData?['isFinalized'] ??
+                                                            false) ==
+                                                        false) ...[
                                                   const PopupMenuItem(
                                                     value: 'edit',
                                                     child: Row(
@@ -1714,10 +2365,13 @@ class _StudentMonthlyReportDetailScreenState
                                                   ],
                                                 ),
                                               ),
-                                              // Only show Edit/Delete when report is draft
+                                              // Only show Edit/Delete when report is draft and not finalized
                                               if ((_reportData?['status'] ??
                                                       'draft') ==
-                                                  'draft') ...[
+                                                  'draft' &&
+                                                  (_reportData?['isFinalized'] ??
+                                                          false) ==
+                                                      false) ...[
                                                 const PopupMenuItem(
                                                   value: 'edit',
                                                   child: Row(
@@ -1774,6 +2428,7 @@ class _StudentMonthlyReportDetailScreenState
 
             // Submit Button (only show for draft status)
             if ((_reportData?['status'] ?? 'draft') == 'draft' &&
+                (_reportData?['isFinalized'] ?? false) == false &&
                 _timesheets.isNotEmpty)
               Container(
                 width: double.infinity,
@@ -1819,6 +2474,7 @@ class _StudentMonthlyReportDetailScreenState
 
             // Info message for draft reports
             if ((_reportData?['status'] ?? 'draft') == 'draft' &&
+                (_reportData?['isFinalized'] ?? false) == false &&
                 _timesheets.isEmpty)
               Container(
                 padding: const EdgeInsets.all(16),
@@ -1845,7 +2501,8 @@ class _StudentMonthlyReportDetailScreenState
               ),
 
             // Status message for submitted reports
-            if ((_reportData?['status'] ?? 'draft') != 'draft')
+            if ((_reportData?['status'] ?? 'draft') != 'draft' ||
+                (_reportData?['isFinalized'] ?? false) == true)
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -1862,7 +2519,9 @@ class _StudentMonthlyReportDetailScreenState
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'This report has been submitted and cannot be edited',
+                        (_reportData?['isFinalized'] ?? false) == true
+                            ? 'This report has been finalized and cannot be edited'
+                            : 'This report has been submitted and cannot be edited',
                         style: TextStyle(
                           color: Colors.blue.shade900,
                           fontSize: 14,
@@ -1987,38 +2646,35 @@ class _StudentMonthlyReportDetailScreenState
                     const SizedBox(height: 8),
                     InkWell(
                       onTap: () async {
-                        // Parse month to get valid date range
-                        final monthParts = widget.month.split('-');
-                        final year = int.parse(monthParts[0]);
-                        final month = int.parse(monthParts[1]);
-                        final firstDay = DateTime(year, month, 1);
-                        final lastDay = DateTime(year, month + 1, 0);
+                        final minDate = _getAllowedDateMin();
+                        final maxDate = _getAllowedDateMax();
 
-                        // Determine initial date - must be within the valid range
-                        DateTime initialDate;
-                        if (selectedDate != null) {
-                          initialDate = selectedDate!;
-                        } else {
-                          final now = DateTime.now();
-                          // If today is within the month range, use today
-                          if (now.isAfter(
-                                firstDay.subtract(const Duration(days: 1)),
-                              ) &&
-                              now.isBefore(
-                                lastDay.add(const Duration(days: 1)),
-                              )) {
-                            initialDate = now;
-                          } else {
-                            // Otherwise use the first day of the month
-                            initialDate = firstDay;
-                          }
+                        if (minDate == null ||
+                            maxDate == null ||
+                            maxDate.isBefore(minDate)) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'No available dates for this report period',
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+
+                        DateTime initialDate = selectedDate ?? maxDate;
+                        if (initialDate.isBefore(minDate)) {
+                          initialDate = minDate;
+                        } else if (initialDate.isAfter(maxDate)) {
+                          initialDate = maxDate;
                         }
 
                         final date = await showDatePicker(
                           context: context,
                           initialDate: initialDate,
-                          firstDate: firstDay,
-                          lastDate: lastDay,
+                          firstDate: minDate,
+                          lastDate: maxDate,
                         );
                         if (date != null) {
                           setDialogState(() => selectedDate = date);
@@ -2360,6 +3016,18 @@ class _StudentMonthlyReportDetailScreenState
                     return;
                   }
 
+                  if (selectedDate != null && !_isDateAllowed(selectedDate!)) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Date must be within the report period and within the last 7 days',
+                        ),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+
                   // Validate custom task type when "Other" is selected
                   if (selectedTaskType == TaskType.other &&
                       customTaskTypeController.text.trim().isEmpty) {
@@ -2542,17 +3210,35 @@ class _StudentMonthlyReportDetailScreenState
                     const SizedBox(height: 8),
                     InkWell(
                       onTap: () async {
-                        final monthParts = widget.month.split('-');
-                        final year = int.parse(monthParts[0]);
-                        final month = int.parse(monthParts[1]);
-                        final firstDay = DateTime(year, month, 1);
-                        final lastDay = DateTime(year, month + 1, 0);
+                        final minDate = _getAllowedDateMin();
+                        final maxDate = _getAllowedDateMax();
+
+                        if (minDate == null ||
+                            maxDate == null ||
+                            maxDate.isBefore(minDate)) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'No available dates for this report period',
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+
+                        DateTime initialDate = selectedDate ?? maxDate;
+                        if (initialDate.isBefore(minDate)) {
+                          initialDate = minDate;
+                        } else if (initialDate.isAfter(maxDate)) {
+                          initialDate = maxDate;
+                        }
 
                         final date = await showDatePicker(
                           context: dialogContext,
-                          initialDate: selectedDate ?? firstDay,
-                          firstDate: firstDay,
-                          lastDate: lastDay,
+                          initialDate: initialDate,
+                          firstDate: minDate,
+                          lastDate: maxDate,
                         );
                         if (date != null) {
                           setDialogState(() => selectedDate = date);
@@ -2901,6 +3587,18 @@ class _StudentMonthlyReportDetailScreenState
                     return;
                   }
 
+                  if (selectedDate != null && !_isDateAllowed(selectedDate!)) {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Date must be within the report period and within the last 7 days',
+                        ),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+
                   // Calculate hours
                   final start = DateTime(
                     selectedDate!.year,
@@ -3183,8 +3881,9 @@ class _StudentMonthlyReportDetailScreenState
             onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Close'),
           ),
-          // Show Edit button if report is draft
-          if ((_reportData?['status'] ?? 'draft') == 'draft')
+          // Show Edit button if report is draft and not finalized
+          if ((_reportData?['status'] ?? 'draft') == 'draft' &&
+              (_reportData?['isFinalized'] ?? false) == false)
             ElevatedButton.icon(
               onPressed: () {
                 Navigator.pop(dialogContext);

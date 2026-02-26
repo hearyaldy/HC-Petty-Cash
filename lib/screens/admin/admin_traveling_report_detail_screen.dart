@@ -7,6 +7,7 @@ import '../../models/traveling_per_diem_entry.dart';
 import '../../services/firestore_service.dart';
 import '../../services/traveling_report_export_service.dart';
 import '../../providers/auth_provider.dart';
+import '../../utils/responsive_helper.dart';
 
 class AdminTravelingReportDetailScreen extends StatefulWidget {
   final String reportId;
@@ -391,21 +392,20 @@ class _AdminTravelingReportDetailScreenState
   }
 
   Widget _buildReportContent(TravelingReport report) {
-    return Center(
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 1200),
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              _buildReportHeader(report),
-              _buildTravelingDetails(report),
-              _buildMileageSection(report),
-              _buildPerDiemSection(report),
-              _buildSummarySection(report),
-              if (report.rejectionReason != null) _buildRejectionReason(report),
-              if (report.status == 'submitted') _buildApprovalSection(report),
-            ],
-          ),
+    final spacing = ResponsiveHelper.getSpacing(context);
+    return SingleChildScrollView(
+      child: ResponsiveContainer(
+        child: Column(
+          children: [
+            _buildReportHeader(report),
+            _buildTravelingDetails(report),
+            _buildMileageSection(report),
+            _buildPerDiemSection(report),
+            _buildSummarySection(report),
+            if (report.rejectionReason != null) _buildRejectionReason(report),
+            if (report.status == 'submitted') _buildApprovalSection(report),
+            SizedBox(height: spacing),
+          ],
         ),
       ),
     );

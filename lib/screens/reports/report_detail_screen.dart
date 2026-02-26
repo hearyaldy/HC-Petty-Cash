@@ -129,26 +129,19 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     );
 
     // Only show loading if report is not found AND still loading
-    if (report == null && (reportProvider.isLoading || reportProvider.reports.isEmpty)) {
+    if (report == null &&
+        (reportProvider.isLoading || reportProvider.reports.isEmpty)) {
       return Scaffold(
         backgroundColor: Colors.grey[50],
-        appBar: AppBar(
-          elevation: 0,
-          title: const Text('Loading...'),
-        ),
-        body: const Center(
-          child: CircularProgressIndicator(),
-        ),
+        appBar: AppBar(elevation: 0, title: const Text('Loading...')),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (report == null) {
       return Scaffold(
         backgroundColor: Colors.grey[50],
-        appBar: AppBar(
-          elevation: 0,
-          title: const Text('Report'),
-        ),
+        appBar: AppBar(elevation: 0, title: const Text('Report')),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -214,6 +207,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 await _exportPdf(report, transactions);
               } else if (value == 'export_advance_settlement_pdf') {
                 await _exportAdvanceSettlementPdf(report, transactions);
+              } else if (value == 'print_all_support_docs') {
+                _showPrintAllSupportDocumentsDialog(report, transactions);
               } else if (value == 'submit') {
                 await _submitReport(report, reportProvider);
               } else if (value == 'approve') {
@@ -265,6 +260,17 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   ],
                 ),
               ),
+              if (transactions.any((t) => t.supportDocumentUrls.isNotEmpty))
+                const PopupMenuItem(
+                  value: 'print_all_support_docs',
+                  child: Row(
+                    children: [
+                      Icon(Icons.print, color: Colors.green),
+                      SizedBox(width: 8),
+                      Text('Print All Support Docs'),
+                    ],
+                  ),
+                ),
               if (report.status == ReportStatus.draft.name)
                 const PopupMenuItem(
                   value: 'submit',
@@ -509,6 +515,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           ),
           if (report.companyName != null)
             _buildDetailRow('Company', report.companyName!),
+          if (report.purpose != null && report.purpose!.isNotEmpty)
+            _buildDetailRow('Purpose', report.purpose!),
           if (report.notes != null && report.notes!.isNotEmpty)
             _buildDetailRow('Notes', report.notes!),
         ],
@@ -758,38 +766,74 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Transactions',
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                ),
-                if (transactions.isNotEmpty) ...[
-                  IconButton(
-                    onPressed: _showSortDialog,
-                    icon: const Icon(Icons.sort),
-                    tooltip: 'Sort Transactions',
-                  ),
-                  IconButton(
-                    onPressed: () =>
-                        _printTransactionsTable(report, transactions),
-                    icon: const Icon(Icons.print),
-                    tooltip: 'Print Transactions',
-                  ),
-                ],
-                if (report.status != ReportStatus.closed.name)
-                  ElevatedButton.icon(
-                    onPressed: () => _showAddTransactionDialog(report),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add Transaction'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final actions = <Widget>[
+                  if (transactions.isNotEmpty) ...[
+                    IconButton(
+                      onPressed: _showSortDialog,
+                      icon: const Icon(Icons.sort),
+                      tooltip: 'Sort Transactions',
                     ),
-                  ),
-              ],
+                    IconButton(
+                      onPressed: () =>
+                          _printTransactionsTable(report, transactions),
+                      icon: const Icon(Icons.print),
+                      tooltip: 'Print Transactions',
+                    ),
+                    IconButton(
+                      onPressed: () => _printAllVouchers(report, transactions),
+                      icon: const Icon(Icons.receipt_long),
+                      tooltip: 'Print All Vouchers',
+                    ),
+                  ],
+                  if (report.status != ReportStatus.closed.name)
+                    ElevatedButton.icon(
+                      onPressed: () => _showAddTransactionDialog(report),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add Transaction'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                ];
+
+                final isNarrow = constraints.maxWidth < 520;
+                if (isNarrow) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Transactions',
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        alignment: WrapAlignment.start,
+                        children: actions,
+                      ),
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Transactions',
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                    ),
+                    Wrap(
+                      spacing: 8,
+                      children: actions,
+                    ),
+                  ],
+                );
+              },
             ),
             if (transactions.isNotEmpty)
               Padding(
@@ -843,7 +887,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 separatorBuilder: (context, index) => const Divider(),
                 itemBuilder: (context, index) {
                   final transaction = transactions[index];
-                  return _buildTransactionItem(transaction, authProvider);
+                  return _buildTransactionItem(
+                    transaction,
+                    authProvider,
+                    report: report,
+                    index: index,
+                  );
                 },
               ),
           ],
@@ -854,8 +903,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
   Widget _buildTransactionItem(
     Transaction transaction,
-    AuthProvider authProvider,
-  ) {
+    AuthProvider authProvider, {
+    required PettyCashReport report,
+    required int index,
+  }) {
     final isMobile = ResponsiveHelper.isMobile(context);
 
     final amountText = Text(
@@ -868,7 +919,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       runSpacing: 4,
       alignment: WrapAlignment.end,
       children: [
-        _buildSupportDocumentButton(transaction),
+        _buildSupportDocumentButton(transaction, notes: report.notes),
         OutlinedButton.icon(
           onPressed: () => _exportVoucher(transaction),
           icon: const Icon(Icons.receipt_long, size: 16),
@@ -966,11 +1017,23 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
+          'No. ${index + 1}',
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey[600],
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
           transaction.description,
           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
         ),
         const SizedBox(height: 8),
-        Row(
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -987,7 +1050,6 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 ),
               ),
             ),
-            const SizedBox(width: 8),
             Text(
               '• ${DateFormat('MMM d, y').format(transaction.date)}',
               style: TextStyle(fontSize: 13, color: Colors.grey[600]),
@@ -1080,18 +1142,23 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     );
   }
 
-  Widget _buildSupportDocumentButton(Transaction transaction) {
+  Widget _buildSupportDocumentButton(Transaction transaction, {String? notes}) {
     final bool isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
     final hasDocument = transaction.supportDocumentUrl != null;
+    final hasMultipleDocuments = transaction.supportDocumentUrls.length > 1;
 
     return PopupMenuButton<String>(
       onSelected: (value) {
         if (value == 'view') {
-          _showSupportDocumentPreview(transaction);
+          _showSupportDocumentPreview(transaction, notes: notes);
         } else if (value == 'upload') {
           _showSupportDocumentUploadDialog(transaction);
         } else if (value == 'camera') {
           _showSupportDocumentUploadDialog(transaction, fromCamera: true);
+        } else if (value == 'print_single') {
+          _printSingleSupportDocument(transaction, notes: notes);
+        } else if (value == 'print_select') {
+          _showPrintSupportDocumentDialog(transaction);
         }
       },
       offset: const Offset(0, 40),
@@ -1138,6 +1205,28 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               ],
             ),
           ),
+        if (hasDocument && !hasMultipleDocuments)
+          const PopupMenuItem(
+            value: 'print_single',
+            child: Row(
+              children: [
+                Icon(Icons.print, size: 18, color: Colors.green),
+                SizedBox(width: 8),
+                Text('Print Document'),
+              ],
+            ),
+          ),
+        if (hasMultipleDocuments)
+          const PopupMenuItem(
+            value: 'print_select',
+            child: Row(
+              children: [
+                Icon(Icons.print, size: 18, color: Colors.green),
+                SizedBox(width: 8),
+                Text('Print Documents'),
+              ],
+            ),
+          ),
         const PopupMenuItem(
           value: 'upload',
           child: Row(
@@ -1163,13 +1252,18 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     );
   }
 
-  void _showSupportDocumentPreview(Transaction transaction) {
+  void _showSupportDocumentPreview(Transaction transaction, {String? notes}) {
     if (transaction.supportDocumentUrl == null) return;
 
     showDialog(
       context: context,
-      builder: (context) =>
-          SupportDocumentPreview(documentUrl: transaction.supportDocumentUrl!),
+      builder: (context) => SupportDocumentPreview(
+        documentUrl: transaction.supportDocumentUrl!,
+        transactionReceiptNo: transaction.receiptNo,
+        description: transaction.description,
+        amount: transaction.amount,
+        notes: notes,
+      ),
     );
   }
 
@@ -1199,6 +1293,80 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             }
           }
         },
+      ),
+    );
+  }
+
+  Future<void> _printSingleSupportDocument(Transaction transaction, {String? notes}) async {
+    if (transaction.supportDocumentUrls.isEmpty) return;
+
+    try {
+      final voucherService = VoucherExportService();
+      await voucherService.printSupportDocument(
+        transaction.supportDocumentUrls.first,
+        transaction.receiptNo,
+        description: transaction.description,
+        amount: transaction.amount,
+        notes: notes ?? '',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error printing document: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showPrintSupportDocumentDialog(Transaction transaction) {
+    if (transaction.supportDocumentUrls.isEmpty) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => SupportDocumentSelectionDialog(
+        documentUrls: transaction.supportDocumentUrls,
+        transactionReceiptNo: transaction.receiptNo,
+        description: transaction.description,
+        amount: transaction.amount,
+      ),
+    );
+  }
+
+  void _showPrintAllSupportDocumentsDialog(
+    PettyCashReport report,
+    List<Transaction> transactions,
+  ) {
+    // Collect all support document URLs from all transactions
+    final allDocumentUrls = <String>[];
+    for (final transaction in transactions) {
+      allDocumentUrls.addAll(transaction.supportDocumentUrls);
+    }
+
+    if (allDocumentUrls.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No support documents found'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // Calculate total amount from all transactions with support documents
+    final totalAmount = transactions
+        .where((t) => t.supportDocumentUrls.isNotEmpty)
+        .fold<double>(0, (sum, t) => sum + t.amount);
+
+    showDialog(
+      context: context,
+      builder: (context) => SupportDocumentSelectionDialog(
+        documentUrls: allDocumentUrls,
+        transactionReceiptNo: report.reportNumber,
+        description: 'All Support Documents - ${report.department}',
+        amount: totalAmount,
       ),
     );
   }
@@ -1836,9 +2004,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error exporting Advance Settlement PDF: $e'),
-          ),
+          SnackBar(content: Text('Error exporting Advance Settlement PDF: $e')),
         );
       }
     }
@@ -1976,6 +2142,56 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error printing voucher: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _printAllVouchers(
+    PettyCashReport report,
+    List<Transaction> transactions,
+  ) async {
+    if (transactions.isEmpty) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Print All Vouchers'),
+        content: Text(
+          'This will print ${transactions.length} vouchers. Continue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Print'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final voucherService = VoucherExportService();
+    try {
+      await voucherService.printAllVouchers(transactions, report);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('All vouchers sent to print.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error printing vouchers: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -2401,13 +2617,13 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     }
 
     // Define constants for pagination
-    const maxRowsSinglePage = 18; // Leave room for summary/signature
+    const maxRowsSinglePage = 25; // Leave room for summary/signature
     final needsSummaryPage = transactions.length > maxRowsSinglePage;
     final isAdvanceSettlement = report.reportType == 'advance_settlement';
     final reportSubtitle = isAdvanceSettlement
         ? (report.purpose?.trim().isNotEmpty == true
-            ? report.purpose!.trim()
-            : report.department)
+              ? report.purpose!.trim()
+              : report.department)
         : report.department;
     final reportHeaderTitle = isAdvanceSettlement
         ? 'Advance Settlement Report'
@@ -2497,7 +2713,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               ],
             ),
           ),
-          pw.SizedBox(height: 20),
+          pw.SizedBox(height: 12),
 
           // Signature Section
           pw.Row(
@@ -2512,7 +2728,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       'Requested By:',
                       style: pw.TextStyle(font: boldTtf, fontSize: 10),
                     ),
-                    pw.SizedBox(height: 30),
+                    pw.SizedBox(height: 20),
                     pw.Container(
                       decoration: const pw.BoxDecoration(
                         border: pw.Border(
@@ -2542,7 +2758,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       'Approved By:',
                       style: pw.TextStyle(font: boldTtf, fontSize: 10),
                     ),
-                    pw.SizedBox(height: 30),
+                    pw.SizedBox(height: 20),
                     pw.Container(
                       decoration: const pw.BoxDecoration(
                         border: pw.Border(
@@ -2563,7 +2779,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       'Action No:',
                       style: pw.TextStyle(font: boldTtf, fontSize: 10),
                     ),
-                    pw.SizedBox(height: 30),
+                    pw.SizedBox(height: 20),
                     pw.Container(
                       decoration: const pw.BoxDecoration(
                         border: pw.Border(
@@ -2750,11 +2966,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               6: const pw.FlexColumnWidth(1),
             },
           ),
-          pw.SizedBox(height: 12),
+          pw.SizedBox(height: 8),
           if (needsSummaryPage) pw.NewPage(),
           if (needsSummaryPage) ...[
             pw.Text(
-              '${reportHeaderTitle} - Summary',
+              '$reportHeaderTitle - Summary',
               style: pw.TextStyle(font: boldTtf, fontSize: 18),
             ),
             pw.SizedBox(height: 6),

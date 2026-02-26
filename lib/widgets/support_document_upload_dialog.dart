@@ -1904,11 +1904,19 @@ class _SupportDocumentGalleryState extends State<SupportDocumentGallery> {
 class SupportDocumentPreview extends StatefulWidget {
   final String documentUrl;
   final VoidCallback? onClose;
+  final String? transactionReceiptNo;
+  final String? description;
+  final double? amount;
+  final String? notes;
 
   const SupportDocumentPreview({
     super.key,
     required this.documentUrl,
     this.onClose,
+    this.transactionReceiptNo,
+    this.description,
+    this.amount,
+    this.notes,
   });
 
   @override
@@ -1916,6 +1924,38 @@ class SupportDocumentPreview extends StatefulWidget {
 }
 
 class _SupportDocumentPreviewState extends State<SupportDocumentPreview> {
+  bool _isPrinting = false;
+
+  Future<void> _printDocument() async {
+    if (_isPrinting) return;
+
+    setState(() => _isPrinting = true);
+
+    try {
+      final voucherService = VoucherExportService();
+      await voucherService.printSupportDocument(
+        widget.documentUrl,
+        widget.transactionReceiptNo ?? 'Document',
+        description: widget.description ?? '',
+        amount: widget.amount ?? 0,
+        notes: widget.notes ?? '',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error printing document: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isPrinting = false);
+      }
+    }
+  }
+
   Future<String> _getDownloadUrl(String originalUrl) async {
     try {
       // Extract the path from the original URL to get a fresh download URL
@@ -2013,9 +2053,25 @@ class _SupportDocumentPreviewState extends State<SupportDocumentPreview> {
                     'Support Document',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                  IconButton(
-                    onPressed: widget.onClose ?? () => Navigator.pop(context),
-                    icon: const Icon(Icons.close),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        onPressed: _isPrinting ? null : _printDocument,
+                        icon: _isPrinting
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.print),
+                        tooltip: 'Print Document',
+                      ),
+                      IconButton(
+                        onPressed: widget.onClose ?? () => Navigator.pop(context),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
                   ),
                 ],
               ),

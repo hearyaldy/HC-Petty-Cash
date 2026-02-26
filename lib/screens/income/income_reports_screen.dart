@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../providers/income_report_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/income_report.dart';
+import '../../services/income_report_pdf_export_service.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
 
@@ -52,6 +53,136 @@ class _IncomeReportsScreenState extends State<IncomeReportsScreen> {
         return reports.where((r) => r.status == 'closed').toList();
       default:
         return reports;
+    }
+  }
+
+  void _showPrintDialog(IncomeReportProvider provider) {
+    final reports = _getFilteredReports(provider.incomeReports);
+
+    if (reports.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No reports to print'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                Icon(Icons.print, color: Colors.green.shade600, size: 28),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Print Income Reports',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const Divider(height: 24),
+            Text(
+              'Select a report to print:',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 16),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.4,
+              ),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: reports.length,
+                itemBuilder: (context, index) {
+                  final report = reports[index];
+                  return ListTile(
+                    leading: Icon(
+                      Icons.description,
+                      color: Colors.green.shade600,
+                    ),
+                    title: Text(
+                      report.reportName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(report.reportNumber),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _printReport(report);
+                    },
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _printReport(IncomeReport report) async {
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+    try {
+      // Load entries for this report
+      final provider = context.read<IncomeReportProvider>();
+      await provider.loadReportWithEntries(report.id);
+      final entries = provider.currentEntries;
+
+      final pdfService = IncomeReportPdfExportService();
+      await pdfService.printIncomeReport(report, entries);
+
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to print report: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -134,6 +265,12 @@ class _IncomeReportsScreenState extends State<IncomeReportsScreen> {
                     icon: Icons.refresh,
                     tooltip: 'Refresh',
                     onPressed: _loadReports,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildHeaderActionButton(
+                    icon: Icons.print,
+                    tooltip: 'Print Report List',
+                    onPressed: () => _showPrintDialog(provider),
                   ),
                   const SizedBox(width: 8),
                   _buildHeaderActionButton(

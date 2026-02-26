@@ -10,6 +10,7 @@ import '../models/traveling_report.dart';
 import '../models/traveling_per_diem_entry.dart';
 import '../models/income_report.dart';
 import '../models/purchase_requisition.dart';
+import '../models/cash_advance.dart';
 import '../utils/logger.dart';
 
 class FirestoreService {
@@ -39,6 +40,8 @@ class FirestoreService {
   CollectionReference<Map<String, dynamic>>
   get _purchaseRequisitionItemsCollection =>
       _firestore.collection('purchase_requisition_items');
+  CollectionReference<Map<String, dynamic>> get _cashAdvancesCollection =>
+      _firestore.collection('cash_advances');
 
   // ===== USER OPERATIONS =====
 
@@ -1651,6 +1654,327 @@ class FirestoreService {
       });
     } catch (e) {
       AppLogger.severe('Error recalculating purchase requisition total: $e');
+      rethrow;
+    }
+  }
+
+  // ===== CASH ADVANCE OPERATIONS =====
+
+  /// Generate unique cash advance request number
+  String generateCashAdvanceNumber() {
+    final now = DateTime.now();
+    final dateStr = DateFormat('yyyyMMdd').format(now);
+    final uuid = const Uuid().v4().substring(0, 6).toUpperCase();
+    return 'CA-$dateStr-$uuid';
+  }
+
+  /// Get a single cash advance
+  Future<CashAdvance?> getCashAdvance(String advanceId) async {
+    try {
+      final doc = await _cashAdvancesCollection.doc(advanceId).get();
+      return doc.exists ? CashAdvance.fromFirestore(doc) : null;
+    } catch (e) {
+      AppLogger.severe('Error getting cash advance: $e');
+      rethrow;
+    }
+  }
+
+  /// Get all cash advances
+  Future<List<CashAdvance>> getAllCashAdvances() async {
+    try {
+      final snapshot = await _cashAdvancesCollection
+          .orderBy('createdAt', descending: true)
+          .get();
+      return snapshot.docs
+          .map((doc) => CashAdvance.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      AppLogger.severe('Error getting all cash advances: $e');
+      rethrow;
+    }
+  }
+
+  /// Get cash advances by requester
+  Future<List<CashAdvance>> getCashAdvancesByRequester(
+    String requesterId,
+  ) async {
+    try {
+      final snapshot = await _cashAdvancesCollection
+          .where('requesterId', isEqualTo: requesterId)
+          .orderBy('createdAt', descending: true)
+          .get();
+      return snapshot.docs
+          .map((doc) => CashAdvance.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      AppLogger.severe('Error getting cash advances by requester: $e');
+      rethrow;
+    }
+  }
+
+  /// Get cash advances by status
+  Future<List<CashAdvance>> getCashAdvancesByStatus(String status) async {
+    try {
+      final snapshot = await _cashAdvancesCollection
+          .where('status', isEqualTo: status)
+          .orderBy('createdAt', descending: true)
+          .get();
+      return snapshot.docs
+          .map((doc) => CashAdvance.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      AppLogger.severe('Error getting cash advances by status: $e');
+      rethrow;
+    }
+  }
+
+  /// Get cash advances by department
+  Future<List<CashAdvance>> getCashAdvancesByDepartment(
+    String department,
+  ) async {
+    try {
+      final snapshot = await _cashAdvancesCollection
+          .where('department', isEqualTo: department)
+          .orderBy('createdAt', descending: true)
+          .get();
+      return snapshot.docs
+          .map((doc) => CashAdvance.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      AppLogger.severe('Error getting cash advances by department: $e');
+      rethrow;
+    }
+  }
+
+  /// Get cash advances pending settlement (disbursed but no settlement)
+  Future<List<CashAdvance>> getPendingSettlementAdvances({
+    String? requesterId,
+  }) async {
+    try {
+      Query<Map<String, dynamic>> query = _cashAdvancesCollection
+          .where('status', isEqualTo: 'disbursed');
+
+      if (requesterId != null) {
+        query = query.where('requesterId', isEqualTo: requesterId);
+      }
+
+      final snapshot = await query
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      // Filter for advances without settlement
+      return snapshot.docs
+          .map((doc) => CashAdvance.fromFirestore(doc))
+          .where((advance) => advance.settlementId == null)
+          .toList();
+    } catch (e) {
+      AppLogger.severe('Error getting pending settlement advances: $e');
+      rethrow;
+    }
+  }
+
+  /// Stream all cash advances
+  Stream<List<CashAdvance>> cashAdvancesStream() {
+    return _cashAdvancesCollection
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => CashAdvance.fromFirestore(doc))
+              .toList(),
+        );
+  }
+
+  /// Stream cash advances by requester
+  Stream<List<CashAdvance>> cashAdvancesByRequesterStream(String requesterId) {
+    return _cashAdvancesCollection
+        .where('requesterId', isEqualTo: requesterId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => CashAdvance.fromFirestore(doc))
+              .toList(),
+        );
+  }
+
+  /// Stream a single cash advance
+  Stream<CashAdvance?> cashAdvanceStream(String advanceId) {
+    return _cashAdvancesCollection.doc(advanceId).snapshots().map((doc) {
+      if (doc.exists) {
+        return CashAdvance.fromFirestore(doc);
+      }
+      return null;
+    });
+  }
+
+  /// Save a new cash advance
+  Future<void> saveCashAdvance(CashAdvance advance) async {
+    try {
+      await _cashAdvancesCollection.doc(advance.id).set(advance.toFirestore());
+    } catch (e) {
+      AppLogger.severe('Error saving cash advance: $e');
+      rethrow;
+    }
+  }
+
+  /// Update an existing cash advance
+  Future<void> updateCashAdvance(CashAdvance advance) async {
+    try {
+      await _cashAdvancesCollection
+          .doc(advance.id)
+          .update(advance.toFirestore());
+    } catch (e) {
+      AppLogger.severe('Error updating cash advance: $e');
+      rethrow;
+    }
+  }
+
+  /// Delete a cash advance
+  Future<void> deleteCashAdvance(String advanceId) async {
+    try {
+      await _cashAdvancesCollection.doc(advanceId).delete();
+    } catch (e) {
+      AppLogger.severe('Error deleting cash advance: $e');
+      rethrow;
+    }
+  }
+
+  /// Submit a cash advance for approval
+  Future<void> submitCashAdvance(String advanceId, String userId) async {
+    try {
+      await _cashAdvancesCollection.doc(advanceId).update({
+        'status': 'submitted',
+        'submittedAt': FieldValue.serverTimestamp(),
+        'submittedBy': userId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      AppLogger.severe('Error submitting cash advance: $e');
+      rethrow;
+    }
+  }
+
+  /// Approve a cash advance
+  Future<void> approveCashAdvance(
+    String advanceId,
+    String approverName, {
+    String? actionNo,
+  }) async {
+    try {
+      if (actionNo == null) {
+        final advance = await getCashAdvance(advanceId);
+        if (advance != null && advance.requiresActionNo) {
+          throw Exception('Action No. is required for this approval.');
+        }
+      }
+      final updateData = <String, dynamic>{
+        'status': 'approved',
+        'approvedAt': FieldValue.serverTimestamp(),
+        'approvedBy': approverName,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      if (actionNo != null) {
+        updateData['actionNo'] = actionNo;
+      }
+      await _cashAdvancesCollection.doc(advanceId).update(updateData);
+    } catch (e) {
+      AppLogger.severe('Error approving cash advance: $e');
+      rethrow;
+    }
+  }
+
+  /// Reject a cash advance
+  Future<void> rejectCashAdvance(
+    String advanceId,
+    String rejectionReason,
+  ) async {
+    try {
+      await _cashAdvancesCollection.doc(advanceId).update({
+        'status': 'rejected',
+        'rejectionReason': rejectionReason,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      AppLogger.severe('Error rejecting cash advance: $e');
+      rethrow;
+    }
+  }
+
+  /// Disburse a cash advance
+  Future<void> disburseCashAdvance({
+    required String advanceId,
+    required String disbursedBy,
+    required double amount,
+    required String paymentMethod,
+    String? referenceNumber,
+  }) async {
+    try {
+      await _cashAdvancesCollection.doc(advanceId).update({
+        'status': 'disbursed',
+        'disbursedAt': FieldValue.serverTimestamp(),
+        'disbursedBy': disbursedBy,
+        'disbursedAmount': amount,
+        'paymentMethod': paymentMethod,
+        'referenceNumber': referenceNumber,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      AppLogger.severe('Error disbursing cash advance: $e');
+      rethrow;
+    }
+  }
+
+  /// Link a cash advance to a settlement report
+  Future<void> linkCashAdvanceToSettlement({
+    required String advanceId,
+    required String settlementId,
+    required double settledAmount,
+    required double returnedAmount,
+  }) async {
+    try {
+      await _cashAdvancesCollection.doc(advanceId).update({
+        'status': 'settled',
+        'settlementId': settlementId,
+        'settledAt': FieldValue.serverTimestamp(),
+        'settledAmount': settledAmount,
+        'returnedAmount': returnedAmount,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      AppLogger.severe('Error linking cash advance to settlement: $e');
+      rethrow;
+    }
+  }
+
+  /// Cancel a cash advance
+  Future<void> cancelCashAdvance(String advanceId) async {
+    try {
+      await _cashAdvancesCollection.doc(advanceId).update({
+        'status': 'cancelled',
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      AppLogger.severe('Error cancelling cash advance: $e');
+      rethrow;
+    }
+  }
+
+  /// Revert a cash advance to draft
+  Future<void> revertCashAdvanceToDraft(String advanceId) async {
+    try {
+      await _cashAdvancesCollection.doc(advanceId).update({
+        'status': 'draft',
+        'submittedAt': null,
+        'submittedBy': null,
+        'approvedAt': null,
+        'approvedBy': null,
+        'actionNo': null,
+        'rejectionReason': null,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      AppLogger.severe('Error reverting cash advance to draft: $e');
       rethrow;
     }
   }

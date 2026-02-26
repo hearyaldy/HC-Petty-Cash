@@ -10,14 +10,23 @@
     "public": "build/web",
     "ignore": [
       "firebase.json",
-      "**/.*",
+      "**/.git/**",
+      "**/.gitignore",
+      "**/.DS_Store",
       "**/node_modules/**"
     ],
     "rewrites": [
+      {
+        "source": "/api/finance-ai-report",
+        "function": "financeAiReport"
+      },
       {
         "source": "**",
         "destination": "/index.html"
       }
     ]
+  },
+  "functions": {
+    "source": "functions"
   }
 }

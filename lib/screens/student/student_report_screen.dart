@@ -35,6 +35,31 @@ class _StudentReportScreenState extends State<StudentReportScreen>
   List<QueryDocumentSnapshot<Map<String, dynamic>>> _monthlyReports = [];
   bool _isLoadingReports = false;
 
+  String _formatReportPeriod(Map<String, dynamic> data) {
+    final startRaw = data['periodStart'];
+    final endRaw = data['periodEnd'];
+    if (startRaw is Timestamp && endRaw is Timestamp) {
+      final start = startRaw.toDate();
+      final end = endRaw.toDate();
+      final format = DateFormat('MMM dd, yyyy');
+      return '${format.format(start)} - ${format.format(end)}';
+    }
+    return data['monthDisplay'] ?? data['month'] ?? 'Unknown';
+  }
+
+  bool _isMonthLockedForNewEntries(String month) {
+    for (final report in _monthlyReports) {
+      final data = report.data();
+      if (data['month'] != month) continue;
+      final status = data['status'] ?? 'draft';
+      final isFinalized = data['isFinalized'] ?? false;
+      if (status != 'draft' || isFinalized == true) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -181,6 +206,19 @@ class _StudentReportScreenState extends State<StudentReportScreen>
   }
 
   void _showAddTimesheetDialog() {
+    if (_selectedMonth != null &&
+        _isMonthLockedForNewEntries(_selectedMonth!)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'You cannot add time entries after submitting a report for this month.',
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     final formKey = GlobalKey<FormState>();
     DateTime selectedDate = DateTime.now();
     TimeOfDay startTime = const TimeOfDay(hour: 9, minute: 0);
@@ -217,11 +255,23 @@ class _StudentReportScreenState extends State<StudentReportScreen>
                   // Date Picker
                   InkWell(
                     onTap: () async {
+                      final today = DateTime.now();
+                      final maxDate =
+                          DateTime(today.year, today.month, today.day);
+                      final minDate = maxDate.subtract(const Duration(days: 7));
+
+                      DateTime initialDate = selectedDate;
+                      if (initialDate.isBefore(minDate)) {
+                        initialDate = minDate;
+                      } else if (initialDate.isAfter(maxDate)) {
+                        initialDate = maxDate;
+                      }
+
                       final picked = await showDatePicker(
                         context: context,
-                        initialDate: selectedDate,
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime.now(),
+                        initialDate: initialDate,
+                        firstDate: minDate,
+                        lastDate: maxDate,
                       );
                       if (picked != null) {
                         setState(() => selectedDate = picked);
@@ -465,6 +515,23 @@ class _StudentReportScreenState extends State<StudentReportScreen>
     final user = authProvider.currentUser!;
 
     try {
+      final today = DateTime.now();
+      final maxDate = DateTime(today.year, today.month, today.day);
+      final minDate = maxDate.subtract(const Duration(days: 7));
+      if (date.isBefore(minDate) || date.isAfter(maxDate)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Date must be within the last 7 days',
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
       final startDateTime = DateTime(
         date.year,
         date.month,
@@ -723,6 +790,11 @@ class _StudentReportScreenState extends State<StudentReportScreen>
             .collection('student_monthly_reports')
             .doc()
             .id;
+        final monthParts = _selectedMonth!.split('-');
+        final monthDate = DateTime(
+          int.parse(monthParts[0]),
+          int.parse(monthParts[1]),
+        );
 
         final monthlyReport = {
           'id': reportId,
@@ -731,6 +803,12 @@ class _StudentReportScreenState extends State<StudentReportScreen>
           'studentEmail': user.email,
           'month': _selectedMonth,
           'monthDisplay': monthDisplay,
+          'periodStart': Timestamp.fromDate(
+            DateTime(monthDate.year, monthDate.month, 1),
+          ),
+          'periodEnd': Timestamp.fromDate(
+            DateTime(monthDate.year, monthDate.month + 1, 0),
+          ),
           'timesheetCount': draftTimesheets.length,
           'totalHours': totalHours,
           'hourlyRate': _studentProfile?.hourlyRate ?? 0.0,
@@ -953,7 +1031,7 @@ class _StudentReportScreenState extends State<StudentReportScreen>
       itemBuilder: (context, index) {
         final data = _monthlyReports[index].data();
         final reportId = _monthlyReports[index].id;
-        final monthDisplay = data['monthDisplay'] ?? '';
+        final monthDisplay = _formatReportPeriod(data);
         final status = data['status'] ?? 'submitted';
         final totalHours = (data['totalHours'] ?? 0.0).toDouble();
         final totalAmount = (data['totalAmount'] ?? 0.0).toDouble();
@@ -1132,17 +1210,17 @@ class _StudentReportScreenState extends State<StudentReportScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: Colors.grey[100],
       body: SafeArea(
         child: Column(
           children: [
             _buildWelcomeHeader(),
             // Tab Bar
             Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
+              margin: const EdgeInsets.symmetric(horizontal: 24),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.grey.withOpacity(0.1),
@@ -1191,111 +1269,143 @@ class _StudentReportScreenState extends State<StudentReportScreen>
     final userName = authProvider.currentUser?.name ?? 'Student';
 
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Colors.orange.shade400, Colors.orange.shade600],
+          colors: [
+            Colors.orange.shade400,
+            Colors.orange.shade600,
+            Colors.deepOrange.shade700,
+          ],
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.orange.shade200,
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: Colors.orange.shade300,
+            blurRadius: 15,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
-      child: Column(
+      child: Stack(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'My Working Hours',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.9),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
+          Positioned(
+            right: -30,
+            top: -30,
+            child: Container(
+              width: 140,
+              height: 140,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.1),
               ),
+            ),
+          ),
+          Positioned(
+            right: 40,
+            bottom: -40,
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.08),
+              ),
+            ),
+          ),
+          Column(
+            children: [
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  if (_studentProfile != null)
-                    _buildHeaderActionButton(
-                      icon: Icons.add,
-                      tooltip: 'Log Hours',
-                      onPressed: _showAddTimesheetDialog,
+                  Text(
+                    'My Working Hours',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
                     ),
-                  if (_selectedTabIndex == 0 &&
-                      _selectedMonth != null &&
-                      _timesheetsByMonth[_selectedMonth]?.any(
-                            (t) => t.status == 'draft',
-                          ) ==
-                          true) ...[
-                    const SizedBox(width: 8),
-                    _buildHeaderActionButton(
-                      icon: Icons.send,
-                      tooltip: 'Submit Report',
-                      onPressed: _submitTimesheetReport,
-                    ),
-                  ],
-                  const SizedBox(width: 8),
-                  _buildHeaderActionButton(
-                    icon: Icons.settings,
-                    tooltip: 'Settings',
-                    onPressed: () => context.go('/settings'),
                   ),
-                  const SizedBox(width: 8),
-                  _buildHeaderActionButton(
-                    icon: Icons.logout,
-                    tooltip: 'Logout',
-                    onPressed: () => _handleLogout(context),
+                  Row(
+                    children: [
+                      if (_studentProfile != null)
+                        _buildHeaderActionButton(
+                          icon: Icons.add,
+                          tooltip: 'Log Hours',
+                          onPressed: _showAddTimesheetDialog,
+                        ),
+                      if (_selectedTabIndex == 0 &&
+                          _selectedMonth != null &&
+                          _timesheetsByMonth[_selectedMonth]?.any(
+                                (t) => t.status == 'draft',
+                              ) ==
+                              true) ...[
+                        const SizedBox(width: 8),
+                        _buildHeaderActionButton(
+                          icon: Icons.send,
+                          tooltip: 'Submit Report',
+                          onPressed: _submitTimesheetReport,
+                        ),
+                      ],
+                      const SizedBox(width: 8),
+                      _buildHeaderActionButton(
+                        icon: Icons.settings,
+                        tooltip: 'Settings',
+                        onPressed: () => context.go('/settings'),
+                      ),
+                      const SizedBox(width: 8),
+                      _buildHeaderActionButton(
+                        icon: Icons.logout,
+                        tooltip: 'Logout',
+                        onPressed: () => _handleLogout(context),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.access_time,
-                  color: Colors.white,
-                  size: 32,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Welcome, $userName',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Rate: ฿${_studentProfile?.hourlyRate.toStringAsFixed(2) ?? '0.00'}/hr',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
-                        fontSize: 14,
-                      ),
+                    child: const Icon(
+                      Icons.access_time,
+                      color: Colors.white,
+                      size: 32,
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Welcome, $userName',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Rate: ฿${_studentProfile?.hourlyRate.toStringAsFixed(2) ?? '0.00'}/hr',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

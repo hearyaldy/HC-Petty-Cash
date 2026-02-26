@@ -4,8 +4,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '../../models/user.dart' show User, InventoryPermissions;
 import '../../models/enums.dart';
+import '../../models/organization.dart';
 import '../../models/student_timesheet.dart';
 import '../../services/firestore_service.dart';
+import '../../services/organization_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
@@ -1461,126 +1463,180 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     final departmentController = TextEditingController(text: user.department);
     // Normalize old role values to new ones
     String selectedRole = _normalizeRole(user.role);
+    String? selectedOrganizationId = user.organizationId;
+    String? selectedOrganizationName = user.organizationName;
     final formKey = GlobalKey<FormState>();
+    final organizationService = OrganizationService();
+    List<Organization> organizations = [];
+    bool isLoadingOrgs = true;
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Edit User'),
-          content: Form(
-            key: formKey,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Name',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.person),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Please enter a name';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: emailController,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.email),
-                    ),
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Please enter an email';
-                      }
-                      if (!value.contains('@')) {
-                        return 'Please enter a valid email';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: departmentController,
-                    decoration: const InputDecoration(
-                      labelText: 'Department',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.business),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Please enter a department';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    value: selectedRole,
-                    decoration: const InputDecoration(
-                      labelText: 'Role',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.security),
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'requester',
-                        child: Text('Requester'),
+        builder: (context, setState) {
+          // Load organizations when dialog opens
+          if (isLoadingOrgs) {
+            organizationService.getAllOrganizations().then((orgs) {
+              setState(() {
+                organizations = orgs.where((o) => o.isActive).toList();
+                isLoadingOrgs = false;
+              });
+            });
+          }
+
+          return AlertDialog(
+            title: const Text('Edit User'),
+            content: Form(
+              key: formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Name',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.person),
                       ),
-                      DropdownMenuItem(
-                        value: 'manager',
-                        child: Text('Manager'),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please enter a name';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: emailController,
+                      decoration: const InputDecoration(
+                        labelText: 'Email',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.email),
                       ),
-                      DropdownMenuItem(
-                        value: 'finance',
-                        child: Text('Finance'),
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please enter an email';
+                        }
+                        if (!value.contains('@')) {
+                          return 'Please enter a valid email';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: departmentController,
+                      decoration: const InputDecoration(
+                        labelText: 'Department',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.business),
                       ),
-                      DropdownMenuItem(value: 'admin', child: Text('Admin')),
-                      DropdownMenuItem(
-                        value: 'studentWorker',
-                        child: Text('Student Worker'),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please enter a department';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: selectedRole,
+                      decoration: const InputDecoration(
+                        labelText: 'Role',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.security),
                       ),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        selectedRole = value!;
-                      });
-                    },
-                  ),
-                ],
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'requester',
+                          child: Text('Requester'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'manager',
+                          child: Text('Manager'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'finance',
+                          child: Text('Finance'),
+                        ),
+                        DropdownMenuItem(value: 'admin', child: Text('Admin')),
+                        DropdownMenuItem(
+                          value: 'studentWorker',
+                          child: Text('Student Worker'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          selectedRole = value!;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    // Organization dropdown for inventory access
+                    isLoadingOrgs
+                        ? const LinearProgressIndicator()
+                        : DropdownButtonFormField<String?>(
+                            value: selectedOrganizationId,
+                            decoration: const InputDecoration(
+                              labelText: 'Organization (for Inventory)',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.corporate_fare),
+                              helperText: 'Determines which inventory the user can access',
+                            ),
+                            items: [
+                              const DropdownMenuItem<String?>(
+                                value: null,
+                                child: Text('No Organization (Admin sees all)'),
+                              ),
+                              ...organizations.map(
+                                (org) => DropdownMenuItem<String?>(
+                                  value: org.id,
+                                  child: Text('${org.name} (${org.code})'),
+                                ),
+                              ),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                selectedOrganizationId = value;
+                                selectedOrganizationName = value != null
+                                    ? organizations
+                                        .firstWhere((o) => o.id == value)
+                                        .name
+                                    : null;
+                              });
+                            },
+                          ),
+                  ],
+                ),
               ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                if (formKey.currentState!.validate()) {
-                  Navigator.pop(context);
-                  await _updateUser(
-                    user.id,
-                    nameController.text.trim(),
-                    emailController.text.trim(),
-                    departmentController.text.trim(),
-                    selectedRole,
-                  );
-                }
-              },
-              child: const Text('Save Changes'),
-            ),
-          ],
-        ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (formKey.currentState!.validate()) {
+                    Navigator.pop(context);
+                    await _updateUser(
+                      user.id,
+                      nameController.text.trim(),
+                      emailController.text.trim(),
+                      departmentController.text.trim(),
+                      selectedRole,
+                      organizationId: selectedOrganizationId,
+                      organizationName: selectedOrganizationName,
+                    );
+                  }
+                },
+                child: const Text('Save Changes'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -1900,17 +1956,21 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     String name,
     String email,
     String department,
-    String role,
-  ) async {
+    String role, {
+    String? organizationId,
+    String? organizationName,
+  }) async {
     try {
-      final existingUser = _users.firstWhere((u) => u.id == userId);
-      final updatedUser = existingUser.copyWith(
-        name: name,
-        email: email,
-        department: department,
-        role: role,
-      );
-      await _firestoreService.updateUser(updatedUser);
+      // Update user document directly to properly handle null organization values
+      await FirebaseFirestore.instance.collection('users').doc(userId).update({
+        'name': name,
+        'email': email,
+        'department': department,
+        'role': role,
+        'organizationId': organizationId, // Can be null to clear
+        'organizationName': organizationName, // Can be null to clear
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
       await _loadUsers();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

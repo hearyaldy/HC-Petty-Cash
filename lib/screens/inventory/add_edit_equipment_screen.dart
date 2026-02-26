@@ -6,7 +6,9 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../models/equipment.dart';
 import '../../models/user.dart';
 import '../../services/equipment_service.dart';
@@ -257,6 +259,9 @@ class _AddEditEquipmentScreenState extends State<AddEditEquipmentScreen> {
         notes: _notesController.text.trim().isEmpty
             ? null
             : _notesController.text.trim(),
+        // Organization - preserve existing or use user's organization for new equipment
+        organizationId: _existingEquipment?.organizationId ?? user?.organizationId,
+        organizationName: _existingEquipment?.organizationName ?? user?.organizationName,
         assignedToId: _assignedToId,
         assignedToName: _assignedToName,
         currentCheckoutId: _existingEquipment?.currentCheckoutId,
@@ -323,7 +328,21 @@ class _AddEditEquipmentScreenState extends State<AddEditEquipmentScreen> {
         final bytes = await _selectedImage!.readAsBytes();
         uploadTask = ref.putData(bytes);
       } else {
-        uploadTask = ref.putFile(File(_selectedImage!.path));
+        final tempDir = await getTemporaryDirectory();
+        final targetPath =
+            '${tempDir.path}/equipment_${timestamp}_compressed.jpg';
+        final compressed = await FlutterImageCompress.compressAndGetFile(
+          _selectedImage!.path,
+          targetPath,
+          quality: 70,
+          minWidth: 1200,
+          minHeight: 1200,
+          format: CompressFormat.jpeg,
+        );
+        final fileToUpload = compressed != null
+            ? File(compressed.path)
+            : File(_selectedImage!.path);
+        uploadTask = ref.putFile(fileToUpload);
       }
 
       final snapshot = await uploadTask;
@@ -482,6 +501,7 @@ class _AddEditEquipmentScreenState extends State<AddEditEquipmentScreen> {
     // Check permissions
     if (!hasPermission) {
       return Scaffold(
+        backgroundColor: Colors.grey[100],
         appBar: AppBar(
           title: Text(_isEditing ? 'Edit Equipment' : 'Add Equipment'),
         ),
@@ -526,7 +546,7 @@ class _AddEditEquipmentScreenState extends State<AddEditEquipmentScreen> {
                   icon: const Icon(Icons.arrow_back),
                   label: const Text('Go Back'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.indigo,
+                    backgroundColor: Colors.purple,
                     foregroundColor: Colors.white,
                   ),
                 ),
@@ -538,78 +558,222 @@ class _AddEditEquipmentScreenState extends State<AddEditEquipmentScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_isEditing ? 'Edit Equipment' : 'Add Equipment'),
-        elevation: ResponsiveHelper.isDesktop(context) ? 1 : 0,
-        actions: [
-          if (!_isLoading)
-            TextButton.icon(
-              onPressed: _saveEquipment,
-              icon: const Icon(Icons.save),
-              label: const Text('Save'),
-              style: TextButton.styleFrom(foregroundColor: Colors.white),
-            ),
-        ],
-      ),
+      backgroundColor: Colors.grey[100],
       body: _isLoading && _isEditing && _existingEquipment == null
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: ResponsiveHelper.getScreenPadding(context),
-              child: Form(
-                key: _formKey,
-                child: ResponsiveHelper.isDesktop(context)
-                    ? _buildDesktopLayout()
-                    : _buildMobileLayout(),
+          : SafeArea(
+              child: SingleChildScrollView(
+                child: ResponsiveContainer(
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 16),
+                      _buildHeaderBanner(),
+                      const SizedBox(height: 24),
+                      Form(
+                        key: _formKey,
+                        child: ResponsiveHelper.isDesktop(context)
+                            ? _buildDesktopLayout()
+                            : _buildMobileLayout(),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
     );
   }
 
-  Widget _buildDesktopLayout() {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1200),
-        child: Column(
-          children: [
-            // Photo section at top
-            _buildPhotoSection(),
-            const SizedBox(height: 16),
-            Row(
+  Widget _buildHeaderBanner() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.purple.shade400,
+            Colors.purple.shade600,
+            Colors.purple.shade800,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.purple.shade300,
+            blurRadius: 15,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          // Background pattern
+          Positioned(
+            right: -30,
+            top: -30,
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.1),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 40,
+            bottom: -30,
+            child: Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+          ),
+          // Content
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Column(
-                    children: [
-                      _buildBasicInfoSection(),
-                      const SizedBox(height: 16),
-                      _buildIdentificationSection(),
-                      const SizedBox(height: 16),
-                      _buildLocationAssignmentSection(),
-                    ],
-                  ),
+                // Top action bar
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildHeaderActionButton(
+                      icon: Icons.arrow_back,
+                      tooltip: 'Back',
+                      onPressed: () => context.pop(),
+                    ),
+                    if (!_isLoading)
+                      _buildHeaderActionButton(
+                        icon: Icons.save,
+                        tooltip: 'Save',
+                        onPressed: _saveEquipment,
+                      ),
+                  ],
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    children: [
-                      _buildPurchaseInfoSection(),
-                      const SizedBox(height: 16),
-                      _buildDepreciationSection(),
-                      const SizedBox(height: 16),
-                      _buildStatusSection(),
-                      const SizedBox(height: 16),
-                      _buildNotesSection(),
-                    ],
-                  ),
+                const SizedBox(height: 16),
+                // Main content
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _isEditing ? 'Edit Equipment' : 'Add Equipment',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black.withValues(alpha: 0.2),
+                                  offset: const Offset(1, 1),
+                                  blurRadius: 4,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _isEditing
+                                ? 'Update equipment information'
+                                : 'Add new equipment to inventory',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.9),
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Icon(
+                        _isEditing ? Icons.edit : Icons.add_circle,
+                        color: Colors.white,
+                        size: 36,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-            _buildSaveButton(),
-            const SizedBox(height: 32),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
         ),
       ),
+    );
+  }
+
+  Widget _buildDesktopLayout() {
+    return Column(
+      children: [
+        // Photo section at top
+        _buildPhotoSection(),
+        const SizedBox(height: 16),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                children: [
+                  _buildBasicInfoSection(),
+                  const SizedBox(height: 16),
+                  _buildIdentificationSection(),
+                  const SizedBox(height: 16),
+                  _buildLocationAssignmentSection(),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                children: [
+                  _buildPurchaseInfoSection(),
+                  const SizedBox(height: 16),
+                  _buildDepreciationSection(),
+                  const SizedBox(height: 16),
+                  _buildStatusSection(),
+                  const SizedBox(height: 16),
+                  _buildNotesSection(),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        _buildSaveButton(),
+        const SizedBox(height: 32),
+      ],
     );
   }
 
@@ -652,7 +816,7 @@ class _AddEditEquipmentScreenState extends State<AddEditEquipmentScreen> {
             : const Icon(Icons.save),
         label: Text(_isEditing ? 'Update Equipment' : 'Add Equipment'),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.indigo,
+          backgroundColor: Colors.purple,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 16),
         ),
@@ -666,39 +830,46 @@ class _AddEditEquipmentScreenState extends State<AddEditEquipmentScreen> {
     required Color color,
     required List<Widget> children,
   }) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(icon, color: color, size: 20),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                const SizedBox(width: 12),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
+                child: Icon(icon, color: color, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: color,
                 ),
-              ],
-            ),
-            const Divider(height: 24),
-            ...children,
-          ],
-        ),
+              ),
+            ],
+          ),
+          const Divider(height: 24),
+          ...children,
+        ],
       ),
     );
   }
@@ -813,6 +984,7 @@ class _AddEditEquipmentScreenState extends State<AddEditEquipmentScreen> {
                   prefixIcon: Icon(Icons.code),
                   border: OutlineInputBorder(),
                 ),
+                onChanged: (_) => setState(() {}),
               ),
             ),
           ],
@@ -837,6 +1009,25 @@ class _AddEditEquipmentScreenState extends State<AddEditEquipmentScreen> {
             border: OutlineInputBorder(),
           ),
         ),
+        const SizedBox(height: 16),
+        InputDecorator(
+          decoration: const InputDecoration(
+            labelText: 'Item Sticker Tag (Auto-generated)',
+            prefixIcon: Icon(Icons.label),
+            border: OutlineInputBorder(),
+          ),
+          child: Text(
+            _getItemStickerTag() ?? 'Add asset code, location, and purchase year',
+            style: TextStyle(
+              color: _getItemStickerTag() != null
+                  ? Colors.black87
+                  : Colors.grey.shade600,
+              fontWeight: _getItemStickerTag() != null
+                  ? FontWeight.w600
+                  : FontWeight.normal,
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -855,6 +1046,7 @@ class _AddEditEquipmentScreenState extends State<AddEditEquipmentScreen> {
             prefixIcon: Icon(Icons.location_on),
             border: OutlineInputBorder(),
           ),
+          onChanged: (_) => setState(() {}),
         ),
         const SizedBox(height: 16),
         DropdownButtonFormField<String>(
@@ -1313,6 +1505,15 @@ class _AddEditEquipmentScreenState extends State<AddEditEquipmentScreen> {
       return DateTime.now().year - _purchaseYear!;
     }
     return 0;
+  }
+
+  String? _getItemStickerTag() {
+    return Equipment.buildStickerTag(
+      assetCode: _assetCodeController.text,
+      location: _locationController.text,
+      purchaseDate: _purchaseDate,
+      purchaseYear: _purchaseYear,
+    );
   }
 
   Widget _buildStatusSection() {

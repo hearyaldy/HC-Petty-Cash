@@ -27,6 +27,50 @@ extension MeetingTypeExtension on MeetingType {
   }
 }
 
+// Meeting mode enum
+enum MeetingMode {
+  faceToFace,
+  virtual,
+  evote,
+}
+
+extension MeetingModeExtension on MeetingMode {
+  String get displayName {
+    switch (this) {
+      case MeetingMode.faceToFace:
+        return 'Face to Face';
+      case MeetingMode.virtual:
+        return 'Virtual Meeting';
+      case MeetingMode.evote:
+        return 'E-Vote';
+    }
+  }
+
+  String get value => name;
+
+  /// Returns the location description for PDF based on meeting mode
+  String getLocationDescription(String? physicalLocation, String? virtualLink) {
+    switch (this) {
+      case MeetingMode.faceToFace:
+        return physicalLocation?.isNotEmpty == true
+            ? physicalLocation!
+            : 'the Conference Room';
+      case MeetingMode.virtual:
+        return 'Virtual Meeting${virtualLink != null && virtualLink.isNotEmpty ? ' ($virtualLink)' : ''}';
+      case MeetingMode.evote:
+        return 'E-Vote (Electronic Voting)';
+    }
+  }
+
+  static MeetingMode fromString(String? value) {
+    if (value == null) return MeetingMode.faceToFace;
+    return MeetingMode.values.firstWhere(
+      (e) => e.name == value,
+      orElse: () => MeetingMode.faceToFace,
+    );
+  }
+}
+
 // Meeting status enum
 enum MeetingStatus {
   scheduled,
@@ -282,6 +326,7 @@ class Meeting {
   final DateTime dateTime;
   final String? location;
   final String? virtualLink;
+  final String meetingModeValue; // 'faceToFace', 'virtual', 'evote'
   final String status; // 'scheduled', 'inProgress', 'completed', 'cancelled'
   final String? chairpersonId;
   final String? chairpersonName;
@@ -291,6 +336,7 @@ class Meeting {
   final String? agendaId;
   final String? minutesId;
   final String? notes;
+  final String? customHeading;
   final String createdBy;
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -302,6 +348,7 @@ class Meeting {
     required this.dateTime,
     this.location,
     this.virtualLink,
+    this.meetingModeValue = 'faceToFace',
     this.status = 'scheduled',
     this.chairpersonId,
     this.chairpersonName,
@@ -311,6 +358,7 @@ class Meeting {
     this.agendaId,
     this.minutesId,
     this.notes,
+    this.customHeading,
     required this.createdBy,
     required this.createdAt,
     this.updatedAt,
@@ -318,6 +366,10 @@ class Meeting {
 
   MeetingType get meetingType => MeetingTypeExtension.fromString(type);
   MeetingStatus get meetingStatus => MeetingStatusExtension.fromString(status);
+  MeetingMode get meetingMode => MeetingModeExtension.fromString(meetingModeValue);
+
+  /// Returns the location description for display/PDF based on meeting mode
+  String get locationDescription => meetingMode.getLocationDescription(location, virtualLink);
 
   Map<String, dynamic> toFirestore() {
     return {
@@ -327,6 +379,7 @@ class Meeting {
       'dateTime': Timestamp.fromDate(dateTime),
       'location': location,
       'virtualLink': virtualLink,
+      'meetingMode': meetingModeValue,
       'status': status,
       'chairpersonId': chairpersonId,
       'chairpersonName': chairpersonName,
@@ -336,6 +389,7 @@ class Meeting {
       'agendaId': agendaId,
       'minutesId': minutesId,
       'notes': notes,
+      'customHeading': customHeading,
       'createdBy': createdBy,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
@@ -370,6 +424,7 @@ class Meeting {
       dateTime: parseTimestamp(data['dateTime'], now),
       location: data['location'],
       virtualLink: data['virtualLink'],
+      meetingModeValue: data['meetingMode'] ?? 'faceToFace',
       status: data['status'] ?? 'scheduled',
       chairpersonId: data['chairpersonId'],
       chairpersonName: data['chairpersonName'],
@@ -379,6 +434,7 @@ class Meeting {
       agendaId: data['agendaId'],
       minutesId: data['minutesId'],
       notes: data['notes'],
+      customHeading: data['customHeading'],
       createdBy: data['createdBy'] ?? '',
       createdAt: parseTimestamp(data['createdAt'], now),
       updatedAt: data['updatedAt'] != null
@@ -394,6 +450,7 @@ class Meeting {
     DateTime? dateTime,
     String? location,
     String? virtualLink,
+    String? meetingModeValue,
     String? status,
     String? chairpersonId,
     String? chairpersonName,
@@ -403,6 +460,7 @@ class Meeting {
     String? agendaId,
     String? minutesId,
     String? notes,
+    String? customHeading,
     String? createdBy,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -414,6 +472,7 @@ class Meeting {
       dateTime: dateTime ?? this.dateTime,
       location: location ?? this.location,
       virtualLink: virtualLink ?? this.virtualLink,
+      meetingModeValue: meetingModeValue ?? this.meetingModeValue,
       status: status ?? this.status,
       chairpersonId: chairpersonId ?? this.chairpersonId,
       chairpersonName: chairpersonName ?? this.chairpersonName,
@@ -423,6 +482,7 @@ class Meeting {
       agendaId: agendaId ?? this.agendaId,
       minutesId: minutesId ?? this.minutesId,
       notes: notes ?? this.notes,
+      customHeading: customHeading ?? this.customHeading,
       createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

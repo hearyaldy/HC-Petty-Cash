@@ -7,6 +7,7 @@ class SettingsService {
   static const String SETTINGS_DOC_ID = 'app_settings';
   static const String CATEGORIES_DOC_ID = 'custom_categories';
   static const String PROJECT_LANGUAGES_DOC_ID = 'project_languages';
+  static const String MEDIA_CATEGORIES_DOC_ID = 'media_categories';
 
   CollectionReference<Map<String, dynamic>> get _settingsCollection =>
       _firestore.collection('settings');
@@ -122,6 +123,53 @@ class SettingsService {
       await saveCustomCategories(categories);
     } catch (e) {
       AppLogger.severe('Error deleting custom category: $e');
+      rethrow;
+    }
+  }
+
+  // Get media production categories
+  Future<List<String>> getMediaCategories() async {
+    try {
+      final doc = await _settingsCollection.doc(MEDIA_CATEGORIES_DOC_ID).get();
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+        final categories = data['categories'] as List<dynamic>? ?? [];
+        return categories.map((item) => item.toString()).toList();
+      }
+      return [];
+    } catch (e) {
+      AppLogger.severe('Error getting media categories: $e');
+      return [];
+    }
+  }
+
+  Future<void> saveMediaCategories(List<String> categories) async {
+    try {
+      await _settingsCollection.doc(MEDIA_CATEGORIES_DOC_ID).set({
+        'categories': categories,
+        'updatedAt': Timestamp.now(),
+      });
+    } catch (e) {
+      AppLogger.severe('Error saving media categories: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<String>> addMediaCategory(String category) async {
+    try {
+      final categories = await getMediaCategories();
+      final normalized = category.trim();
+      if (normalized.isEmpty) return categories;
+      final exists = categories.any(
+        (c) => c.toLowerCase() == normalized.toLowerCase(),
+      );
+      if (!exists) {
+        categories.add(normalized);
+        await saveMediaCategories(categories);
+      }
+      return categories;
+    } catch (e) {
+      AppLogger.severe('Error adding media category: $e');
       rethrow;
     }
   }

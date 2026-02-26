@@ -269,6 +269,8 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
   ) {
     final screenWidth = MediaQuery.of(context).size.width;
     final crossAxisCount = screenWidth > 900 ? 4 : (screenWidth > 600 ? 2 : 2);
+    // Adjust aspect ratio for mobile - give more height on smaller screens
+    final aspectRatio = screenWidth > 600 ? 1.1 : 0.95;
 
     final sections = <_SectionCard>[
       _SectionCard(
@@ -335,6 +337,13 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
         badgeLabel: 'Actions',
         visible: isAdmin,
       ),
+      _SectionCard(
+        title: 'Media Production',
+        subtitle: 'Productions & Engagement',
+        icon: Icons.video_library,
+        color: Colors.pink,
+        route: '/media-dashboard',
+      ),
     ];
 
     final visibleSections = sections.where((s) => s.visible).toList();
@@ -346,7 +355,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
         crossAxisCount: crossAxisCount,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
-        childAspectRatio: 1.1,
+        childAspectRatio: aspectRatio,
       ),
       itemCount: visibleSections.length,
       itemBuilder: (context, index) {
@@ -357,13 +366,16 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
   }
 
   Widget _buildSectionCard(BuildContext context, _SectionCard section) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () => context.push(section.route),
         borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: const EdgeInsets.all(20),
+          padding: EdgeInsets.all(isMobile ? 14 : 20),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
@@ -377,17 +389,22 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: EdgeInsets.all(isMobile ? 10 : 12),
                     decoration: BoxDecoration(
                       color: section.color.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(section.icon, color: section.color, size: 28),
+                    child: Icon(
+                      section.icon,
+                      color: section.color,
+                      size: isMobile ? 24 : 28,
+                    ),
                   ),
                   if (section.badge != null)
                     Container(
@@ -429,19 +446,21 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
               Text(
                 section.title,
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: isMobile ? 15 : 18,
                   fontWeight: FontWeight.bold,
                   color: Colors.grey[800],
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                section.subtitle,
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                maxLines: 2,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 2),
+              Text(
+                section.subtitle,
+                style: TextStyle(fontSize: isMobile ? 11 : 12, color: Colors.grey[600]),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              SizedBox(height: isMobile ? 4 : 8),
               Row(
                 children: [
                   Text(
@@ -449,11 +468,11 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                     style: TextStyle(
                       color: section.color,
                       fontWeight: FontWeight.w600,
-                      fontSize: 13,
+                      fontSize: isMobile ? 12 : 13,
                     ),
                   ),
                   const SizedBox(width: 4),
-                  Icon(Icons.arrow_forward, color: section.color, size: 16),
+                  Icon(Icons.arrow_forward, color: section.color, size: isMobile ? 14 : 16),
                 ],
               ),
             ],
@@ -534,6 +553,13 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                 label: 'Travel Report',
                 route: '/traveling/new',
                 color: Colors.indigo,
+              ),
+              _buildQuickActionChip(
+                context,
+                icon: Icons.description_outlined,
+                label: 'Templates',
+                route: '/admin/meeting-templates',
+                color: Colors.cyan,
               ),
             ],
           ),

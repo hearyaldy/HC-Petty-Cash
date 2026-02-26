@@ -280,7 +280,7 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'ADCOM Meeting Minutes',
+                      '${_minutes!.organization} Minutes',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: isMobile ? 20 : 24,

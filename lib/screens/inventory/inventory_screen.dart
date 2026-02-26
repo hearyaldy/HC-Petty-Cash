@@ -1,9 +1,13 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:barcode_widget/barcode_widget.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:printing/printing.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/equipment.dart';
 import '../../services/equipment_service.dart';
 import '../../services/inventory_import_service.dart';
@@ -14,6 +18,17 @@ import '../../utils/responsive_helper.dart';
 
 enum ViewType { card, table, list }
 enum ImportAction { create, update, skip }
+enum PrintSortOption {
+  none,
+  assetTagNumberAsc,
+  assetTagNumberDesc,
+  assetTagAsc,
+  assetTagDesc,
+  assetCodeAsc,
+  assetCodeDesc,
+  itemStickerTagAsc,
+  itemStickerTagDesc,
+}
 
 class _ImportPlanItem {
   _ImportPlanItem({
@@ -45,6 +60,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   String _selectedCondition = 'All';
   String _selectedLocation = 'All';
   String _searchQuery = '';
+  bool _showPrintReady = false; // Filter for items ready for sticker printing
   ViewType _viewType = ViewType.card;
   bool _isLoading = true;
   List<Equipment> _equipment = [];
@@ -79,9 +95,25 @@ class _InventoryScreenState extends State<InventoryScreen> {
     });
 
     try {
-      final snapshot = await _equipmentService.getAllEquipmentOnce(
-        forceRefresh: forceRefresh,
-      );
+      final authProvider = context.read<AuthProvider>();
+      final user = authProvider.currentUser;
+      final isAdmin = user?.role == 'admin';
+      final organizationId = user?.organizationId;
+
+      List<Equipment> snapshot;
+
+      // Admins see all equipment, others see only their organization's equipment
+      if (isAdmin || organizationId == null) {
+        snapshot = await _equipmentService.getAllEquipmentOnce(
+          forceRefresh: forceRefresh,
+        );
+      } else {
+        snapshot = await _equipmentService.getEquipmentByOrganizationOnce(
+          organizationId,
+          forceRefresh: forceRefresh,
+        );
+      }
+
       if (mounted) {
         setState(() {
           _equipment = snapshot;
@@ -205,7 +237,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   String _getFilterKey() {
-    return '$_selectedCategory|$_selectedStatus|$_selectedCondition|$_selectedLocation|$_searchQuery';
+    return '$_selectedCategory|$_selectedStatus|$_selectedCondition|$_selectedLocation|$_searchQuery|$_showPrintReady';
   }
 
   /// Show print field selection dialog
@@ -226,6 +258,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final selectedFields = Set<EquipmentPrintField>.from(
       EquipmentPrintField.defaultFields,
     );
+    PrintSortOption sortOption = PrintSortOption.none;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -237,10 +270,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.indigo.shade50,
+                    color: Colors.purple.shade50,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.print, color: Colors.indigo.shade600),
+                  child: Icon(Icons.print, color: Colors.purple.shade600),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -288,7 +321,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           icon: const Icon(Icons.select_all, size: 18),
                           label: const Text('All'),
                           style: TextButton.styleFrom(
-                            foregroundColor: Colors.indigo,
+                            foregroundColor: Colors.purple,
                           ),
                         ),
                         TextButton.icon(
@@ -322,6 +355,71 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      const Text(
+                        'Sort by:',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: DropdownButtonFormField<PrintSortOption>(
+                          value: sortOption,
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                              value: PrintSortOption.none,
+                              child: Text('No Sorting'),
+                            ),
+                            DropdownMenuItem(
+                              value: PrintSortOption.assetTagNumberAsc,
+                              child: Text('Asset Tag Number (Asc)'),
+                            ),
+                            DropdownMenuItem(
+                              value: PrintSortOption.assetTagNumberDesc,
+                              child: Text('Asset Tag Number (Desc)'),
+                            ),
+                            DropdownMenuItem(
+                              value: PrintSortOption.assetTagAsc,
+                              child: Text('Asset Tag (Asc)'),
+                            ),
+                            DropdownMenuItem(
+                              value: PrintSortOption.assetTagDesc,
+                              child: Text('Asset Tag (Desc)'),
+                            ),
+                            DropdownMenuItem(
+                              value: PrintSortOption.assetCodeAsc,
+                              child: Text('Asset Code (Asc)'),
+                            ),
+                            DropdownMenuItem(
+                              value: PrintSortOption.assetCodeDesc,
+                              child: Text('Asset Code (Desc)'),
+                            ),
+                            DropdownMenuItem(
+                              value: PrintSortOption.itemStickerTagAsc,
+                              child: Text('Item Sticker Tag (Asc)'),
+                            ),
+                            DropdownMenuItem(
+                              value: PrintSortOption.itemStickerTagDesc,
+                              child: Text('Item Sticker Tag (Desc)'),
+                            ),
+                          ],
+                          onChanged: (value) {
+                            if (value == null) return;
+                            setDialogState(() => sortOption = value);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
 
                   // Field groups
                   Expanded(
@@ -333,6 +431,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             'Basic Info',
                             [
                               EquipmentPrintField.assetCode,
+                              EquipmentPrintField.itemStickerTag,
                               EquipmentPrintField.name,
                               EquipmentPrintField.description,
                               EquipmentPrintField.category,
@@ -347,6 +446,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             [
                               EquipmentPrintField.serialNumber,
                               EquipmentPrintField.assetTag,
+                              EquipmentPrintField.assetTagQr,
+                              EquipmentPrintField.assetTagBarcode,
                               EquipmentPrintField.accountingPeriod,
                             ],
                             selectedFields,
@@ -422,7 +523,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 icon: const Icon(Icons.print, size: 18),
                 label: const Text('Print Preview'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.indigo,
+                  backgroundColor: Colors.purple,
                   foregroundColor: Colors.white,
                 ),
               ),
@@ -433,11 +534,750 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
 
     if (confirmed == true && selectedFields.isNotEmpty) {
-      await _generateAndOpenPdf(
+      final sortedEquipment = _sortEquipmentForPrint(
         filteredEquipment,
+        sortOption,
+      );
+      await _generateAndOpenPdf(
+        sortedEquipment,
         selectedFields.toList()..sort((a, b) => a.index.compareTo(b.index)),
       );
     }
+  }
+
+  Future<void> _showStickerPrintDialog({bool selectedOnly = false}) async {
+    List<Equipment> equipmentToPrint;
+
+    if (selectedOnly && _selectedEquipmentIds.isNotEmpty) {
+      // Print only selected equipment
+      equipmentToPrint = _equipment
+          .where((e) => _selectedEquipmentIds.contains(e.id))
+          .toList();
+    } else {
+      // Print all filtered equipment
+      equipmentToPrint = _filterEquipment(_equipment);
+    }
+
+    final stickerItems =
+        equipmentToPrint.where((e) => e.itemStickerTag != null).toList();
+
+    if (stickerItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No items with sticker tags to print'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // Default sticker size: 70x37mm, 8 rows, 3 columns (8×37=296mm fits A4 297mm)
+    final widthController = TextEditingController(text: '70');
+    final heightController = TextEditingController(text: '37');
+    final sheetWidthController = TextEditingController(text: '210');
+    final sheetHeightController = TextEditingController(text: '297');
+    final rowsController = TextEditingController(text: '8');
+    final colsController = TextEditingController(text: '3');
+    final marginController = TextEditingController(text: '0');
+    final hGapController = TextEditingController(text: '0');
+    final vGapController = TextEditingController(text: '0');
+    final offsetLeftController = TextEditingController(text: '0');
+    final offsetRightController = TextEditingController(text: '0');
+    final stickerLeftPaddingController = TextEditingController(text: '0');
+    // Start position (1-indexed for user-friendliness)
+    final startRowController = TextEditingController(text: '1');
+    final startColumnController = TextEditingController(text: '1');
+
+    // Built-in sticker presets
+    final builtInPresets = <String, Map<String, dynamic>>{
+      'Default (70x37mm, 8x3)': {
+        'width': '70',
+        'height': '37',
+        'rows': '8',
+        'cols': '3',
+      },
+      '70x29.7mm (10x3)': {
+        'width': '70',
+        'height': '29.7',
+        'rows': '10',
+        'cols': '3',
+      },
+      '63.5x38.1mm (7x3)': {
+        'width': '63.5',
+        'height': '38.1',
+        'rows': '7',
+        'cols': '3',
+      },
+      '52.5x29.7mm (10x4)': {
+        'width': '52.5',
+        'height': '29.7',
+        'rows': '10',
+        'cols': '4',
+      },
+      '38.1x21.2mm (13x5)': {
+        'width': '38.1',
+        'height': '21.2',
+        'rows': '13',
+        'cols': '5',
+      },
+      '25.4x10mm (27x7)': {
+        'width': '25.4',
+        'height': '10',
+        'rows': '27',
+        'cols': '7',
+      },
+    };
+
+    // Load saved presets from SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    final savedPresetsJson = prefs.getString('sticker_presets') ?? '{}';
+    final savedPresets = Map<String, dynamic>.from(jsonDecode(savedPresetsJson));
+
+    // Merge built-in and saved presets
+    final stickerPresets = <String, Map<String, dynamic>>{
+      ...builtInPresets,
+      ...savedPresets.map((key, value) => MapEntry(key, Map<String, dynamic>.from(value))),
+      'Custom': {'width': '', 'height': '', 'rows': '', 'cols': ''},
+    };
+    String selectedPreset = 'Default (70x37mm, 8x3)';
+
+    // Function to save a new preset
+    Future<void> savePreset(String name, StateSetter setDialogState) async {
+      final newPreset = {
+        'width': widthController.text,
+        'height': heightController.text,
+        'rows': rowsController.text,
+        'cols': colsController.text,
+      };
+      savedPresets[name] = newPreset;
+      await prefs.setString('sticker_presets', jsonEncode(savedPresets));
+      stickerPresets[name] = newPreset;
+      setDialogState(() {
+        selectedPreset = name;
+      });
+    }
+
+    // Function to delete a saved preset
+    Future<void> deletePreset(String name, StateSetter setDialogState) async {
+      savedPresets.remove(name);
+      stickerPresets.remove(name);
+      await prefs.setString('sticker_presets', jsonEncode(savedPresets));
+      setDialogState(() {
+        selectedPreset = 'Default (70x37mm, 8x3)';
+        final preset = stickerPresets[selectedPreset]!;
+        widthController.text = preset['width']!;
+        heightController.text = preset['height']!;
+        rowsController.text = preset['rows']!;
+        colsController.text = preset['cols']!;
+      });
+    }
+
+    // Function to rename a saved preset
+    Future<void> renamePreset(String oldName, String newName, StateSetter setDialogState) async {
+      if (oldName == newName || newName.isEmpty) return;
+      final presetData = savedPresets[oldName];
+      if (presetData == null) return;
+
+      savedPresets.remove(oldName);
+      savedPresets[newName] = presetData;
+      stickerPresets.remove(oldName);
+      stickerPresets[newName] = Map<String, dynamic>.from(presetData);
+      await prefs.setString('sticker_presets', jsonEncode(savedPresets));
+      setDialogState(() {
+        selectedPreset = newName;
+      });
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.purple.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.qr_code_2, color: Colors.purple.shade600),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(child: Text('Print Stickers')),
+            ],
+          ),
+          content: SizedBox(
+            width: 520,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Preset dropdown
+                  const Text(
+                    'Sticker Preset',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    value: selectedPreset,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    items: stickerPresets.keys.map((preset) {
+                      return DropdownMenuItem(
+                        value: preset,
+                        child: Text(preset, style: const TextStyle(fontSize: 14)),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value != null && value != 'Custom') {
+                        final preset = stickerPresets[value]!;
+                        setDialogState(() {
+                          selectedPreset = value;
+                          widthController.text = preset['width']!;
+                          heightController.text = preset['height']!;
+                          rowsController.text = preset['rows']!;
+                          colsController.text = preset['cols']!;
+                        });
+                      } else {
+                        setDialogState(() {
+                          selectedPreset = value!;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  // Save/Delete preset buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            final nameController = TextEditingController();
+                            final presetName = await showDialog<String>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Save Preset'),
+                                content: TextField(
+                                  controller: nameController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Preset Name',
+                                    hintText: 'e.g., My Custom Label',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  autofocus: true,
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () => Navigator.pop(ctx, nameController.text),
+                                    child: const Text('Save'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (presetName != null && presetName.trim().isNotEmpty) {
+                              await savePreset(presetName.trim(), setDialogState);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Preset "$presetName" saved'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                          icon: const Icon(Icons.save, size: 16),
+                          label: const Text('Save Preset'),
+                        ),
+                      ),
+                      if (savedPresets.containsKey(selectedPreset)) ...[
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () async {
+                              final nameController = TextEditingController(text: selectedPreset);
+                              final newName = await showDialog<String>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: const Text('Rename Preset'),
+                                  content: TextField(
+                                    controller: nameController,
+                                    decoration: const InputDecoration(
+                                      labelText: 'New Name',
+                                      border: OutlineInputBorder(),
+                                    ),
+                                    autofocus: true,
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(ctx),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    ElevatedButton(
+                                      onPressed: () => Navigator.pop(ctx, nameController.text),
+                                      child: const Text('Rename'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (newName != null && newName.trim().isNotEmpty && newName.trim() != selectedPreset) {
+                                await renamePreset(selectedPreset, newName.trim(), setDialogState);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Preset renamed to "$newName"'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                            icon: const Icon(Icons.edit, size: 16),
+                            label: const Text('Rename'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () async {
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: const Text('Delete Preset'),
+                                  content: Text('Delete "$selectedPreset"?'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(ctx, false),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    ElevatedButton(
+                                      onPressed: () => Navigator.pop(ctx, true),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.red,
+                                        foregroundColor: Colors.white,
+                                      ),
+                                      child: const Text('Delete'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (confirm == true) {
+                                await deletePreset(selectedPreset, setDialogState);
+                              }
+                            },
+                            icon: const Icon(Icons.delete, size: 16, color: Colors.red),
+                            label: const Text('Delete', style: TextStyle(color: Colors.red)),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Colors.red),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Sticker Size (mm)',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: widthController,
+                          onChanged: (_) => setDialogState(() {
+                            selectedPreset = 'Custom';
+                          }),
+                          decoration: const InputDecoration(
+                            labelText: 'Width',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: heightController,
+                          onChanged: (_) => setDialogState(() {
+                            selectedPreset = 'Custom';
+                          }),
+                          decoration: const InputDecoration(
+                            labelText: 'Height',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                    ],
+                  ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Sheet Size (mm)',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: sheetWidthController,
+                        decoration: const InputDecoration(
+                          labelText: 'Sheet Width',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: sheetHeightController,
+                        decoration: const InputDecoration(
+                          labelText: 'Sheet Height',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Layout',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: rowsController,
+                        decoration: const InputDecoration(
+                          labelText: 'Rows',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: colsController,
+                        decoration: const InputDecoration(
+                          labelText: 'Columns',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Margins & Gaps (mm)',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: marginController,
+                        decoration: const InputDecoration(
+                          labelText: 'Margin',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: hGapController,
+                        decoration: const InputDecoration(
+                          labelText: 'H Gap',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: vGapController,
+                        decoration: const InputDecoration(
+                          labelText: 'V Gap',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Alignment',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: offsetLeftController,
+                        decoration: const InputDecoration(
+                          labelText: 'Left Offset (mm)',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: offsetRightController,
+                        decoration: const InputDecoration(
+                          labelText: 'Right Offset (mm)',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Sticker Content',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: stickerLeftPaddingController,
+                        decoration: const InputDecoration(
+                          labelText: 'Sticker Left Padding (mm)',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Start Position',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Skip stickers that are already used on the sheet',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: startRowController,
+                        decoration: const InputDecoration(
+                          labelText: 'Start Row',
+                          helperText: '1 = first row',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: startColumnController,
+                        decoration: const InputDecoration(
+                          labelText: 'Start Column',
+                          helperText: '1 = first column',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton.icon(
+              onPressed: () => Navigator.pop(context, true),
+              icon: const Icon(Icons.print, size: 18),
+              label: const Text('Print Stickers'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.purple,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final config = StickerPrintConfig(
+      stickerWidthMm: double.tryParse(widthController.text) ?? 70,
+      stickerHeightMm: double.tryParse(heightController.text) ?? 37,
+      sheetWidthMm: double.tryParse(sheetWidthController.text) ?? 210,
+      sheetHeightMm: double.tryParse(sheetHeightController.text) ?? 297,
+      rows: int.tryParse(rowsController.text) ?? 8,
+      columns: int.tryParse(colsController.text) ?? 3,
+      marginMm: double.tryParse(marginController.text) ?? 0,
+      horizontalGapMm: double.tryParse(hGapController.text) ?? 0,
+      verticalGapMm: double.tryParse(vGapController.text) ?? 0,
+      offsetLeftMm: double.tryParse(offsetLeftController.text) ?? 0,
+      offsetRightMm: double.tryParse(offsetRightController.text) ?? 0,
+      stickerLeftPaddingMm:
+          double.tryParse(stickerLeftPaddingController.text) ?? 0,
+      startRow: int.tryParse(startRowController.text) ?? 1,
+      startColumn: int.tryParse(startColumnController.text) ?? 1,
+    );
+
+    await _generateAndOpenStickerPdf(stickerItems, config);
+  }
+
+  Future<void> _generateAndOpenStickerPdf(
+    List<Equipment> equipment,
+    StickerPrintConfig config,
+  ) async {
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const AlertDialog(
+          content: SizedBox(
+            height: 80,
+            child: Center(child: CircularProgressIndicator()),
+          ),
+        ),
+      );
+
+      final pdfService = PdfExportService();
+      final pdfBytes =
+          await pdfService.exportEquipmentStickerSheetBytes(
+        equipment,
+        config,
+      );
+
+      if (mounted) {
+        Navigator.pop(context);
+        await Printing.layoutPdf(
+          onLayout: (format) async => Uint8List.fromList(pdfBytes),
+          name: 'Equipment_Sticker_Sheet',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error generating sticker PDF: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  List<Equipment> _sortEquipmentForPrint(
+    List<Equipment> equipment,
+    PrintSortOption sortOption,
+  ) {
+    if (sortOption == PrintSortOption.none) return equipment;
+
+    final sorted = [...equipment];
+    if (sortOption == PrintSortOption.assetTagNumberAsc ||
+        sortOption == PrintSortOption.assetTagNumberDesc) {
+      final isDesc = sortOption == PrintSortOption.assetTagNumberDesc;
+      sorted.sort((a, b) {
+        final aKey = _assetTagSortKey(a.assetTag);
+        final bKey = _assetTagSortKey(b.assetTag);
+        return isDesc ? bKey.compareTo(aKey) : aKey.compareTo(bKey);
+      });
+    } else if (sortOption == PrintSortOption.assetTagAsc ||
+        sortOption == PrintSortOption.assetTagDesc) {
+      final isDesc = sortOption == PrintSortOption.assetTagDesc;
+      sorted.sort((a, b) {
+        final aKey = _stringSortKey(a.assetTag);
+        final bKey = _stringSortKey(b.assetTag);
+        return isDesc ? bKey.compareTo(aKey) : aKey.compareTo(bKey);
+      });
+    } else if (sortOption == PrintSortOption.assetCodeAsc ||
+        sortOption == PrintSortOption.assetCodeDesc) {
+      final isDesc = sortOption == PrintSortOption.assetCodeDesc;
+      sorted.sort((a, b) {
+        final aPrefix = _assetCodePrefixKey(a.assetCode);
+        final bPrefix = _assetCodePrefixKey(b.assetCode);
+        if (aPrefix != bPrefix) {
+          return isDesc
+              ? bPrefix.compareTo(aPrefix)
+              : aPrefix.compareTo(bPrefix);
+        }
+        final aNum = _assetCodeNumberKey(a.assetCode);
+        final bNum = _assetCodeNumberKey(b.assetCode);
+        return isDesc ? bNum.compareTo(aNum) : aNum.compareTo(bNum);
+      });
+    } else if (sortOption == PrintSortOption.itemStickerTagAsc ||
+        sortOption == PrintSortOption.itemStickerTagDesc) {
+      final isDesc = sortOption == PrintSortOption.itemStickerTagDesc;
+      sorted.sort((a, b) {
+        final aKey = _stringSortKey(a.itemStickerTag);
+        final bKey = _stringSortKey(b.itemStickerTag);
+        return isDesc ? bKey.compareTo(aKey) : aKey.compareTo(bKey);
+      });
+    }
+    return sorted;
+  }
+
+  int _assetTagSortKey(String? assetTag) {
+    if (assetTag == null || assetTag.trim().isEmpty) return 1 << 30;
+    final match = RegExp(r'\d+').firstMatch(assetTag);
+    if (match == null) return 1 << 29;
+    return int.tryParse(match.group(0)!) ?? (1 << 29);
+  }
+
+  int _assetCodeNumberKey(String? assetCode) {
+    if (assetCode == null || assetCode.trim().isEmpty) return 1 << 30;
+    final match = RegExp(r'\d+').firstMatch(assetCode);
+    if (match == null) return 1 << 29;
+    return int.tryParse(match.group(0)!) ?? (1 << 29);
+  }
+
+  String _assetCodePrefixKey(String? assetCode) {
+    if (assetCode == null || assetCode.trim().isEmpty) return '\u{10FFFF}';
+    final match = RegExp(r'^[A-Za-z]+').firstMatch(assetCode.trim());
+    if (match == null) return '\u{10FFFF}';
+    return match.group(0)!.toUpperCase();
+  }
+
+  String _stringSortKey(String? value) {
+    if (value == null || value.trim().isEmpty) return '\u{10FFFF}';
+    return value.trim().toUpperCase();
   }
 
   Future<void> _importInventory() async {
@@ -690,7 +1530,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 icon: const Icon(Icons.upload),
                 label: Text('Import $actionable'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.indigo,
+                  backgroundColor: Colors.purple,
                   foregroundColor: Colors.white,
                 ),
               ),
@@ -881,7 +1721,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       : 'Select all',
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.indigo[400],
+                    color: Colors.purple[400],
                   ),
                 ),
               ),
@@ -911,7 +1751,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   }
                 });
               },
-              selectedColor: Colors.indigo,
+              selectedColor: Colors.purple,
               checkmarkColor: Colors.white,
               backgroundColor: Colors.grey[200],
               padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -1440,6 +2280,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
       if (_selectedLocation != 'All' && item.location != _selectedLocation) {
         return false;
       }
+      // Filter for print-ready items (has sticker tag, location, and purchase year)
+      if (_showPrintReady) {
+        final hasTag = item.itemStickerTag != null || item.assetTag != null;
+        final hasLocation = item.location != null && item.location!.isNotEmpty;
+        final hasPurchaseYear = item.purchaseYear != null;
+        if (!hasTag || !hasLocation || !hasPurchaseYear) {
+          return false;
+        }
+      }
       if (_searchQuery.isNotEmpty) {
         final query = _searchQuery.toLowerCase();
         return item.name.toLowerCase().contains(query) ||
@@ -1465,7 +2314,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     // Check if user has view permission
     if (!authProvider.canViewInventory()) {
       return Scaffold(
-        backgroundColor: Colors.grey[50],
+        backgroundColor: Colors.grey[100],
         body: SafeArea(
           child: Center(
             child: Padding(
@@ -1518,7 +2367,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     icon: const Icon(Icons.home),
                     label: const Text('Back to Dashboard'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.indigo,
+                      backgroundColor: Colors.purple,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 24,
@@ -1534,8 +2383,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
       );
     }
 
+    final isMobile = ResponsiveHelper.isMobile(context);
+
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: Colors.grey[100],
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _refreshEquipment,
@@ -1546,6 +2397,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
           ),
         ),
       ),
+      floatingActionButton: isMobile
+          ? FloatingActionButton.extended(
+              onPressed: () => context.push('/inventory/scan'),
+              backgroundColor: Colors.purple.shade600,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.qr_code_scanner),
+              label: const Text('Scan'),
+            )
+          : null,
     );
   }
 
@@ -1562,6 +2422,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const SizedBox(height: 24),
             // Welcome Header
             _buildWelcomeHeader(),
             SizedBox(height: spacing),
@@ -1578,7 +2439,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             DashboardSection(
               title: 'Filters',
               icon: Icons.filter_list,
-              iconColor: Colors.indigo,
+              iconColor: Colors.purple,
               initiallyExpanded: _showFilters,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -1613,6 +2474,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const SizedBox(height: 24),
             // Welcome Header
             _buildWelcomeHeader(),
             SizedBox(height: spacing),
@@ -1625,7 +2487,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             DashboardSection(
               title: 'Search & Filters',
               icon: Icons.filter_list,
-              iconColor: Colors.indigo,
+              iconColor: Colors.purple,
               initiallyExpanded: true,
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -1682,7 +2544,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             DashboardSection(
               title: 'Search & Filters',
               icon: Icons.filter_list,
-              iconColor: Colors.indigo,
+              iconColor: Colors.purple,
               initiallyExpanded: true,
               child: Padding(
                 padding: const EdgeInsets.all(20),
@@ -1717,154 +2579,242 @@ class _InventoryScreenState extends State<InventoryScreen> {
   Widget _buildWelcomeHeader() {
     final authProvider = context.read<AuthProvider>();
     final userName = authProvider.currentUser?.name ?? 'User';
+    final organizationName = authProvider.currentUser?.organizationName;
     final canAdd = authProvider.canAddInventory();
     final stats = _getStats(_equipment);
     final isMobile = ResponsiveHelper.isMobile(context);
 
     return Container(
-      padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.indigo.shade600, Colors.indigo.shade400],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
+          colors: [
+            Colors.purple.shade400,
+            Colors.purple.shade600,
+            Colors.purple.shade800,
+          ],
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.indigo.withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+            color: Colors.purple.shade300,
+            blurRadius: 15,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
-      child: Column(
+      child: Stack(
         children: [
-          // Top action bar
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Back/Home button
-              _buildHeaderActionButton(
-                icon: Icons.arrow_back,
-                tooltip: 'Back to Dashboard',
-                onPressed: () => context.go('/admin-hub'),
+          // Background pattern
+          Positioned(
+            right: -30,
+            top: -30,
+            child: Container(
+              width: 150,
+              height: 150,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.1),
               ),
-              // Action buttons
-              Row(
-                children: [
-                  if (!isMobile) ...[
-                    // View toggles
-                    Container(
-                      margin: const EdgeInsets.only(right: 8),
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
+            ),
+          ),
+          Positioned(
+            right: 50,
+            bottom: -40,
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+          ),
+          // Content
+          Padding(
+            padding: EdgeInsets.all(isMobile ? 16 : 24),
+            child: Column(
+              children: [
+                // Top action bar
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Back/Home button
+                    _buildHeaderActionButton(
+                      icon: Icons.arrow_back,
+                      tooltip: 'Back to Inventory Hub',
+                      onPressed: () => context.go('/inventory-dashboard'),
+                    ),
+                    // Action buttons
+                    Row(
+                      children: [
+                        if (!isMobile) ...[
+                          // View toggles
+                          Container(
+                            margin: const EdgeInsets.only(right: 8),
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _buildHeaderViewToggle(
+                                  ViewType.card,
+                                  Icons.grid_view_rounded,
+                                  'Cards',
+                                ),
+                                _buildHeaderViewToggle(
+                                  ViewType.table,
+                                  Icons.table_chart_rounded,
+                                  'Table',
+                                ),
+                                _buildHeaderViewToggle(
+                                  ViewType.list,
+                                  Icons.view_list_rounded,
+                                  'List',
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        // QR/Barcode scan button - prominent on mobile
+                        if (isMobile)
+                          _buildScanButton(),
+                        _buildHeaderActionButton(
+                          icon: Icons.refresh,
+                          tooltip: 'Refresh',
+                          onPressed: _refreshEquipment,
+                        ),
+                        if (!isMobile) ...[
+                          _buildHeaderActionButton(
+                            icon: Icons.find_replace,
+                            tooltip: 'Check Duplicates',
+                            onPressed: _showDuplicatesDialog,
+                          ),
+                          _buildHeaderActionButton(
+                            icon: Icons.print,
+                            tooltip: 'Print Equipment List',
+                            onPressed: _showPrintDialog,
+                          ),
+                          _buildHeaderActionButton(
+                            icon: Icons.qr_code_2,
+                            tooltip: 'Print Stickers',
+                            onPressed: _showStickerPrintDialog,
+                          ),
+                          _buildHeaderActionButton(
+                            icon: Icons.upload_file,
+                            tooltip: 'Import Inventory (CSV/XLSX)',
+                            onPressed: _importInventory,
+                          ),
+                        ],
+                        if (canAdd)
+                          _buildHeaderActionButton(
+                            icon: Icons.add_circle_outline,
+                            tooltip: 'Add Equipment',
+                            onPressed: () => context.push('/inventory/add'),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // Content row
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          _buildHeaderViewToggle(
-                            ViewType.card,
-                            Icons.grid_view_rounded,
-                            'Cards',
+                          Text(
+                            'Equipment Inventory',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: isMobile ? 24 : 28,
+                              fontWeight: FontWeight.bold,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black.withValues(alpha: 0.2),
+                                  offset: const Offset(1, 1),
+                                  blurRadius: 4,
+                                ),
+                              ],
+                            ),
                           ),
-                          _buildHeaderViewToggle(
-                            ViewType.table,
-                            Icons.table_chart_rounded,
-                            'Table',
+                          const SizedBox(height: 8),
+                          Text(
+                            organizationName != null
+                                ? '$organizationName Inventory'
+                                : 'All Organizations - Equipment Tracking',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.9),
+                              fontSize: isMobile ? 12 : 14,
+                            ),
                           ),
-                          _buildHeaderViewToggle(
-                            ViewType.list,
-                            Icons.view_list_rounded,
-                            'List',
+                          const SizedBox(height: 16),
+                          Wrap(
+                            spacing: 16,
+                            runSpacing: 8,
+                            children: [
+                              _buildBannerStat('${stats['total']}', 'Items'),
+                              _buildBannerStat(
+                                '${stats['checkedOut']}',
+                                'Checked Out',
+                              ),
+                              _buildBannerStat(
+                                '${stats['available']}',
+                                'Available',
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ),
-                  ],
-                  _buildHeaderActionButton(
-                    icon: Icons.refresh,
-                    tooltip: 'Refresh',
-                    onPressed: _refreshEquipment,
-                  ),
-                  _buildHeaderActionButton(
-                    icon: Icons.find_replace,
-                    tooltip: 'Check Duplicates',
-                    onPressed: _showDuplicatesDialog,
-                  ),
-                  _buildHeaderActionButton(
-                    icon: Icons.print,
-                    tooltip: 'Print Equipment List',
-                    onPressed: _showPrintDialog,
-                  ),
-                  _buildHeaderActionButton(
-                    icon: Icons.upload_file,
-                    tooltip: 'Import Inventory (CSV/XLSX)',
-                    onPressed: _importInventory,
-                  ),
-                  if (canAdd)
-                    _buildHeaderActionButton(
-                      icon: Icons.add_circle_outline,
-                      tooltip: 'Add Equipment',
-                      onPressed: () => context.push('/inventory/add'),
-                    ),
-                ],
-              ),
-            ],
-          ),
-          SizedBox(height: isMobile ? 16 : 20),
-          // Content row
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Equipment Inventory',
-                      style: TextStyle(
-                        fontSize: isMobile ? 14 : 16,
-                        color: Colors.white.withOpacity(0.9),
+                    Container(
+                      padding: EdgeInsets.all(isMobile ? 12 : 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(20),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${stats['total']} Total Items',
-                      style: TextStyle(
-                        fontSize: isMobile ? 24 : 28,
-                        fontWeight: FontWeight.bold,
+                      child: Icon(
+                        Icons.inventory_2,
                         color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Managed by $userName',
-                      style: TextStyle(
-                        fontSize: isMobile ? 12 : 14,
-                        color: Colors.white.withOpacity(0.8),
+                        size: isMobile ? 36 : 48,
                       ),
                     ),
                   ],
                 ),
-              ),
-              Container(
-                padding: EdgeInsets.all(isMobile ? 12 : 16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.inventory_2,
-                  size: isMobile ? 36 : 48,
-                  color: Colors.white,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildBannerStat(String value, String label) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.8),
+            fontSize: 12,
+          ),
+        ),
+      ],
     );
   }
 
@@ -1881,10 +2831,43 @@ class _InventoryScreenState extends State<InventoryScreen> {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: Colors.white, size: 20),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScanButton() {
+    return Tooltip(
+      message: 'Scan QR/Barcode',
+      child: InkWell(
+        onTap: () => context.push('/inventory/scan'),
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          margin: const EdgeInsets.only(right: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.qr_code_scanner, color: Colors.purple.shade600, size: 18),
+              const SizedBox(width: 4),
+              Text(
+                'Scan',
+                style: TextStyle(
+                  color: Colors.purple.shade600,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1907,8 +2890,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
             icon,
             size: 18,
             color: isSelected
-                ? Colors.indigo.shade600
-                : Colors.white.withOpacity(0.8),
+                ? Colors.purple.shade600
+                : Colors.white.withValues(alpha: 0.8),
           ),
         ),
       ),
@@ -1979,7 +2962,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: isSelected ? Colors.indigo : Colors.grey[100],
+            color: isSelected ? Colors.purple : Colors.grey[100],
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
@@ -2014,11 +2997,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.indigo.withOpacity(0.1),
+              color: Colors.purple.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.indigo),
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.purple),
             ),
           ),
           const SizedBox(height: 24),
@@ -2074,7 +3057,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
               icon: const Icon(Icons.refresh),
               label: const Text('Retry'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.indigo,
+                backgroundColor: Colors.purple,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 24,
@@ -2101,7 +3084,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
         title: 'Total Equipment',
         value: stats['total'].toString(),
         icon: Icons.inventory_2,
-        gradient: [Colors.indigo, Colors.indigo.shade700],
+        gradient: [Colors.purple, Colors.purple.shade700],
       ),
       _StatCardData(
         title: 'Available',
@@ -2234,7 +3217,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
         _selectedStatus != 'All' ||
         _selectedCondition != 'All' ||
         _selectedLocation != 'All' ||
-        _searchQuery.isNotEmpty;
+        _searchQuery.isNotEmpty ||
+        _showPrintReady;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2311,6 +3295,50 @@ class _InventoryScreenState extends State<InventoryScreen> {
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        // Print-ready filter checkbox
+        InkWell(
+          onTap: () => setState(() => _showPrintReady = !_showPrintReady),
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: _showPrintReady ? Colors.purple.shade50 : Colors.grey[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: _showPrintReady ? Colors.purple : Colors.grey.shade300,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _showPrintReady ? Icons.check_box : Icons.check_box_outline_blank,
+                  size: 20,
+                  color: _showPrintReady ? Colors.purple : Colors.grey[600],
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Print Ready Only',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: _showPrintReady ? FontWeight.w600 : FontWeight.normal,
+                    color: _showPrintReady ? Colors.purple.shade700 : Colors.grey[700],
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Tooltip(
+                  message: 'Show only items with:\n• Asset Tag or Sticker Tag\n• Location\n• Purchase Year',
+                  child: Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: Colors.grey[500],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
 
         if (hasActiveFilters) ...[
           const SizedBox(height: 12),
@@ -2332,7 +3360,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
         _selectedStatus != 'All' ||
         _selectedCondition != 'All' ||
         _selectedLocation != 'All' ||
-        _searchQuery.isNotEmpty;
+        _searchQuery.isNotEmpty ||
+        _showPrintReady;
 
     return Column(
       children: [
@@ -2413,6 +3442,50 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 onChanged: (v) =>
                     setState(() => _selectedLocation = v ?? 'All'),
               ),
+              const SizedBox(width: 12),
+              // Print-ready filter checkbox
+              InkWell(
+                onTap: () => setState(() => _showPrintReady = !_showPrintReady),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: _showPrintReady ? Colors.purple.shade50 : Colors.grey[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: _showPrintReady ? Colors.purple : Colors.grey.shade300,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _showPrintReady ? Icons.check_box : Icons.check_box_outline_blank,
+                        size: 20,
+                        color: _showPrintReady ? Colors.purple : Colors.grey[600],
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Print Ready',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: _showPrintReady ? FontWeight.w600 : FontWeight.normal,
+                          color: _showPrintReady ? Colors.purple.shade700 : Colors.grey[700],
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Tooltip(
+                        message: 'Show only items with:\n• Asset Tag or Sticker Tag\n• Location\n• Purchase Year',
+                        child: Icon(
+                          Icons.info_outline,
+                          size: 16,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               if (hasActiveFilters) ...[
                 const SizedBox(width: 12),
                 TextButton.icon(
@@ -2440,9 +3513,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: isActive ? Colors.indigo.withOpacity(0.1) : Colors.grey[100],
+        color: isActive ? Colors.purple.withOpacity(0.1) : Colors.grey[100],
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isActive ? Colors.indigo : Colors.grey[300]!),
+        border: Border.all(color: isActive ? Colors.purple : Colors.grey[300]!),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
@@ -2451,7 +3524,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
           icon: Icon(
             Icons.arrow_drop_down,
             size: 20,
-            color: isActive ? Colors.indigo : Colors.grey[600],
+            color: isActive ? Colors.purple : Colors.grey[600],
           ),
           items: items.map((item) {
             return DropdownMenuItem(
@@ -2462,14 +3535,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   Icon(
                     icon,
                     size: 16,
-                    color: isActive ? Colors.indigo : Colors.grey[600],
+                    color: isActive ? Colors.purple : Colors.grey[600],
                   ),
                   const SizedBox(width: 6),
                   Text(
                     item == 'All' ? '$label: All' : item,
                     style: TextStyle(
                       fontSize: 13,
-                      color: isActive ? Colors.indigo : Colors.grey[700],
+                      color: isActive ? Colors.purple : Colors.grey[700],
                       fontWeight: isActive
                           ? FontWeight.w600
                           : FontWeight.normal,
@@ -2493,6 +3566,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
       _selectedLocation = 'All';
       _searchController.clear();
       _searchQuery = '';
+      _showPrintReady = false;
     });
   }
 
@@ -2508,14 +3582,17 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Widget _buildCardGridView(List<Equipment> equipment) {
+    final isMobile = ResponsiveHelper.isMobile(context);
     final crossAxisCount = ResponsiveHelper.isDesktop(context)
         ? 4
         : (ResponsiveHelper.isTablet(context) ? 3 : 2);
+    // Use smaller aspect ratio on mobile for taller cards to fit QR codes
+    final aspectRatio = isMobile ? 0.62 : 0.75;
 
     return GridView.builder(
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: crossAxisCount,
-        childAspectRatio: 0.85,
+        childAspectRatio: aspectRatio,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
       ),
@@ -2550,12 +3627,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.indigo.shade50,
+              color: Colors.purple.shade50,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(12),
                 topRight: Radius.circular(12),
               ),
-              border: Border.all(color: Colors.indigo.shade200),
+              border: Border.all(color: Colors.purple.shade200),
             ),
             child: Row(
               children: [
@@ -2565,7 +3642,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.indigo,
+                    color: Colors.purple,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -2588,6 +3665,22 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 ),
                 const Spacer(),
                 // Action buttons
+                ElevatedButton.icon(
+                  onPressed: () => _showStickerPrintDialog(
+                    selectedOnly: true,
+                  ),
+                  icon: const Icon(Icons.qr_code_2, size: 18),
+                  label: const Text('Print Stickers'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.purple,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
                 ElevatedButton.icon(
                   onPressed: _deleteSelectedEquipment,
                   icon: const Icon(Icons.delete_outline, size: 18),
@@ -2615,7 +3708,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(
-                headingRowColor: WidgetStateProperty.all(Colors.indigo.shade50),
+                headingRowColor: WidgetStateProperty.all(Colors.purple.shade50),
                 dataRowMinHeight: 60,
                 dataRowMaxHeight: 70,
                 columnSpacing: 24,
@@ -2633,7 +3726,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           _selectAll(equipment);
                         }
                       },
-                      activeColor: Colors.indigo,
+                      activeColor: Colors.purple,
                     ),
                   ),
                   const DataColumn(
@@ -2694,7 +3787,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     selected: isSelected,
                     color: WidgetStateProperty.resolveWith<Color?>((states) {
                       if (states.contains(WidgetState.selected)) {
-                        return Colors.indigo.withOpacity(0.08);
+                        return Colors.purple.withOpacity(0.08);
                       }
                       return null;
                     }),
@@ -2703,7 +3796,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         Checkbox(
                           value: isSelected,
                           onChanged: (value) => _toggleSelection(item.id),
-                          activeColor: Colors.indigo,
+                          activeColor: Colors.purple,
                         ),
                       ),
                       DataCell(
@@ -2831,6 +3924,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
   Widget _buildEquipmentCard(Equipment equipment) {
     final statusColor = _getStatusColor(equipment.status);
     final conditionColor = _getConditionColor(equipment.condition);
+    final stickerTag = equipment.itemStickerTag?.trim();
+    final assetTag = equipment.assetTag?.trim();
+    final qrData = stickerTag ?? assetTag;
+    final hasQrData = qrData != null && qrData.isNotEmpty;
 
     return Container(
       decoration: BoxDecoration(
@@ -2912,6 +4009,94 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
+              if (stickerTag != null) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.label, size: 12, color: Colors.grey[600]),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        stickerTag,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              if (hasQrData) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      QrImageView(
+                        data: qrData,
+                        size: 56,
+                        backgroundColor: Colors.white,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Organization Name
+                            if (equipment.organizationName != null &&
+                                equipment.organizationName!.isNotEmpty)
+                              Text(
+                                equipment.organizationName!,
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            const SizedBox(height: 2),
+                            // Item Sticker Tag
+                            Text(
+                              qrData,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            // Barcode
+                            BarcodeWidget(
+                              barcode: Barcode.code128(),
+                              data: qrData,
+                              height: 32,
+                              drawText: false,
+                              color: Colors.black87,
+                            ),
+                            const SizedBox(height: 2),
+                            // Item Name
+                            Text(
+                              equipment.name,
+                              style: TextStyle(
+                                fontSize: 9,
+                                color: Colors.grey.shade700,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const Spacer(),
               Row(
                 children: [
@@ -2989,6 +4174,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   Widget _buildEquipmentListItem(Equipment equipment) {
     final statusColor = _getStatusColor(equipment.status);
     final conditionColor = _getConditionColor(equipment.condition);
+    final stickerTag = equipment.itemStickerTag;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -3032,13 +4218,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
             const SizedBox(height: 4),
             Row(
               children: [
-                Text(
-                  equipment.category,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                Flexible(
+                  child: Text(
+                    equipment.category,
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 if (equipment.location != null) ...[
                   Text(' • ', style: TextStyle(color: Colors.grey[400])),
-                  Expanded(
+                  Flexible(
                     child: Text(
                       equipment.location!,
                       style: TextStyle(fontSize: 12, color: Colors.grey[600]),
@@ -3048,6 +4237,25 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 ],
               ],
             ),
+            if (stickerTag != null) ...[
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(Icons.label, size: 12, color: Colors.grey[600]),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      stickerTag,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ],
             if (equipment.isCheckedOut && equipment.currentHolderName != null)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
@@ -3055,12 +4263,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   children: [
                     Icon(Icons.person, size: 14, color: Colors.orange[700]),
                     const SizedBox(width: 4),
-                    Text(
-                      equipment.currentHolderName!,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.orange[700],
-                        fontWeight: FontWeight.w500,
+                    Flexible(
+                      child: Text(
+                        equipment.currentHolderName!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.orange[700],
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -3116,13 +4327,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.indigo.withValues(alpha: 0.1),
+              color: Colors.purple.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.inventory_2_outlined,
               size: 80,
-              color: Colors.indigo[300],
+              color: Colors.purple[300],
             ),
           ),
           const SizedBox(height: 24),
@@ -3148,7 +4359,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
               icon: const Icon(Icons.add),
               label: const Text('Add Equipment'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.indigo,
+                backgroundColor: Colors.purple,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 24,

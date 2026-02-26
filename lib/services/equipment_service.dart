@@ -137,6 +137,157 @@ class EquipmentService {
         });
   }
 
+  /// Stream equipment by organization
+  Stream<List<Equipment>> getEquipmentByOrganization(String organizationId) {
+    return _firestore
+        .collection(equipmentCollection)
+        .where('organizationId', isEqualTo: organizationId)
+        .orderBy('name')
+        .snapshots()
+        .map((snapshot) {
+          debugPrint('DEBUG EQUIPMENT: Got ${snapshot.docs.length} documents for org $organizationId');
+          final List<Equipment> result = [];
+          for (final doc in snapshot.docs) {
+            try {
+              final equipment = Equipment.fromFirestore(doc);
+              result.add(equipment);
+            } catch (e) {
+              debugPrint('DEBUG EQUIPMENT ERROR: Failed to parse doc ${doc.id}: $e');
+            }
+          }
+          return result;
+        });
+  }
+
+  /// Get equipment by organization once (with optional caching)
+  Future<List<Equipment>> getEquipmentByOrganizationOnce(
+    String organizationId, {
+    bool forceRefresh = false,
+  }) async {
+    try {
+      debugPrint('DEBUG EQUIPMENT: Fetching equipment for org $organizationId');
+      final snapshot = await _firestore
+          .collection(equipmentCollection)
+          .where('organizationId', isEqualTo: organizationId)
+          .orderBy('name')
+          .get();
+
+      final List<Equipment> result = [];
+      for (final doc in snapshot.docs) {
+        try {
+          final equipment = Equipment.fromFirestore(doc);
+          result.add(equipment);
+        } catch (e) {
+          debugPrint('DEBUG EQUIPMENT ERROR: Failed to parse doc ${doc.id}: $e');
+        }
+      }
+
+      debugPrint('DEBUG EQUIPMENT: Found ${result.length} items for org $organizationId');
+      return result;
+    } catch (e) {
+      debugPrint('Error getting equipment by organization: $e');
+      rethrow;
+    }
+  }
+
+  /// Update equipment organization assignment
+  Future<void> updateEquipmentOrganization(
+    String equipmentId,
+    String organizationId,
+    String organizationName,
+  ) async {
+    try {
+      await _firestore.collection(equipmentCollection).doc(equipmentId).update({
+        'organizationId': organizationId,
+        'organizationName': organizationName,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      invalidateCache();
+      debugPrint('Debug: Updated equipment $equipmentId to org $organizationId');
+    } catch (e) {
+      debugPrint('Error updating equipment organization: $e');
+      rethrow;
+    }
+  }
+
+  /// Bulk update equipment organization (for migration)
+  Future<void> bulkUpdateOrganization(
+    List<String> equipmentIds,
+    String organizationId,
+    String organizationName,
+  ) async {
+    try {
+      final batch = _firestore.batch();
+      for (final id in equipmentIds) {
+        final ref = _firestore.collection(equipmentCollection).doc(id);
+        batch.update(ref, {
+          'organizationId': organizationId,
+          'organizationName': organizationName,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+      invalidateCache();
+      debugPrint('Debug: Bulk updated ${equipmentIds.length} equipment to org $organizationId');
+    } catch (e) {
+      debugPrint('Error bulk updating equipment organization: $e');
+      rethrow;
+    }
+  }
+
+  /// Assign all existing equipment without organization to a default organization
+  Future<int> assignUnassignedEquipment(
+    String organizationId,
+    String organizationName,
+  ) async {
+    try {
+      // Get ALL equipment and filter client-side for those without organizationId
+      // This handles both: field is null AND field doesn't exist
+      final snapshot = await _firestore
+          .collection(equipmentCollection)
+          .get();
+
+      // Filter for documents where organizationId is missing, null, or empty
+      final unassignedDocs = snapshot.docs.where((doc) {
+        final data = doc.data();
+        final orgId = data['organizationId'];
+        return orgId == null || (orgId is String && orgId.isEmpty);
+      }).toList();
+
+      if (unassignedDocs.isEmpty) {
+        debugPrint('DEBUG EQUIPMENT: No unassigned equipment found');
+        return 0;
+      }
+
+      debugPrint('DEBUG EQUIPMENT: Found ${unassignedDocs.length} unassigned equipment');
+
+      // Firestore batch limit is 500 operations, so we need to batch in chunks
+      int count = 0;
+      for (var i = 0; i < unassignedDocs.length; i += 500) {
+        final batch = _firestore.batch();
+        final chunk = unassignedDocs.skip(i).take(500);
+
+        for (final doc in chunk) {
+          batch.update(doc.reference, {
+            'organizationId': organizationId,
+            'organizationName': organizationName,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+          count++;
+        }
+        await batch.commit();
+      }
+
+      invalidateCache();
+
+      debugPrint('DEBUG EQUIPMENT: Assigned $count equipment to org $organizationId');
+      return count;
+    } catch (e) {
+      debugPrint('Error assigning unassigned equipment: $e');
+      rethrow;
+    }
+  }
+
   /// Get all equipment once (not a stream) - WITH CACHING
   Future<List<Equipment>> getAllEquipmentOnce({
     bool forceRefresh = false,
@@ -513,10 +664,15 @@ class EquipmentService {
   // ========== STATISTICS ==========
 
   /// Get inventory statistics - uses cache when available
-  Future<Map<String, dynamic>> getInventoryStats() async {
+  Future<Map<String, dynamic>> getInventoryStats({String? organizationId}) async {
     try {
       // Use cached data if available, otherwise fetch
-      final equipment = await getAllEquipmentOnce();
+      List<Equipment> equipment;
+      if (organizationId != null) {
+        equipment = await getEquipmentByOrganizationOnce(organizationId);
+      } else {
+        equipment = await getAllEquipmentOnce();
+      }
 
       final statusCounts = <String, int>{};
       final categoryCounts = <String, int>{};

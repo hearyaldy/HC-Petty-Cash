@@ -59,6 +59,7 @@ dependencies:
   file_picker: ^10.3.10
   path_provider: ^2.1.5
   image_picker: ^1.0.7
+  flutter_image_compress: ^2.3.0
   url_launcher: ^6.3.1
 
   # Utilities
@@ -78,6 +79,15 @@ dependencies:
 
   # Logging
   logging: ^1.2.0
+
+  # Markdown rendering
+  flutter_markdown: ^0.7.7
+
+  # QR & Barcode
+  qr_flutter: ^4.1.0
+  barcode_widget: ^2.0.4
+  barcode: ^2.2.4
+  mobile_scanner: ^5.1.1
 
 dev_dependencies:
   flutter_test:

@@ -23,6 +23,7 @@ class PettyCashReport {
   final DateTime? updatedAt;
   final String? companyName;
   final String? notes;
+  final String? cashAdvanceId; // Links to CashAdvance when reportType='advance_settlement'
 
   PettyCashReport({
     required this.id,
@@ -45,6 +46,7 @@ class PettyCashReport {
     this.updatedAt,
     this.companyName,
     this.notes,
+    this.cashAdvanceId,
   });
 
   // Get ReportStatus enum from string
@@ -101,6 +103,7 @@ class PettyCashReport {
       'status': status,
       'companyName': companyName,
       'notes': notes,
+      'cashAdvanceId': cashAdvanceId,
       'createdAt': firestore.Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt != null ? firestore.Timestamp.fromDate(updatedAt!) : null,
     };
@@ -130,6 +133,7 @@ class PettyCashReport {
       status: data['status'] as String,
       companyName: data['companyName'] as String?,
       notes: data['notes'] as String?,
+      cashAdvanceId: data['cashAdvanceId'] as String?,
       createdAt: (data['createdAt'] as firestore.Timestamp).toDate(),
       updatedAt: data['updatedAt'] != null
           ? (data['updatedAt'] as firestore.Timestamp).toDate()
@@ -160,6 +164,7 @@ class PettyCashReport {
       'updatedAt': updatedAt?.toIso8601String(),
       'companyName': companyName,
       'notes': notes,
+      'cashAdvanceId': cashAdvanceId,
     };
   }
 
@@ -191,6 +196,7 @@ class PettyCashReport {
           : null,
       companyName: json['companyName'] as String?,
       notes: json['notes'] as String?,
+      cashAdvanceId: json['cashAdvanceId'] as String?,
     );
   }
 
@@ -214,6 +220,7 @@ class PettyCashReport {
     DateTime? updatedAt,
     String? companyName,
     String? notes,
+    String? cashAdvanceId,
   }) {
     return PettyCashReport(
       id: id,
@@ -236,6 +243,7 @@ class PettyCashReport {
       updatedAt: updatedAt ?? this.updatedAt,
       companyName: companyName ?? this.companyName,
       notes: notes ?? this.notes,
+      cashAdvanceId: cashAdvanceId ?? this.cashAdvanceId,
     );
   }
 }

@@ -25,6 +25,8 @@ class _EditPurchaseRequisitionDialogState
   late TextEditingController _requestedByController;
   late TextEditingController _idNoController;
   late TextEditingController _departmentController;
+  late TextEditingController _purchaseReasonController;
+  late TextEditingController _actionNoController;
   late TextEditingController _notesController;
   late DateTime _requisitionDate;
 
@@ -42,6 +44,12 @@ class _EditPurchaseRequisitionDialogState
     _departmentController = TextEditingController(
       text: requisition?.chargeToDepartment ?? '',
     );
+    _purchaseReasonController = TextEditingController(
+      text: requisition?.purchaseReason ?? '',
+    );
+    _actionNoController = TextEditingController(
+      text: requisition?.actionNo ?? '',
+    );
     _notesController = TextEditingController(
       text: requisition?.notes ?? '',
     );
@@ -54,6 +62,8 @@ class _EditPurchaseRequisitionDialogState
     _requestedByController.dispose();
     _idNoController.dispose();
     _departmentController.dispose();
+    _purchaseReasonController.dispose();
+    _actionNoController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -79,6 +89,12 @@ class _EditPurchaseRequisitionDialogState
         'requestedBy': _requestedByController.text.trim(),
         'idNo': _idNoController.text.trim(),
         'chargeToDepartment': _departmentController.text.trim(),
+        'purchaseReason': _purchaseReasonController.text.trim().isEmpty
+            ? null
+            : _purchaseReasonController.text.trim(),
+        'actionNo': _actionNoController.text.trim().isEmpty
+            ? null
+            : _actionNoController.text.trim(),
         'notes': _notesController.text.trim().isEmpty
             ? null
             : _notesController.text.trim(),
@@ -202,6 +218,37 @@ class _EditPurchaseRequisitionDialogState
                 ),
                 const SizedBox(height: 16),
 
+                // Purchase Reason
+                TextFormField(
+                  controller: _purchaseReasonController,
+                  decoration: const InputDecoration(
+                    labelText: 'Purchase Reason',
+                    border: OutlineInputBorder(),
+                    hintText: 'Why is this purchase needed?',
+                  ),
+                  maxLines: 2,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter purchase reason';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // Action No (Optional - for amounts > 20,000 Baht)
+                TextFormField(
+                  controller: _actionNoController,
+                  decoration: InputDecoration(
+                    labelText: 'Action No. (Optional)',
+                    border: const OutlineInputBorder(),
+                    hintText: 'Required for amounts > 20,000 Baht',
+                    helperText: 'Enter action number if applicable',
+                    helperStyle: TextStyle(color: Colors.orange.shade700),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
                 // Notes (Optional)
                 TextFormField(
                   controller: _notesController,
@@ -225,7 +272,7 @@ class _EditPurchaseRequisitionDialogState
                     ElevatedButton(
                       onPressed: _save,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.purple,
+                        backgroundColor: Colors.blue,
                         foregroundColor: Colors.white,
                       ),
                       child: Text(isNew ? 'Create' : 'Save'),

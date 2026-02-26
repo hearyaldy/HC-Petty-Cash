@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/report_provider.dart';
+import '../../services/firestore_service.dart';
+import '../../models/cash_advance.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
 
@@ -11,9 +13,11 @@ class NewReportScreen extends StatefulWidget {
   const NewReportScreen({
     super.key,
     this.reportType = 'petty_cash',
+    this.cashAdvanceId,
   });
 
   final String reportType; // 'petty_cash', 'advance_settlement'
+  final String? cashAdvanceId;
 
   @override
   State<NewReportScreen> createState() => _NewReportScreenState();
@@ -31,6 +35,8 @@ class _NewReportScreenState extends State<NewReportScreen> {
   late String _reportType;
   DateTime _periodStart = DateTime.now();
   DateTime _periodEnd = DateTime.now().add(const Duration(days: 7));
+  CashAdvance? _linkedAdvance;
+  bool _isPrefilling = false;
 
   @override
   void initState() {
@@ -38,6 +44,10 @@ class _NewReportScreenState extends State<NewReportScreen> {
     // Set default company name to Hope Channel Southeast Asia
     _companyNameController.text = AppConstants.companyName;
     _reportType = widget.reportType;
+    if (widget.cashAdvanceId != null) {
+      _reportType = 'advance_settlement';
+      _loadLinkedAdvance(widget.cashAdvanceId!);
+    }
     if (_reportType == 'advance_settlement') {
       _advanceTakenDate = DateTime.now();
     }
@@ -55,6 +65,10 @@ class _NewReportScreenState extends State<NewReportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currencyFormat = NumberFormat.currency(
+      symbol: AppConstants.currencySymbol,
+      decimalDigits: 2,
+    );
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -90,10 +104,13 @@ class _NewReportScreenState extends State<NewReportScreen> {
                           const SizedBox(height: 24),
                           DropdownButtonFormField<String>(
                             value: _reportType,
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               labelText: 'Report Type',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.assignment),
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.assignment),
+                              helperText: widget.cashAdvanceId != null
+                                  ? 'Linked to Cash Advance ${widget.cashAdvanceId}'
+                                  : null,
                             ),
                             items: const [
                               DropdownMenuItem(
@@ -105,14 +122,48 @@ class _NewReportScreenState extends State<NewReportScreen> {
                                 child: Text('Advance Settlement Report'),
                               ),
                             ],
-                            onChanged: (value) {
-                              if (value == null) return;
-                              setState(() {
-                                _reportType = value;
-                              });
-                            },
+                            onChanged: widget.cashAdvanceId != null
+                                ? null
+                                : (value) {
+                                    if (value == null) return;
+                                    setState(() {
+                                      _reportType = value;
+                                    });
+                                  },
                           ),
                           const SizedBox(height: 16),
+                          if (widget.cashAdvanceId != null &&
+                              _linkedAdvance != null) ...[
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: Colors.blue.shade100,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.link,
+                                    color: Colors.blue.shade700,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'Linked cash advance: ${_linkedAdvance!.requestNumber} '
+                                      '(${currencyFormat.format(_linkedAdvance!.disbursedAmount ?? _linkedAdvance!.requestedAmount)})',
+                                      style: TextStyle(
+                                        color: Colors.blue.shade700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
                           TextFormField(
                             controller: _companyNameController,
                             decoration: const InputDecoration(
@@ -303,7 +354,7 @@ class _NewReportScreenState extends State<NewReportScreen> {
                       ),
                       const SizedBox(width: 16),
                       ElevatedButton.icon(
-                        onPressed: _createReport,
+                        onPressed: _isPrefilling ? null : _createReport,
                         icon: const Icon(Icons.check),
                         label: const Text('Create Report'),
                         style: ElevatedButton.styleFrom(
@@ -400,6 +451,7 @@ class _NewReportScreenState extends State<NewReportScreen> {
             ? null
             : _companyNameController.text,
         notes: _notesController.text.isEmpty ? null : _notesController.text,
+        cashAdvanceId: widget.cashAdvanceId,
       );
 
       if (mounted) {
@@ -419,6 +471,36 @@ class _NewReportScreenState extends State<NewReportScreen> {
             backgroundColor: Colors.red,
           ),
         );
+      }
+    }
+  }
+
+  Future<void> _loadLinkedAdvance(String advanceId) async {
+    setState(() => _isPrefilling = true);
+    try {
+      final advance = await FirestoreService().getCashAdvance(advanceId);
+      if (advance != null && mounted) {
+        setState(() {
+          _linkedAdvance = advance;
+          _reportNameController.text = advance.department;
+          _purposeController.text = advance.purpose;
+          _openingBalanceController.text =
+              (advance.disbursedAmount ?? advance.requestedAmount).toString();
+          _advanceTakenDate = advance.disbursedAt ?? advance.requestDate;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to load linked cash advance'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isPrefilling = false);
       }
     }
   }

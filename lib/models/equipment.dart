@@ -186,6 +186,9 @@ class Equipment {
   final DateTime? warrantyExpiry;
   final String? photoUrl; // Image/Photo of Product
   final String? notes;
+  // Organization
+  final String? organizationId; // Organization ID for inventory separation
+  final String? organizationName; // Organization name for display
   // Assignment (permanent, different from checkout)
   final String? assignedToId; // User ID of assigned person
   final String? assignedToName; // Name of assigned person
@@ -224,6 +227,8 @@ class Equipment {
     this.warrantyExpiry,
     this.photoUrl,
     this.notes,
+    this.organizationId,
+    this.organizationName,
     this.assignedToId,
     this.assignedToName,
     this.currentCheckoutId,
@@ -299,6 +304,52 @@ class Equipment {
     return null;
   }
 
+  /// Auto-generated sticker tag: AssetCode-LOCATION-YYYY
+  String? get itemStickerTag => buildStickerTag(
+        assetCode: assetCode,
+        location: location,
+        purchaseDate: purchaseDate,
+        purchaseYear: purchaseYear,
+      );
+
+  static String? buildStickerTag({
+    String? assetCode,
+    String? location,
+    DateTime? purchaseDate,
+    int? purchaseYear,
+  }) {
+    final code = assetCode?.trim();
+    final loc = location?.trim();
+    final year = purchaseDate?.year ?? purchaseYear;
+
+    if (code == null || code.isEmpty) return null;
+    if (loc == null || loc.isEmpty) return null;
+    if (year == null) return null;
+
+    final normalizedLocation = _abbreviateLocation(loc);
+    return '$code-$normalizedLocation-$year';
+  }
+
+  static String _abbreviateLocation(String location) {
+    final firstWordMatch = RegExp(r'[A-Za-z]+').firstMatch(location);
+    final numberMatches = RegExp(r'\d+').allMatches(location);
+
+    final firstWord = firstWordMatch?.group(0);
+    if (firstWord == null || firstWord.isEmpty) {
+      return location.toUpperCase();
+    }
+
+    final prefix = firstWord.substring(0, firstWord.length < 3 ? firstWord.length : 3).toUpperCase();
+    final numberSuffix = numberMatches.isNotEmpty
+        ? numberMatches.last.group(0)
+        : null;
+
+    if (numberSuffix != null && numberSuffix.isNotEmpty) {
+      return '$prefix-$numberSuffix';
+    }
+    return prefix;
+  }
+
   factory Equipment.fromFirestore(
     firestore.DocumentSnapshot<Map<String, dynamic>> doc,
   ) {
@@ -324,6 +375,8 @@ class Equipment {
       warrantyExpiry: _parseDateTime(data['warrantyExpiry']),
       photoUrl: _parseString(data['photoUrl']),
       notes: _parseString(data['notes']),
+      organizationId: _parseString(data['organizationId']),
+      organizationName: _parseString(data['organizationName']),
       assignedToId: _parseString(data['assignedToId']),
       assignedToName: _parseString(data['assignedToName']),
       currentCheckoutId: _parseString(data['currentCheckoutId']),
@@ -380,6 +433,8 @@ class Equipment {
           : null,
       'photoUrl': photoUrl,
       'notes': notes,
+      'organizationId': organizationId,
+      'organizationName': organizationName,
       'assignedToId': assignedToId,
       'assignedToName': assignedToName,
       'currentCheckoutId': currentCheckoutId,
@@ -418,6 +473,8 @@ class Equipment {
     DateTime? warrantyExpiry,
     String? photoUrl,
     String? notes,
+    String? organizationId,
+    String? organizationName,
     String? assignedToId,
     String? assignedToName,
     String? currentCheckoutId,
@@ -452,6 +509,8 @@ class Equipment {
       warrantyExpiry: warrantyExpiry ?? this.warrantyExpiry,
       photoUrl: photoUrl ?? this.photoUrl,
       notes: notes ?? this.notes,
+      organizationId: organizationId ?? this.organizationId,
+      organizationName: organizationName ?? this.organizationName,
       assignedToId: assignedToId ?? this.assignedToId,
       assignedToName: assignedToName ?? this.assignedToName,
       currentCheckoutId: currentCheckoutId ?? this.currentCheckoutId,

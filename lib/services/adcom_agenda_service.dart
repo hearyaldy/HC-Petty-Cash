@@ -121,11 +121,13 @@ class AdcomAgendaService {
         final startingSeq = data['startingItemSequence'] ?? 1;
 
         // Re-order remaining items and regenerate item numbers
+        final organization = data['organization'] as String? ?? 'ADCOM';
         for (int i = 0; i < items.length; i++) {
           items[i]['order'] = i;
           items[i]['itemNumber'] = AdcomAgenda.generateItemNumber(
             meetingDate,
             startingSeq + i,
+            organization: organization,
           );
         }
         await _firestore.collection(_collection).doc(agendaId).update({
@@ -156,6 +158,7 @@ class AdcomAgendaService {
         // Get meeting date and starting sequence for regenerating item numbers
         final meetingDate = (data['meetingDate'] as Timestamp).toDate();
         final startingSeq = data['startingItemSequence'] ?? 1;
+        final organization = data['organization'] as String? ?? 'ADCOM';
 
         // Update order and regenerate item numbers for all items
         for (int i = 0; i < items.length; i++) {
@@ -163,6 +166,7 @@ class AdcomAgendaService {
           items[i]['itemNumber'] = AdcomAgenda.generateItemNumber(
             meetingDate,
             startingSeq + i,
+            organization: organization,
           );
         }
 

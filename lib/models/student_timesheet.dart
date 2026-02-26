@@ -387,11 +387,16 @@ class StudentMonthlyReport {
   final String department;
   final String month; // Format: "YYYY-MM"
   final String monthDisplay; // Format: "January 2026"
+  final DateTime periodStart;
+  final DateTime periodEnd;
   final int timesheetCount;
   final double totalHours;
   final double hourlyRate;
   final double totalAmount;
   final String status; // 'draft', 'submitted', 'approved', 'rejected', 'paid'
+  final bool isFinalized;
+  final DateTime? finalizedAt;
+  final String? finalizedBy;
   final DateTime createdAt;
   final DateTime? submittedAt;
   final String? submittedBy;
@@ -410,11 +415,16 @@ class StudentMonthlyReport {
     this.department = '',
     required this.month,
     required this.monthDisplay,
+    required this.periodStart,
+    required this.periodEnd,
     required this.timesheetCount,
     required this.totalHours,
     required this.hourlyRate,
     required this.totalAmount,
     this.status = 'draft',
+    this.isFinalized = false,
+    this.finalizedAt,
+    this.finalizedBy,
     required this.createdAt,
     this.submittedAt,
     this.submittedBy,
@@ -435,11 +445,16 @@ class StudentMonthlyReport {
       'department': department,
       'month': month,
       'monthDisplay': monthDisplay,
+      'periodStart': Timestamp.fromDate(periodStart),
+      'periodEnd': Timestamp.fromDate(periodEnd),
       'timesheetCount': timesheetCount,
       'totalHours': totalHours,
       'hourlyRate': hourlyRate,
       'totalAmount': totalAmount,
       'status': status,
+      'isFinalized': isFinalized,
+      'finalizedAt': finalizedAt != null ? Timestamp.fromDate(finalizedAt!) : null,
+      'finalizedBy': finalizedBy,
       'createdAt': Timestamp.fromDate(createdAt),
       'submittedAt': submittedAt != null ? Timestamp.fromDate(submittedAt!) : null,
       'submittedBy': submittedBy,
@@ -472,11 +487,22 @@ class StudentMonthlyReport {
       department: data['department'] ?? '',
       month: data['month'] ?? '',
       monthDisplay: data['monthDisplay'] ?? '',
+      periodStart: data['periodStart'] != null
+          ? parseTimestamp(data['periodStart'], now)
+          : _derivePeriodStart(data['month']),
+      periodEnd: data['periodEnd'] != null
+          ? parseTimestamp(data['periodEnd'], now)
+          : _derivePeriodEnd(data['month']),
       timesheetCount: data['timesheetCount'] ?? 0,
       totalHours: (data['totalHours'] ?? 0.0).toDouble(),
       hourlyRate: (data['hourlyRate'] ?? 0.0).toDouble(),
       totalAmount: (data['totalAmount'] ?? 0.0).toDouble(),
       status: data['status'] ?? 'draft',
+      isFinalized: data['isFinalized'] ?? false,
+      finalizedAt: data['finalizedAt'] != null
+          ? parseTimestamp(data['finalizedAt'], now)
+          : null,
+      finalizedBy: data['finalizedBy'],
       createdAt: parseTimestamp(data['createdAt'], now),
       submittedAt: data['submittedAt'] != null
           ? parseTimestamp(data['submittedAt'], now)
@@ -492,5 +518,25 @@ class StudentMonthlyReport {
       paidBy: data['paidBy'],
       notes: data['notes'],
     );
+  }
+
+  static DateTime _derivePeriodStart(String? month) {
+    if (month == null || !RegExp(r'^\d{4}-\d{2}$').hasMatch(month)) {
+      final now = DateTime.now();
+      return DateTime(now.year, now.month, 1);
+    }
+    final parts = month.split('-');
+    return DateTime(int.parse(parts[0]), int.parse(parts[1]), 1);
+  }
+
+  static DateTime _derivePeriodEnd(String? month) {
+    if (month == null || !RegExp(r'^\d{4}-\d{2}$').hasMatch(month)) {
+      final now = DateTime.now();
+      return DateTime(now.year, now.month + 1, 0);
+    }
+    final parts = month.split('-');
+    final year = int.parse(parts[0]);
+    final monthNum = int.parse(parts[1]);
+    return DateTime(year, monthNum + 1, 0);
   }
 }

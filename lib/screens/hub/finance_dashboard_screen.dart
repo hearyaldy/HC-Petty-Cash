@@ -33,10 +33,27 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
   int _totalReports = 0;
   int _totalIncomeReports = 0;
 
+  // AI report state
+  final Set<_AiReportScope> _aiReportScopes = {
+    _AiReportScope.transactions,
+    _AiReportScope.pettyCashReports,
+  };
+  _AiReportRange _aiReportRange = _AiReportRange.month;
+  _AiReportPreset _aiReportPreset = _AiReportPreset.thisMonth;
+  DateTime? _aiCustomStart;
+  DateTime? _aiCustomEnd;
+  bool _aiReportLoading = false;
+  String? _aiReportError;
+  List<_TrendPoint> _aiTrendPoints = [];
+  Map<String, double> _aiCategoryTotals = {};
+  _CashFlowSummary _aiCashFlow = const _CashFlowSummary(0, 0, 0);
+  String _aiSummaryText = 'Select filters and generate a report.';
+
   @override
   void initState() {
     super.initState();
     _loadCounts();
+    _applyPreset(_aiReportPreset);
   }
 
   Future<void> _loadCounts() async {
@@ -85,8 +102,7 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
         final data = doc.data();
         final reportType = (data['reportType'] as String?) ?? 'petty_cash';
         final openingBalance = (data['openingBalance'] ?? 0).toDouble();
-        final totalDisbursements =
-            (data['totalDisbursements'] ?? 0).toDouble();
+        final totalDisbursements = (data['totalDisbursements'] ?? 0).toDouble();
 
         if (reportType == 'advance_settlement') {
           advanceReceived += openingBalance;
@@ -893,6 +909,13 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
         badge: _pendingTransactions > 0 ? _pendingTransactions : null,
       ),
       _MenuItem(
+        title: 'Finance Analysis',
+        subtitle: 'Charts and text insights',
+        icon: Icons.auto_graph,
+        color: Colors.indigo,
+        route: '/finance-ai-report',
+      ),
+      _MenuItem(
         title: 'Approvals',
         subtitle: 'Pending approvals',
         icon: Icons.approval,
@@ -929,6 +952,13 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
         icon: Icons.shopping_cart,
         color: Colors.purple,
         route: '/purchase-requisitions',
+      ),
+      _MenuItem(
+        title: 'Cash Advances',
+        subtitle: 'Request cash advance',
+        icon: Icons.request_quote,
+        color: Colors.indigo,
+        route: '/cash-advances?view=table',
       ),
     ];
 
@@ -1128,6 +1158,798 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
       side: BorderSide(color: color.withValues(alpha: 0.3)),
       onPressed: () => context.push(route),
     );
+  }
+
+  Widget _buildAiReportCard() {
+    final rangeLabel = _formatRangeLabel();
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.indigo.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.auto_graph,
+                  color: Colors.indigo.shade600,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'AI Finance Report',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: _aiReportLoading ? null : _generateAiReport,
+                icon: _aiReportLoading
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.play_arrow, size: 18),
+                label: const Text('Generate'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _buildScopeChip('Transactions', _AiReportScope.transactions),
+              _buildScopeChip('Petty Cash', _AiReportScope.pettyCashReports),
+              _buildScopeChip('Project', _AiReportScope.projectReports),
+              _buildScopeChip('Income', _AiReportScope.incomeReports),
+              _buildScopeChip('Travel', _AiReportScope.travelReports),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<_AiReportRange>(
+                  value: _aiReportRange,
+                  decoration: const InputDecoration(
+                    labelText: 'Report Range',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: _AiReportRange.values
+                      .map(
+                        (range) => DropdownMenuItem(
+                          value: range,
+                          child: Text(range.label),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() {
+                      _aiReportRange = value;
+                      _aiReportPreset = _AiReportPreset.none;
+                      _aiReportError = null;
+                    });
+                    _applyRangeDefault();
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              OutlinedButton.icon(
+                onPressed: _pickRange,
+                icon: const Icon(Icons.date_range),
+                label: const Text('Pick'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _buildPresetChip('This Month', _AiReportPreset.thisMonth),
+              _buildPresetChip('Last Month', _AiReportPreset.lastMonth),
+              _buildPresetChip('YTD', _AiReportPreset.ytd),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            rangeLabel,
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          ),
+          if (_aiReportError != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              _aiReportError!,
+              style: const TextStyle(color: Colors.red, fontSize: 12),
+            ),
+          ],
+          const SizedBox(height: 16),
+          _buildChartSection(
+            title: 'Trend Line',
+            child: _buildTrendChart(_aiTrendPoints),
+          ),
+          const SizedBox(height: 16),
+          _buildChartSection(
+            title: 'Category Breakdown',
+            child: _buildCategoryChart(_aiCategoryTotals),
+          ),
+          const SizedBox(height: 16),
+          _buildChartSection(
+            title: 'Cash Flow',
+            child: _buildCashFlowChart(_aiCashFlow),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            _aiSummaryText,
+            style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScopeChip(String label, _AiReportScope scope) {
+    final isSelected = _aiReportScopes.contains(scope);
+    return FilterChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (selected) {
+        setState(() {
+          if (selected) {
+            _aiReportScopes.add(scope);
+          } else {
+            _aiReportScopes.remove(scope);
+          }
+        });
+      },
+      selectedColor: Colors.indigo.shade600,
+      checkmarkColor: Colors.white,
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.white : Colors.grey[700],
+      ),
+    );
+  }
+
+  Widget _buildPresetChip(String label, _AiReportPreset preset) {
+    final isSelected = _aiReportPreset == preset;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (_) => _applyPreset(preset),
+      selectedColor: Colors.indigo.shade600,
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.white : Colors.grey[700],
+      ),
+    );
+  }
+
+  Widget _buildChartSection({required String title, required Widget child}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey[700],
+          ),
+        ),
+        const SizedBox(height: 8),
+        child,
+      ],
+    );
+  }
+
+  Widget _buildTrendChart(List<_TrendPoint> points) {
+    if (points.isEmpty) {
+      return _buildEmptyChart();
+    }
+    return SizedBox(
+      height: 160,
+      child: CustomPaint(
+        painter: _TrendLinePainter(points),
+        child: Container(),
+      ),
+    );
+  }
+
+  Widget _buildCategoryChart(Map<String, double> data) {
+    if (data.isEmpty) {
+      return _buildEmptyChart();
+    }
+    final sorted = data.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final top = sorted.take(5).toList();
+    final maxValue = top.first.value;
+
+    return Column(
+      children: top.map((entry) {
+        final ratio = maxValue == 0 ? 0.0 : entry.value / maxValue;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 110,
+                child: Text(
+                  entry.key,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Stack(
+                  children: [
+                    Container(
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                    FractionallySizedBox(
+                      widthFactor: ratio,
+                      child: Container(
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: Colors.indigo.shade400,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                NumberFormat.compactCurrency(
+                  symbol: AppConstants.currencySymbol,
+                ).format(entry.value),
+                style: TextStyle(fontSize: 11, color: Colors.grey[700]),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildCashFlowChart(_CashFlowSummary cashFlow) {
+    final maxValue = [
+      cashFlow.opening,
+      cashFlow.disbursed,
+      cashFlow.closing,
+    ].fold<double>(0, (max, v) => v > max ? v : max);
+    if (maxValue == 0) {
+      return _buildEmptyChart();
+    }
+
+    Widget buildBar(String label, double value, Color color) {
+      final ratio = maxValue == 0 ? 0.0 : value / maxValue;
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 90,
+              child: Text(label, style: const TextStyle(fontSize: 12)),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Stack(
+                children: [
+                  Container(
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                  FractionallySizedBox(
+                    widthFactor: ratio,
+                    child: Container(
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              NumberFormat.compactCurrency(
+                symbol: AppConstants.currencySymbol,
+              ).format(value),
+              style: TextStyle(fontSize: 11, color: Colors.grey[700]),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        buildBar('Opening', cashFlow.opening, Colors.blue.shade400),
+        buildBar('Disbursed', cashFlow.disbursed, Colors.red.shade400),
+        buildBar('Closing', cashFlow.closing, Colors.green.shade500),
+      ],
+    );
+  }
+
+  Widget _buildEmptyChart() {
+    return Container(
+      height: 120,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Text(
+        'No data for the selected range',
+        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+      ),
+    );
+  }
+
+  String _formatRangeLabel() {
+    final range = _resolveRange();
+    final format = DateFormat('MMM d, y');
+    return 'Range: ${format.format(range.start)} - ${format.format(range.end)}';
+  }
+
+  void _applyPreset(_AiReportPreset preset) {
+    setState(() {
+      _aiReportPreset = preset;
+      _aiReportError = null;
+    });
+
+    final now = DateTime.now();
+    if (preset == _AiReportPreset.thisMonth) {
+      _aiReportRange = _AiReportRange.month;
+      _aiCustomStart = DateTime(now.year, now.month, 1);
+      _aiCustomEnd = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+    } else if (preset == _AiReportPreset.lastMonth) {
+      final lastMonth = DateTime(now.year, now.month - 1, 1);
+      _aiReportRange = _AiReportRange.month;
+      _aiCustomStart = lastMonth;
+      _aiCustomEnd = DateTime(
+        lastMonth.year,
+        lastMonth.month + 1,
+        0,
+        23,
+        59,
+        59,
+      );
+    } else if (preset == _AiReportPreset.ytd) {
+      _aiReportRange = _AiReportRange.year;
+      _aiCustomStart = DateTime(now.year, 1, 1);
+      _aiCustomEnd = DateTime(now.year, now.month, now.day, 23, 59, 59);
+    }
+  }
+
+  void _applyRangeDefault() {
+    final now = DateTime.now();
+    if (_aiReportRange == _AiReportRange.month) {
+      _aiCustomStart = DateTime(now.year, now.month, 1);
+      _aiCustomEnd = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+    } else if (_aiReportRange == _AiReportRange.quarter) {
+      final quarter = ((now.month - 1) ~/ 3) + 1;
+      final startMonth = (quarter - 1) * 3 + 1;
+      _aiCustomStart = DateTime(now.year, startMonth, 1);
+      _aiCustomEnd = DateTime(now.year, startMonth + 3, 0, 23, 59, 59);
+    } else if (_aiReportRange == _AiReportRange.year) {
+      _aiCustomStart = DateTime(now.year, 1, 1);
+      _aiCustomEnd = DateTime(now.year, 12, 31, 23, 59, 59);
+    }
+  }
+
+  Future<void> _pickRange() async {
+    final now = DateTime.now();
+    if (_aiReportRange == _AiReportRange.custom) {
+      final range = await showDateRangePicker(
+        context: context,
+        firstDate: DateTime(now.year - 5, 1, 1),
+        lastDate: DateTime(now.year + 1, 12, 31),
+        initialDateRange: _aiCustomStart != null && _aiCustomEnd != null
+            ? DateTimeRange(start: _aiCustomStart!, end: _aiCustomEnd!)
+            : null,
+      );
+      if (range != null) {
+        setState(() {
+          _aiCustomStart = DateTime(
+            range.start.year,
+            range.start.month,
+            range.start.day,
+          );
+          _aiCustomEnd = DateTime(
+            range.end.year,
+            range.end.month,
+            range.end.day,
+            23,
+            59,
+            59,
+          );
+          _aiReportPreset = _AiReportPreset.none;
+        });
+      }
+      return;
+    }
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _aiCustomStart ?? now,
+      firstDate: DateTime(now.year - 5, 1, 1),
+      lastDate: DateTime(now.year + 1, 12, 31),
+    );
+    if (picked == null) return;
+
+    setState(() {
+      _aiReportPreset = _AiReportPreset.none;
+      if (_aiReportRange == _AiReportRange.month) {
+        _aiCustomStart = DateTime(picked.year, picked.month, 1);
+        _aiCustomEnd = DateTime(picked.year, picked.month + 1, 0, 23, 59, 59);
+      } else if (_aiReportRange == _AiReportRange.quarter) {
+        final quarter = ((picked.month - 1) ~/ 3) + 1;
+        final startMonth = (quarter - 1) * 3 + 1;
+        _aiCustomStart = DateTime(picked.year, startMonth, 1);
+        _aiCustomEnd = DateTime(picked.year, startMonth + 3, 0, 23, 59, 59);
+      } else if (_aiReportRange == _AiReportRange.year) {
+        _aiCustomStart = DateTime(picked.year, 1, 1);
+        _aiCustomEnd = DateTime(picked.year, 12, 31, 23, 59, 59);
+      }
+    });
+  }
+
+  _AiDateRange _resolveRange() {
+    final now = DateTime.now();
+    final start = _aiCustomStart ?? DateTime(now.year, now.month, 1);
+    final end =
+        _aiCustomEnd ?? DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+    return _AiDateRange(start, end);
+  }
+
+  Future<void> _generateAiReport() async {
+    if (_aiReportScopes.isEmpty) {
+      setState(() {
+        _aiReportError = 'Select at least one data source.';
+      });
+      return;
+    }
+
+    setState(() {
+      _aiReportLoading = true;
+      _aiReportError = null;
+    });
+
+    try {
+      final range = _resolveRange();
+      final firestore = FirebaseFirestore.instance;
+      final startTs = Timestamp.fromDate(range.start);
+      final endTs = Timestamp.fromDate(range.end);
+
+      final trendTotals = <DateTime, double>{};
+      final categoryTotals = <String, double>{};
+
+      double cashOpening = 0;
+      double cashDisbursed = 0;
+      double cashClosing = 0;
+
+      double totalInflow = 0;
+      double totalOutflow = 0;
+      int totalItems = 0;
+
+      if (_aiReportScopes.contains(_AiReportScope.transactions)) {
+        final snapshot = await firestore
+            .collection('transactions')
+            .where('date', isGreaterThanOrEqualTo: startTs)
+            .where('date', isLessThanOrEqualTo: endTs)
+            .get();
+        for (final doc in snapshot.docs) {
+          final data = doc.data();
+          final amount = (data['amount'] ?? 0).toDouble();
+          final timestamp = data['date'] as Timestamp?;
+          final date = timestamp?.toDate() ?? range.start;
+          _accumulateTrend(trendTotals, date, amount, range);
+
+          final category =
+              (data['customCategory'] as String?)?.trim().isNotEmpty == true
+              ? data['customCategory'] as String
+              : (data['category'] as String?) ?? 'Other';
+          categoryTotals[category] = (categoryTotals[category] ?? 0) + amount;
+          totalOutflow += amount;
+          totalItems += 1;
+        }
+      }
+
+      if (_aiReportScopes.contains(_AiReportScope.pettyCashReports)) {
+        final snapshot = await firestore
+            .collection('reports')
+            .where('createdAt', isGreaterThanOrEqualTo: startTs)
+            .where('createdAt', isLessThanOrEqualTo: endTs)
+            .get();
+        for (final doc in snapshot.docs) {
+          final data = doc.data();
+          final opening = (data['openingBalance'] ?? 0).toDouble();
+          final disbursed = (data['totalDisbursements'] ?? 0).toDouble();
+          final closing = (data['closingBalance'] ?? 0).toDouble();
+          final date =
+              (data['createdAt'] as Timestamp?)?.toDate() ?? range.start;
+          _accumulateTrend(trendTotals, date, disbursed, range);
+
+          cashOpening += opening;
+          cashDisbursed += disbursed;
+          cashClosing += closing;
+          totalOutflow += disbursed;
+          totalInflow += opening;
+          totalItems += 1;
+        }
+      }
+
+      if (_aiReportScopes.contains(_AiReportScope.projectReports)) {
+        final snapshot = await firestore
+            .collection('project_reports')
+            .where('createdAt', isGreaterThanOrEqualTo: startTs)
+            .where('createdAt', isLessThanOrEqualTo: endTs)
+            .get();
+        for (final doc in snapshot.docs) {
+          final data = doc.data();
+          final expenses = (data['totalExpenses'] ?? 0).toDouble();
+          final date =
+              (data['createdAt'] as Timestamp?)?.toDate() ?? range.start;
+          _accumulateTrend(trendTotals, date, expenses, range);
+          totalOutflow += expenses;
+          totalItems += 1;
+        }
+      }
+
+      if (_aiReportScopes.contains(_AiReportScope.incomeReports)) {
+        final snapshot = await firestore
+            .collection('income_reports')
+            .where('createdAt', isGreaterThanOrEqualTo: startTs)
+            .where('createdAt', isLessThanOrEqualTo: endTs)
+            .get();
+        for (final doc in snapshot.docs) {
+          final data = doc.data();
+          final totalIncome = (data['totalIncome'] ?? 0).toDouble();
+          final date =
+              (data['createdAt'] as Timestamp?)?.toDate() ?? range.start;
+          _accumulateTrend(trendTotals, date, totalIncome, range);
+          totalInflow += totalIncome;
+          totalItems += 1;
+        }
+      }
+
+      if (_aiReportScopes.contains(_AiReportScope.travelReports)) {
+        final snapshot = await firestore
+            .collection('traveling_reports')
+            .where('createdAt', isGreaterThanOrEqualTo: startTs)
+            .where('createdAt', isLessThanOrEqualTo: endTs)
+            .get();
+        for (final doc in snapshot.docs) {
+          final data = doc.data();
+          final mileage = (data['mileageAmount'] ?? 0).toDouble();
+          final date =
+              (data['createdAt'] as Timestamp?)?.toDate() ?? range.start;
+          _accumulateTrend(trendTotals, date, mileage, range);
+          totalOutflow += mileage;
+          totalItems += 1;
+        }
+      }
+
+      final trendPoints = _buildTrendPoints(trendTotals);
+      final summary = _buildSummaryText(
+        totalInflow: totalInflow,
+        totalOutflow: totalOutflow,
+        totalItems: totalItems,
+        categoryTotals: categoryTotals,
+        range: range,
+      );
+
+      setState(() {
+        _aiTrendPoints = trendPoints;
+        _aiCategoryTotals = categoryTotals;
+        _aiCashFlow = _CashFlowSummary(cashOpening, cashDisbursed, cashClosing);
+        _aiSummaryText = summary;
+      });
+    } catch (e) {
+      setState(() {
+        _aiReportError = 'Failed to generate report: $e';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _aiReportLoading = false;
+        });
+      }
+    }
+  }
+
+  void _accumulateTrend(
+    Map<DateTime, double> trendTotals,
+    DateTime date,
+    double amount,
+    _AiDateRange range,
+  ) {
+    final spanDays = range.end.difference(range.start).inDays;
+    final bucket = spanDays <= 40
+        ? DateTime(date.year, date.month, date.day)
+        : DateTime(date.year, date.month);
+    trendTotals[bucket] = (trendTotals[bucket] ?? 0) + amount;
+  }
+
+  List<_TrendPoint> _buildTrendPoints(Map<DateTime, double> totals) {
+    if (totals.isEmpty) return [];
+    final entries = totals.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    final spanDays = entries.last.key.difference(entries.first.key).inDays;
+    final format = spanDays <= 40
+        ? DateFormat('MMM d')
+        : DateFormat('MMM yyyy');
+    return entries
+        .map((e) => _TrendPoint(format.format(e.key), e.value))
+        .toList();
+  }
+
+  String _buildSummaryText({
+    required double totalInflow,
+    required double totalOutflow,
+    required int totalItems,
+    required Map<String, double> categoryTotals,
+    required _AiDateRange range,
+  }) {
+    final format = NumberFormat.compactCurrency(
+      symbol: AppConstants.currencySymbol,
+    );
+    final net = totalInflow - totalOutflow;
+    String topCategory = 'N/A';
+    if (categoryTotals.isNotEmpty) {
+      final top = categoryTotals.entries.toList()
+        ..sort((a, b) => b.value.compareTo(a.value));
+      topCategory = top.first.key;
+    }
+    return 'Analyzed $totalItems records from '
+        '${DateFormat('MMM d, y').format(range.start)} to '
+        '${DateFormat('MMM d, y').format(range.end)}. '
+        'Inflow ${format.format(totalInflow)}, '
+        'Outflow ${format.format(totalOutflow)}, '
+        'Net ${format.format(net)}. '
+        'Top category: $topCategory.';
+  }
+}
+
+enum _AiReportScope {
+  pettyCashReports,
+  transactions,
+  projectReports,
+  incomeReports,
+  travelReports,
+}
+
+enum _AiReportRange {
+  month,
+  quarter,
+  year,
+  custom;
+
+  String get label {
+    switch (this) {
+      case _AiReportRange.month:
+        return 'Month';
+      case _AiReportRange.quarter:
+        return 'Quarter';
+      case _AiReportRange.year:
+        return 'Year';
+      case _AiReportRange.custom:
+        return 'Custom';
+    }
+  }
+}
+
+enum _AiReportPreset { none, thisMonth, lastMonth, ytd }
+
+class _AiDateRange {
+  final DateTime start;
+  final DateTime end;
+
+  _AiDateRange(this.start, this.end);
+}
+
+class _TrendPoint {
+  final String label;
+  final double value;
+
+  _TrendPoint(this.label, this.value);
+}
+
+class _CashFlowSummary {
+  final double opening;
+  final double disbursed;
+  final double closing;
+
+  const _CashFlowSummary(this.opening, this.disbursed, this.closing);
+}
+
+class _TrendLinePainter extends CustomPainter {
+  final List<_TrendPoint> points;
+
+  _TrendLinePainter(this.points);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.isEmpty) return;
+    final maxValue = points
+        .map((p) => p.value)
+        .fold<double>(0, (max, v) => v > max ? v : max);
+    final minValue = points
+        .map((p) => p.value)
+        .fold<double>(double.infinity, (min, v) => v < min ? v : min);
+    final range = (maxValue - minValue).abs() < 0.01 ? 1 : maxValue - minValue;
+
+    final paint = Paint()
+      ..color = Colors.indigo.shade400
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+    final fillPaint = Paint()
+      ..color = Colors.indigo.withValues(alpha: 0.15)
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    final fillPath = Path();
+    for (var i = 0; i < points.length; i++) {
+      final x = (size.width) * (i / (points.length - 1));
+      final normalized = (points[i].value - minValue) / range;
+      final y = size.height - (normalized * (size.height - 16)) - 8;
+      if (i == 0) {
+        path.moveTo(x, y);
+        fillPath.moveTo(x, size.height);
+        fillPath.lineTo(x, y);
+      } else {
+        path.lineTo(x, y);
+        fillPath.lineTo(x, y);
+      }
+      canvas.drawCircle(
+        Offset(x, y),
+        3,
+        Paint()..color = Colors.indigo.shade600,
+      );
+    }
+    fillPath.lineTo(size.width, size.height);
+    fillPath.close();
+    canvas.drawPath(fillPath, fillPaint);
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _TrendLinePainter oldDelegate) {
+    return oldDelegate.points != points;
   }
 }
 

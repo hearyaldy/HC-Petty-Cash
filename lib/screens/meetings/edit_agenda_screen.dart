@@ -15,6 +15,7 @@ class EditAgendaScreen extends StatefulWidget {
 
 class _EditAgendaScreenState extends State<EditAgendaScreen> {
   final MeetingService _meetingService = MeetingService();
+  final _customHeadingController = TextEditingController();
 
   Meeting? _meeting;
   MeetingAgenda? _agenda;
@@ -26,6 +27,12 @@ class _EditAgendaScreenState extends State<EditAgendaScreen> {
   void initState() {
     super.initState();
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _customHeadingController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -41,6 +48,7 @@ class _EditAgendaScreenState extends State<EditAgendaScreen> {
           _meeting = meeting;
           _agenda = agenda;
           _items = agenda?.items ?? [];
+          _customHeadingController.text = meeting?.customHeading ?? '';
           _isLoading = false;
         });
       }
@@ -64,6 +72,15 @@ class _EditAgendaScreenState extends State<EditAgendaScreen> {
         updatedAt: DateTime.now(),
       );
       await _meetingService.updateAgenda(updatedAgenda);
+
+      if (_meeting != null) {
+        final heading = _customHeadingController.text.trim();
+        final updatedMeeting = _meeting!.copyWith(
+          customHeading: heading.isNotEmpty ? heading : null,
+          updatedAt: DateTime.now(),
+        );
+        await _meetingService.updateMeeting(updatedMeeting);
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -339,6 +356,11 @@ class _EditAgendaScreenState extends State<EditAgendaScreen> {
                 child: _buildWelcomeHeader(totalDuration),
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: ResponsiveContainer(child: _buildHeadingSection()),
+            ),
+            const SizedBox(height: 16),
             // Agenda Items List
             Expanded(
               child: _items.isEmpty
@@ -517,6 +539,51 @@ class _EditAgendaScreenState extends State<EditAgendaScreen> {
           ),
           child: Icon(icon, color: Colors.white, size: 20),
         ),
+      ),
+    );
+  }
+
+  Widget _buildHeadingSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Document Heading',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[800],
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _customHeadingController,
+            decoration: const InputDecoration(
+              labelText: 'Custom Heading (optional)',
+              hintText:
+                  'e.g. HC ADCOM AGENDA or HOPE CHANNEL SEA BOARD MEETING MINUTES',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'This heading will be used for both Agenda and Minutes previews/PDF.',
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          ),
+        ],
       ),
     );
   }
