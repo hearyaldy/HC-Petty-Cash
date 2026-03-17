@@ -186,8 +186,8 @@ class _StudentMonthlyReportDetailScreenState
         initialDate: periodStart.isBefore(monthStart)
             ? monthStart
             : periodStart.isAfter(monthEnd)
-                ? monthEnd
-                : periodStart,
+            ? monthEnd
+            : periodStart,
         firstDate: monthStart,
         lastDate: monthEnd,
       );
@@ -209,8 +209,8 @@ class _StudentMonthlyReportDetailScreenState
         initialDate: periodEnd.isBefore(monthStart)
             ? monthStart
             : periodEnd.isAfter(monthEnd)
-                ? monthEnd
-                : periodEnd,
+            ? monthEnd
+            : periodEnd,
         firstDate: monthStart,
         lastDate: monthEnd,
       );
@@ -399,16 +399,17 @@ class _StudentMonthlyReportDetailScreenState
                           DateTime existingEnd;
                           if (data['periodStart'] is Timestamp &&
                               data['periodEnd'] is Timestamp) {
-                            existingStart =
-                                (data['periodStart'] as Timestamp).toDate();
-                            existingEnd =
-                                (data['periodEnd'] as Timestamp).toDate();
+                            existingStart = (data['periodStart'] as Timestamp)
+                                .toDate();
+                            existingEnd = (data['periodEnd'] as Timestamp)
+                                .toDate();
                           } else {
                             existingStart = monthStart;
                             existingEnd = monthEnd;
                           }
 
-                          final overlaps = !periodEnd.isBefore(existingStart) &&
+                          final overlaps =
+                              !periodEnd.isBefore(existingStart) &&
                               !periodStart.isAfter(existingEnd);
                           if (overlaps) {
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -426,8 +427,9 @@ class _StudentMonthlyReportDetailScreenState
 
                       setState(() => _isUpdatingReport = true);
                       try {
-                      final monthDisplay = DateFormat('MMMM yyyy')
-                          .format(DateTime.parse('$month-01'));
+                        final monthDisplay = DateFormat(
+                          'MMMM yyyy',
+                        ).format(DateTime.parse('$month-01'));
                         final Map<String, dynamic> updates = {
                           'month': month,
                           'monthDisplay': monthDisplay,
@@ -443,10 +445,8 @@ class _StudentMonthlyReportDetailScreenState
                           updates['submittedBy'] = null;
                         } else if (status == 'submitted') {
                           updates['submittedAt'] = DateTime.now();
-                          updates['submittedBy'] = context
-                                  .read<AuthProvider>()
-                                  .currentUser
-                                  ?.name ??
+                          updates['submittedBy'] =
+                              context.read<AuthProvider>().currentUser?.name ??
                               'Student';
                         }
 
@@ -1332,7 +1332,8 @@ class _StudentMonthlyReportDetailScreenState
               )
             : _buildContent(),
       ),
-      floatingActionButton: (_reportData?['status'] ?? 'draft') == 'draft' &&
+      floatingActionButton:
+          (_reportData?['status'] ?? 'draft') == 'draft' &&
               (_reportData?['isFinalized'] ?? false) == false
           ? FloatingActionButton.extended(
               onPressed: _showAddTimesheetDialog,
@@ -1966,8 +1967,8 @@ class _StudentMonthlyReportDetailScreenState
                                                 ),
                                                 // Only show Edit/Delete when report is draft and not finalized
                                                 if ((_reportData?['status'] ??
-                                                        'draft') ==
-                                                    'draft' &&
+                                                            'draft') ==
+                                                        'draft' &&
                                                     (_reportData?['isFinalized'] ??
                                                             false) ==
                                                         false) ...[
@@ -2367,8 +2368,8 @@ class _StudentMonthlyReportDetailScreenState
                                               ),
                                               // Only show Edit/Delete when report is draft and not finalized
                                               if ((_reportData?['status'] ??
-                                                      'draft') ==
-                                                  'draft' &&
+                                                          'draft') ==
+                                                      'draft' &&
                                                   (_reportData?['isFinalized'] ??
                                                           false) ==
                                                       false) ...[

@@ -690,6 +690,14 @@ class _AdminTravelingReportDetailScreenState
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          _buildDetailRow(
+            Icons.badge,
+            'Member Names',
+            report.memberNames.isNotEmpty
+                ? report.memberNames.join(', ')
+                : 'No members specified',
+          ),
           if (report.notes?.isNotEmpty == true) ...[
             const SizedBox(height: 12),
             _buildDetailRow(Icons.note, 'Notes', report.notes!),

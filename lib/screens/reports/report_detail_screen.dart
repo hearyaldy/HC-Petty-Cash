@@ -1341,8 +1341,18 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   ) {
     // Collect all support document URLs from all transactions
     final allDocumentUrls = <String>[];
+    // Map document URL to its transaction details (amount, description, receiptNo)
+    final documentDetails = <String, Map<String, dynamic>>{};
+
     for (final transaction in transactions) {
-      allDocumentUrls.addAll(transaction.supportDocumentUrls);
+      for (final url in transaction.supportDocumentUrls) {
+        allDocumentUrls.add(url);
+        documentDetails[url] = {
+          'amount': transaction.amount,
+          'description': transaction.description,
+          'receiptNo': transaction.receiptNo,
+        };
+      }
     }
 
     if (allDocumentUrls.isEmpty) {
@@ -1367,6 +1377,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         transactionReceiptNo: report.reportNumber,
         description: 'All Support Documents - ${report.department}',
         amount: totalAmount,
+        documentDetails: documentDetails,
       ),
     );
   }
@@ -3080,6 +3091,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
   String _numberToWords(int number) {
     if (number == 0) return 'Zero';
+    if (number < 0) return 'Minus ${_numberToWords(-number)}';
 
     final ones = [
       '',

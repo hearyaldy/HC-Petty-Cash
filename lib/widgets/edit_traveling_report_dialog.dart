@@ -33,6 +33,7 @@ class _EditTravelingReportDialogState extends State<EditTravelingReportDialog> {
   late DateTime _departureTime;
   late DateTime _destinationTime;
   late TravelLocation _travelLocation;
+  late List<TextEditingController> _memberNameControllers;
 
   @override
   void initState() {
@@ -65,6 +66,16 @@ class _EditTravelingReportDialogState extends State<EditTravelingReportDialog> {
     _departureTime = report?.departureTime ?? DateTime.now();
     _destinationTime = report?.destinationTime ?? DateTime.now().add(const Duration(hours: 8));
     _travelLocation = report?.travelLocationEnum ?? TravelLocation.local;
+
+    // Initialize member name controllers
+    final totalMembers = report?.totalMembers ?? 1;
+    final existingNames = report?.memberNames ?? [];
+    _memberNameControllers = List.generate(
+      totalMembers,
+      (index) => TextEditingController(
+        text: index < existingNames.length ? existingNames[index] : '',
+      ),
+    );
   }
 
   @override
@@ -76,7 +87,23 @@ class _EditTravelingReportDialogState extends State<EditTravelingReportDialog> {
     _mileageStartController.dispose();
     _mileageEndController.dispose();
     _notesController.dispose();
+    for (final controller in _memberNameControllers) {
+      controller.dispose();
+    }
     super.dispose();
+  }
+
+  void _updateMemberNameControllers(int newCount) {
+    if (newCount < 1) newCount = 1;
+
+    // Add or remove controllers as needed
+    while (_memberNameControllers.length < newCount) {
+      _memberNameControllers.add(TextEditingController());
+    }
+    while (_memberNameControllers.length > newCount) {
+      _memberNameControllers.removeLast().dispose();
+    }
+    setState(() {});
   }
 
   Future<void> _selectDate(BuildContext context) async {
@@ -167,6 +194,12 @@ class _EditTravelingReportDialogState extends State<EditTravelingReportDialog> {
         return;
       }
 
+      // Collect member names
+      final memberNames = _memberNameControllers
+          .map((c) => c.text.trim())
+          .where((name) => name.isNotEmpty)
+          .toList();
+
       final result = {
         'department': _departmentController.text.trim(),
         'purpose': _purposeController.text.trim(),
@@ -175,6 +208,7 @@ class _EditTravelingReportDialogState extends State<EditTravelingReportDialog> {
         'departureTime': _departureTime,
         'destinationTime': _destinationTime,
         'totalMembers': totalMembers,
+        'memberNames': memberNames,
         'travelLocation': _travelLocation.name,
         'mileageStart': mileageStart,
         'mileageEnd': mileageEnd,
@@ -346,8 +380,61 @@ class _EditTravelingReportDialogState extends State<EditTravelingReportDialog> {
                     }
                     return null;
                   },
+                  onChanged: (value) {
+                    final count = int.tryParse(value.trim());
+                    if (count != null && count >= 1) {
+                      _updateMemberNameControllers(count);
+                    }
+                  },
                 ),
                 const SizedBox(height: 16),
+
+                // Member Names Section
+                if (_memberNameControllers.isNotEmpty) ...[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.people, color: Colors.orange.shade700, size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Member Names (for Per Diem)',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange.shade900,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        ...List.generate(_memberNameControllers.length, (index) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: TextFormField(
+                              controller: _memberNameControllers[index],
+                              decoration: InputDecoration(
+                                labelText: 'Member ${index + 1} Name',
+                                border: const OutlineInputBorder(),
+                                prefixIcon: const Icon(Icons.person),
+                                filled: true,
+                                fillColor: Colors.white,
+                              ),
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
 
                 // Travel Location (Local/Abroad)
                 DropdownButtonFormField<TravelLocation>(

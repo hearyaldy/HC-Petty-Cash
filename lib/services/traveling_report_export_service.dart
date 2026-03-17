@@ -538,6 +538,15 @@ class TravelingReportExportService {
               ),
             ],
           ),
+          if (report.memberNames.isNotEmpty) ...[
+            pw.SizedBox(height: 8),
+            _buildInfoRow(
+              'Member Names:',
+              report.memberNames.join(", "),
+              ttf,
+              ttfBold,
+            ),
+          ],
         ],
       ),
     );
@@ -638,6 +647,13 @@ class TravelingReportExportService {
             'Total Members: ${report.totalMembers}',
             style: pw.TextStyle(font: ttf, fontSize: 10),
           ),
+          if (report.memberNames.isNotEmpty) ...[
+            pw.SizedBox(height: 4),
+            pw.Text(
+              'Member Names: ${report.memberNames.join(", ")}',
+              style: pw.TextStyle(font: ttf, fontSize: 10),
+            ),
+          ],
           pw.Divider(),
           pw.SizedBox(height: 4),
           if (entries.isEmpty)
@@ -1290,6 +1306,15 @@ class TravelingReportExportService {
               ),
             ],
           ),
+          if (report.memberNames.isNotEmpty) ...[
+            pw.SizedBox(height: 6),
+            _buildVoucherInfoRow(
+              'Members:',
+              report.memberNames.join(", "),
+              font,
+              fontBold,
+            ),
+          ],
         ],
       ),
     );

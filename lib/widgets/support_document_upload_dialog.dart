@@ -913,6 +913,8 @@ class SupportDocumentSelectionDialog extends StatefulWidget {
   final String transactionReceiptNo;
   final String description;
   final double amount;
+  // Optional: Map of document URL to individual amount and description
+  final Map<String, Map<String, dynamic>>? documentDetails;
 
   const SupportDocumentSelectionDialog({
     super.key,
@@ -920,6 +922,7 @@ class SupportDocumentSelectionDialog extends StatefulWidget {
     required this.transactionReceiptNo,
     required this.description,
     required this.amount,
+    this.documentDetails,
   });
 
   @override
@@ -976,6 +979,7 @@ class _SupportDocumentSelectionDialogState
         widget.transactionReceiptNo,
         widget.description,
         widget.amount,
+        documentDetails: widget.documentDetails,
       );
 
       final bytes = await pdf.save();
@@ -1363,6 +1367,7 @@ class _SupportDocumentSelectionDialogState
                                           widget.transactionReceiptNo,
                                           widget.description,
                                           widget.amount,
+                                          documentDetails: widget.documentDetails,
                                         );
                                   }
 

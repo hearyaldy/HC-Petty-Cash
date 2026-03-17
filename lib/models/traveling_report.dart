@@ -13,6 +13,7 @@ class TravelingReport {
   final DateTime departureTime;
   final DateTime destinationTime;
   final int totalMembers;
+  final List<String> memberNames; // Names of members for per diem
   final String travelLocation; // 'local' or 'abroad'
 
   // Mileage fields
@@ -47,6 +48,7 @@ class TravelingReport {
     required this.departureTime,
     required this.destinationTime,
     required this.totalMembers,
+    List<String>? memberNames,
     this.travelLocation = 'local',
     required this.mileageStart,
     required this.mileageEnd,
@@ -62,7 +64,8 @@ class TravelingReport {
     this.notes,
     List<String>? supportDocumentUrls,
     this.updatedAt,
-  }) : supportDocumentUrls = supportDocumentUrls ?? [];
+  })  : memberNames = memberNames ?? [],
+        supportDocumentUrls = supportDocumentUrls ?? [];
 
   // Calculated getters
   double get totalKM => mileageEnd - mileageStart;
@@ -88,6 +91,7 @@ class TravelingReport {
       'departureTime': Timestamp.fromDate(departureTime),
       'destinationTime': Timestamp.fromDate(destinationTime),
       'totalMembers': totalMembers,
+      'memberNames': memberNames,
       'travelLocation': travelLocation,
       'mileageStart': mileageStart,
       'mileageEnd': mileageEnd,
@@ -138,6 +142,8 @@ class TravelingReport {
       departureTime: parseTimestamp(data['departureTime'], now),
       destinationTime: parseTimestamp(data['destinationTime'], now),
       totalMembers: data['totalMembers'] ?? 1,
+      memberNames:
+          (data['memberNames'] as List<dynamic>?)?.cast<String>() ?? [],
       travelLocation: data['travelLocation'] ?? 'local',
       mileageStart: (data['mileageStart'] ?? 0.0).toDouble(),
       mileageEnd: (data['mileageEnd'] ?? 0.0).toDouble(),
@@ -184,6 +190,8 @@ class TravelingReport {
               json['destinationTime'] ?? DateTime.now().toIso8601String(),
             ),
       totalMembers: json['totalMembers'] ?? 1,
+      memberNames:
+          (json['memberNames'] as List<dynamic>?)?.cast<String>() ?? [],
       travelLocation: json['travelLocation'] ?? 'local',
       mileageStart: (json['mileageStart'] ?? 0.0).toDouble(),
       mileageEnd: (json['mileageEnd'] ?? 0.0).toDouble(),
@@ -231,6 +239,7 @@ class TravelingReport {
     DateTime? departureTime,
     DateTime? destinationTime,
     int? totalMembers,
+    List<String>? memberNames,
     String? travelLocation,
     double? mileageStart,
     double? mileageEnd,
@@ -259,6 +268,7 @@ class TravelingReport {
       departureTime: departureTime ?? this.departureTime,
       destinationTime: destinationTime ?? this.destinationTime,
       totalMembers: totalMembers ?? this.totalMembers,
+      memberNames: memberNames ?? this.memberNames,
       travelLocation: travelLocation ?? this.travelLocation,
       mileageStart: mileageStart ?? this.mileageStart,
       mileageEnd: mileageEnd ?? this.mileageEnd,

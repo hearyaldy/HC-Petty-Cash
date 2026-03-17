@@ -296,6 +296,8 @@ class FirebaseStorageService {
 
   // Download image data directly from Firebase Storage using the storage path
   Future<Uint8List?> downloadImageData(String downloadUrl) async {
+    const timeout = Duration(seconds: 30);
+
     try {
       print('Attempting to download image data from URL: $downloadUrl');
 
@@ -326,9 +328,9 @@ class FirebaseStorageService {
         final ref = _storage.ref().child(decodedPath);
         print('Created reference: ${ref.fullPath}');
 
-        // Check if file exists first
+        // Check if file exists first with timeout
         try {
-          final metadata = await ref.getMetadata();
+          final metadata = await ref.getMetadata().timeout(timeout);
           print(
             'File metadata retrieved: ${metadata.contentType}, size: ${metadata.size}',
           );
@@ -336,7 +338,8 @@ class FirebaseStorageService {
           print('Error getting metadata: $metaError');
         }
 
-        final imageData = await ref.getData();
+        // Download with timeout
+        final imageData = await ref.getData().timeout(timeout);
         print('Successfully downloaded ${imageData?.length ?? 0} bytes');
         return imageData;
       } else {
@@ -362,13 +365,15 @@ class FirebaseStorageService {
 
   // Fallback method to download image data using the download URL directly
   Future<Uint8List?> _downloadImageDataFromUrl(String downloadUrl) async {
+    const timeout = Duration(seconds: 30);
+
     try {
       print('Trying fallback method with direct download URL: $downloadUrl');
 
       // For web platform, try using http package to fetch the image
       if (kIsWeb) {
         final uri = Uri.parse(downloadUrl);
-        final response = await http.get(uri);
+        final response = await http.get(uri).timeout(timeout);
         if (response.statusCode == 200) {
           print(
             'HTTP download succeeded, downloaded ${response.bodyBytes.length} bytes',
@@ -384,7 +389,7 @@ class FirebaseStorageService {
 
       // Use the download URL directly to get a fresh reference for mobile
       final ref = _storage.refFromURL(downloadUrl);
-      final imageData = await ref.getData();
+      final imageData = await ref.getData().timeout(timeout);
       print(
         'Firebase Storage download succeeded, downloaded ${imageData?.length ?? 0} bytes',
       );

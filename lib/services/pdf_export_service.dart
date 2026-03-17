@@ -1896,6 +1896,7 @@ class PdfExportService {
 
   String _numberToWords(int number) {
     if (number == 0) return 'Zero';
+    if (number < 0) return 'Minus ${_numberToWords(-number)}';
 
     final ones = [
       '',

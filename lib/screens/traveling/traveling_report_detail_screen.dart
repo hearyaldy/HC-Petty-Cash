@@ -59,6 +59,7 @@ class _TravelingReportDetailScreenState
           departureTime: result['departureTime'] as DateTime,
           destinationTime: result['destinationTime'] as DateTime,
           totalMembers: result['totalMembers'] as int,
+          memberNames: (result['memberNames'] as List<dynamic>?)?.cast<String>() ?? [],
           travelLocation: result['travelLocation'] as String,
           mileageStart: result['mileageStart'] as double,
           mileageEnd: result['mileageEnd'] as double,
@@ -889,6 +890,14 @@ class _TravelingReportDetailScreenState
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          _buildDetailRow(
+            Icons.badge,
+            'Member Names',
+            report.memberNames.isNotEmpty
+                ? report.memberNames.join(', ')
+                : 'No members specified',
           ),
           if (report.notes?.isNotEmpty == true) ...[
             const SizedBox(height: 12),

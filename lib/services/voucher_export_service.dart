@@ -1120,8 +1120,9 @@ class VoucherExportService {
     List<String> documentUrls,
     String transactionReceiptNo,
     String description,
-    double amount,
-  ) async {
+    double amount, {
+    Map<String, Map<String, dynamic>>? documentDetails,
+  }) async {
     try {
       AppLogger.info(
         'Generating PDF for ${documentUrls.length} support documents',
@@ -1171,6 +1172,12 @@ class VoucherExportService {
 
             if (isValidImage) {
               final docNumber = i + 1;
+              // Get individual document details if available
+              final docDetail = documentDetails?[documentUrl];
+              final docDescription = docDetail?['description'] as String? ?? description;
+              final docAmount = docDetail?['amount'] as double? ?? amount;
+              final docReceiptNo = docDetail?['receiptNo'] as String? ?? transactionReceiptNo;
+
               // Add page immediately with imageBytes in scope - exactly like traveling report service
               pdf.addPage(
                 pw.Page(
@@ -1207,15 +1214,15 @@ class VoucherExportService {
                                   ),
                                   pw.SizedBox(height: 6),
                                   pw.Text(
-                                    'Voucher No: $transactionReceiptNo',
+                                    'Voucher No: $docReceiptNo',
                                     style: const pw.TextStyle(fontSize: 11),
                                   ),
                                   pw.Text(
-                                    'Description: $description',
+                                    'Description: $docDescription',
                                     style: const pw.TextStyle(fontSize: 11),
                                   ),
                                   pw.Text(
-                                    'Amount: ${NumberFormat.currency(symbol: "THB ", decimalDigits: 2).format(amount)}',
+                                    'Amount: ${NumberFormat.currency(symbol: "THB ", decimalDigits: 2).format(docAmount)}',
                                     style: const pw.TextStyle(fontSize: 11),
                                   ),
                                 ],
@@ -1378,8 +1385,9 @@ class VoucherExportService {
     List<String> documentUrls,
     String transactionReceiptNo,
     String description,
-    double amount,
-  ) async {
+    double amount, {
+    Map<String, Map<String, dynamic>>? documentDetails,
+  }) async {
     try {
       print('=== PRINTING MULTIPLE SUPPORT DOCUMENTS GRID ===');
       final pdf = await generateMultipleSupportDocumentsGrid(
@@ -1387,6 +1395,7 @@ class VoucherExportService {
         transactionReceiptNo,
         description,
         amount,
+        documentDetails: documentDetails,
       );
 
       print('Saving PDF to bytes...');
