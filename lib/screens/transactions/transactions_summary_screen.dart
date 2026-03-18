@@ -20,6 +20,7 @@ import '../../utils/responsive_helper.dart';
 import '../../utils/logger.dart';
 
 enum TransactionSortField { date, amount, category, status }
+
 enum SortOrder { ascending, descending }
 
 class TransactionsSummaryScreen extends StatefulWidget {
@@ -379,11 +380,15 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
         ? categorySummary.entries.reduce((a, b) => a.value > b.value ? a : b)
         : null;
     final topPaymentMethod = paymentMethodSummary.entries.isNotEmpty
-        ? paymentMethodSummary.entries.reduce((a, b) => a.value > b.value ? a : b)
+        ? paymentMethodSummary.entries.reduce(
+            (a, b) => a.value > b.value ? a : b,
+          )
         : null;
     final totalStatusCount = statusSummary.values.fold(0, (a, b) => a + b);
     final approvedCount = statusSummary['Approved'] ?? 0;
-    final approvalRate = totalStatusCount > 0 ? (approvedCount / totalStatusCount) * 100 : 0.0;
+    final approvalRate = totalStatusCount > 0
+        ? (approvedCount / totalStatusCount) * 100
+        : 0.0;
 
     // Category colors for charts
     final categoryColors = [
@@ -429,7 +434,11 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                       color: Colors.white.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
+                    child: const Icon(
+                      Icons.auto_awesome,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   const Text(
@@ -485,7 +494,11 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.lightbulb_outline, color: Colors.amber, size: 20),
+                      const Icon(
+                        Icons.lightbulb_outline,
+                        color: Colors.amber,
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -586,14 +599,20 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         '${categorySummary.length} categories',
-                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   ],
@@ -605,11 +624,14 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                   children: [
                     // Mini pie chart representation using progress bars
                     if (categorySummary.isNotEmpty && total > 0)
-                      ...categorySummary.entries.toList().asMap().entries.map((entry) {
+                      ...categorySummary.entries.toList().asMap().entries.map((
+                        entry,
+                      ) {
                         final index = entry.key;
                         final item = entry.value;
                         final percentage = (item.value / total) * 100;
-                        final color = categoryColors[index % categoryColors.length];
+                        final color =
+                            categoryColors[index % categoryColors.length];
 
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 12),
@@ -617,7 +639,8 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Row(
                                     children: [
@@ -626,7 +649,9 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                                         height: 12,
                                         decoration: BoxDecoration(
                                           color: color,
-                                          borderRadius: BorderRadius.circular(3),
+                                          borderRadius: BorderRadius.circular(
+                                            3,
+                                          ),
                                         ),
                                       ),
                                       const SizedBox(width: 8),
@@ -656,7 +681,9 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                                         ),
                                         decoration: BoxDecoration(
                                           color: color.withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(4),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
                                         ),
                                         child: Text(
                                           '${percentage.toStringAsFixed(1)}%',
@@ -677,7 +704,9 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                                 child: LinearProgressIndicator(
                                   value: percentage / 100,
                                   backgroundColor: Colors.grey.shade200,
-                                  valueColor: AlwaysStoppedAnimation<Color>(color),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    color,
+                                  ),
                                   minHeight: 8,
                                 ),
                               ),
@@ -698,9 +727,17 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: _buildPaymentMethodCard(paymentMethodSummary, total, currencyFormat)),
+              Expanded(
+                child: _buildPaymentMethodCard(
+                  paymentMethodSummary,
+                  total,
+                  currencyFormat,
+                ),
+              ),
               const SizedBox(width: 16),
-              Expanded(child: _buildStatusCard(statusSummary, totalStatusCount)),
+              Expanded(
+                child: _buildStatusCard(statusSummary, totalStatusCount),
+              ),
             ],
           )
         else ...[
@@ -735,10 +772,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
             children: [
               Text(
                 label,
-                style: TextStyle(
-                  color: color.withOpacity(0.8),
-                  fontSize: 10,
-                ),
+                style: TextStyle(color: color.withOpacity(0.8), fontSize: 10),
               ),
               Text(
                 value,
@@ -845,7 +879,11 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
             padding: const EdgeInsets.all(16),
             child: const Row(
               children: [
-                Icon(Icons.account_balance_wallet, color: Colors.white, size: 20),
+                Icon(
+                  Icons.account_balance_wallet,
+                  color: Colors.white,
+                  size: 20,
+                ),
                 SizedBox(width: 8),
                 Text(
                   'Payment Methods',
@@ -861,82 +899,92 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
-              children: paymentMethodSummary.entries.toList().asMap().entries.map((entry) {
-                final index = entry.key;
-                final item = entry.value;
-                final percentage = total > 0 ? (item.value / total) * 100 : 0.0;
-                final color = methodColors[index % methodColors.length];
+              children: paymentMethodSummary.entries
+                  .toList()
+                  .asMap()
+                  .entries
+                  .map((entry) {
+                    final index = entry.key;
+                    final item = entry.value;
+                    final percentage = total > 0
+                        ? (item.value / total) * 100
+                        : 0.0;
+                    final color = methodColors[index % methodColors.length];
 
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: color.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Center(
-                          child: Icon(
-                            _getPaymentIcon(item.key),
-                            color: color,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              item.key,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w500,
-                                fontSize: 14,
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: color.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Center(
+                              child: Icon(
+                                _getPaymentIcon(item.key),
+                                color: color,
+                                size: 20,
                               ),
                             ),
-                            const SizedBox(height: 4),
-                            Row(
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Expanded(
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: LinearProgressIndicator(
-                                      value: percentage / 100,
-                                      backgroundColor: Colors.grey.shade200,
-                                      valueColor: AlwaysStoppedAnimation<Color>(color),
-                                      minHeight: 6,
-                                    ),
+                                Text(
+                                  item.key,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 14,
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  '${percentage.toStringAsFixed(0)}%',
-                                  style: TextStyle(
-                                    color: Colors.grey.shade600,
-                                    fontSize: 12,
-                                  ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(4),
+                                        child: LinearProgressIndicator(
+                                          value: percentage / 100,
+                                          backgroundColor: Colors.grey.shade200,
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                color,
+                                              ),
+                                          minHeight: 6,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      '${percentage.toStringAsFixed(0)}%',
+                                      style: TextStyle(
+                                        color: Colors.grey.shade600,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            currencyFormat.format(item.value),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        currencyFormat.format(item.value),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
+                    );
+                  })
+                  .toList(),
             ),
           ),
         ],
@@ -989,7 +1037,9 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
             padding: const EdgeInsets.all(16),
             child: Column(
               children: statusSummary.entries.map((entry) {
-                final percentage = totalCount > 0 ? (entry.value / totalCount) * 100 : 0.0;
+                final percentage = totalCount > 0
+                    ? (entry.value / totalCount) * 100
+                    : 0.0;
                 final color = _getStatusColor(entry.key);
 
                 return Padding(
@@ -1032,7 +1082,9 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                                     child: LinearProgressIndicator(
                                       value: percentage / 100,
                                       backgroundColor: Colors.grey.shade200,
-                                      valueColor: AlwaysStoppedAnimation<Color>(color),
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        color,
+                                      ),
                                       minHeight: 6,
                                     ),
                                   ),
@@ -1052,7 +1104,10 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                       ),
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: color.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
@@ -1088,36 +1143,50 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
 
     if (topCategory != null) {
       final percentage = (topCategory.value / total) * 100;
-      insights.add('${topCategory.key} accounts for ${percentage.toStringAsFixed(0)}% of spending');
+      insights.add(
+        '${topCategory.key} accounts for ${percentage.toStringAsFixed(0)}% of spending',
+      );
     }
 
     if (approvalRate >= 90) {
-      insights.add('Excellent approval rate at ${approvalRate.toStringAsFixed(0)}%');
+      insights.add(
+        'Excellent approval rate at ${approvalRate.toStringAsFixed(0)}%',
+      );
     } else if (approvalRate >= 70) {
-      insights.add('Good approval rate - ${approvalRate.toStringAsFixed(0)}% transactions approved');
+      insights.add(
+        'Good approval rate - ${approvalRate.toStringAsFixed(0)}% transactions approved',
+      );
     } else if (approvalRate > 0) {
-      insights.add('Consider reviewing rejection reasons - ${approvalRate.toStringAsFixed(0)}% approval rate');
+      insights.add(
+        'Consider reviewing rejection reasons - ${approvalRate.toStringAsFixed(0)}% approval rate',
+      );
     }
 
     if (count > 10) {
       insights.add('Active period with $count transactions recorded');
     }
 
-    return insights.isNotEmpty ? insights.join('. ') + '.' : 'Add more transactions to see insights.';
+    return insights.isNotEmpty
+        ? '${insights.join('. ')}.'
+        : 'Add more transactions to see insights.';
   }
 
   IconData _getPaymentIcon(String method) {
     final lowerMethod = method.toLowerCase();
     if (lowerMethod.contains('cash')) return Icons.money;
-    if (lowerMethod.contains('card') || lowerMethod.contains('credit')) return Icons.credit_card;
-    if (lowerMethod.contains('transfer') || lowerMethod.contains('bank')) return Icons.account_balance;
-    if (lowerMethod.contains('wallet') || lowerMethod.contains('digital')) return Icons.account_balance_wallet;
+    if (lowerMethod.contains('card') || lowerMethod.contains('credit'))
+      return Icons.credit_card;
+    if (lowerMethod.contains('transfer') || lowerMethod.contains('bank'))
+      return Icons.account_balance;
+    if (lowerMethod.contains('wallet') || lowerMethod.contains('digital'))
+      return Icons.account_balance_wallet;
     return Icons.payment;
   }
 
   Color _getStatusColor(String status) {
     final lowerStatus = status.toLowerCase();
-    if (lowerStatus.contains('approved') || lowerStatus.contains('processed')) return Colors.green;
+    if (lowerStatus.contains('approved') || lowerStatus.contains('processed'))
+      return Colors.green;
     if (lowerStatus.contains('pending')) return Colors.orange;
     if (lowerStatus.contains('rejected')) return Colors.red;
     if (lowerStatus.contains('draft')) return Colors.grey;
@@ -1138,14 +1207,12 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
     final isMobile = ResponsiveHelper.isMobile(context);
 
     // Get all unique categories from transactions (includes custom categories)
-    final uniqueCategories = transactions
-        .map((t) => t.categoryDisplayName)
-        .toSet()
-        .toList()
-      ..sort();
+    final uniqueCategories =
+        transactions.map((t) => t.categoryDisplayName).toSet().toList()..sort();
 
     // Reset selected category if it's no longer valid
-    final validSelectedCategory = _selectedCategory != null &&
+    final validSelectedCategory =
+        _selectedCategory != null &&
             uniqueCategories.contains(_selectedCategory)
         ? _selectedCategory
         : null;
