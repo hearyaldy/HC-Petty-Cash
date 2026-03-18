@@ -561,6 +561,8 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
         return Icons.build;
       case ExpenseCategory.supplies:
         return Icons.shopping_cart;
+      case ExpenseCategory.medicalReimbursement:
+        return Icons.local_hospital;
       case ExpenseCategory.other:
         return Icons.more_horiz;
     }

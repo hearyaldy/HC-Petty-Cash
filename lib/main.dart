@@ -95,6 +95,9 @@ import 'screens/admin/meeting_template_edit_screen.dart';
 import 'providers/income_report_provider.dart';
 import 'providers/media_production_provider.dart';
 import 'providers/cash_advance_provider.dart';
+import 'providers/medical_bill_reimbursement_provider.dart';
+import 'screens/medical_reimbursement/medical_reimbursement_list_screen.dart';
+import 'screens/medical_reimbursement/medical_reimbursement_detail_screen.dart';
 import 'screens/hub/media_dashboard_screen.dart';
 import 'screens/media/media_productions_screen.dart';
 import 'screens/media/add_edit_production_screen.dart';
@@ -207,6 +210,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => IncomeReportProvider()),
         ChangeNotifierProvider(create: (_) => MediaProductionProvider()),
         ChangeNotifierProvider(create: (_) => CashAdvanceProvider()),
+        ChangeNotifierProvider(create: (_) => MedicalBillReimbursementProvider()),
       ],
       child: Consumer2<AuthProvider, ThemeProvider>(
         builder: (context, authProvider, themeProvider, _) {
@@ -718,6 +722,18 @@ class MyApp extends StatelessWidget {
           builder: (context, state) {
             final advanceId = state.pathParameters['advanceId']!;
             return NewCashAdvanceScreen(advanceId: advanceId);
+          },
+        ),
+        // Medical Bill Reimbursement Routes
+        GoRoute(
+          path: '/medical-reimbursement',
+          builder: (context, state) => const MedicalReimbursementListScreen(),
+        ),
+        GoRoute(
+          path: '/medical-reimbursement/:reimbursementId',
+          builder: (context, state) {
+            final reimbursementId = state.pathParameters['reimbursementId']!;
+            return MedicalReimbursementDetailScreen(reimbursementId: reimbursementId);
           },
         ),
         // Equipment Inventory Routes

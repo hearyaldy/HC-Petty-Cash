@@ -348,6 +348,12 @@ class _TravelingReportsScreenState extends State<TravelingReportsScreen> {
               Row(
                 children: [
                   _buildHeaderActionButton(
+                    icon: Icons.groups,
+                    tooltip: 'All Traveling Reports',
+                    onPressed: () => context.push('/admin/traveling-reports'),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildHeaderActionButton(
                     icon: Icons.add_circle_outline,
                     tooltip: 'New Report',
                     onPressed: _createNewReport,

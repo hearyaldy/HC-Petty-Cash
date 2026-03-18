@@ -827,6 +827,8 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
         return Icons.business;
       case ExpenseCategory.maintenance:
         return Icons.build;
+      case ExpenseCategory.medicalReimbursement:
+        return Icons.local_hospital;
       case ExpenseCategory.other:
         return Icons.more_horiz;
     }

@@ -239,47 +239,50 @@ class _NewCashAdvanceScreenState extends State<NewCashAdvanceScreen> {
   @override
   Widget build(BuildContext context) {
     final isMobile = ResponsiveHelper.isMobile(context);
+    final contentPadding = ResponsiveHelper.getScreenPadding(context);
+    final maxWidth = ResponsiveHelper.getMaxContentWidth(context);
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: Text(_isEditing ? 'Edit Cash Advance' : 'New Cash Advance'),
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.print),
-            tooltip: 'Print Request',
-            onPressed: _isLoading ? null : _printRequest,
-          ),
-        ],
-      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-            child: ResponsiveContainer(
-                padding: ResponsiveHelper.getScreenPadding(context),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _buildHeaderBanner(),
-                      const SizedBox(height: 16),
-                      _buildBasicInfoCard(),
-                      const SizedBox(height: 16),
-                      _buildAmountCard(),
-                      const SizedBox(height: 16),
-                      _buildItemsCard(),
-                      const SizedBox(height: 16),
-                      _buildDatesCard(),
-                      const SizedBox(height: 16),
-                      _buildAdditionalInfoCard(),
-                      const SizedBox(height: 24),
-                      _buildSubmitButton(),
-                      const SizedBox(height: 80),
-                    ],
-                  ),
+          : Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxWidth),
+                child: CustomScrollView(
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          left: contentPadding.left,
+                          right: contentPadding.right,
+                          top: MediaQuery.of(context).padding.top + 16,
+                        ),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _buildHeaderBanner(),
+                              const SizedBox(height: 16),
+                              _buildBasicInfoCard(),
+                              const SizedBox(height: 16),
+                              _buildAmountCard(),
+                              const SizedBox(height: 16),
+                              _buildItemsCard(),
+                              const SizedBox(height: 16),
+                              _buildDatesCard(),
+                              const SizedBox(height: 16),
+                              _buildAdditionalInfoCard(),
+                              const SizedBox(height: 24),
+                              _buildSubmitButton(),
+                              const SizedBox(height: 80),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -288,7 +291,7 @@ class _NewCashAdvanceScreenState extends State<NewCashAdvanceScreen> {
 
   Widget _buildHeaderBanner() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -308,36 +311,76 @@ class _NewCashAdvanceScreenState extends State<NewCashAdvanceScreen> {
           ),
         ],
       ),
-      child: Row(
+      child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.request_quote, color: Colors.white),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
-                  'Cash Advance Request',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
+          // Navigation row
+          Row(
+            children: [
+              InkWell(
+                onTap: () {
+                  if (_isEditing && widget.advanceId != null) {
+                    context.go('/cash-advances/${widget.advanceId}');
+                  } else {
+                    context.go('/cash-advances');
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
                   ),
+                  child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
                 ),
-                SizedBox(height: 4),
-                Text(
-                  'Complete the form below to create a request.',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+              const Spacer(),
+              InkWell(
+                onTap: _printRequest,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.print, color: Colors.white, size: 20),
                 ),
-              ],
-            ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Title row
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.request_quote, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _isEditing ? 'Edit Cash Advance' : 'Cash Advance Request',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Complete the form below to create a request.',
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),

@@ -960,6 +960,13 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
         color: Colors.indigo,
         route: '/cash-advances?view=table',
       ),
+      _MenuItem(
+        title: 'Medical Reimbursement',
+        subtitle: 'Medical bill claims',
+        icon: Icons.local_hospital,
+        color: Colors.teal,
+        route: '/medical-reimbursement',
+      ),
     ];
 
     final visibleItems = menuItems.where((item) => item.visible).toList();

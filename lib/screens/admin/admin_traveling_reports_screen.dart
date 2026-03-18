@@ -108,14 +108,14 @@ class _AdminTravelingReportsScreenState
       padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.orange.shade600, Colors.orange.shade400],
+          colors: [Colors.indigo.shade600, Colors.indigo.shade400],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.orange.withOpacity(0.3),
+            color: Colors.indigo.withOpacity(0.3),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -133,8 +133,12 @@ class _AdminTravelingReportsScreenState
                 tooltip: 'Back to Dashboard',
                 onPressed: () => context.go('/admin-hub'),
               ),
-              // Placeholder for future action buttons
-              const SizedBox.shrink(),
+              // My Reports button
+              _buildHeaderActionButton(
+                icon: Icons.person,
+                tooltip: 'My Traveling Reports',
+                onPressed: () => context.push('/traveling-reports'),
+              ),
             ],
           ),
           SizedBox(height: isMobile ? 16 : 20),
@@ -237,7 +241,7 @@ class _AdminTravelingReportsScreenState
                     ),
                     prefixIcon: Icon(
                       Icons.label,
-                      color: Colors.orange.shade600,
+                      color: Colors.indigo.shade600,
                     ),
                   ),
                   items: _statusOptions.map((status) {
@@ -333,8 +337,8 @@ class _AdminTravelingReportsScreenState
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            Colors.orange.shade400,
-                            Colors.orange.shade600,
+                            Colors.indigo.shade400,
+                            Colors.indigo.shade600,
                           ],
                         ),
                         borderRadius: BorderRadius.circular(12),
@@ -439,12 +443,12 @@ class _AdminTravelingReportsScreenState
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        Colors.orange.shade50,
-                        Colors.orange.shade100.withValues(alpha: 0.5),
+                        Colors.indigo.shade50,
+                        Colors.indigo.shade100.withValues(alpha: 0.5),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.orange.shade200),
+                    border: Border.all(color: Colors.indigo.shade200),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -458,7 +462,7 @@ class _AdminTravelingReportsScreenState
                       Container(
                         width: 1,
                         height: 40,
-                        color: Colors.orange.shade200,
+                        color: Colors.indigo.shade200,
                       ),
                       _buildAmountColumn(
                         'Per Diem',
@@ -469,13 +473,13 @@ class _AdminTravelingReportsScreenState
                       Container(
                         width: 1,
                         height: 40,
-                        color: Colors.orange.shade200,
+                        color: Colors.indigo.shade200,
                       ),
                       _buildAmountColumn(
                         'Total',
                         '฿${currencyFormat.format(report.grandTotal)}',
                         Icons.account_balance_wallet,
-                        Colors.orange.shade700,
+                        Colors.indigo.shade700,
                       ),
                     ],
                   ),

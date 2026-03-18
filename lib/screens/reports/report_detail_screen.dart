@@ -1450,6 +1450,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         return Icons.build;
       case ExpenseCategory.supplies:
         return Icons.shopping_cart;
+      case ExpenseCategory.medicalReimbursement:
+        return Icons.local_hospital;
       case ExpenseCategory.other:
         return Icons.more_horiz;
     }
@@ -1500,6 +1502,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         return Icons.build;
       case ExpenseCategory.supplies:
         return Icons.shopping_cart;
+      case ExpenseCategory.medicalReimbursement:
+        return Icons.local_hospital;
       case ExpenseCategory.other:
         return Icons.more_horiz;
     }
@@ -1537,6 +1541,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     PaymentMethod selectedPaymentMethod = PaymentMethod.cash;
     String? selectedProjectId;
 
+    // Medical claim variables
+    bool isMedicalClaim = false;
+    MedicalClaimType medicalClaimType = MedicalClaimType.outPatient;
+
     // Get project reports before showing modal
     final projectReports = context.read<ProjectReportProvider>().projectReports;
 
@@ -1552,403 +1560,718 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
-          child: DraggableScrollableSheet(
-            initialChildSize: 0.9,
-            minChildSize: 0.5,
-            maxChildSize: 0.95,
-            expand: false,
-            builder: (context, scrollController) => Column(
-              children: [
-                Container(
-                  margin: const EdgeInsets.only(top: 8),
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
+        builder: (context, setState) {
+          // Calculate reimbursement amount for medical claims
+          final totalBill = double.tryParse(amountController.text) ?? 0;
+          final reimbursementAmount = totalBill * medicalClaimType.reimbursementRate;
+
+          return Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
+            child: DraggableScrollableSheet(
+              initialChildSize: 0.9,
+              minChildSize: 0.5,
+              maxChildSize: 0.95,
+              expand: false,
+              builder: (context, scrollController) => Column(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 8),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Add Transaction',
-                          style: Theme.of(context).textTheme.headlineSmall,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(),
-                Expanded(
-                  child: Form(
-                    key: formKey,
-                    child: ListView(
-                      controller: scrollController,
-                      padding: const EdgeInsets.all(16),
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
                       children: [
-                        TextFormField(
-                          controller: receiptNoController,
-                          decoration: const InputDecoration(
-                            labelText: 'Receipt Number',
-                            border: OutlineInputBorder(),
-                            prefixIcon: Icon(Icons.receipt),
+                        Expanded(
+                          child: Text(
+                            'Add Transaction',
+                            style: Theme.of(context).textTheme.headlineSmall,
                           ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter a receipt number';
-                            }
-                            return null;
-                          },
                         ),
-                        const SizedBox(height: 16),
-                        InkWell(
-                          onTap: () async {
-                            final date = await showDatePicker(
-                              context: context,
-                              initialDate: selectedDate,
-                              firstDate: DateTime(2020),
-                              lastDate: DateTime.now().add(
-                                const Duration(days: 365),
-                              ),
-                            );
-                            if (date != null) {
-                              setState(() {
-                                selectedDate = date;
-                              });
-                            }
-                          },
-                          child: InputDecorator(
-                            decoration: const InputDecoration(
-                              labelText: 'Date',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.calendar_today),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(),
+                  Expanded(
+                    child: Form(
+                      key: formKey,
+                      child: ListView(
+                        controller: scrollController,
+                        padding: const EdgeInsets.all(16),
+                        children: [
+                          // Transaction Type Toggle
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[200],
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Text(
-                              DateFormat('dd/MM/yyyy').format(selectedDate),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        InkWell(
-                          onTap: () async {
-                            final result = await showDialog<String>(
-                              context: context,
-                              builder: (context) => PaidToFieldDialog(
-                                initialValue: paidToController.text,
-                              ),
-                            );
-                            if (result != null) {
-                              setState(() {
-                                paidToController.text = result;
-                              });
-                            }
-                          },
-                          child: IgnorePointer(
-                            child: TextFormField(
-                              controller: paidToController,
-                              decoration: const InputDecoration(
-                                labelText: 'Paid to',
-                                border: OutlineInputBorder(),
-                                prefixIcon: Icon(Icons.person),
-                                suffixIcon: Icon(Icons.arrow_drop_down),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Please enter who this was paid to';
-                                }
-                                return null;
-                              },
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: descriptionController,
-                          decoration: const InputDecoration(
-                            labelText: 'Description (For)',
-                            border: OutlineInputBorder(),
-                            prefixIcon: Icon(Icons.description),
-                          ),
-                          maxLines: 3,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter a description';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: amountController,
-                          decoration: InputDecoration(
-                            labelText: 'Amount',
-                            border: const OutlineInputBorder(),
-                            prefixText: '${AppConstants.currencySymbol} ',
-                            prefixIcon: const Icon(Icons.money),
-                          ),
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter an amount';
-                            }
-                            if (double.tryParse(value) == null) {
-                              return 'Please enter a valid number';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        // Project selection dropdown
-                        DropdownButtonFormField<String?>(
-                          value: selectedProjectId,
-                          decoration: const InputDecoration(
-                            labelText: 'Project (Optional)',
-                            border: OutlineInputBorder(),
-                            prefixIcon: Icon(Icons.work),
-                          ),
-                          items: [
-                            const DropdownMenuItem(
-                              value: null,
-                              child: Text('No Project'),
-                            ),
-                            ...projectReports.map(
-                              (project) => DropdownMenuItem(
-                                value: project.id,
-                                child: Text(project.projectName),
-                              ),
-                            ),
-                          ],
-                          onChanged: (value) {
-                            setState(() {
-                              selectedProjectId = value;
-                            });
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        DropdownButtonFormField<String>(
-                          value: selectedCategory,
-                          decoration: const InputDecoration(
-                            labelText: 'Category',
-                            border: OutlineInputBorder(),
-                            prefixIcon: Icon(Icons.category),
-                          ),
-                          items: [
-                            // Default categories
-                            ...ExpenseCategory.values.map((category) {
-                              return DropdownMenuItem(
-                                value: category.name,
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      _getCategoryIcon(category),
-                                      size: 20,
-                                      color: Colors.blue,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(category.displayName),
-                                  ],
-                                ),
-                              );
-                            }),
-                            // Custom categories
-                            ...enabledCustomCategories.map((category) {
-                              return DropdownMenuItem(
-                                value: 'custom_${category.id}',
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      IconData(
-                                        int.parse(category.iconCodePoint),
-                                        fontFamily: 'MaterialIcons',
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        isMedicalClaim = false;
+                                        selectedCategory = ExpenseCategory.other.name;
+                                      });
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      decoration: BoxDecoration(
+                                        color: !isMedicalClaim ? Colors.white : Colors.transparent,
+                                        borderRadius: BorderRadius.circular(10),
+                                        boxShadow: !isMedicalClaim
+                                            ? [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4)]
+                                            : null,
                                       ),
-                                      size: 20,
-                                      color: Colors.purple,
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.receipt_long,
+                                            size: 20,
+                                            color: !isMedicalClaim ? Colors.blue : Colors.grey,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'Regular',
+                                            style: TextStyle(
+                                              fontWeight: !isMedicalClaim ? FontWeight.bold : FontWeight.normal,
+                                              color: !isMedicalClaim ? Colors.blue : Colors.grey,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                    const SizedBox(width: 8),
-                                    Text(category.name),
-                                  ],
+                                  ),
+                                ),
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        isMedicalClaim = true;
+                                        selectedCategory = ExpenseCategory.medicalReimbursement.name;
+                                      });
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      decoration: BoxDecoration(
+                                        color: isMedicalClaim ? Colors.white : Colors.transparent,
+                                        borderRadius: BorderRadius.circular(10),
+                                        boxShadow: isMedicalClaim
+                                            ? [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4)]
+                                            : null,
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.local_hospital,
+                                            size: 20,
+                                            color: isMedicalClaim ? Colors.teal : Colors.grey,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'Medical Claim',
+                                            style: TextStyle(
+                                              fontWeight: isMedicalClaim ? FontWeight.bold : FontWeight.normal,
+                                              color: isMedicalClaim ? Colors.teal : Colors.grey,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Medical Claim Type (only shown for medical claims)
+                          if (isMedicalClaim) ...[
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.teal.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.teal.shade200),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Medical Claim Type',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: GestureDetector(
+                                          onTap: () {
+                                            setState(() {
+                                              medicalClaimType = MedicalClaimType.outPatient;
+                                            });
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.all(12),
+                                            decoration: BoxDecoration(
+                                              color: medicalClaimType == MedicalClaimType.outPatient
+                                                  ? Colors.blue.withValues(alpha: 0.2)
+                                                  : Colors.white,
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(
+                                                color: medicalClaimType == MedicalClaimType.outPatient
+                                                    ? Colors.blue
+                                                    : Colors.grey.shade300,
+                                                width: medicalClaimType == MedicalClaimType.outPatient ? 2 : 1,
+                                              ),
+                                            ),
+                                            child: Column(
+                                              children: [
+                                                Text(
+                                                  'OP',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 18,
+                                                    color: medicalClaimType == MedicalClaimType.outPatient
+                                                        ? Colors.blue
+                                                        : Colors.grey,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  'Out Patient',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: Colors.grey[700],
+                                                  ),
+                                                ),
+                                                Text(
+                                                  '75% Reimburse',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: Colors.blue,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: GestureDetector(
+                                          onTap: () {
+                                            setState(() {
+                                              medicalClaimType = MedicalClaimType.inPatient;
+                                            });
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.all(12),
+                                            decoration: BoxDecoration(
+                                              color: medicalClaimType == MedicalClaimType.inPatient
+                                                  ? Colors.orange.withValues(alpha: 0.2)
+                                                  : Colors.white,
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(
+                                                color: medicalClaimType == MedicalClaimType.inPatient
+                                                    ? Colors.orange
+                                                    : Colors.grey.shade300,
+                                                width: medicalClaimType == MedicalClaimType.inPatient ? 2 : 1,
+                                              ),
+                                            ),
+                                            child: Column(
+                                              children: [
+                                                Text(
+                                                  'IP',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 18,
+                                                    color: medicalClaimType == MedicalClaimType.inPatient
+                                                        ? Colors.orange
+                                                        : Colors.grey,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  'In Patient',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: Colors.grey[700],
+                                                  ),
+                                                ),
+                                                Text(
+                                                  '90% Reimburse',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: Colors.orange,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+
+                          TextFormField(
+                            controller: receiptNoController,
+                            decoration: const InputDecoration(
+                              labelText: 'Receipt Number',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.receipt),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter a receipt number';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          InkWell(
+                            onTap: () async {
+                              final date = await showDatePicker(
+                                context: context,
+                                initialDate: selectedDate,
+                                firstDate: DateTime(2020),
+                                lastDate: DateTime.now().add(
+                                  const Duration(days: 365),
                                 ),
                               );
-                            }),
-                            // Add new category option
-                            DropdownMenuItem(
-                              value: '_add_new_category',
+                              if (date != null) {
+                                setState(() {
+                                  selectedDate = date;
+                                });
+                              }
+                            },
+                            child: InputDecorator(
+                              decoration: const InputDecoration(
+                                labelText: 'Date',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.calendar_today),
+                              ),
+                              child: Text(
+                                DateFormat('dd/MM/yyyy').format(selectedDate),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          InkWell(
+                            onTap: () async {
+                              final result = await showDialog<String>(
+                                context: context,
+                                builder: (context) => PaidToFieldDialog(
+                                  initialValue: paidToController.text,
+                                ),
+                              );
+                              if (result != null) {
+                                setState(() {
+                                  paidToController.text = result;
+                                });
+                              }
+                            },
+                            child: IgnorePointer(
+                              child: TextFormField(
+                                controller: paidToController,
+                                decoration: InputDecoration(
+                                  labelText: isMedicalClaim ? 'Hospital/Clinic Name' : 'Paid to',
+                                  border: const OutlineInputBorder(),
+                                  prefixIcon: Icon(isMedicalClaim ? Icons.local_hospital : Icons.person),
+                                  suffixIcon: const Icon(Icons.arrow_drop_down),
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return isMedicalClaim
+                                        ? 'Please enter the hospital/clinic name'
+                                        : 'Please enter who this was paid to';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: descriptionController,
+                            decoration: InputDecoration(
+                              labelText: isMedicalClaim ? 'Medical Treatment Description' : 'Description (For)',
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.description),
+                              hintText: isMedicalClaim ? 'e.g., Doctor consultation, Medicine, Lab tests' : null,
+                            ),
+                            maxLines: 3,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter a description';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: amountController,
+                            decoration: InputDecoration(
+                              labelText: isMedicalClaim ? 'Total Medical Bill' : 'Amount',
+                              border: const OutlineInputBorder(),
+                              prefixText: '${AppConstants.currencySymbol} ',
+                              prefixIcon: const Icon(Icons.money),
+                            ),
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            onChanged: isMedicalClaim ? (value) => setState(() {}) : null,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter an amount';
+                              }
+                              if (double.tryParse(value) == null) {
+                                return 'Please enter a valid number';
+                              }
+                              return null;
+                            },
+                          ),
+
+                          // Show reimbursement calculation for medical claims
+                          if (isMedicalClaim && totalBill > 0) ...[
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.green.shade200),
+                              ),
                               child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Icon(
-                                    Icons.add_circle_outline,
-                                    size: 20,
-                                    color: Colors.green,
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Reimbursement Amount (${(medicalClaimType.reimbursementRate * 100).toInt()}%)',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[700],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${AppConstants.currencySymbol} ${reimbursementAmount.toStringAsFixed(2)}',
+                                        style: const TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.green,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Add New Category...',
-                                    style: TextStyle(
-                                      color: Colors.green,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                  Icon(
+                                    Icons.check_circle,
+                                    color: Colors.green,
+                                    size: 32,
                                   ),
                                 ],
                               ),
                             ),
                           ],
-                          onChanged: (value) async {
-                            if (value == '_add_new_category') {
-                              // Show add category dialog
-                              final newCategory = await _showAddCategoryDialog(
-                                context,
-                              );
-                              if (newCategory != null) {
-                                // Reload custom categories
-                                final updatedCategories = await settingsService
-                                    .getCustomCategories();
-                                setState(() {
-                                  enabledCustomCategories = updatedCategories
-                                      .where((c) => c.enabled)
-                                      .toList();
-                                  selectedCategory = 'custom_${newCategory.id}';
-                                });
-                              }
-                            } else if (value != null) {
-                              setState(() {
-                                selectedCategory = value;
-                              });
-                            }
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        DropdownButtonFormField<PaymentMethod>(
-                          value: selectedPaymentMethod,
-                          decoration: const InputDecoration(
-                            labelText: 'Payment Method',
-                            border: OutlineInputBorder(),
-                            prefixIcon: Icon(Icons.payment),
-                          ),
-                          items: PaymentMethod.values.map((method) {
-                            return DropdownMenuItem(
-                              value: method,
-                              child: Text(method.displayName),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            if (value != null) {
-                              setState(() {
-                                selectedPaymentMethod = value;
-                              });
-                            }
-                          },
-                        ),
-                        const SizedBox(height: 24),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            OutlinedButton(
-                              onPressed: () => Navigator.of(context).pop(),
-                              child: const Text('Cancel'),
+
+                          const SizedBox(height: 16),
+                          // Project selection dropdown
+                          DropdownButtonFormField<String?>(
+                            value: selectedProjectId,
+                            decoration: const InputDecoration(
+                              labelText: 'Project (Optional)',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.work),
                             ),
-                            const SizedBox(width: 12),
-                            ElevatedButton(
-                              onPressed: () async {
-                                if (formKey.currentState!.validate()) {
-                                  final transactionProvider = context
-                                      .read<TransactionProvider>();
-                                  final authProvider = context
-                                      .read<AuthProvider>();
+                            items: [
+                              const DropdownMenuItem(
+                                value: null,
+                                child: Text('No Project'),
+                              ),
+                              ...projectReports.map(
+                                (project) => DropdownMenuItem(
+                                  value: project.id,
+                                  child: Text(project.projectName),
+                                ),
+                              ),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                selectedProjectId = value;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 16),
 
-                                  final ExpenseCategory categoryEnum;
-                                  String? customCategoryName;
-
-                                  if (selectedCategory.startsWith('custom_')) {
-                                    // For custom categories, extract the custom category name
-                                    final customCategoryId = selectedCategory
-                                        .substring(
-                                          7,
-                                        ); // Remove 'custom_' prefix
-                                    final customCategory =
-                                        enabledCustomCategories.firstWhere(
-                                          (c) => c.id == customCategoryId,
-                                        );
-                                    customCategoryName = customCategory.name;
-                                    categoryEnum = ExpenseCategory.other;
-                                  } else {
-                                    // For standard categories, find the corresponding enum value
-                                    categoryEnum = ExpenseCategory.values
-                                        .firstWhere(
-                                          (e) => e.name == selectedCategory,
-                                          orElse: () => ExpenseCategory
-                                              .other, // fallback to 'other' if not found
-                                        );
-                                  }
-
-                                  await transactionProvider.createTransaction(
-                                    reportId: report.id,
-                                    projectId: selectedProjectId,
-                                    date: selectedDate,
-                                    receiptNo: receiptNoController.text,
-                                    description: descriptionController.text,
-                                    category: categoryEnum,
-                                    customCategory: customCategoryName,
-                                    amount: double.parse(amountController.text),
-                                    paymentMethod: selectedPaymentMethod,
-                                    requestorId: authProvider.currentUser!.id,
-                                    paidTo: paidToController.text,
+                          // Category dropdown (hidden for medical claims since it's auto-set)
+                          if (!isMedicalClaim)
+                            DropdownButtonFormField<String>(
+                              value: selectedCategory,
+                              decoration: const InputDecoration(
+                                labelText: 'Category',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.category),
+                              ),
+                              items: [
+                                // Default categories (exclude medicalReimbursement for regular transactions)
+                                ...ExpenseCategory.values
+                                    .where((c) => c != ExpenseCategory.medicalReimbursement)
+                                    .map((category) {
+                                  return DropdownMenuItem(
+                                    value: category.name,
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          _getCategoryIcon(category),
+                                          size: 20,
+                                          color: Colors.blue,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(category.displayName),
+                                      ],
+                                    ),
                                   );
-
-                                  if (!context.mounted) return;
-                                  // Reload transactions, reports, and project reports to update the UI
-                                  await Future.wait([
-                                    context
-                                        .read<TransactionProvider>()
-                                        .loadTransactions(),
-                                    context
-                                        .read<ReportProvider>()
-                                        .loadReports(),
-                                    context
-                                        .read<ProjectReportProvider>()
-                                        .loadProjectReports(),
-                                  ]);
-
-                                  if (context.mounted) {
-                                    Navigator.of(context).pop();
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Transaction added successfully',
+                                }),
+                                // Custom categories
+                                ...enabledCustomCategories.map((category) {
+                                  return DropdownMenuItem(
+                                    value: 'custom_${category.id}',
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          IconData(
+                                            int.parse(category.iconCodePoint),
+                                            fontFamily: 'MaterialIcons',
+                                          ),
+                                          size: 20,
+                                          color: Colors.purple,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(category.name),
+                                      ],
+                                    ),
+                                  );
+                                }),
+                                // Add new category option
+                                DropdownMenuItem(
+                                  value: '_add_new_category',
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.add_circle_outline,
+                                        size: 20,
+                                        color: Colors.green,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'Add New Category...',
+                                        style: TextStyle(
+                                          color: Colors.green,
+                                          fontWeight: FontWeight.w600,
                                         ),
                                       ),
-                                    );
+                                    ],
+                                  ),
+                                ),
+                              ],
+                              onChanged: (value) async {
+                                if (value == '_add_new_category') {
+                                  // Show add category dialog
+                                  final newCategory = await _showAddCategoryDialog(
+                                    context,
+                                  );
+                                  if (newCategory != null) {
+                                    // Reload custom categories
+                                    final updatedCategories = await settingsService
+                                        .getCustomCategories();
+                                    setState(() {
+                                      enabledCustomCategories = updatedCategories
+                                          .where((c) => c.enabled)
+                                          .toList();
+                                      selectedCategory = 'custom_${newCategory.id}';
+                                    });
                                   }
+                                } else if (value != null) {
+                                  setState(() {
+                                    selectedCategory = value;
+                                  });
                                 }
                               },
-                              child: const Text('Add Transaction'),
                             ),
-                          ],
-                        ),
-                      ],
+
+                          if (!isMedicalClaim) const SizedBox(height: 16),
+
+                          DropdownButtonFormField<PaymentMethod>(
+                            value: selectedPaymentMethod,
+                            decoration: const InputDecoration(
+                              labelText: 'Payment Method',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.payment),
+                            ),
+                            items: PaymentMethod.values.map((method) {
+                              return DropdownMenuItem(
+                                value: method,
+                                child: Text(method.displayName),
+                              );
+                            }).toList(),
+                            onChanged: (value) {
+                              if (value != null) {
+                                setState(() {
+                                  selectedPaymentMethod = value;
+                                });
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 24),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              OutlinedButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                child: const Text('Cancel'),
+                              ),
+                              const SizedBox(width: 12),
+                              ElevatedButton(
+                                style: isMedicalClaim
+                                    ? ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.teal,
+                                        foregroundColor: Colors.white,
+                                      )
+                                    : null,
+                                onPressed: () async {
+                                  if (formKey.currentState!.validate()) {
+                                    final transactionProvider = context
+                                        .read<TransactionProvider>();
+                                    final authProvider = context
+                                        .read<AuthProvider>();
+
+                                    final ExpenseCategory categoryEnum;
+                                    String? customCategoryName;
+
+                                    if (isMedicalClaim) {
+                                      // For medical claims, always use medicalReimbursement category
+                                      categoryEnum = ExpenseCategory.medicalReimbursement;
+                                      // Store medical claim type info in custom category field
+                                      customCategoryName = '${medicalClaimType.displayName} - ${(medicalClaimType.reimbursementRate * 100).toInt()}%';
+                                    } else if (selectedCategory.startsWith('custom_')) {
+                                      // For custom categories, extract the custom category name
+                                      final customCategoryId = selectedCategory
+                                          .substring(
+                                            7,
+                                          ); // Remove 'custom_' prefix
+                                      final customCategory =
+                                          enabledCustomCategories.firstWhere(
+                                            (c) => c.id == customCategoryId,
+                                          );
+                                      customCategoryName = customCategory.name;
+                                      categoryEnum = ExpenseCategory.other;
+                                    } else {
+                                      // For standard categories, find the corresponding enum value
+                                      categoryEnum = ExpenseCategory.values
+                                          .firstWhere(
+                                            (e) => e.name == selectedCategory,
+                                            orElse: () => ExpenseCategory
+                                                .other, // fallback to 'other' if not found
+                                          );
+                                    }
+
+                                    // For medical claims, store the reimbursement amount (not total bill)
+                                    final amountToStore = isMedicalClaim
+                                        ? reimbursementAmount
+                                        : double.parse(amountController.text);
+
+                                    // For medical claims, include total bill info in description
+                                    final descriptionToStore = isMedicalClaim
+                                        ? '${descriptionController.text} [Total Bill: ${AppConstants.currencySymbol}${double.parse(amountController.text).toStringAsFixed(2)}]'
+                                        : descriptionController.text;
+
+                                    await transactionProvider.createTransaction(
+                                      reportId: report.id,
+                                      projectId: selectedProjectId,
+                                      date: selectedDate,
+                                      receiptNo: receiptNoController.text,
+                                      description: descriptionToStore,
+                                      category: categoryEnum,
+                                      customCategory: customCategoryName,
+                                      amount: amountToStore,
+                                      paymentMethod: selectedPaymentMethod,
+                                      requestorId: authProvider.currentUser!.id,
+                                      paidTo: paidToController.text,
+                                    );
+
+                                    if (!context.mounted) return;
+                                    // Reload transactions, reports, and project reports to update the UI
+                                    await Future.wait([
+                                      context
+                                          .read<TransactionProvider>()
+                                          .loadTransactions(),
+                                      context
+                                          .read<ReportProvider>()
+                                          .loadReports(),
+                                      context
+                                          .read<ProjectReportProvider>()
+                                          .loadProjectReports(),
+                                    ]);
+
+                                    if (context.mounted) {
+                                      Navigator.of(context).pop();
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            isMedicalClaim
+                                                ? 'Medical claim added - Reimbursement: ${AppConstants.currencySymbol}${reimbursementAmount.toStringAsFixed(2)}'
+                                                : 'Transaction added successfully',
+                                          ),
+                                          backgroundColor: isMedicalClaim ? Colors.teal : null,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                                child: Text(isMedicalClaim ? 'Add Medical Claim' : 'Add Transaction'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
@@ -2234,6 +2557,18 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         .where((c) => c.enabled)
         .toList();
 
+    // Medical claim variables - initialize from transaction
+    bool isMedicalClaim = transaction.categoryEnum == ExpenseCategory.medicalReimbursement;
+    MedicalClaimType medicalClaimType = MedicalClaimType.outPatient;
+
+    // Try to determine medical claim type from description or notes
+    if (isMedicalClaim) {
+      final descLower = transaction.description.toLowerCase();
+      if (descLower.contains('ip') || descLower.contains('in patient') || descLower.contains('inpatient') || descLower.contains('90%')) {
+        medicalClaimType = MedicalClaimType.inPatient;
+      }
+    }
+
     String selectedCategory = transaction.categoryEnum.name;
     if (transaction.customCategory != null &&
         transaction.customCategory!.isNotEmpty) {
@@ -2248,102 +2583,382 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
     await showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Transaction'),
-        content: SizedBox(
-          width: 500,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: descriptionController,
-                  decoration: const InputDecoration(
-                    labelText: 'Description',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: amountController,
-                  decoration: const InputDecoration(
-                    labelText: 'Amount',
-                    border: OutlineInputBorder(),
-                    prefixText: '${AppConstants.currencySymbol} ',
-                  ),
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: receiptNoController,
-                  decoration: const InputDecoration(
-                    labelText: 'Receipt No.',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: paidToController,
-                  decoration: const InputDecoration(
-                    labelText: 'Paid To',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                StatefulBuilder(
-                  builder: (context, setState) => Column(
-                    children: [
-                      InkWell(
-                        onTap: () async {
-                          final date = await showDatePicker(
-                            context: context,
-                            initialDate: selectedDate,
-                            firstDate: DateTime(2020),
-                            lastDate: DateTime(2030),
-                          );
-                          if (date != null) {
-                            setState(() => selectedDate = date);
-                          }
-                        },
-                        child: InputDecorator(
-                          decoration: const InputDecoration(
-                            labelText: 'Date',
-                            border: OutlineInputBorder(),
-                            suffixIcon: Icon(Icons.calendar_today),
-                          ),
-                          child: Text(
-                            DateFormat('MMM d, y').format(selectedDate),
-                          ),
-                        ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          // Calculate reimbursement amount for medical claims
+          final totalBill = double.tryParse(amountController.text) ?? 0;
+          final reimbursementAmount = totalBill * medicalClaimType.reimbursementRate;
+
+          return AlertDialog(
+            title: const Text('Edit Transaction'),
+            content: SizedBox(
+              width: 500,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Transaction Type Toggle
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      const SizedBox(height: 16),
-                      // Project selection dropdown
-                      DropdownButtonFormField<String?>(
-                        value: selectedProjectId,
-                        decoration: const InputDecoration(
-                          labelText: 'Project (Optional)',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.work),
-                        ),
-                        items: [
-                          const DropdownMenuItem(
-                            value: null,
-                            child: Text('No Project'),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  isMedicalClaim = false;
+                                  selectedCategory = ExpenseCategory.other.name;
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: !isMedicalClaim ? Colors.white : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(10),
+                                  boxShadow: !isMedicalClaim
+                                      ? [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4)]
+                                      : null,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.receipt_long,
+                                      size: 20,
+                                      color: !isMedicalClaim ? Colors.blue : Colors.grey,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Regular',
+                                      style: TextStyle(
+                                        fontWeight: !isMedicalClaim ? FontWeight.bold : FontWeight.normal,
+                                        color: !isMedicalClaim ? Colors.blue : Colors.grey,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                           ),
-                          ...projectReports.map(
-                            (project) => DropdownMenuItem(
-                              value: project.id,
-                              child: Text(project.projectName),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  isMedicalClaim = true;
+                                  selectedCategory = ExpenseCategory.medicalReimbursement.name;
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: isMedicalClaim ? Colors.white : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(10),
+                                  boxShadow: isMedicalClaim
+                                      ? [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4)]
+                                      : null,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.local_hospital,
+                                      size: 20,
+                                      color: isMedicalClaim ? Colors.teal : Colors.grey,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Medical Claim',
+                                      style: TextStyle(
+                                        fontWeight: isMedicalClaim ? FontWeight.bold : FontWeight.normal,
+                                        color: isMedicalClaim ? Colors.teal : Colors.grey,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
                         ],
-                        onChanged: (value) {
-                          setState(() {
-                            selectedProjectId = value;
-                          });
-                        },
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Medical Claim Type (only shown for medical claims)
+                    if (isMedicalClaim) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.teal.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.teal.shade200),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Medical Claim Type',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        medicalClaimType = MedicalClaimType.outPatient;
+                                      });
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: medicalClaimType == MedicalClaimType.outPatient
+                                            ? Colors.blue.withValues(alpha: 0.2)
+                                            : Colors.white,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: medicalClaimType == MedicalClaimType.outPatient
+                                              ? Colors.blue
+                                              : Colors.grey.shade300,
+                                          width: medicalClaimType == MedicalClaimType.outPatient ? 2 : 1,
+                                        ),
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          Text(
+                                            'OP',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 18,
+                                              color: medicalClaimType == MedicalClaimType.outPatient
+                                                  ? Colors.blue
+                                                  : Colors.grey,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Out Patient',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey[700],
+                                            ),
+                                          ),
+                                          Text(
+                                            '75% Reimburse',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w500,
+                                              color: Colors.blue,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        medicalClaimType = MedicalClaimType.inPatient;
+                                      });
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: medicalClaimType == MedicalClaimType.inPatient
+                                            ? Colors.orange.withValues(alpha: 0.2)
+                                            : Colors.white,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: medicalClaimType == MedicalClaimType.inPatient
+                                              ? Colors.orange
+                                              : Colors.grey.shade300,
+                                          width: medicalClaimType == MedicalClaimType.inPatient ? 2 : 1,
+                                        ),
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          Text(
+                                            'IP',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 18,
+                                              color: medicalClaimType == MedicalClaimType.inPatient
+                                                  ? Colors.orange
+                                                  : Colors.grey,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'In Patient',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey[700],
+                                            ),
+                                          ),
+                                          Text(
+                                            '90% Reimburse',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w500,
+                                              color: Colors.orange,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 16),
+                    ],
+
+                    TextField(
+                      controller: descriptionController,
+                      decoration: InputDecoration(
+                        labelText: isMedicalClaim ? 'Medical Treatment Description' : 'Description',
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: amountController,
+                      decoration: InputDecoration(
+                        labelText: isMedicalClaim ? 'Total Medical Bill' : 'Amount',
+                        border: const OutlineInputBorder(),
+                        prefixText: '${AppConstants.currencySymbol} ',
+                      ),
+                      keyboardType: TextInputType.number,
+                      onChanged: isMedicalClaim ? (value) => setState(() {}) : null,
+                    ),
+
+                    // Show reimbursement calculation for medical claims
+                    if (isMedicalClaim && totalBill > 0) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.green.shade200),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Reimbursement Amount (${(medicalClaimType.reimbursementRate * 100).toInt()}%)',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[700],
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${AppConstants.currencySymbol} ${reimbursementAmount.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Icon(
+                              Icons.check_circle,
+                              color: Colors.green,
+                              size: 32,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: receiptNoController,
+                      decoration: const InputDecoration(
+                        labelText: 'Receipt No.',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: paidToController,
+                      decoration: InputDecoration(
+                        labelText: isMedicalClaim ? 'Hospital/Clinic Name' : 'Paid To',
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    InkWell(
+                      onTap: () async {
+                        final date = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDate,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2030),
+                        );
+                        if (date != null) {
+                          setState(() => selectedDate = date);
+                        }
+                      },
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'Date',
+                          border: OutlineInputBorder(),
+                          suffixIcon: Icon(Icons.calendar_today),
+                        ),
+                        child: Text(
+                          DateFormat('MMM d, y').format(selectedDate),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Project selection dropdown
+                    DropdownButtonFormField<String?>(
+                      value: selectedProjectId,
+                      decoration: const InputDecoration(
+                        labelText: 'Project (Optional)',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.work),
+                      ),
+                      items: [
+                        const DropdownMenuItem(
+                          value: null,
+                          child: Text('No Project'),
+                        ),
+                        ...projectReports.map(
+                          (project) => DropdownMenuItem(
+                            value: project.id,
+                            child: Text(project.projectName),
+                          ),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          selectedProjectId = value;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    // Hide category dropdown for medical claims (auto-set)
+                    if (!isMedicalClaim)
                       DropdownButtonFormField<String>(
                         value: selectedCategory,
                         decoration: const InputDecoration(
@@ -2421,114 +3036,116 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                           }
                         },
                       ),
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<PaymentMethod>(
-                        value: selectedPaymentMethod,
-                        decoration: const InputDecoration(
-                          labelText: 'Payment Method',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: PaymentMethod.values
-                            .map(
-                              (method) => DropdownMenuItem(
-                                value: method,
-                                child: Text(method.displayName),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setState(() => selectedPaymentMethod = value);
-                          }
-                        },
+                    if (!isMedicalClaim) const SizedBox(height: 16),
+                    DropdownButtonFormField<PaymentMethod>(
+                      value: selectedPaymentMethod,
+                      decoration: const InputDecoration(
+                        labelText: 'Payment Method',
+                        border: OutlineInputBorder(),
                       ),
-                    ],
-                  ),
+                      items: PaymentMethod.values
+                          .map(
+                            (method) => DropdownMenuItem(
+                              value: method,
+                              child: Text(method.displayName),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => selectedPaymentMethod = value);
+                        }
+                      },
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (descriptionController.text.isEmpty ||
-                  amountController.text.isEmpty ||
-                  receiptNoController.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Please fill all required fields'),
-                  ),
-                );
-                return;
-              }
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (descriptionController.text.isEmpty ||
+                      amountController.text.isEmpty ||
+                      receiptNoController.text.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please fill all required fields'),
+                      ),
+                    );
+                    return;
+                  }
 
-              final transactionProvider = context.read<TransactionProvider>();
+                  final transactionProvider = context.read<TransactionProvider>();
 
-              final ExpenseCategory categoryEnum;
-              String? customCategoryName;
+                  final ExpenseCategory categoryEnum;
+                  String? customCategoryName;
 
-              if (selectedCategory.startsWith('custom_')) {
-                final customCategoryId = selectedCategory.substring(7);
-                final customCategory = enabledCustomCategories.firstWhere(
-                  (c) => c.id == customCategoryId,
-                  orElse: () => CustomCategory(
-                    id: customCategoryId,
-                    name: transaction.customCategory ?? 'Custom',
-                    iconCodePoint: Icons.category.codePoint.toString(),
-                    createdAt: DateTime.now(),
-                  ),
-                );
-                customCategoryName = customCategory.name;
-                categoryEnum = ExpenseCategory.other;
-              } else {
-                categoryEnum = ExpenseCategory.values.firstWhere(
-                  (e) => e.name == selectedCategory,
-                  orElse: () => ExpenseCategory.other,
-                );
-              }
+                  if (isMedicalClaim) {
+                    categoryEnum = ExpenseCategory.medicalReimbursement;
+                    customCategoryName = null;
+                  } else if (selectedCategory.startsWith('custom_')) {
+                    final customCategoryId = selectedCategory.substring(7);
+                    final customCategory = enabledCustomCategories.firstWhere(
+                      (c) => c.id == customCategoryId,
+                      orElse: () => CustomCategory(
+                        id: customCategoryId,
+                        name: transaction.customCategory ?? 'Custom',
+                        iconCodePoint: Icons.category.codePoint.toString(),
+                        createdAt: DateTime.now(),
+                      ),
+                    );
+                    customCategoryName = customCategory.name;
+                    categoryEnum = ExpenseCategory.other;
+                  } else {
+                    categoryEnum = ExpenseCategory.values.firstWhere(
+                      (e) => e.name == selectedCategory,
+                      orElse: () => ExpenseCategory.other,
+                    );
+                  }
 
-              final updatedTransaction = transaction.copyWith(
-                date: selectedDate,
-                receiptNo: receiptNoController.text,
-                description: descriptionController.text,
-                category: categoryEnum.name,
-                customCategory: customCategoryName,
-                amount: double.parse(amountController.text),
-                paymentMethod: selectedPaymentMethod.name,
-                projectId: selectedProjectId,
-                paidTo: paidToController.text.isEmpty
-                    ? null
-                    : paidToController.text,
-                updatedAt: DateTime.now(),
-              );
+                  final updatedTransaction = transaction.copyWith(
+                    date: selectedDate,
+                    receiptNo: receiptNoController.text,
+                    description: descriptionController.text,
+                    category: categoryEnum.name,
+                    customCategory: customCategoryName,
+                    amount: double.parse(amountController.text),
+                    paymentMethod: selectedPaymentMethod.name,
+                    projectId: selectedProjectId,
+                    paidTo: paidToController.text.isEmpty
+                        ? null
+                        : paidToController.text,
+                    updatedAt: DateTime.now(),
+                  );
 
-              await transactionProvider.updateTransaction(updatedTransaction);
+                  await transactionProvider.updateTransaction(updatedTransaction);
 
-              if (!context.mounted) return;
-              // Reload transactions, reports, and project reports to update the UI
-              await Future.wait([
-                context.read<TransactionProvider>().loadTransactions(),
-                context.read<ReportProvider>().loadReports(),
-                context.read<ProjectReportProvider>().loadProjectReports(),
-              ]);
+                  if (!context.mounted) return;
+                  // Reload transactions, reports, and project reports to update the UI
+                  await Future.wait([
+                    context.read<TransactionProvider>().loadTransactions(),
+                    context.read<ReportProvider>().loadReports(),
+                    context.read<ProjectReportProvider>().loadProjectReports(),
+                  ]);
 
-              if (context.mounted) {
-                Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Transaction updated successfully'),
-                  ),
-                );
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
+                  if (context.mounted) {
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Transaction updated successfully'),
+                      ),
+                    );
+                  }
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

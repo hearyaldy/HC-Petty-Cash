@@ -442,67 +442,65 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
     final authProvider = Provider.of<AuthProvider>(context);
     final isAdmin = authProvider.canManageUsers();
     final isMobile = ResponsiveHelper.isMobile(context);
+    final contentPadding = ResponsiveHelper.getScreenPadding(context);
+    final maxWidth = ResponsiveHelper.getMaxContentWidth(context);
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: Text(_advance?.requestNumber ?? 'Cash Advance'),
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.print),
-            tooltip: 'Print Request',
-            onPressed: _advance == null ? null : _printRequest,
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadAdvance,
-          ),
-          if (_advance != null) _buildMenuButton(isAdmin),
-        ],
-      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _advance == null
               ? const Center(child: Text('Advance not found'))
-              : SingleChildScrollView(
-                  child: ResponsiveContainer(
-                    padding: ResponsiveHelper.getScreenPadding(context),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildHeaderBanner(),
-                        const SizedBox(height: 16),
-                        _buildStatusCard(),
-                        const SizedBox(height: 16),
-                        _buildDetailsCard(),
-                        if (_advance!.items.isNotEmpty) ...[
-                          const SizedBox(height: 16),
-                          _buildItemsCard(),
-                        ],
-                        const SizedBox(height: 16),
-                        _buildRequesterCard(),
-                        if (_advance!.status != CashAdvanceStatus.draft.name) ...[
-                          const SizedBox(height: 16),
-                          _buildTimelineCard(),
-                        ],
-                        if (_advance!.disbursedAmount != null) ...[
-                          const SizedBox(height: 16),
-                          _buildDisbursementCard(),
-                        ],
-                        if (_advance!.settlementId != null) ...[
-                          const SizedBox(height: 16),
-                          _buildSettlementCard(),
-                        ],
-                        if (_advance!.notes != null &&
-                            _advance!.notes!.isNotEmpty) ...[
-                          const SizedBox(height: 16),
-                          _buildNotesCard(),
-                        ],
-                        const SizedBox(height: 24),
-                        _buildActionButtons(isAdmin),
-                        const SizedBox(height: 80),
+              : Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: maxWidth),
+                    child: CustomScrollView(
+                      slivers: [
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              left: contentPadding.left,
+                              right: contentPadding.right,
+                              top: MediaQuery.of(context).padding.top + 16,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildHeaderBanner(isAdmin),
+                                const SizedBox(height: 16),
+                                _buildStatusCard(),
+                                const SizedBox(height: 16),
+                                _buildDetailsCard(),
+                                if (_advance!.items.isNotEmpty) ...[
+                                  const SizedBox(height: 16),
+                                  _buildItemsCard(),
+                                ],
+                                const SizedBox(height: 16),
+                                _buildRequesterCard(),
+                                if (_advance!.status != CashAdvanceStatus.draft.name) ...[
+                                  const SizedBox(height: 16),
+                                  _buildTimelineCard(),
+                                ],
+                                if (_advance!.disbursedAmount != null) ...[
+                                  const SizedBox(height: 16),
+                                  _buildDisbursementCard(),
+                                ],
+                                if (_advance!.settlementId != null) ...[
+                                  const SizedBox(height: 16),
+                                  _buildSettlementCard(),
+                                ],
+                                if (_advance!.notes != null &&
+                                    _advance!.notes!.isNotEmpty) ...[
+                                  const SizedBox(height: 16),
+                                  _buildNotesCard(),
+                                ],
+                                const SizedBox(height: 24),
+                                _buildActionButtons(isAdmin),
+                                const SizedBox(height: 80),
+                              ],
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -510,9 +508,9 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
     );
   }
 
-  Widget _buildHeaderBanner() {
+  Widget _buildHeaderBanner(bool isAdmin) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -532,36 +530,96 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
           ),
         ],
       ),
-      child: Row(
+      child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.request_quote, color: Colors.white),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _advance?.requestNumber ?? 'Cash Advance Request',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
+          // Navigation row
+          Row(
+            children: [
+              InkWell(
+                onTap: () => context.go('/cash-advances'),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                ),
+              ),
+              const Spacer(),
+              InkWell(
+                onTap: _advance == null ? null : _printRequest,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.print, color: Colors.white, size: 20),
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: _loadAdvance,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.refresh, color: Colors.white, size: 20),
+                ),
+              ),
+              if (_advance != null && _advance!.status == CashAdvanceStatus.draft.name) ...[
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: _deleteAdvance,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.delete, color: Colors.white, size: 20),
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Review request details and approval status.',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
-                ),
               ],
-            ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Title row
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.request_quote, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _advance?.requestNumber ?? 'Cash Advance Request',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Review request details and approval status.',
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -575,31 +633,6 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
     await Printing.layoutPdf(onLayout: (_) => bytes);
   }
 
-  Widget _buildMenuButton(bool isAdmin) {
-    return PopupMenuButton<String>(
-      icon: const Icon(Icons.more_vert),
-      onSelected: (value) {
-        switch (value) {
-          case 'delete':
-            _deleteAdvance();
-            break;
-        }
-      },
-      itemBuilder: (context) => [
-        if (_advance!.status == CashAdvanceStatus.draft.name)
-          const PopupMenuItem(
-            value: 'delete',
-            child: Row(
-              children: [
-                Icon(Icons.delete, color: Colors.red),
-                SizedBox(width: 8),
-                Text('Delete', style: TextStyle(color: Colors.red)),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
 
   Widget _buildStatusCard() {
     final status = _advance!.statusEnum;

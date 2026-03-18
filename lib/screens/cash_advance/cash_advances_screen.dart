@@ -192,8 +192,8 @@ class _CashAdvancesScreenState extends State<CashAdvancesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = ResponsiveHelper.isMobile(context);
     final contentPadding = ResponsiveHelper.getScreenPadding(context);
+    final maxWidth = ResponsiveHelper.getMaxContentWidth(context);
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -202,150 +202,106 @@ class _CashAdvancesScreenState extends State<CashAdvancesScreen> {
           final isAdmin = authProvider.canManageUsers();
           final advances = _filterAdvances(cashAdvanceProvider.advances);
 
-          return CustomScrollView(
-            slivers: [
-              _buildHeader(context, isAdmin, cashAdvanceProvider),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    left: contentPadding.left,
-                    right: contentPadding.right,
-                    top: isMobile ? 16 : 24,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildHeaderBanner(),
-                      const SizedBox(height: 16),
-                      _buildStatCards(context, cashAdvanceProvider),
-                      const SizedBox(height: 24),
-                      _buildViewModeToggle(),
-                      const SizedBox(height: 12),
-                      _buildFilterChips(),
-                      const SizedBox(height: 16),
-                    ],
-                  ),
-                ),
-              ),
-              if (cashAdvanceProvider.isLoading)
-                const SliverFillRemaining(
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else if (advances.isEmpty)
-                SliverFillRemaining(
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.request_quote_outlined,
-                          size: 64,
-                          color: Colors.grey[400],
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _selectedStatus == 'all'
-                              ? 'No cash advances yet'
-                              : 'No ${_getStatusDisplayName(_selectedStatus).toLowerCase()} advances',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Create a new cash advance to get started',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[500],
-                          ),
-                        ),
-                      ],
+          return Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxWidth),
+              child: CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        left: contentPadding.left,
+                        right: contentPadding.right,
+                        top: MediaQuery.of(context).padding.top + 16,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildHeaderBanner(cashAdvanceProvider),
+                          const SizedBox(height: 16),
+                          _buildStatCards(context, cashAdvanceProvider),
+                          const SizedBox(height: 24),
+                          _buildViewModeToggle(),
+                          const SizedBox(height: 12),
+                          _buildFilterChips(),
+                          const SizedBox(height: 16),
+                        ],
+                      ),
                     ),
                   ),
-                )
-              else
-                SliverPadding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: contentPadding.left,
-                  ),
-                  sliver: _viewMode == CashAdvancesViewMode.table
-                      ? SliverToBoxAdapter(
-                          child: _buildAdvanceTable(context, advances),
-                        )
-                      : SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) {
-                              final advance = advances[index];
-                              return _buildAdvanceCard(
-                                context,
-                                advance,
-                                isAdmin,
-                              );
-                            },
-                            childCount: advances.length,
-                          ),
+                  if (cashAdvanceProvider.isLoading)
+                    const SliverFillRemaining(
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (advances.isEmpty)
+                    SliverFillRemaining(
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.request_quote_outlined,
+                              size: 64,
+                              color: Colors.grey[400],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              _selectedStatus == 'all'
+                                  ? 'No cash advances yet'
+                                  : 'No ${_getStatusDisplayName(_selectedStatus).toLowerCase()} advances',
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Create a new cash advance to get started',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[500],
+                              ),
+                            ),
+                          ],
                         ),
-                ),
-              const SliverToBoxAdapter(child: SizedBox(height: 80)),
-            ],
+                      ),
+                    )
+                  else
+                    SliverPadding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: contentPadding.left,
+                      ),
+                      sliver: _viewMode == CashAdvancesViewMode.table
+                          ? SliverToBoxAdapter(
+                              child: _buildAdvanceTable(context, advances),
+                            )
+                          : SliverList(
+                              delegate: SliverChildBuilderDelegate(
+                                (context, index) {
+                                  final advance = advances[index];
+                                  return _buildAdvanceCard(
+                                    context,
+                                    advance,
+                                    isAdmin,
+                                  );
+                                },
+                                childCount: advances.length,
+                              ),
+                            ),
+                    ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 80)),
+                ],
+              ),
+            ),
           );
         },
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/cash-advances/new'),
-        backgroundColor: Colors.indigo,
-        icon: const Icon(Icons.add),
-        label: const Text('New Request'),
-      ),
     );
   }
 
-  Widget _buildHeader(
-    BuildContext context,
-    bool isAdmin,
-    CashAdvanceProvider provider,
-  ) {
-    return SliverAppBar(
-      expandedHeight: 120,
-      pinned: true,
-      backgroundColor: Colors.indigo,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: Colors.white),
-        onPressed: () => context.go('/'),
-      ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.print, color: Colors.white),
-          tooltip: 'Print List',
-          onPressed: () => _printAdvances(provider.advances),
-        ),
-        IconButton(
-          icon: const Icon(Icons.refresh, color: Colors.white),
-          onPressed: _loadAdvances,
-        ),
-      ],
-      flexibleSpace: FlexibleSpaceBar(
-        title: const Text(
-          'Cash Advances',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        background: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Colors.indigo, Colors.indigoAccent],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeaderBanner() {
+  Widget _buildHeaderBanner(CashAdvanceProvider provider) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -365,36 +321,110 @@ class _CashAdvancesScreenState extends State<CashAdvancesScreen> {
           ),
         ],
       ),
-      child: Row(
+      child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.request_quote, color: Colors.white),
-          ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Cash Advances',
-                  style: TextStyle(
+          Row(
+            children: [
+              InkWell(
+                onTap: () => context.go('/finance-dashboard'),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                ),
+              ),
+              const Spacer(),
+              InkWell(
+                onTap: () => _printAdvances(provider.advances),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.print, color: Colors.white, size: 20),
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: _loadAdvances,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.refresh, color: Colors.white, size: 20),
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: () => context.push('/cash-advances/new'),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
                     color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add, color: Colors.indigo.shade700, size: 18),
+                      const SizedBox(width: 4),
+                      Text(
+                        'New Request',
+                        style: TextStyle(
+                          color: Colors.indigo.shade700,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                SizedBox(height: 4),
-                Text(
-                  'Track, approve, and settle cash advance requests.',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              ],
-            ),
+                child: const Icon(Icons.request_quote, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Cash Advances',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Track, approve, and settle cash advance requests.',
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),

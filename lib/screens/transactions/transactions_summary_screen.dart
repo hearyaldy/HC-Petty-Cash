@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
@@ -18,6 +19,9 @@ import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
 import '../../utils/logger.dart';
 
+enum TransactionSortField { date, amount, category, status }
+enum SortOrder { ascending, descending }
+
 class TransactionsSummaryScreen extends StatefulWidget {
   const TransactionsSummaryScreen({super.key});
 
@@ -30,6 +34,8 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
   String? _selectedCategory;
   String? _selectedPaymentMethod;
   String? _selectedStatus;
+  TransactionSortField _sortField = TransactionSortField.date;
+  SortOrder _sortOrder = SortOrder.descending;
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -48,7 +54,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
   }
 
   List<Transaction> _getFilteredTransactions(List<Transaction> transactions) {
-    var filtered = transactions;
+    var filtered = List<Transaction>.from(transactions);
 
     // Filter by category
     if (_selectedCategory != null && _selectedCategory != 'All') {
@@ -88,6 +94,26 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
           )
           .toList();
     }
+
+    // Apply sorting
+    filtered.sort((a, b) {
+      int comparison;
+      switch (_sortField) {
+        case TransactionSortField.date:
+          comparison = a.date.compareTo(b.date);
+          break;
+        case TransactionSortField.amount:
+          comparison = a.amount.compareTo(b.amount);
+          break;
+        case TransactionSortField.category:
+          comparison = a.categoryDisplayName.compareTo(b.categoryDisplayName);
+          break;
+        case TransactionSortField.status:
+          comparison = a.status.compareTo(b.status);
+          break;
+      }
+      return _sortOrder == SortOrder.ascending ? comparison : -comparison;
+    });
 
     return filtered;
   }
@@ -187,7 +213,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                       // Filters
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: _buildFilters(),
+                        child: _buildFilters(allTransactions),
                       ),
                       const SizedBox(height: 24),
 
@@ -343,121 +369,186 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
   ) {
     final currencyFormat = NumberFormat.currency(
       symbol: '${AppConstants.currencySymbol} ',
+      decimalDigits: 0,
     );
     final isMobile = ResponsiveHelper.isMobile(context);
+
+    // Calculate insights
+    final avgTransaction = count > 0 ? total / count : 0.0;
+    final topCategory = categorySummary.entries.isNotEmpty
+        ? categorySummary.entries.reduce((a, b) => a.value > b.value ? a : b)
+        : null;
+    final topPaymentMethod = paymentMethodSummary.entries.isNotEmpty
+        ? paymentMethodSummary.entries.reduce((a, b) => a.value > b.value ? a : b)
+        : null;
+    final totalStatusCount = statusSummary.values.fold(0, (a, b) => a + b);
+    final approvedCount = statusSummary['Approved'] ?? 0;
+    final approvalRate = totalStatusCount > 0 ? (approvedCount / totalStatusCount) * 100 : 0.0;
+
+    // Category colors for charts
+    final categoryColors = [
+      Colors.blue.shade400,
+      Colors.purple.shade400,
+      Colors.orange.shade400,
+      Colors.teal.shade400,
+      Colors.pink.shade400,
+      Colors.indigo.shade400,
+      Colors.amber.shade400,
+      Colors.cyan.shade400,
+    ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Overall Summary
+        // AI Insights Card
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Colors.indigo.shade500, Colors.purple.shade600],
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.indigo.withOpacity(0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'AI-Powered Insights',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  _buildInsightChip(
+                    icon: Icons.trending_up,
+                    label: 'Avg. Transaction',
+                    value: currencyFormat.format(avgTransaction),
+                    color: Colors.white,
+                  ),
+                  if (topCategory != null)
+                    _buildInsightChip(
+                      icon: Icons.category,
+                      label: 'Top Category',
+                      value: topCategory.key,
+                      color: Colors.white,
+                    ),
+                  _buildInsightChip(
+                    icon: Icons.check_circle,
+                    label: 'Approval Rate',
+                    value: '${approvalRate.toStringAsFixed(1)}%',
+                    color: Colors.white,
+                  ),
+                  if (topPaymentMethod != null)
+                    _buildInsightChip(
+                      icon: Icons.payment,
+                      label: 'Preferred Payment',
+                      value: topPaymentMethod.key,
+                      color: Colors.white,
+                    ),
+                ],
+              ),
+              if (count > 0) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.lightbulb_outline, color: Colors.amber, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _generateInsightText(
+                            count,
+                            total,
+                            topCategory,
+                            approvalRate,
+                            avgTransaction,
+                          ),
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Quick Stats Row
         Row(
           children: [
             Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Colors.blue.shade400, Colors.blue.shade600],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.blue.withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                padding: EdgeInsets.all(isMobile ? 16 : 24),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.receipt_long,
-                      size: isMobile ? 32 : 48,
-                      color: Colors.white,
-                    ),
-                    SizedBox(height: isMobile ? 8 : 12),
-                    Text(
-                      count.toString(),
-                      style: TextStyle(
-                        fontSize: isMobile ? 24 : 36,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      isMobile ? 'Transactions' : 'Total Transactions',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: isMobile ? 12 : 14,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
+              child: _buildQuickStatCard(
+                icon: Icons.receipt_long,
+                value: count.toString(),
+                label: 'Transactions',
+                gradient: [Colors.blue.shade400, Colors.blue.shade600],
               ),
             ),
-            SizedBox(width: isMobile ? 12 : 16),
+            const SizedBox(width: 12),
             Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Colors.green.shade400, Colors.green.shade600],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.green.withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                padding: EdgeInsets.all(isMobile ? 16 : 24),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.attach_money,
-                      size: isMobile ? 32 : 48,
-                      color: Colors.white,
-                    ),
-                    SizedBox(height: isMobile ? 8 : 12),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        currencyFormat.format(total),
-                        style: TextStyle(
-                          fontSize: isMobile ? 20 : 32,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Total Amount',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: isMobile ? 12 : 14,
-                      ),
-                    ),
-                  ],
-                ),
+              child: _buildQuickStatCard(
+                icon: Icons.attach_money,
+                value: currencyFormat.format(total),
+                label: 'Total Amount',
+                gradient: [Colors.green.shade400, Colors.green.shade600],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildQuickStatCard(
+                icon: Icons.show_chart,
+                value: currencyFormat.format(avgTransaction),
+                label: 'Average',
+                gradient: [Colors.orange.shade400, Colors.orange.shade600],
               ),
             ),
           ],
         ),
         const SizedBox(height: 16),
 
-        // Category Breakdown
+        // Category Distribution with Visual Chart
         Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
                 color: Colors.grey.withOpacity(0.1),
@@ -472,26 +563,37 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
               Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
                     colors: [Colors.purple.shade400, Colors.purple.shade600],
                   ),
                   borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(12),
-                    topRight: Radius.circular(12),
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(16),
                   ),
                 ),
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    const Icon(Icons.category, color: Colors.white, size: 24),
+                    const Icon(Icons.pie_chart, color: Colors.white, size: 24),
                     const SizedBox(width: 12),
-                    const Text(
-                      'By Category',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                    const Expanded(
+                      child: Text(
+                        'Spending by Category',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${categorySummary.length} categories',
+                        style: const TextStyle(color: Colors.white, fontSize: 12),
                       ),
                     ),
                   ],
@@ -501,27 +603,88 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   children: [
-                    ...categorySummary.entries.map(
-                      (entry) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              entry.key,
-                              style: const TextStyle(fontSize: 15),
-                            ),
-                            Text(
-                              currencyFormat.format(entry.value),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
+                    // Mini pie chart representation using progress bars
+                    if (categorySummary.isNotEmpty && total > 0)
+                      ...categorySummary.entries.toList().asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final item = entry.value;
+                        final percentage = (item.value / total) * 100;
+                        final color = categoryColors[index % categoryColors.length];
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        width: 12,
+                                        height: 12,
+                                        decoration: BoxDecoration(
+                                          color: color,
+                                          borderRadius: BorderRadius.circular(3),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        item.key,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        currencyFormat.format(item.value),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: color.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          '${percentage.toStringAsFixed(1)}%',
+                                          style: TextStyle(
+                                            color: color,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                              const SizedBox(height: 6),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: LinearProgressIndicator(
+                                  value: percentage / 100,
+                                  backgroundColor: Colors.grey.shade200,
+                                  valueColor: AlwaysStoppedAnimation<Color>(color),
+                                  minHeight: 8,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
                   ],
                 ),
               ),
@@ -530,184 +693,462 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
         ),
         const SizedBox(height: 16),
 
-        // Payment Method & Status
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Colors.orange.shade400,
-                            Colors.orange.shade600,
-                          ],
-                        ),
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(12),
-                          topRight: Radius.circular(12),
-                        ),
-                      ),
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.payment,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'By Payment Method',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        children: [
-                          ...paymentMethodSummary.entries.map(
-                            (entry) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 6),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    entry.key,
-                                    style: const TextStyle(fontSize: 14),
-                                  ),
-                                  Text(
-                                    currencyFormat.format(entry.value),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [Colors.teal.shade400, Colors.teal.shade600],
-                        ),
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(12),
-                          topRight: Radius.circular(12),
-                        ),
-                      ),
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.check_circle,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'By Status',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        children: [
-                          ...statusSummary.entries.map(
-                            (entry) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 6),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    entry.key,
-                                    style: const TextStyle(fontSize: 14),
-                                  ),
-                                  Text(
-                                    entry.value.toString(),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+        // Payment Method & Status side by side
+        if (!isMobile)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: _buildPaymentMethodCard(paymentMethodSummary, total, currencyFormat)),
+              const SizedBox(width: 16),
+              Expanded(child: _buildStatusCard(statusSummary, totalStatusCount)),
+            ],
+          )
+        else ...[
+          _buildPaymentMethodCard(paymentMethodSummary, total, currencyFormat),
+          const SizedBox(height: 16),
+          _buildStatusCard(statusSummary, totalStatusCount),
+        ],
       ],
     );
   }
 
-  Widget _buildFilters() {
+  Widget _buildInsightChip({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(width: 6),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: color.withOpacity(0.8),
+                  fontSize: 10,
+                ),
+              ),
+              Text(
+                value,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickStatCard({
+    required IconData icon,
+    required String value,
+    required String label,
+    required List<Color> gradient,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: gradient,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: gradient[0].withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Icon(icon, size: 28, color: Colors.white),
+          const SizedBox(height: 8),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.9),
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaymentMethodCard(
+    Map<String, double> paymentMethodSummary,
+    double total,
+    NumberFormat currencyFormat,
+  ) {
+    final methodColors = [
+      Colors.orange.shade400,
+      Colors.blue.shade400,
+      Colors.green.shade400,
+      Colors.purple.shade400,
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.orange.shade400, Colors.orange.shade600],
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+              ),
+            ),
+            padding: const EdgeInsets.all(16),
+            child: const Row(
+              children: [
+                Icon(Icons.account_balance_wallet, color: Colors.white, size: 20),
+                SizedBox(width: 8),
+                Text(
+                  'Payment Methods',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: paymentMethodSummary.entries.toList().asMap().entries.map((entry) {
+                final index = entry.key;
+                final item = entry.value;
+                final percentage = total > 0 ? (item.value / total) * 100 : 0.0;
+                final color = methodColors[index % methodColors.length];
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: color.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Center(
+                          child: Icon(
+                            _getPaymentIcon(item.key),
+                            color: color,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.key,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: LinearProgressIndicator(
+                                      value: percentage / 100,
+                                      backgroundColor: Colors.grey.shade200,
+                                      valueColor: AlwaysStoppedAnimation<Color>(color),
+                                      minHeight: 6,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '${percentage.toStringAsFixed(0)}%',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        currencyFormat.format(item.value),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusCard(Map<String, int> statusSummary, int totalCount) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.teal.shade400, Colors.teal.shade600],
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+              ),
+            ),
+            padding: const EdgeInsets.all(16),
+            child: const Row(
+              children: [
+                Icon(Icons.donut_large, color: Colors.white, size: 20),
+                SizedBox(width: 8),
+                Text(
+                  'Status Distribution',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: statusSummary.entries.map((entry) {
+                final percentage = totalCount > 0 ? (entry.value / totalCount) * 100 : 0.0;
+                final color = _getStatusColor(entry.key);
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: color.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Center(
+                          child: Icon(
+                            _getStatusIcon(entry.key),
+                            color: color,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              entry.key,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: LinearProgressIndicator(
+                                      value: percentage / 100,
+                                      backgroundColor: Colors.grey.shade200,
+                                      valueColor: AlwaysStoppedAnimation<Color>(color),
+                                      minHeight: 6,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '${percentage.toStringAsFixed(0)}%',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: color.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          entry.value.toString(),
+                          style: TextStyle(
+                            color: color,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _generateInsightText(
+    int count,
+    double total,
+    MapEntry<String, double>? topCategory,
+    double approvalRate,
+    double avgTransaction,
+  ) {
+    final insights = <String>[];
+
+    if (topCategory != null) {
+      final percentage = (topCategory.value / total) * 100;
+      insights.add('${topCategory.key} accounts for ${percentage.toStringAsFixed(0)}% of spending');
+    }
+
+    if (approvalRate >= 90) {
+      insights.add('Excellent approval rate at ${approvalRate.toStringAsFixed(0)}%');
+    } else if (approvalRate >= 70) {
+      insights.add('Good approval rate - ${approvalRate.toStringAsFixed(0)}% transactions approved');
+    } else if (approvalRate > 0) {
+      insights.add('Consider reviewing rejection reasons - ${approvalRate.toStringAsFixed(0)}% approval rate');
+    }
+
+    if (count > 10) {
+      insights.add('Active period with $count transactions recorded');
+    }
+
+    return insights.isNotEmpty ? insights.join('. ') + '.' : 'Add more transactions to see insights.';
+  }
+
+  IconData _getPaymentIcon(String method) {
+    final lowerMethod = method.toLowerCase();
+    if (lowerMethod.contains('cash')) return Icons.money;
+    if (lowerMethod.contains('card') || lowerMethod.contains('credit')) return Icons.credit_card;
+    if (lowerMethod.contains('transfer') || lowerMethod.contains('bank')) return Icons.account_balance;
+    if (lowerMethod.contains('wallet') || lowerMethod.contains('digital')) return Icons.account_balance_wallet;
+    return Icons.payment;
+  }
+
+  Color _getStatusColor(String status) {
+    final lowerStatus = status.toLowerCase();
+    if (lowerStatus.contains('approved') || lowerStatus.contains('processed')) return Colors.green;
+    if (lowerStatus.contains('pending')) return Colors.orange;
+    if (lowerStatus.contains('rejected')) return Colors.red;
+    if (lowerStatus.contains('draft')) return Colors.grey;
+    return Colors.blue;
+  }
+
+  IconData _getStatusIcon(String status) {
+    final lowerStatus = status.toLowerCase();
+    if (lowerStatus.contains('approved')) return Icons.check_circle;
+    if (lowerStatus.contains('processed')) return Icons.verified;
+    if (lowerStatus.contains('pending')) return Icons.pending;
+    if (lowerStatus.contains('rejected')) return Icons.cancel;
+    if (lowerStatus.contains('draft')) return Icons.edit_note;
+    return Icons.info;
+  }
+
+  Widget _buildFilters(List<Transaction> transactions) {
     final isMobile = ResponsiveHelper.isMobile(context);
+
+    // Get all unique categories from transactions (includes custom categories)
+    final uniqueCategories = transactions
+        .map((t) => t.categoryDisplayName)
+        .toSet()
+        .toList()
+      ..sort();
+
+    // Reset selected category if it's no longer valid
+    final validSelectedCategory = _selectedCategory != null &&
+            uniqueCategories.contains(_selectedCategory)
+        ? _selectedCategory
+        : null;
 
     return Container(
       decoration: BoxDecoration(
@@ -796,7 +1237,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                     children: [
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          value: _selectedCategory,
+                          value: validSelectedCategory,
                           isExpanded: true,
                           decoration: const InputDecoration(
                             labelText: 'Category',
@@ -811,11 +1252,11 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                               value: null,
                               child: Text('All'),
                             ),
-                            ...ExpenseCategory.values.map((category) {
+                            ...uniqueCategories.map((category) {
                               return DropdownMenuItem(
-                                value: category.displayName,
+                                value: category,
                                 child: Text(
-                                  category.displayName,
+                                  category,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               );
@@ -892,7 +1333,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                     children: [
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          value: _selectedCategory,
+                          value: validSelectedCategory,
                           decoration: const InputDecoration(
                             labelText: 'Category',
                             border: OutlineInputBorder(),
@@ -902,10 +1343,10 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                               value: null,
                               child: Text('All'),
                             ),
-                            ...ExpenseCategory.values.map((category) {
+                            ...uniqueCategories.map((category) {
                               return DropdownMenuItem(
-                                value: category.displayName,
-                                child: Text(category.displayName),
+                                value: category,
+                                child: Text(category),
                               );
                             }),
                           ],
@@ -963,6 +1404,74 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                       ),
                     ],
                   ),
+                SizedBox(height: isMobile ? 12 : 16),
+                // Sort options
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<TransactionSortField>(
+                        value: _sortField,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          labelText: 'Sort By',
+                          border: const OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: isMobile ? 12 : 16,
+                          ),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: TransactionSortField.date,
+                            child: Text('Date'),
+                          ),
+                          DropdownMenuItem(
+                            value: TransactionSortField.amount,
+                            child: Text('Amount'),
+                          ),
+                          DropdownMenuItem(
+                            value: TransactionSortField.category,
+                            child: Text('Category'),
+                          ),
+                          DropdownMenuItem(
+                            value: TransactionSortField.status,
+                            child: Text('Status'),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() => _sortField = value);
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade400),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: IconButton(
+                        icon: Icon(
+                          _sortOrder == SortOrder.ascending
+                              ? Icons.arrow_upward
+                              : Icons.arrow_downward,
+                          color: Colors.blue.shade600,
+                        ),
+                        tooltip: _sortOrder == SortOrder.ascending
+                            ? 'Ascending'
+                            : 'Descending',
+                        onPressed: () {
+                          setState(() {
+                            _sortOrder = _sortOrder == SortOrder.ascending
+                                ? SortOrder.descending
+                                : SortOrder.ascending;
+                          });
+                        },
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),

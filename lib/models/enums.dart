@@ -96,6 +96,7 @@ enum ExpenseCategory {
   utilities,
   maintenance,
   supplies,
+  medicalReimbursement,
   other;
 
   String get displayName {
@@ -112,6 +113,8 @@ enum ExpenseCategory {
         return 'Maintenance';
       case ExpenseCategory.supplies:
         return 'Supplies';
+      case ExpenseCategory.medicalReimbursement:
+        return 'Medical Reimbursement';
       case ExpenseCategory.other:
         return 'Other';
     }
@@ -607,6 +610,56 @@ extension CashAdvanceStatusExtension on String {
     return CashAdvanceStatus.values.firstWhere(
       (e) => e.name == this,
       orElse: () => CashAdvanceStatus.draft,
+    );
+  }
+}
+
+// Medical Claim Type enum
+enum MedicalClaimType {
+  outPatient,
+  inPatient;
+
+  String get displayName {
+    switch (this) {
+      case MedicalClaimType.outPatient:
+        return 'Out Patient (OP)';
+      case MedicalClaimType.inPatient:
+        return 'In Patient (IP)';
+    }
+  }
+
+  String get shortName {
+    switch (this) {
+      case MedicalClaimType.outPatient:
+        return 'OP';
+      case MedicalClaimType.inPatient:
+        return 'IP';
+    }
+  }
+
+  double get reimbursementRate {
+    switch (this) {
+      case MedicalClaimType.outPatient:
+        return 0.75; // 75% for Out Patient
+      case MedicalClaimType.inPatient:
+        return 0.90; // 90% for In Patient
+    }
+  }
+}
+
+extension MedicalClaimTypeExtension on String {
+  String get medicalClaimTypeDisplayName {
+    final type = MedicalClaimType.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => MedicalClaimType.outPatient,
+    );
+    return type.displayName;
+  }
+
+  MedicalClaimType toMedicalClaimType() {
+    return MedicalClaimType.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => MedicalClaimType.outPatient,
     );
   }
 }

@@ -289,6 +289,8 @@ class _EnhancedCategoryManagementDialogState
         return Icons.bolt;
       case ExpenseCategory.maintenance:
         return Icons.build;
+      case ExpenseCategory.medicalReimbursement:
+        return Icons.local_hospital;
       case ExpenseCategory.other:
         return Icons.more_horiz;
     }
@@ -308,6 +310,8 @@ class _EnhancedCategoryManagementDialogState
         return 'Electricity, water, internet, and utility bills';
       case ExpenseCategory.maintenance:
         return 'Repairs, upkeep, and maintenance costs';
+      case ExpenseCategory.medicalReimbursement:
+        return 'Medical bills and healthcare reimbursement claims';
       case ExpenseCategory.other:
         return 'Miscellaneous and uncategorized expenses';
     }
