@@ -364,7 +364,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: DropdownButtonFormField<PrintSortOption>(
-                          value: sortOption,
+                          initialValue: sortOption,
                           decoration: const InputDecoration(
                             isDense: true,
                             border: OutlineInputBorder(),
@@ -719,7 +719,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                    value: selectedPreset,
+                    initialValue: selectedPreset,
                     decoration: const InputDecoration(
                       border: OutlineInputBorder(),
                       contentPadding:
@@ -1468,7 +1468,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   Expanded(
                     child: ListView.separated(
                       itemCount: plan.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      separatorBuilder: (_, _) => const Divider(height: 1),
                       itemBuilder: (context, index) {
                         final item = plan[index];
                         final row = item.row;
@@ -2906,7 +2906,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -3024,7 +3024,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.1),
+                color: Colors.red.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -3157,7 +3157,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: stat.gradient.last.withOpacity(0.3),
+            color: stat.gradient.last.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -3170,7 +3170,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
               ResponsiveHelper.isMobile(context) ? 8 : 10,
             ),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
@@ -3197,7 +3197,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   stat.title,
                   style: TextStyle(
                     fontSize: ResponsiveHelper.isMobile(context) ? 11 : 12,
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -3513,7 +3513,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: isActive ? Colors.purple.withOpacity(0.1) : Colors.grey[100],
+        color: isActive ? Colors.purple.withValues(alpha: 0.1) : Colors.grey[100],
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: isActive ? Colors.purple : Colors.grey[300]!),
       ),
@@ -3787,7 +3787,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     selected: isSelected,
                     color: WidgetStateProperty.resolveWith<Color?>((states) {
                       if (states.contains(WidgetState.selected)) {
-                        return Colors.purple.withOpacity(0.08);
+                        return Colors.purple.withValues(alpha: 0.08);
                       }
                       return null;
                     }),
@@ -3810,7 +3810,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                 decoration: BoxDecoration(
                                   color: _getCategoryColor(
                                     item.category,
-                                  ).withOpacity(0.1),
+                                  ).withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Icon(
@@ -3852,7 +3852,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: statusColor.withOpacity(0.1),
+                            color: statusColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
@@ -3872,7 +3872,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: conditionColor.withOpacity(0.1),
+                            color: conditionColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
@@ -3935,7 +3935,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -3959,7 +3959,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           _getCategoryColor(equipment.category),
                           _getCategoryColor(
                             equipment.category,
-                          ).withOpacity(0.7),
+                          ).withValues(alpha: 0.7),
                         ],
                       ),
                       borderRadius: BorderRadius.circular(12),
@@ -3977,7 +3977,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
+                      color: statusColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
@@ -4106,7 +4106,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: conditionColor.withOpacity(0.1),
+                      color: conditionColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
@@ -4140,7 +4140,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.1),
+                    color: Colors.orange.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -4183,7 +4183,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -4198,7 +4198,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             gradient: LinearGradient(
               colors: [
                 _getCategoryColor(equipment.category),
-                _getCategoryColor(equipment.category).withOpacity(0.7),
+                _getCategoryColor(equipment.category).withValues(alpha: 0.7),
               ],
             ),
             borderRadius: BorderRadius.circular(12),
@@ -4286,7 +4286,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.1),
+                color: statusColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
@@ -4302,7 +4302,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: conditionColor.withOpacity(0.1),
+                color: conditionColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(

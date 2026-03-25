@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
@@ -252,7 +251,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withOpacity(0.3),
+            color: Colors.blue.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -305,7 +304,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                       '$transactionCount transactions • ${currencyFormat.format(totalAmount)}',
                       style: TextStyle(
                         fontSize: isMobile ? 12 : 14,
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                       ),
                     ),
                   ],
@@ -321,7 +320,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                   return Container(
                     padding: EdgeInsets.all(isMobile ? 10 : 12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -352,7 +351,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: Colors.white, size: 20),
@@ -416,7 +415,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.indigo.withOpacity(0.3),
+                color: Colors.indigo.withValues(alpha: 0.3),
                 blurRadius: 12,
                 offset: const Offset(0, 6),
               ),
@@ -431,7 +430,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
@@ -489,7 +488,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
+                    color: Colors.white.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -510,7 +509,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                             avgTransaction,
                           ),
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.9),
+                            color: Colors.white.withValues(alpha: 0.9),
                             fontSize: 13,
                           ),
                         ),
@@ -564,7 +563,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.grey.withOpacity(0.1),
+                color: Colors.grey.withValues(alpha: 0.1),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -604,7 +603,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
@@ -680,7 +679,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                                           vertical: 2,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: color.withOpacity(0.1),
+                                          color: color.withValues(alpha: 0.1),
                                           borderRadius: BorderRadius.circular(
                                             4,
                                           ),
@@ -758,9 +757,9 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -772,7 +771,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
             children: [
               Text(
                 label,
-                style: TextStyle(color: color.withOpacity(0.8), fontSize: 10),
+                style: TextStyle(color: color.withValues(alpha: 0.8), fontSize: 10),
               ),
               Text(
                 value,
@@ -805,7 +804,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: gradient[0].withOpacity(0.3),
+            color: gradient[0].withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -831,7 +830,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
           Text(
             label,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withValues(alpha: 0.9),
               fontSize: 12,
             ),
           ),
@@ -858,7 +857,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -919,7 +918,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                             width: 40,
                             height: 40,
                             decoration: BoxDecoration(
-                              color: color.withOpacity(0.1),
+                              color: color.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Center(
@@ -999,7 +998,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -1050,7 +1049,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          color: color.withOpacity(0.1),
+                          color: color.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Center(
@@ -1109,7 +1108,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: color.withOpacity(0.1),
+                          color: color.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
@@ -1174,19 +1173,23 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
   IconData _getPaymentIcon(String method) {
     final lowerMethod = method.toLowerCase();
     if (lowerMethod.contains('cash')) return Icons.money;
-    if (lowerMethod.contains('card') || lowerMethod.contains('credit'))
+    if (lowerMethod.contains('card') || lowerMethod.contains('credit')) {
       return Icons.credit_card;
-    if (lowerMethod.contains('transfer') || lowerMethod.contains('bank'))
+    }
+    if (lowerMethod.contains('transfer') || lowerMethod.contains('bank')) {
       return Icons.account_balance;
-    if (lowerMethod.contains('wallet') || lowerMethod.contains('digital'))
+    }
+    if (lowerMethod.contains('wallet') || lowerMethod.contains('digital')) {
       return Icons.account_balance_wallet;
+    }
     return Icons.payment;
   }
 
   Color _getStatusColor(String status) {
     final lowerStatus = status.toLowerCase();
-    if (lowerStatus.contains('approved') || lowerStatus.contains('processed'))
+    if (lowerStatus.contains('approved') || lowerStatus.contains('processed')) {
       return Colors.green;
+    }
     if (lowerStatus.contains('pending')) return Colors.orange;
     if (lowerStatus.contains('rejected')) return Colors.red;
     if (lowerStatus.contains('draft')) return Colors.grey;
@@ -1223,7 +1226,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -1304,7 +1307,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                     children: [
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          value: validSelectedCategory,
+                          initialValue: validSelectedCategory,
                           isExpanded: true,
                           decoration: const InputDecoration(
                             labelText: 'Category',
@@ -1336,7 +1339,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          value: _selectedStatus,
+                          initialValue: _selectedStatus,
                           isExpanded: true,
                           decoration: const InputDecoration(
                             labelText: 'Status',
@@ -1369,7 +1372,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: _selectedPaymentMethod,
+                    initialValue: _selectedPaymentMethod,
                     isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Payment Method',
@@ -1400,7 +1403,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                     children: [
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          value: validSelectedCategory,
+                          initialValue: validSelectedCategory,
                           decoration: const InputDecoration(
                             labelText: 'Category',
                             border: OutlineInputBorder(),
@@ -1424,7 +1427,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                       const SizedBox(width: 16),
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          value: _selectedPaymentMethod,
+                          initialValue: _selectedPaymentMethod,
                           decoration: const InputDecoration(
                             labelText: 'Payment Method',
                             border: OutlineInputBorder(),
@@ -1448,7 +1451,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                       const SizedBox(width: 16),
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          value: _selectedStatus,
+                          initialValue: _selectedStatus,
                           decoration: const InputDecoration(
                             labelText: 'Status',
                             border: OutlineInputBorder(),
@@ -1477,7 +1480,7 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<TransactionSortField>(
-                        value: _sortField,
+                        initialValue: _sortField,
                         isExpanded: true,
                         decoration: InputDecoration(
                           labelText: 'Sort By',

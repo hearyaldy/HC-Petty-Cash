@@ -38,6 +38,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
   String _searchQuery = '';
   String _reportType = 'all'; // 'all', 'petty_cash', 'advance_settlement', 'project'
   ReportsViewMode _viewMode = ReportsViewMode.card;
+  final Set<String> _expandedCardIds = {};
 
   @override
   void initState() {
@@ -196,7 +197,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withOpacity(0.3),
+            color: Colors.blue.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -252,7 +253,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                           : 'Manage and track all your reports',
                       style: TextStyle(
                         fontSize: isMobile ? 12 : 14,
-                        color: Colors.white.withOpacity(0.8),
+                        color: Colors.white.withValues(alpha: 0.8),
                       ),
                     ),
                   ],
@@ -262,7 +263,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -291,7 +292,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: Colors.white, size: 20),
@@ -312,7 +313,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.15),
+          color: Colors.white.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(_getViewModeIcon(), color: Colors.white, size: 20),
@@ -408,7 +409,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -583,7 +584,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -718,6 +719,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                   isPettyCash: isPettyCash,
                   projectExpenses: projectExpenses,
                   projectRemaining: projectRemaining,
+                  reportId: report.id,
                 ),
               );
             }).toList(),
@@ -811,329 +813,52 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
     );
   }
 
-  // Table view with all reports in a single table (Row mode)
+  // Table view with all reports in a single expandable list (Row mode)
   Widget _buildTableViewRow(
     List<dynamic> reports,
     List<Transaction> transactions,
   ) {
     final currencyFormat = NumberFormat('#,##0.00', 'en_US');
+    final dateFormat = DateFormat('MM/dd/yy');
 
     return SingleChildScrollView(
       padding: const EdgeInsets.only(top: 8, bottom: 16),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              showCheckboxColumn: false,
-              headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
-              columnSpacing: 20,
-              horizontalMargin: 16,
-              columns: const [
-                DataColumn(
-                  label: Text(
-                    'Type',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                DataColumn(
-                  label: Text(
-                    'Report #',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                DataColumn(
-                  label: Text(
-                    'Name/Department',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                DataColumn(
-                  label: Text(
-                    'Custodian',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                DataColumn(
-                  label: Text(
-                    'Period',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                DataColumn(
-                  label: Text(
-                    'Status',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                DataColumn(
-                  label: Text(
-                    'Budget/Opening',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  numeric: true,
-                ),
-                DataColumn(
-                  label: Text(
-                    'Expenses/Disbursed',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  numeric: true,
-                ),
-                DataColumn(
-                  label: Text(
-                    'Balance/Remaining',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  numeric: true,
-                ),
-                DataColumn(
-                  label: Text(
-                    'Actions',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-              rows: reports.map((report) {
-                final isPettyCash = report is PettyCashReport;
-                double expenses = 0;
-                double remaining = 0;
-                double budget = 0;
-
-                if (isPettyCash) {
-                  final pc = report;
-                  budget = pc.openingBalance;
-                  expenses = pc.totalDisbursements;
-                  remaining = pc.closingBalance;
-                } else {
-                  final pr = report as ProjectReport;
-                  budget = pr.budget;
-                  final projectTransactions = transactions
-                      .where((t) => t.projectId == pr.id)
-                      .toList();
-                  expenses = projectTransactions
-                      .where(
-                        (t) =>
-                            t.statusEnum == TransactionStatus.approved ||
-                            t.statusEnum == TransactionStatus.processed,
-                      )
-                      .fold<double>(0.0, (sum, t) => sum + t.amount);
-                  remaining = pr.budget - expenses;
-                }
-
-                final statusColor = _getStatusColor(report.statusEnum);
-                final themeColor = isPettyCash
-                    ? _getPettyCashTypeColor(report)
-                    : Colors.green;
-                final reportTypeLabel = isPettyCash
-                    ? _getPettyCashTypeLabel(report)
-                    : 'Project';
-                final reportTypeIcon = isPettyCash
-                    ? _getPettyCashTypeIcon(report)
-                    : Icons.folder_special;
-
-                return DataRow(
-                  onSelectChanged: (_) {
-                    if (isPettyCash) {
-                      context.go('/reports/${report.id}');
-                    } else {
-                      context.go('/project-reports/${report.id}');
-                    }
-                  },
-                  cells: [
-                    // Type column with colored badge
-                    DataCell(
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: themeColor.shade50,
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: themeColor.shade200),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              reportTypeIcon,
-                              size: 14,
-                              color: themeColor.shade700,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              reportTypeLabel,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: themeColor.shade700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    // Report number
-                    DataCell(
-                      Text(
-                        report.reportNumber,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w500,
-                          fontSize: 13,
-                        ),
-                      ),
-                      onTap: () {
-                        if (isPettyCash) {
-                          context.go('/reports/${report.id}');
-                        } else {
-                          context.go('/project-reports/${report.id}');
-                        }
-                      },
-                    ),
-                    // Name/Department
-                    DataCell(
-                      Text(
-                        isPettyCash
-                            ? (report).department
-                            : (report as ProjectReport).projectName,
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                    ),
-                    // Custodian
-                    DataCell(
-                      Text(
-                        report.custodianName,
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                    ),
-                    // Period
-                    DataCell(
-                      Text(
-                        isPettyCash
-                            ? '${DateFormat('MM/dd/yy').format((report).periodStart)} - ${DateFormat('MM/dd/yy').format(report.periodEnd)}'
-                            : '${DateFormat('MM/dd/yy').format((report as ProjectReport).startDate)} - ${DateFormat('MM/dd/yy').format(report.endDate)}',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                    // Status
-                    DataCell(
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: statusColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                            color: statusColor.withOpacity(0.3),
-                          ),
-                        ),
-                        child: Text(
-                          report.statusEnum.displayName,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: statusColor,
-                          ),
-                        ),
-                      ),
-                    ),
-                    // Budget/Opening
-                    DataCell(
-                      Text(
-                        currencyFormat.format(budget),
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                    ),
-                    // Expenses/Disbursed
-                    DataCell(
-                      Text(
-                        currencyFormat.format(expenses),
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.red.shade700,
-                        ),
-                      ),
-                    ),
-                    // Balance/Remaining
-                    DataCell(
-                      Text(
-                        currencyFormat.format(remaining),
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: remaining >= 0
-                              ? Colors.green.shade700
-                              : Colors.red.shade700,
-                        ),
-                      ),
-                    ),
-                    // Actions
-                    DataCell(
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: Icon(
-                              Icons.visibility,
-                              size: 18,
-                              color: Colors.blue.shade700,
-                            ),
-                            tooltip: 'View',
-                            onPressed: () {
-                              if (isPettyCash) {
-                                context.go('/reports/${report.id}');
-                              } else {
-                                context.go('/project-reports/${report.id}');
-                              }
-                            },
-                          ),
-                          if (report.statusEnum == ReportStatus.draft)
-                            IconButton(
-                              icon: Icon(
-                                Icons.send,
-                                size: 18,
-                                color: Colors.orange.shade700,
-                              ),
-                              tooltip: 'Submit',
-                              onPressed: () =>
-                                  _submitReport(report, isPettyCash),
-                            ),
-                          IconButton(
-                            icon: Icon(
-                              Icons.delete,
-                              size: 18,
-                              color: Colors.red.shade700,
-                            ),
-                            tooltip: 'Delete',
-                            onPressed: () => _deleteReport(report, isPettyCash),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-              }).toList(),
-            ),
-          ),
-        ),
+      child: Column(
+        children: reports.map((report) {
+          final isPettyCash = report is PettyCashReport;
+          double expenses = 0;
+          double remaining = 0;
+          double budget = 0;
+          if (isPettyCash) {
+            budget = report.openingBalance;
+            expenses = report.totalDisbursements;
+            remaining = report.closingBalance;
+          } else {
+            final pr = report as ProjectReport;
+            budget = pr.budget;
+            final pt = transactions.where((t) => t.projectId == pr.id);
+            expenses = pt
+                .where((t) =>
+                    t.statusEnum == TransactionStatus.approved ||
+                    t.statusEnum == TransactionStatus.processed)
+                .fold<double>(0.0, (acc, t) => acc + t.amount);
+            remaining = pr.budget - expenses;
+          }
+          return _buildExpandableTableRow(
+            report: report,
+            isPettyCash: isPettyCash,
+            budget: budget,
+            expenses: expenses,
+            remaining: remaining,
+            currencyFormat: currencyFormat,
+            dateFormat: dateFormat,
+            transactions: transactions,
+          );
+        }).toList(),
       ),
     );
   }
+
 
   Widget _buildCategoryHeader(
     String title,
@@ -1181,6 +906,8 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
     );
   }
 
+
+  // Category table — now uses expandable rows instead of horizontal scroll
   Widget _buildDataTable({
     required List<dynamic> reports,
     required bool isPettyCash,
@@ -1189,270 +916,256 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
     required DateFormat dateFormat,
     required NumberFormat currencyFormat,
   }) {
+    return Column(
+      children: reports.map((report) {
+        double expenses = 0;
+        double remaining = 0;
+        double budget = 0;
+        if (isPettyCash) {
+          final pc = report as PettyCashReport;
+          budget = pc.openingBalance;
+          expenses = pc.totalDisbursements;
+          remaining = pc.closingBalance;
+        } else {
+          final pr = report as ProjectReport;
+          budget = pr.budget;
+          final pt = transactions.where((t) => t.projectId == pr.id);
+          expenses = pt
+              .where((t) =>
+                  t.statusEnum == TransactionStatus.approved ||
+                  t.statusEnum == TransactionStatus.processed)
+              .fold<double>(0.0, (acc, t) => acc + t.amount);
+          remaining = pr.budget - expenses;
+        }
+        return _buildExpandableTableRow(
+          report: report,
+          isPettyCash: isPettyCash,
+          budget: budget,
+          expenses: expenses,
+          remaining: remaining,
+          currencyFormat: currencyFormat,
+          dateFormat: dateFormat,
+          transactions: transactions,
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildExpandableTableRow({
+    required dynamic report,
+    required bool isPettyCash,
+    required double budget,
+    required double expenses,
+    required double remaining,
+    required NumberFormat currencyFormat,
+    required DateFormat dateFormat,
+    required List<Transaction> transactions,
+  }) {
+    final isExpanded = _expandedCardIds.contains(report.id);
+    final statusColor = _getStatusColor(report.statusEnum);
+    final themeColor = isPettyCash ? _getPettyCashTypeColor(report) : Colors.green;
+    final typeLabel = isPettyCash ? _getPettyCashTypeLabel(report) : 'Project';
+    final pr = isPettyCash ? null : report as ProjectReport;
+
     return Container(
+      margin: const EdgeInsets.only(bottom: 1),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border(
+          bottom: BorderSide(color: Colors.grey.shade200),
+        ),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-            showCheckboxColumn: false,
-            headingRowColor: WidgetStateProperty.all(
-              headerColor.shade50,
-            ),
-            columnSpacing: 20,
-            horizontalMargin: 16,
-            columns: [
-              const DataColumn(
-                label: Text(
-                  'Report #',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              DataColumn(
-                label: Text(
-                  isPettyCash ? 'Department' : 'Project Name',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              if (!isPettyCash)
-                const DataColumn(
-                  label: Text(
-                    'Language',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-              const DataColumn(
-                label: Text(
-                  'Custodian',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              const DataColumn(
-                label: Text(
-                  'Period',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              const DataColumn(
-                label: Text(
-                  'Status',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              DataColumn(
-                label: Text(
-                  isPettyCash ? 'Opening' : 'Budget',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                numeric: true,
-              ),
-              DataColumn(
-                label: Text(
-                  isPettyCash ? 'Disbursed' : 'Expenses',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                numeric: true,
-              ),
-              DataColumn(
-                label: Text(
-                  isPettyCash ? 'Balance' : 'Remaining',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                numeric: true,
-              ),
-              const DataColumn(
-                label: Text(
-                  'Actions',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-            rows: reports.map((report) {
-              double expenses = 0;
-              double remaining = 0;
-
-              if (isPettyCash) {
-                final pc = report as PettyCashReport;
-                expenses = pc.totalDisbursements;
-                remaining = pc.closingBalance;
-              } else {
-                final pr = report as ProjectReport;
-                final projectTransactions = transactions
-                    .where((t) => t.projectId == pr.id)
-                    .toList();
-                expenses = projectTransactions
-                    .where(
-                      (t) =>
-                          t.statusEnum == TransactionStatus.approved ||
-                          t.statusEnum == TransactionStatus.processed,
-                    )
-                    .fold<double>(0.0, (sum, t) => sum + t.amount);
-                remaining = pr.budget - expenses;
-              }
-
-              final statusColor = _getStatusColor(report.statusEnum);
-
-              return DataRow(
-                onSelectChanged: (_) {
-                  if (isPettyCash) {
-                    context.go('/reports/${report.id}');
-                  } else {
-                    context.go('/project-reports/${report.id}');
-                  }
-                },
-                cells: [
-                  DataCell(
-                    Text(
-                      report.reportNumber,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 13,
-                      ),
+      child: InkWell(
+        onTap: () => setState(() {
+          if (isExpanded) {
+            _expandedCardIds.remove(report.id);
+          } else {
+            _expandedCardIds.add(report.id);
+          }
+        }),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Always-visible summary row
+              Row(
+                children: [
+                  // Type badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: themeColor.shade50,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: themeColor.shade200),
                     ),
-                    onTap: () {
-                      if (isPettyCash) {
-                        context.go('/reports/${report.id}');
-                      } else {
-                        context.go('/project-reports/${report.id}');
-                      }
-                    },
-                  ),
-                  DataCell(
-                    Text(
-                      isPettyCash
-                          ? (report as PettyCashReport).department
-                          : (report as ProjectReport).projectName,
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                  ),
-                  if (!isPettyCash)
-                    DataCell(
-                      Text(
-                        (report as ProjectReport).language ?? '-',
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                    ),
-                  DataCell(
-                    Text(
-                      report.custodianName,
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                  ),
-                  DataCell(
-                    Text(
-                      isPettyCash
-                          ? '${DateFormat('MM/dd/yy').format((report as PettyCashReport).periodStart)} - ${DateFormat('MM/dd/yy').format(report.periodEnd)}'
-                          : '${DateFormat('MM/dd/yy').format((report as ProjectReport).startDate)} - ${DateFormat('MM/dd/yy').format(report.endDate)}',
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                  ),
-                  DataCell(
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: statusColor.withOpacity(0.3)),
-                      ),
-                      child: Text(
-                        report.statusEnum.displayName,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: statusColor,
-                        ),
-                      ),
-                    ),
-                  ),
-                  DataCell(
-                    Text(
-                      currencyFormat.format(
-                        isPettyCash
-                            ? (report as PettyCashReport).openingBalance
-                            : (report as ProjectReport).budget,
-                      ),
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                  ),
-                  DataCell(
-                    Text(
-                      currencyFormat.format(expenses),
+                    child: Text(
+                      typeLabel,
                       style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.red.shade700,
-                      ),
-                    ),
-                  ),
-                  DataCell(
-                    Text(
-                      currencyFormat.format(remaining),
-                      style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: remaining >= 0
-                            ? Colors.green.shade700
-                            : Colors.red.shade700,
+                        color: themeColor.shade700,
                       ),
                     ),
                   ),
-                  DataCell(
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
+                  const SizedBox(width: 10),
+                  // Report number + department/name
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        IconButton(
-                          icon: Icon(
-                            Icons.visibility,
-                            size: 18,
-                            color: Colors.blue.shade700,
+                        Text(
+                          report.reportNumber,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
                           ),
-                          tooltip: 'View',
-                          onPressed: () {
-                            if (isPettyCash) {
-                              context.go('/reports/${report.id}');
-                            } else {
-                              context.go('/project-reports/${report.id}');
-                            }
-                          },
                         ),
-                        if (report.statusEnum == ReportStatus.draft)
-                          IconButton(
-                            icon: Icon(
-                              Icons.send,
-                              size: 18,
-                              color: Colors.orange.shade700,
-                            ),
-                            tooltip: 'Submit',
-                            onPressed: () => _submitReport(report, isPettyCash),
+                        Text(
+                          isPettyCash
+                              ? report.department
+                              : pr!.projectName,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade600,
                           ),
-                        IconButton(
-                          icon: Icon(
-                            Icons.delete,
-                            size: 18,
-                            color: Colors.red.shade700,
-                          ),
-                          tooltip: 'Delete',
-                          onPressed: () => _deleteReport(report, isPettyCash),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
                   ),
+                  // Status badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      report.statusEnum.displayName,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: statusColor,
+                      ),
+                    ),
+                  ),
+                  // Expand icon
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: Icon(
+                      isExpanded ? Icons.expand_less : Icons.expand_more,
+                      size: 18,
+                      color: Colors.grey.shade500,
+                    ),
+                  ),
                 ],
-              );
-            }).toList(),
+              ),
+              const SizedBox(height: 6),
+              // Always-visible financial summary
+              Row(
+                children: [
+                  _buildMiniAmount(
+                    isPettyCash ? 'Opening' : 'Budget',
+                    '฿${currencyFormat.format(budget)}',
+                    Colors.grey.shade700,
+                  ),
+                  const SizedBox(width: 12),
+                  _buildMiniAmount(
+                    isPettyCash ? 'Disbursed' : 'Expenses',
+                    '฿${currencyFormat.format(expenses)}',
+                    Colors.red.shade700,
+                  ),
+                  const SizedBox(width: 12),
+                  _buildMiniAmount(
+                    isPettyCash ? 'Balance' : 'Remaining',
+                    '฿${currencyFormat.format(remaining)}',
+                    remaining >= 0 ? Colors.green.shade700 : Colors.red.shade700,
+                    bold: true,
+                  ),
+                ],
+              ),
+              // Expanded detail section
+              if (isExpanded) ...[
+                const Divider(height: 12),
+                _buildDetailRow(Icons.person, 'Custodian', report.custodianName),
+                _buildDetailRow(
+                  Icons.calendar_today,
+                  'Period',
+                  isPettyCash
+                      ? '${dateFormat.format(report.periodStart)} – ${dateFormat.format(report.periodEnd)}'
+                      : '${dateFormat.format(pr!.startDate)} – ${dateFormat.format(pr.endDate)}',
+                ),
+                _buildDetailRow(
+                  Icons.account_balance,
+                  isPettyCash ? 'Opening' : 'Budget',
+                  '฿${currencyFormat.format(budget)}',
+                ),
+                _buildDetailRow(
+                  Icons.payments,
+                  isPettyCash ? 'Disbursed' : 'Expenses',
+                  '฿${currencyFormat.format(expenses)}',
+                  valueColor: Colors.red.shade700,
+                ),
+                _buildDetailRow(
+                  Icons.account_balance_wallet,
+                  isPettyCash ? 'Balance' : 'Remaining',
+                  '฿${currencyFormat.format(remaining)}',
+                  valueColor: remaining >= 0 ? Colors.green.shade700 : Colors.red.shade700,
+                ),
+                if (isPettyCash && report.purpose != null && report.purpose.isNotEmpty)
+                  _buildDetailRow(Icons.info_outline, 'Purpose', report.purpose),
+                if (isPettyCash && report.notes != null && report.notes.isNotEmpty)
+                  _buildDetailRow(Icons.notes, 'Notes', report.notes),
+                if (!isPettyCash && pr!.description != null && pr.description!.isNotEmpty)
+                  _buildDetailRow(Icons.description, 'Description', pr.description!),
+                const SizedBox(height: 6),
+                // Action buttons
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () {
+                        if (isPettyCash) {
+                          context.go('/reports/${report.id}');
+                        } else {
+                          context.go('/project-reports/${report.id}');
+                        }
+                      },
+                      icon: const Icon(Icons.visibility, size: 15),
+                      label: const Text('View'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.blue.shade700,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                    if (report.statusEnum == ReportStatus.draft)
+                      TextButton.icon(
+                        onPressed: () => _submitReport(report, isPettyCash),
+                        icon: const Icon(Icons.send, size: 15),
+                        label: const Text('Submit'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.orange.shade700,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ),
+                    TextButton.icon(
+                      onPressed: () => _deleteReport(report, isPettyCash),
+                      icon: const Icon(Icons.delete, size: 15),
+                      label: const Text('Delete'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.red.shade700,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
           ),
         ),
       ),
@@ -1464,7 +1177,10 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
     required bool isPettyCash,
     required double projectExpenses,
     required double projectRemaining,
+    required String reportId,
   }) {
+    final isExpanded = _expandedCardIds.contains(reportId);
+    final pr = isPettyCash ? null : report as ProjectReport;
     final dateFormat = DateFormat('MMM dd, yyyy');
     final currencyFormat = NumberFormat('#,##0.00', 'en_US');
     final statusColor = _getStatusColor(report.statusEnum);
@@ -1485,7 +1201,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -1579,9 +1295,9 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
+                      color: statusColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: statusColor.withOpacity(0.3)),
+                      border: Border.all(color: statusColor.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -1752,7 +1468,100 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                   },
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
+              // Expand/collapse toggle
+              InkWell(
+                onTap: () => setState(() {
+                  if (isExpanded) {
+                    _expandedCardIds.remove(reportId);
+                  } else {
+                    _expandedCardIds.add(reportId);
+                  }
+                }),
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        isExpanded ? 'Hide Details' : 'Show All Details',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: themeColor.shade700,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        isExpanded ? Icons.expand_less : Icons.expand_more,
+                        size: 16,
+                        color: themeColor.shade700,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Expanded detail section
+              if (isExpanded) ...[
+                const Divider(height: 16),
+                _buildDetailRow(Icons.tag, 'Report ID', report.id),
+                if (isPettyCash) ...[
+                  _buildDetailRow(
+                    Icons.category,
+                    'Type',
+                    report.reportType == 'advance_settlement'
+                        ? 'Advance Settlement'
+                        : 'Petty Cash',
+                  ),
+                  if (report.purpose != null && report.purpose.isNotEmpty)
+                    _buildDetailRow(Icons.info_outline, 'Purpose', report.purpose),
+                  if (report.companyName != null && report.companyName.isNotEmpty)
+                    _buildDetailRow(Icons.business, 'Company', report.companyName),
+                  if (report.advanceTakenDate != null)
+                    _buildDetailRow(
+                      Icons.event,
+                      'Advance Date',
+                      dateFormat.format(report.advanceTakenDate),
+                    ),
+                  _buildDetailRow(
+                    Icons.account_balance_wallet,
+                    'Cash on Hand',
+                    '฿${currencyFormat.format(report.cashOnHand)}',
+                  ),
+                  _buildDetailRow(
+                    Icons.compare_arrows,
+                    'Variance',
+                    '฿${currencyFormat.format(report.variance)}',
+                    valueColor: report.variance.abs() > 0.01
+                        ? Colors.orange.shade700
+                        : Colors.green.shade700,
+                  ),
+                  if (report.notes != null && report.notes.isNotEmpty)
+                    _buildDetailRow(Icons.notes, 'Notes', report.notes),
+                ] else ...[
+                  _buildDetailRow(Icons.folder, 'Report Name', pr!.reportName),
+                  if (pr.language != null && pr.language!.isNotEmpty)
+                    _buildDetailRow(Icons.language, 'Language', pr.language!),
+                  if (pr.description != null && pr.description!.isNotEmpty)
+                    _buildDetailRow(Icons.description, 'Description', pr.description!),
+                  _buildDetailRow(
+                    Icons.show_chart,
+                    'Budget Used',
+                    '${projectExpenses > 0 ? (projectExpenses / pr.budget * 100).toStringAsFixed(1) : '0.0'}%',
+                    valueColor: projectExpenses / pr.budget > 0.9
+                        ? Colors.red.shade700
+                        : Colors.green.shade700,
+                  ),
+                ],
+                if (report.updatedAt != null)
+                  _buildDetailRow(
+                    Icons.update,
+                    'Last Updated',
+                    dateFormat.format(report.updatedAt),
+                  ),
+              ],
+              const SizedBox(height: 8),
               // Action Buttons Row
               Wrap(
                 spacing: 8,
@@ -1795,6 +1604,61 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildMiniAmount(String label, String value, Color color, {bool bold = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(fontSize: 9, color: Colors.grey.shade500),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: bold ? FontWeight.bold : FontWeight.w500,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDetailRow(
+    IconData icon,
+    String label,
+    String value, {
+    Color? valueColor,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 14, color: Colors.grey.shade500),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 90,
+            child: Text(
+              label,
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: valueColor ?? Colors.grey.shade800,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

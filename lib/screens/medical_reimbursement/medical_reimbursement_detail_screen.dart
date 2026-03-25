@@ -10,6 +10,7 @@ import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
 import '../../services/medical_bill_reimbursement_export_service.dart';
 import 'add_medical_reimbursement_dialog.dart';
+import '../../widgets/page_image_header.dart';
 
 class MedicalReimbursementDetailScreen extends StatefulWidget {
   final String reimbursementId;
@@ -51,29 +52,47 @@ class _MedicalReimbursementDetailScreenState
 
     if (reimbursement == null && provider.isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Loading...')),
-        body: const Center(child: CircularProgressIndicator()),
+        backgroundColor: Colors.grey[50],
+        body: SafeArea(
+          child: Column(
+            children: [
+              const PageImageHeader(title: 'Loading...'),
+              const Expanded(
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            ],
+          ),
+        ),
       );
     }
 
     if (reimbursement == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Not Found')),
-        body: Center(
+        backgroundColor: Colors.grey[50],
+        body: SafeArea(
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
-              const SizedBox(height: 16),
-              Text(
-                'Reimbursement not found',
-                style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: () => context.go('/medical-reimbursement'),
-                icon: const Icon(Icons.arrow_back),
-                label: const Text('Go Back'),
+              const PageImageHeader(title: 'Not Found'),
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Reimbursement not found',
+                        style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton.icon(
+                        onPressed: () => context.go('/medical-reimbursement'),
+                        icon: const Icon(Icons.arrow_back),
+                        label: const Text('Go Back'),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),

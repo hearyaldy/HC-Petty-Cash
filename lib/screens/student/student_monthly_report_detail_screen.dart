@@ -124,7 +124,7 @@ class _StudentMonthlyReportDetailScreenState
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: Colors.white, size: 20),
@@ -307,7 +307,7 @@ class _StudentMonthlyReportDetailScreenState
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: statusController.text,
+                  initialValue: statusController.text,
                   decoration: const InputDecoration(
                     labelText: 'Status',
                     border: OutlineInputBorder(),
@@ -612,7 +612,7 @@ class _StudentMonthlyReportDetailScreenState
               height: 140,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withValues(alpha: 0.1),
               ),
             ),
           ),
@@ -624,7 +624,7 @@ class _StudentMonthlyReportDetailScreenState
               height: 120,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.08),
+                color: Colors.white.withValues(alpha: 0.08),
               ),
             ),
           ),
@@ -686,7 +686,7 @@ class _StudentMonthlyReportDetailScreenState
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(
@@ -713,7 +713,7 @@ class _StudentMonthlyReportDetailScreenState
                           _formatPeriodDisplay(),
                           style: TextStyle(
                             fontSize: 14,
-                            color: Colors.white.withOpacity(0.9),
+                            color: Colors.white.withValues(alpha: 0.9),
                           ),
                         ),
                       ],
@@ -748,7 +748,7 @@ class _StudentMonthlyReportDetailScreenState
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.9),
+                            color: Colors.white.withValues(alpha: 0.9),
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: const Text(
@@ -803,7 +803,7 @@ class _StudentMonthlyReportDetailScreenState
             .toList();
       }
     } catch (e) {
-      print('Error loading report details: $e');
+      debugPrint('Error loading report details: $e');
     }
 
     setState(() => _isLoading = false);
@@ -823,7 +823,7 @@ class _StudentMonthlyReportDetailScreenState
         grade = profileData['grade'];
       }
     } catch (e) {
-      print('Error getting student profile: $e');
+      debugPrint('Error getting student profile: $e');
     }
 
     // Get student profile to get additional fields
@@ -843,7 +843,7 @@ class _StudentMonthlyReportDetailScreenState
         role = profileData['role'];
       }
     } catch (e) {
-      print('Error getting student profile: $e');
+      debugPrint('Error getting student profile: $e');
     }
 
     final service = StudentPdfExportService();
@@ -1275,24 +1275,98 @@ class _StudentMonthlyReportDetailScreenState
       await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (context) => Scaffold(
-            appBar: AppBar(title: Text('Download Excel')),
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.file_download, size: 64, color: Colors.green),
-                  SizedBox(height: 16),
-                  Text('Excel file generated successfully!'),
-                  SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () {
-                      // In a real app, you would save the file to device storage
-                      // For now, we'll just show a success message
-                      Navigator.of(context).pop();
-                    },
-                    child: Text('Download File'),
-                  ),
-                ],
+            backgroundColor: Colors.grey[100],
+            body: SingleChildScrollView(
+              child: ResponsiveContainer(
+                padding: ResponsiveHelper.getScreenPadding(context).copyWith(
+                  top: MediaQuery.of(context).padding.top + 16,
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Colors.green.shade600, Colors.green.shade400],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              InkWell(
+                                onTap: () => Navigator.of(context).pop(),
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                                ),
+                              ),
+                              const Spacer(),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.table_chart, size: 40, color: Colors.white),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Download Excel',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Export timesheet data',
+                                      style: TextStyle(
+                                        color: Colors.white.withValues(alpha: 0.9),
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 100),
+                    Icon(Icons.file_download, size: 64, color: Colors.green),
+                    const SizedBox(height: 16),
+                    const Text('Excel file generated successfully!'),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () {
+                        // In a real app, you would save the file to device storage
+                        // For now, we'll just show a success message
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text('Download File'),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1305,33 +1379,37 @@ class _StudentMonthlyReportDetailScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
-      body: SafeArea(
-        child: _isLoading
-            ? ResponsiveContainer(
+      body: _isLoading
+          ? SingleChildScrollView(
+              child: ResponsiveContainer(
+                padding: ResponsiveHelper.getScreenPadding(context).copyWith(
+                  top: MediaQuery.of(context).padding.top + 16,
+                ),
                 child: Column(
                   children: [
-                    const SizedBox(height: 16),
                     _buildLoadingHeader(),
-                    const Expanded(
-                      child: Center(child: CircularProgressIndicator()),
-                    ),
+                    const SizedBox(height: 100),
+                    const Center(child: CircularProgressIndicator()),
                   ],
                 ),
-              )
-            : _reportData == null
-            ? ResponsiveContainer(
+              ),
+            )
+          : _reportData == null
+          ? SingleChildScrollView(
+              child: ResponsiveContainer(
+                padding: ResponsiveHelper.getScreenPadding(context).copyWith(
+                  top: MediaQuery.of(context).padding.top + 16,
+                ),
                 child: Column(
                   children: [
-                    const SizedBox(height: 16),
                     _buildErrorHeader(),
-                    const Expanded(
-                      child: Center(child: Text('Report not found')),
-                    ),
+                    const SizedBox(height: 100),
+                    const Center(child: Text('Report not found')),
                   ],
                 ),
-              )
-            : _buildContent(),
-      ),
+              ),
+            )
+          : _buildContent(),
       floatingActionButton:
           (_reportData?['status'] ?? 'draft') == 'draft' &&
               (_reportData?['isFinalized'] ?? false) == false
@@ -1378,7 +1456,7 @@ class _StudentMonthlyReportDetailScreenState
               height: 120,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withValues(alpha: 0.1),
               ),
             ),
           ),
@@ -1390,7 +1468,7 @@ class _StudentMonthlyReportDetailScreenState
               height: 100,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.08),
+                color: Colors.white.withValues(alpha: 0.08),
               ),
             ),
           ),
@@ -1411,7 +1489,7 @@ class _StudentMonthlyReportDetailScreenState
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(
@@ -1471,7 +1549,7 @@ class _StudentMonthlyReportDetailScreenState
               height: 120,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withValues(alpha: 0.1),
               ),
             ),
           ),
@@ -1483,7 +1561,7 @@ class _StudentMonthlyReportDetailScreenState
               height: 100,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.08),
+                color: Colors.white.withValues(alpha: 0.08),
               ),
             ),
           ),
@@ -1504,7 +1582,7 @@ class _StudentMonthlyReportDetailScreenState
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(
@@ -1558,7 +1636,7 @@ class _StudentMonthlyReportDetailScreenState
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.grey.withOpacity(0.2),
+                    color: Colors.grey.withValues(alpha: 0.2),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
@@ -1780,12 +1858,12 @@ class _StudentMonthlyReportDetailScreenState
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: _getStatusColor(_reportData?['status']).withOpacity(0.1),
+                color: _getStatusColor(_reportData?['status']).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: _getStatusColor(
                     _reportData?['status'],
-                  ).withOpacity(0.3),
+                  ).withValues(alpha: 0.3),
                 ),
               ),
               child: Row(
@@ -1815,7 +1893,7 @@ class _StudentMonthlyReportDetailScreenState
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
+                    color: Colors.grey.withValues(alpha: 0.1),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -2817,7 +2895,7 @@ class _StudentMonthlyReportDetailScreenState
                     ),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<TaskType>(
-                      value: selectedTaskType,
+                      initialValue: selectedTaskType,
                       decoration: InputDecoration(
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -2945,7 +3023,7 @@ class _StudentMonthlyReportDetailScreenState
                     ),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<TaskStatus>(
-                      value: selectedTaskStatus,
+                      initialValue: selectedTaskStatus,
                       decoration: InputDecoration(
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -3376,7 +3454,7 @@ class _StudentMonthlyReportDetailScreenState
                     ),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<TaskType>(
-                      value: selectedTaskType,
+                      initialValue: selectedTaskType,
                       decoration: InputDecoration(
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -3504,7 +3582,7 @@ class _StudentMonthlyReportDetailScreenState
                     ),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<TaskStatus>(
-                      value: selectedTaskStatus,
+                      initialValue: selectedTaskStatus,
                       decoration: InputDecoration(
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -3846,7 +3924,7 @@ class _StudentMonthlyReportDetailScreenState
                       decoration: BoxDecoration(
                         color: _getStatusColor(
                           timesheet.status,
-                        ).withOpacity(0.1),
+                        ).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
                           color: _getStatusColor(timesheet.status),
@@ -3910,9 +3988,9 @@ class _StudentMonthlyReportDetailScreenState
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.05),
+        color: color.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

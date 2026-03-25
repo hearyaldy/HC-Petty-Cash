@@ -21,6 +21,7 @@ class CashAdvanceService {
     String? notes,
     List<String>? supportDocumentUrls,
     List<CashAdvanceItem>? items,
+    String? purchaseRequisitionId,
   }) async {
     try {
       final requestNumber = _firestoreService.generateCashAdvanceNumber();
@@ -43,6 +44,7 @@ class CashAdvanceService {
         companyName: companyName,
         notes: notes,
         supportDocumentUrls: supportDocumentUrls,
+        purchaseRequisitionId: purchaseRequisitionId,
       );
 
       await _firestoreService.saveCashAdvance(advance);

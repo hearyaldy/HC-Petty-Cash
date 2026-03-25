@@ -240,7 +240,7 @@ class _IncomeReportsScreenState extends State<IncomeReportsScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.green.withOpacity(0.3),
+            color: Colors.green.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -304,7 +304,7 @@ class _IncomeReportsScreenState extends State<IncomeReportsScreen> {
                       style: TextStyle(
                         fontSize: isMobile ? 16 : 18,
                         fontWeight: FontWeight.w600,
-                        color: Colors.white.withOpacity(0.95),
+                        color: Colors.white.withValues(alpha: 0.95),
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -312,7 +312,7 @@ class _IncomeReportsScreenState extends State<IncomeReportsScreen> {
                       '${provider.incomeReports.length} reports',
                       style: TextStyle(
                         fontSize: isMobile ? 12 : 14,
-                        color: Colors.white.withOpacity(0.8),
+                        color: Colors.white.withValues(alpha: 0.8),
                       ),
                     ),
                   ],
@@ -321,7 +321,7 @@ class _IncomeReportsScreenState extends State<IncomeReportsScreen> {
               Container(
                 padding: EdgeInsets.all(isMobile ? 12 : 16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -350,7 +350,7 @@ class _IncomeReportsScreenState extends State<IncomeReportsScreen> {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: Colors.white, size: 20),
@@ -710,7 +710,7 @@ class _IncomeReportsScreenState extends State<IncomeReportsScreen> {
                           ),
                           const SizedBox(height: 16),
                           DropdownButtonFormField<String>(
-                            value: selectedDepartment,
+                            initialValue: selectedDepartment,
                             decoration: InputDecoration(
                               labelText: 'Department *',
                               border: OutlineInputBorder(

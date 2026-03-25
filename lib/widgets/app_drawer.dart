@@ -361,7 +361,7 @@ class AppDrawer extends StatelessWidget {
         gradient: LinearGradient(
           colors: [
             Theme.of(context).primaryColor,
-            Theme.of(context).primaryColor.withOpacity(0.7),
+            Theme.of(context).primaryColor.withValues(alpha: 0.7),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -392,7 +392,7 @@ class AppDrawer extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.3),
+              color: Colors.white.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -435,7 +435,7 @@ class AppDrawer extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       child: ListTile(
         selected: isSelected,
-        selectedTileColor: iconColor.withOpacity(0.1),
+        selectedTileColor: iconColor.withValues(alpha: 0.1),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         leading: Stack(
           children: [
@@ -492,7 +492,7 @@ class AppDrawer extends StatelessWidget {
         ),
       ),
       selected: isSelected,
-      selectedTileColor: Theme.of(context).primaryColor.withOpacity(0.05),
+      selectedTileColor: Theme.of(context).primaryColor.withValues(alpha: 0.05),
       onTap: () {
         Navigator.pop(context);
         context.push(route);

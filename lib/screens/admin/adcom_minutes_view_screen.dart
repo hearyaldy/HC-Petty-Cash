@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:go_router/go_router.dart';
@@ -269,7 +270,7 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -528,8 +529,8 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
-                    border: Border.all(color: statusColor.withOpacity(0.5)),
+                    color: statusColor.withValues(alpha: 0.1),
+                    border: Border.all(color: statusColor.withValues(alpha: 0.5)),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
@@ -560,9 +561,9 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
                 ),
                 const SizedBox(height: 4),
                 // Description
-                Text(
+                _buildFormattedText(
                   item.description,
-                  style: const TextStyle(fontSize: 11, height: 1.4),
+                  const TextStyle(fontSize: 11, height: 1.4),
                 ),
                 // Resolution (if voted)
                 if (item.status == MinutesItemStatus.voted &&
@@ -623,9 +624,9 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
                 // Notes
                 if (item.notes != null && item.notes!.isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  Text(
+                  _buildFormattedText(
                     'Notes: ${item.notes}',
-                    style: TextStyle(
+                    TextStyle(
                       fontSize: 10,
                       fontStyle: FontStyle.italic,
                       color: Colors.grey.shade700,
@@ -709,8 +710,137 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
     return null;
   }
 
+  // ── Formatting helpers ───────────────────────────────────────────────────
+
+  List<({String text, bool bold, bool italic, bool underline})>
+  _parseFormatting(String text) {
+    final result = <({String text, bool bold, bool italic, bool underline})>[];
+    bool bold = false, italic = false, underline = false;
+    int pos = 0;
+    final markers = RegExp(r'\*\*|_|<u>|</u>');
+    for (final match in markers.allMatches(text)) {
+      if (match.start > pos) {
+        result.add((
+          text: text.substring(pos, match.start),
+          bold: bold,
+          italic: italic,
+          underline: underline,
+        ));
+      }
+      switch (match.group(0)) {
+        case '**': bold = !bold;
+        case '_': italic = !italic;
+        case '<u>': underline = true;
+        case '</u>': underline = false;
+      }
+      pos = match.end;
+    }
+    if (pos < text.length) {
+      result.add((
+        text: text.substring(pos),
+        bold: bold,
+        italic: italic,
+        underline: underline,
+      ));
+    }
+    return result;
+  }
+
+  Widget _buildFormattedText(String text, TextStyle baseStyle) {
+    if (text.startsWith('[')) {
+      try {
+        final List<dynamic> ops = jsonDecode(text) as List;
+        final spans = <TextSpan>[];
+        for (final op in ops) {
+          if (op is! Map) continue;
+          final insert = op['insert'];
+          if (insert is! String) continue;
+          final attrs = (op['attributes'] as Map?) ?? {};
+          spans.add(TextSpan(
+            text: insert,
+            style: TextStyle(
+              fontWeight: attrs['bold'] == true ? FontWeight.bold : FontWeight.normal,
+              fontStyle: attrs['italic'] == true ? FontStyle.italic : FontStyle.normal,
+              decoration: attrs['underline'] == true ? TextDecoration.underline : TextDecoration.none,
+            ),
+          ));
+        }
+        if (spans.isNotEmpty) {
+          return Text.rich(TextSpan(style: baseStyle, children: spans));
+        }
+      } catch (_) {}
+    }
+    final segments = _parseFormatting(text);
+    return Text.rich(
+      TextSpan(
+        style: baseStyle,
+        children: segments.map((seg) => TextSpan(
+          text: seg.text,
+          style: TextStyle(
+            fontWeight: seg.bold ? FontWeight.bold : FontWeight.normal,
+            fontStyle: seg.italic ? FontStyle.italic : FontStyle.normal,
+            decoration: seg.underline ? TextDecoration.underline : TextDecoration.none,
+          ),
+        )).toList(),
+      ),
+    );
+  }
+
+  pw.Widget _buildPdfFormattedText(String text, pw.TextStyle baseStyle) {
+    if (text.startsWith('[')) {
+      try {
+        final List<dynamic> ops = jsonDecode(text) as List;
+        final spans = <pw.TextSpan>[];
+        for (final op in ops) {
+          if (op is! Map) continue;
+          final insert = op['insert'];
+          if (insert is! String) continue;
+          final attrs = (op['attributes'] as Map?) ?? {};
+          spans.add(pw.TextSpan(
+            text: insert,
+            style: baseStyle.copyWith(
+              fontWeight: attrs['bold'] == true ? pw.FontWeight.bold : pw.FontWeight.normal,
+              fontStyle: attrs['italic'] == true ? pw.FontStyle.italic : pw.FontStyle.normal,
+              decoration: attrs['underline'] == true ? pw.TextDecoration.underline : pw.TextDecoration.none,
+            ),
+          ));
+        }
+        if (spans.isNotEmpty) {
+          return pw.RichText(text: pw.TextSpan(children: spans));
+        }
+      } catch (_) {}
+    }
+    final segments = _parseFormatting(text);
+    return pw.RichText(
+      text: pw.TextSpan(
+        children: segments.map((seg) => pw.TextSpan(
+          text: seg.text,
+          style: baseStyle.copyWith(
+            fontWeight: seg.bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+            fontStyle: seg.italic ? pw.FontStyle.italic : pw.FontStyle.normal,
+            decoration: seg.underline ? pw.TextDecoration.underline : pw.TextDecoration.none,
+          ),
+        )).toList(),
+      ),
+    );
+  }
+
+  // ── PDF generation ───────────────────────────────────────────────────────
+
   Future<void> _generatePdf() async {
-    final pdf = pw.Document();
+    final fontRegular = await PdfGoogleFonts.notoSansRegular();
+    final fontBold = await PdfGoogleFonts.notoSansBold();
+    final fontItalic = await PdfGoogleFonts.notoSansItalic();
+    final fontBoldItalic = await PdfGoogleFonts.notoSansBoldItalic();
+
+    final pdf = pw.Document(
+      theme: pw.ThemeData.withFont(
+        base: fontRegular,
+        bold: fontBold,
+        italic: fontItalic,
+        boldItalic: fontBoldItalic,
+      ),
+    );
 
     // Load logo
     pw.ImageProvider? logoImage;
@@ -1019,9 +1149,9 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
                   ),
                 ),
                 pw.SizedBox(height: 4),
-                pw.Text(
+                _buildPdfFormattedText(
                   item.description,
-                  style: const pw.TextStyle(fontSize: 10),
+                  const pw.TextStyle(fontSize: 10),
                 ),
                 if (item.status == MinutesItemStatus.voted &&
                     item.resolution != null &&
@@ -1077,9 +1207,9 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
                 ],
                 if (item.notes != null && item.notes!.isNotEmpty) ...[
                   pw.SizedBox(height: 4),
-                  pw.Text(
+                  _buildPdfFormattedText(
                     'Notes: ${item.notes}',
-                    style: pw.TextStyle(
+                    pw.TextStyle(
                       fontSize: 9,
                       fontStyle: pw.FontStyle.italic,
                       color: PdfColors.grey700,

@@ -38,7 +38,7 @@ class _AddMedicalReimbursementDialogState
   @override
   void initState() {
     super.initState();
-    _departmentController.text = widget.user.department ?? '';
+    _departmentController.text = widget.user.department;
 
     if (widget.existingReimbursement != null) {
       final existing = widget.existingReimbursement!;
@@ -496,7 +496,7 @@ class _AddMedicalReimbursementDialogState
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<MedicalClaimType>(
-                value: claimType,
+                initialValue: claimType,
                 decoration: const InputDecoration(
                   labelText: 'Claim Type',
                   border: OutlineInputBorder(),

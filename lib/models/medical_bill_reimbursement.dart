@@ -113,15 +113,15 @@ class MedicalBillReimbursement {
     this.updatedAt,
   })  : claimItems = claimItems ?? [],
         supportDocumentUrls = supportDocumentUrls ?? [],
-        totalBill = totalBill ?? (claimItems ?? []).fold(0.0, (sum, item) => sum + item.totalBill),
-        totalReimbursement = totalReimbursement ?? (claimItems ?? []).fold(0.0, (sum, item) => sum + item.amountReimburse);
+        totalBill = totalBill ?? (claimItems ?? []).fold(0.0, (acc, item) => acc + item.totalBill),
+        totalReimbursement = totalReimbursement ?? (claimItems ?? []).fold(0.0, (acc, item) => acc + item.amountReimburse);
 
   ReportStatus get statusEnum => status.toReportStatus();
 
   // Calculate totals from claim items
   MedicalBillReimbursement recalculateTotals() {
-    final newTotalBill = claimItems.fold(0.0, (sum, item) => sum + item.totalBill);
-    final newTotalReimbursement = claimItems.fold(0.0, (sum, item) => sum + item.amountReimburse);
+    final newTotalBill = claimItems.fold(0.0, (acc, item) => acc + item.totalBill);
+    final newTotalReimbursement = claimItems.fold(0.0, (acc, item) => acc + item.amountReimburse);
     return copyWith(
       totalBill: newTotalBill,
       totalReimbursement: newTotalReimbursement,
@@ -133,13 +133,13 @@ class MedicalBillReimbursement {
   double getTotalBillByType(MedicalClaimType type) {
     return claimItems
         .where((item) => item.claimTypeEnum == type)
-        .fold(0.0, (sum, item) => sum + item.totalBill);
+        .fold(0.0, (acc, item) => acc + item.totalBill);
   }
 
   double getTotalReimbursementByType(MedicalClaimType type) {
     return claimItems
         .where((item) => item.claimTypeEnum == type)
-        .fold(0.0, (sum, item) => sum + item.amountReimburse);
+        .fold(0.0, (acc, item) => acc + item.amountReimburse);
   }
 
   Map<String, dynamic> toFirestore() {

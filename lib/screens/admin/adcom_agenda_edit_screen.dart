@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../models/adcom_agenda.dart';
@@ -30,10 +32,8 @@ class _AdcomAgendaEditScreenState extends State<AdcomAgendaEditScreen> {
   bool _isLoading = true;
   final dateFormat = DateFormat('dd MMM yyyy');
   final TextEditingController _startTimeController = TextEditingController();
-  final TextEditingController _openingPrayerController =
-      TextEditingController();
-  final TextEditingController _closingPrayerController =
-      TextEditingController();
+  final TextEditingController _openingPrayerController = TextEditingController();
+  final TextEditingController _closingPrayerController = TextEditingController();
   final TextEditingController _adjournedAtController = TextEditingController();
 
   @override
@@ -190,7 +190,7 @@ class _AdcomAgendaEditScreenState extends State<AdcomAgendaEditScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.indigo.withOpacity(0.3),
+            color: Colors.indigo.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -249,7 +249,7 @@ class _AdcomAgendaEditScreenState extends State<AdcomAgendaEditScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
@@ -275,7 +275,7 @@ class _AdcomAgendaEditScreenState extends State<AdcomAgendaEditScreen> {
                     Text(
                       dateFormat.format(_agenda!.meetingDate),
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                         fontSize: isMobile ? 12 : 14,
                       ),
                     ),
@@ -289,8 +289,8 @@ class _AdcomAgendaEditScreenState extends State<AdcomAgendaEditScreen> {
                 ),
                 decoration: BoxDecoration(
                   color: _agenda!.status == 'finalized'
-                      ? Colors.green.withOpacity(0.2)
-                      : Colors.orange.withOpacity(0.2),
+                      ? Colors.green.withValues(alpha: 0.2)
+                      : Colors.orange.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
@@ -322,7 +322,7 @@ class _AdcomAgendaEditScreenState extends State<AdcomAgendaEditScreen> {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: Colors.white, size: 20),
@@ -384,7 +384,7 @@ class _AdcomAgendaEditScreenState extends State<AdcomAgendaEditScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -490,7 +490,7 @@ class _AdcomAgendaEditScreenState extends State<AdcomAgendaEditScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -639,7 +639,7 @@ class _AdcomAgendaEditScreenState extends State<AdcomAgendaEditScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -735,6 +735,7 @@ class _AdcomAgendaEditScreenState extends State<AdcomAgendaEditScreen> {
     );
   }
 
+
   Widget _buildMeetingNotesCard() {
     return Container(
       decoration: BoxDecoration(
@@ -742,7 +743,7 @@ class _AdcomAgendaEditScreenState extends State<AdcomAgendaEditScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -784,22 +785,22 @@ class _AdcomAgendaEditScreenState extends State<AdcomAgendaEditScreen> {
             padding: const EdgeInsets.all(20),
             child: Column(
               children: [
-                _buildTextField(
+                _buildNotesTextField(
                   label: 'Start Time',
                   controller: _startTimeController,
                 ),
                 const SizedBox(height: 12),
-                _buildTextField(
+                _buildNotesTextField(
                   label: 'Opening Prayer',
                   controller: _openingPrayerController,
                 ),
                 const SizedBox(height: 12),
-                _buildTextField(
+                _buildNotesTextField(
                   label: 'Closing Prayer',
                   controller: _closingPrayerController,
                 ),
                 const SizedBox(height: 12),
-                _buildTextField(
+                _buildNotesTextField(
                   label: 'Meeting Adjourned At',
                   controller: _adjournedAtController,
                 ),
@@ -811,7 +812,7 @@ class _AdcomAgendaEditScreenState extends State<AdcomAgendaEditScreen> {
     );
   }
 
-  Widget _buildTextField({
+  Widget _buildNotesTextField({
     required String label,
     required TextEditingController controller,
   }) {
@@ -921,7 +922,7 @@ class _AdcomAgendaEditScreenState extends State<AdcomAgendaEditScreen> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: actionColor.withOpacity(0.1),
+                    color: actionColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -964,11 +965,9 @@ class _AdcomAgendaEditScreenState extends State<AdcomAgendaEditScreen> {
             if (item.description.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(left: 48, top: 8),
-                child: Text(
+                child: _buildDescriptionWidget(
                   item.description,
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
+                  TextStyle(fontSize: 13, color: Colors.grey.shade700),
                 ),
               ),
           ],
@@ -1047,8 +1046,13 @@ class _AdcomAgendaEditScreenState extends State<AdcomAgendaEditScreen> {
       organization: _agenda!.organization,
     );
 
-    final result = await showDialog<AgendaItem>(
+    final result = await showModalBottomSheet<AgendaItem>(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) => _EditAgendaItemDialog(
         itemNumber: itemNumber,
         order: _agenda!.agendaItems.length,
@@ -1070,8 +1074,13 @@ class _AdcomAgendaEditScreenState extends State<AdcomAgendaEditScreen> {
   }
 
   Future<void> _editAgendaItem(int index, AgendaItem item) async {
-    final result = await showDialog<AgendaItem>(
+    final result = await showModalBottomSheet<AgendaItem>(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) => _EditAgendaItemDialog(
         item: item,
         itemNumber: item.itemNumber,
@@ -1711,6 +1720,7 @@ class _SelectStaffDialogState extends State<_SelectStaffDialog> {
                   ),
                 )
                 .toList();
+            if (!context.mounted) return;
             Navigator.pop(context, selected);
           },
           child: const Text('Add Selected'),
@@ -1718,6 +1728,95 @@ class _SelectStaffDialogState extends State<_SelectStaffDialog> {
       ],
     );
   }
+}
+
+// ── Formatting helpers (used in both main state and dialog) ─────────────────
+
+List<({String text, bool bold, bool italic, bool underline})> _parseFormatting(
+  String text,
+) {
+  final result = <({String text, bool bold, bool italic, bool underline})>[];
+  bool bold = false, italic = false, underline = false;
+  int pos = 0;
+  final markers = RegExp(r'\*\*|_|<u>|</u>');
+  for (final match in markers.allMatches(text)) {
+    if (match.start > pos) {
+      result.add((
+        text: text.substring(pos, match.start),
+        bold: bold,
+        italic: italic,
+        underline: underline,
+      ));
+    }
+    switch (match.group(0)) {
+      case '**':
+        bold = !bold;
+      case '_':
+        italic = !italic;
+      case '<u>':
+        underline = true;
+      case '</u>':
+        underline = false;
+    }
+    pos = match.end;
+  }
+  if (pos < text.length) {
+    result.add((
+      text: text.substring(pos),
+      bold: bold,
+      italic: italic,
+      underline: underline,
+    ));
+  }
+  return result;
+}
+
+/// Renders a description string that may be Delta JSON (from QuillEditor)
+/// or legacy markdown-style text (**bold**, _italic_, <u>underline</u>).
+Widget _buildDescriptionWidget(String text, TextStyle baseStyle) {
+  if (text.startsWith('[')) {
+    try {
+      final List<dynamic> ops = jsonDecode(text) as List;
+      final spans = <TextSpan>[];
+      for (final op in ops) {
+        if (op is! Map) continue;
+        final insert = op['insert'];
+        if (insert is! String) continue;
+        final attrs = (op['attributes'] as Map?) ?? {};
+        spans.add(TextSpan(
+          text: insert,
+          style: TextStyle(
+            fontWeight: attrs['bold'] == true ? FontWeight.bold : FontWeight.normal,
+            fontStyle: attrs['italic'] == true ? FontStyle.italic : FontStyle.normal,
+            decoration: attrs['underline'] == true
+                ? TextDecoration.underline
+                : TextDecoration.none,
+          ),
+        ));
+      }
+      if (spans.isNotEmpty) {
+        return Text.rich(TextSpan(style: baseStyle, children: spans));
+      }
+    } catch (_) {}
+  }
+  final segments = _parseFormatting(text);
+  return Text.rich(
+    TextSpan(
+      style: baseStyle,
+      children: segments
+          .map((seg) => TextSpan(
+                text: seg.text,
+                style: TextStyle(
+                  fontWeight: seg.bold ? FontWeight.bold : FontWeight.normal,
+                  fontStyle: seg.italic ? FontStyle.italic : FontStyle.normal,
+                  decoration: seg.underline
+                      ? TextDecoration.underline
+                      : TextDecoration.none,
+                ),
+              ))
+          .toList(),
+    ),
+  );
 }
 
 // Dialog for editing agenda item
@@ -1738,30 +1837,60 @@ class _EditAgendaItemDialog extends StatefulWidget {
 
 class _EditAgendaItemDialogState extends State<_EditAgendaItemDialog> {
   late TextEditingController _titleController;
-  late TextEditingController _descriptionController;
+  late quill.QuillController _quillController;
   late AgendaActionType _actionType;
   final AITextService _aiService = AITextService();
   bool _isProcessingAI = false;
+
+  final UndoHistoryController _titleUndoController = UndoHistoryController();
+  final FocusNode _quillFocusNode = FocusNode();
+  final ScrollController _quillScrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.item?.title ?? '');
-    _descriptionController = TextEditingController(
-      text: widget.item?.description ?? '',
-    );
     _actionType = widget.item?.actionType ?? AgendaActionType.recommended;
+
+    final desc = widget.item?.description ?? '';
+    if (desc.isEmpty) {
+      _quillController = quill.QuillController.basic();
+    } else if (desc.startsWith('[')) {
+      try {
+        final doc = quill.Document.fromJson(jsonDecode(desc) as List);
+        _quillController = quill.QuillController(
+          document: doc,
+          selection: const TextSelection.collapsed(offset: 0),
+        );
+      } catch (_) {
+        final doc = quill.Document()..insert(0, desc);
+        _quillController = quill.QuillController(
+          document: doc,
+          selection: const TextSelection.collapsed(offset: 0),
+        );
+      }
+    } else {
+      final doc = quill.Document()..insert(0, desc);
+      _quillController = quill.QuillController(
+        document: doc,
+        selection: const TextSelection.collapsed(offset: 0),
+      );
+    }
   }
 
   @override
   void dispose() {
     _titleController.dispose();
-    _descriptionController.dispose();
+    _quillController.dispose();
+    _titleUndoController.dispose();
+    _quillFocusNode.dispose();
+    _quillScrollController.dispose();
     super.dispose();
   }
 
   Future<void> _enhanceDescription() async {
-    if (_descriptionController.text.trim().isEmpty) {
+    final plainText = _quillController.document.toPlainText().trim();
+    if (plainText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter description text first')),
       );
@@ -1770,13 +1899,16 @@ class _EditAgendaItemDialogState extends State<_EditAgendaItemDialog> {
 
     setState(() => _isProcessingAI = true);
     final result = await _aiService.enhanceText(
-      _descriptionController.text,
+      plainText,
       context: 'ADCOM agenda item description',
     );
     setState(() => _isProcessingAI = false);
 
     if (result.success && result.text != null) {
-      setState(() => _descriptionController.text = result.text!);
+      final newDoc = quill.Document()..insert(0, result.text!);
+      setState(() {
+        _quillController.document = newDoc;
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1835,7 +1967,8 @@ class _EditAgendaItemDialogState extends State<_EditAgendaItemDialog> {
   }
 
   Future<void> _spellCheckDescription() async {
-    if (_descriptionController.text.trim().isEmpty) {
+    final plainText = _quillController.document.toPlainText().trim();
+    if (plainText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter description text first')),
       );
@@ -1843,12 +1976,12 @@ class _EditAgendaItemDialogState extends State<_EditAgendaItemDialog> {
     }
 
     setState(() => _isProcessingAI = true);
-    final result = await _aiService.checkSpelling(_descriptionController.text);
+    final result = await _aiService.checkSpelling(plainText);
     setState(() => _isProcessingAI = false);
 
     if (result.success) {
       if (result.hasIssues) {
-        _showSpellCheckResult(result, _descriptionController);
+        _showSpellCheckResultForQuill(result);
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1979,6 +2112,111 @@ class _EditAgendaItemDialogState extends State<_EditAgendaItemDialog> {
     );
   }
 
+  void _showSpellCheckResultForQuill(SpellCheckResult result) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.spellcheck, color: Colors.orange.shade600),
+            const SizedBox(width: 8),
+            const Text('Spell Check Results'),
+          ],
+        ),
+        content: SizedBox(
+          width: 400,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Found ${result.issues.length} issue(s):',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              ...result.issues.map(
+                (issue) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Wrap(
+                    alignment: WrapAlignment.start,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 4,
+                    runSpacing: 4,
+                    children: [
+                      Icon(
+                        issue.type == 'spelling' ? Icons.abc : Icons.format_quote,
+                        size: 16,
+                        color: Colors.orange,
+                      ),
+                      Text(
+                        '"${issue.original}"',
+                        style: const TextStyle(
+                          decoration: TextDecoration.lineThrough,
+                          color: Colors.red,
+                        ),
+                      ),
+                      const Text(' → '),
+                      Text(
+                        '"${issue.correction}"',
+                        style: const TextStyle(
+                          color: Colors.green,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (result.correctedText != null) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Corrected text:',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(result.correctedText!),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Keep Original'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (result.correctedText != null) {
+                final newDoc = quill.Document()..insert(0, result.correctedText!);
+                setState(() {
+                  _quillController.document = newDoc;
+                });
+              }
+              Navigator.pop(ctx);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Apply Corrections'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildAIButton({
     required IconData icon,
     required String tooltip,
@@ -2004,203 +2242,326 @@ class _EditAgendaItemDialogState extends State<_EditAgendaItemDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Row(
-        children: [
-          Icon(Icons.edit_note, color: Colors.indigo.shade600),
-          const SizedBox(width: 12),
-          Text(widget.item == null ? 'Add Agenda Item' : 'Edit Agenda Item'),
-          if (_isProcessingAI) ...[
-            const SizedBox(width: 12),
-            const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-          ],
-        ],
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(context).bottom,
       ),
-      content: SizedBox(
-        width: 500,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.indigo.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.tag, size: 20, color: Colors.indigo.shade600),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Item Number: ${widget.itemNumber}',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.indigo.shade700,
-                      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Drag handle
+          const SizedBox(height: 12),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Header
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                Icon(Icons.edit_note, color: Colors.indigo.shade600),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    widget.item == null ? 'Add Agenda Item' : 'Edit Agenda Item',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              // Title with AI spell check button
-              Row(
+                if (_isProcessingAI)
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          // Scrollable body
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Title',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  const Spacer(),
-                  if (_aiService.isAvailable)
-                    _buildAIButton(
-                      icon: Icons.spellcheck,
-                      tooltip: 'AI Spell Check',
-                      onPressed: _spellCheckTitle,
-                    ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _titleController,
-                textCapitalization: TextCapitalization.characters,
-                decoration: InputDecoration(
-                  hintText: 'e.g., ACCEPTANCE OF TREASURER\'S REPORT',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Action Type',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<AgendaActionType>(
-                value: _actionType,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                items: AgendaActionType.values.map((type) {
-                  return DropdownMenuItem(
-                    value: type,
-                    child: Text(type.displayName),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) setState(() => _actionType = value);
-                },
-              ),
-              const SizedBox(height: 16),
-              // Description with AI buttons
-              Row(
-                children: [
-                  const Text(
-                    'Description',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  const Spacer(),
-                  if (_aiService.isAvailable) ...[
-                    _buildAIButton(
-                      icon: Icons.auto_awesome,
-                      tooltip: 'AI Enhance Text',
-                      onPressed: _enhanceDescription,
-                    ),
-                    const SizedBox(width: 8),
-                    _buildAIButton(
-                      icon: Icons.spellcheck,
-                      tooltip: 'AI Spell Check',
-                      onPressed: _spellCheckDescription,
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _descriptionController,
-                maxLines: 5,
-                decoration: InputDecoration(
-                  hintText: 'Enter detailed description or recommendation...',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-              // AI hint if not configured
-              if (!_aiService.isAvailable)
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
+                  // Item number chip
+                  Container(
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.purple.shade50,
+                      color: Colors.indigo.shade50,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.purple.shade200),
                     ),
                     child: Row(
                       children: [
                         Icon(
-                          Icons.auto_awesome,
-                          size: 18,
-                          color: Colors.purple.shade400,
+                          Icons.tag,
+                          size: 20,
+                          color: Colors.indigo.shade600,
                         ),
                         const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Set AI_API_KEY in .env to enable spell check and text enhancement',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.purple.shade700,
+                        Text(
+                          'Item Number: ${widget.itemNumber}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.indigo.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // Title label + AI spell check
+                  Row(
+                    children: [
+                      const Text(
+                        'Title',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const Spacer(),
+                      if (_aiService.isAvailable)
+                        _buildAIButton(
+                          icon: Icons.spellcheck,
+                          tooltip: 'AI Spell Check',
+                          onPressed: _spellCheckTitle,
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // Title field with undo/redo
+                  ValueListenableBuilder<UndoHistoryValue>(
+                    valueListenable: _titleUndoController,
+                    builder: (context, undoValue, _) {
+                      return TextField(
+                        controller: _titleController,
+                        undoController: _titleUndoController,
+                        textCapitalization: TextCapitalization.characters,
+                        decoration: InputDecoration(
+                          hintText:
+                              'e.g., ACCEPTANCE OF TREASURER\'S REPORT',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          suffixIcon: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.undo, size: 18),
+                                tooltip: 'Undo',
+                                onPressed: undoValue.canUndo
+                                    ? () => _titleUndoController.undo()
+                                    : null,
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.redo, size: 18),
+                                tooltip: 'Redo',
+                                onPressed: undoValue.canRedo
+                                    ? () => _titleUndoController.redo()
+                                    : null,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  // Action type
+                  const Text(
+                    'Action Type',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<AgendaActionType>(
+                    initialValue: _actionType,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    items: AgendaActionType.values.map((type) {
+                      return DropdownMenuItem(
+                        value: type,
+                        child: Text(type.displayName),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value != null) setState(() => _actionType = value);
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  // Description label + AI buttons
+                  Row(
+                    children: [
+                      const Text(
+                        'Description',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const Spacer(),
+                      if (_aiService.isAvailable) ...[
+                        _buildAIButton(
+                          icon: Icons.auto_awesome,
+                          tooltip: 'AI Enhance Text',
+                          onPressed: _enhanceDescription,
+                        ),
+                        const SizedBox(width: 8),
+                        _buildAIButton(
+                          icon: Icons.spellcheck,
+                          tooltip: 'AI Spell Check',
+                          onPressed: _spellCheckDescription,
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // Description rich text editor
+                  Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade400),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        quill.QuillSimpleToolbar(
+                          controller: _quillController,
+                          config: const quill.QuillSimpleToolbarConfig(
+                            showFontFamily: false,
+                            showFontSize: false,
+                            showBackgroundColorButton: false,
+                            showColorButton: false,
+                            showAlignmentButtons: false,
+                            showDirection: false,
+                            showDividers: true,
+                            showHeaderStyle: false,
+                            showIndent: false,
+                            showLink: false,
+                            showSearchButton: false,
+                            showSubscript: false,
+                            showSuperscript: false,
+                            showCodeBlock: false,
+                            showInlineCode: false,
+                            showQuote: false,
+                            showSmallButton: false,
+                          ),
+                        ),
+                        const Divider(height: 1),
+                        SizedBox(
+                          height: 160,
+                          child: quill.QuillEditor(
+                            controller: _quillController,
+                            focusNode: _quillFocusNode,
+                            scrollController: _quillScrollController,
+                            config: quill.QuillEditorConfig(
+                              placeholder: 'Enter detailed description or recommendation...',
+                              padding: const EdgeInsets.all(12),
+                              autoFocus: false,
                             ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            if (_titleController.text.trim().isEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Please enter a title')),
-              );
-              return;
-            }
-            Navigator.pop(
-              context,
-              AgendaItem(
-                id: widget.item?.id ?? 'item_${widget.order}',
-                itemNumber: widget.itemNumber,
-                title: _titleController.text.trim(),
-                actionType: _actionType,
-                description: _descriptionController.text.trim(),
-                order: widget.order,
+                  // AI hint if not configured
+                  if (!_aiService.isAvailable)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.purple.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.purple.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.auto_awesome,
+                              size: 18,
+                              color: Colors.purple.shade400,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Set AI_API_KEY in .env to enable spell check and text enhancement',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.purple.shade700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 24),
+                ],
               ),
-            );
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.indigo,
-            foregroundColor: Colors.white,
+            ),
           ),
-          child: const Text('Save'),
-        ),
-      ],
+          // Action buttons
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      if (_titleController.text.trim().isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Please enter a title'),
+                          ),
+                        );
+                        return;
+                      }
+                      Navigator.pop(
+                        context,
+                        AgendaItem(
+                          id: widget.item?.id ?? 'item_${widget.order}',
+                          itemNumber: widget.itemNumber,
+                          title: _titleController.text.trim(),
+                          actionType: _actionType,
+                          description: jsonEncode(
+                            _quillController.document.toDelta().toJson(),
+                          ),
+                          order: widget.order,
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.indigo,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('Save'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
+
 }

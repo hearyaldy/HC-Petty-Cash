@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -32,11 +33,6 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
   StreamSubscription<AdcomAgenda?>? _agendaSubscription;
   bool _isLoading = true;
   final dateFormat = DateFormat('dd MMM yyyy');
-  final TextEditingController _startTimeController = TextEditingController();
-  final TextEditingController _openingPrayerController = TextEditingController();
-  final TextEditingController _closingPrayerController = TextEditingController();
-  final TextEditingController _adjournedAtController =
-      TextEditingController();
 
   @override
   void initState() {
@@ -68,10 +64,6 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
         _minutes = minutes;
         _agenda = agenda;
         _isLoading = false;
-        _startTimeController.text = _minutes?.startTime ?? '';
-        _openingPrayerController.text = _minutes?.openingPrayer ?? '';
-        _closingPrayerController.text = _minutes?.closingPrayer ?? '';
-        _adjournedAtController.text = _minutes?.meetingAdjournedAt ?? '';
       });
     } catch (e) {
       setState(() => _isLoading = false);
@@ -86,10 +78,6 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
   @override
   void dispose() {
     _agendaSubscription?.cancel();
-    _startTimeController.dispose();
-    _openingPrayerController.dispose();
-    _closingPrayerController.dispose();
-    _adjournedAtController.dispose();
     super.dispose();
   }
 
@@ -139,12 +127,6 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
     if (!mounted) return;
     setState(() {
       _minutes = updatedMinutes;
-      if (notesChanged) {
-        _startTimeController.text = agenda.startTime ?? '';
-        _openingPrayerController.text = agenda.openingPrayer ?? '';
-        _closingPrayerController.text = agenda.closingPrayer ?? '';
-        _adjournedAtController.text = agenda.meetingAdjournedAt ?? '';
-      }
     });
 
     await _service.updateMinutes(updatedMinutes);
@@ -198,8 +180,6 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
               const SizedBox(height: 24),
               _buildMinutesItemsCard(),
               const SizedBox(height: 32),
-              _buildMeetingNotesCard(),
-              const SizedBox(height: 32),
             ],
           ),
         ),
@@ -220,7 +200,7 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.teal.withOpacity(0.3),
+            color: Colors.teal.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -265,7 +245,7 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
@@ -291,7 +271,7 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
                     Text(
                       dateFormat.format(_minutes!.meetingDate),
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                         fontSize: isMobile ? 12 : 14,
                       ),
                     ),
@@ -305,8 +285,8 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
                 ),
                 decoration: BoxDecoration(
                   color: _minutes!.status == 'finalized'
-                      ? Colors.green.withOpacity(0.2)
-                      : Colors.orange.withOpacity(0.2),
+                      ? Colors.green.withValues(alpha: 0.2)
+                      : Colors.orange.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
@@ -338,7 +318,7 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: Colors.white, size: 20),
@@ -378,7 +358,7 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -469,7 +449,7 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -572,7 +552,7 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -646,120 +626,6 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
     );
   }
 
-  Widget _buildMeetingNotesCard() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.blueGrey.shade50,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(16),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.event_note, color: Colors.blueGrey.shade600),
-                const SizedBox(width: 12),
-                const Text(
-                  'Meeting Notes',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const Spacer(),
-                ElevatedButton.icon(
-                  onPressed: _saveMeetingNotes,
-                  icon: const Icon(Icons.save, size: 18),
-                  label: const Text('Save'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueGrey,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                _buildTextField(
-                  label: 'Start Time',
-                  controller: _startTimeController,
-                ),
-                const SizedBox(height: 12),
-                _buildTextField(
-                  label: 'Opening Prayer',
-                  controller: _openingPrayerController,
-                ),
-                const SizedBox(height: 12),
-                _buildTextField(
-                  label: 'Closing Prayer',
-                  controller: _closingPrayerController,
-                ),
-                const SizedBox(height: 12),
-                _buildTextField(
-                  label: 'Meeting Adjourned At',
-                  controller: _adjournedAtController,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTextField({
-    required String label,
-    required TextEditingController controller,
-  }) {
-    return TextField(
-      controller: controller,
-      decoration: InputDecoration(
-        labelText: label,
-        border: const OutlineInputBorder(),
-      ),
-    );
-  }
-
-  Future<void> _saveMeetingNotes() async {
-    if (_minutes == null) return;
-    try {
-      final updatedMinutes = _minutes!.copyWith(
-        startTime: _startTimeController.text.trim(),
-        openingPrayer: _openingPrayerController.text.trim(),
-        closingPrayer: _closingPrayerController.text.trim(),
-        meetingAdjournedAt: _adjournedAtController.text.trim(),
-      );
-      await _service.updateMinutes(updatedMinutes);
-      await _loadMinutes();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Meeting notes saved')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving notes: $e')),
-        );
-      }
-    }
-  }
-
   Widget _buildMinutesItemTile(
     MinutesItem item,
     int index, {
@@ -799,7 +665,7 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
                 )
               : null,
         ),
-        color: item.isNewItem ? Colors.purple.shade50.withOpacity(0.3) : null,
+        color: item.isNewItem ? Colors.purple.shade50.withValues(alpha: 0.3) : null,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -859,9 +725,9 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
+                    color: statusColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: statusColor.withOpacity(0.5)),
+                    border: Border.all(color: statusColor.withValues(alpha: 0.5)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -910,11 +776,9 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
             ),
             const SizedBox(height: 4),
             // Description
-            Text(
+            _buildFormattedText(
               item.description,
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+              TextStyle(fontSize: 13, color: Colors.grey.shade700),
             ),
             // Resolution if voted
             if (item.status == MinutesItemStatus.voted &&
@@ -1044,9 +908,9 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text(
+                    _buildFormattedText(
                       item.description,
-                      style: TextStyle(
+                      TextStyle(
                         fontSize: 13,
                         color: Colors.grey.shade700,
                       ),
@@ -1083,7 +947,7 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
                         return ChoiceChip(
                           label: Text(status.displayName),
                           selected: isSelected,
-                          selectedColor: color.withOpacity(0.2),
+                          selectedColor: color.withValues(alpha: 0.2),
                           labelStyle: TextStyle(
                             color: isSelected ? color : Colors.grey.shade700,
                             fontWeight: isSelected
@@ -1664,6 +1528,69 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  List<({String text, bool bold, bool italic, bool underline})> _parseFormatting(String text) {
+    final result = <({String text, bool bold, bool italic, bool underline})>[];
+    bool bold = false, italic = false, underline = false;
+    int pos = 0;
+    final markers = RegExp(r'\*\*|_|<u>|</u>');
+    for (final match in markers.allMatches(text)) {
+      if (match.start > pos) {
+        result.add((text: text.substring(pos, match.start), bold: bold, italic: italic, underline: underline));
+      }
+      switch (match.group(0)) {
+        case '**': bold = !bold;
+        case '_': italic = !italic;
+        case '<u>': underline = true;
+        case '</u>': underline = false;
+      }
+      pos = match.end;
+    }
+    if (pos < text.length) {
+      result.add((text: text.substring(pos), bold: bold, italic: italic, underline: underline));
+    }
+    return result;
+  }
+
+  Widget _buildFormattedText(String text, TextStyle baseStyle) {
+    if (text.startsWith('[')) {
+      try {
+        final List<dynamic> ops = jsonDecode(text) as List;
+        final spans = <TextSpan>[];
+        for (final op in ops) {
+          if (op is! Map) continue;
+          final insert = op['insert'];
+          if (insert is! String) continue;
+          final attrs = (op['attributes'] as Map?) ?? {};
+          spans.add(TextSpan(
+            text: insert,
+            style: TextStyle(
+              fontWeight: attrs['bold'] == true ? FontWeight.bold : FontWeight.normal,
+              fontStyle: attrs['italic'] == true ? FontStyle.italic : FontStyle.normal,
+              decoration: attrs['underline'] == true ? TextDecoration.underline : TextDecoration.none,
+            ),
+          ));
+        }
+        if (spans.isNotEmpty) {
+          return Text.rich(TextSpan(style: baseStyle, children: spans));
+        }
+      } catch (_) {}
+    }
+    final segments = _parseFormatting(text);
+    return Text.rich(
+      TextSpan(
+        style: baseStyle,
+        children: segments.map((seg) => TextSpan(
+          text: seg.text,
+          style: TextStyle(
+            fontWeight: seg.bold ? FontWeight.bold : FontWeight.normal,
+            fontStyle: seg.italic ? FontStyle.italic : FontStyle.normal,
+            decoration: seg.underline ? TextDecoration.underline : TextDecoration.none,
+          ),
+        )).toList(),
       ),
     );
   }

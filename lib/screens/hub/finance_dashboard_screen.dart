@@ -30,7 +30,6 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
   double _totalProjectExpenses = 0;
   double _totalIncomeAmount = 0;
   double _totalMileageAmount = 0;
-  int _totalReports = 0;
   int _totalIncomeReports = 0;
 
   // AI report state
@@ -147,7 +146,6 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
           _totalProjectExpenses = projectExpenses;
           _totalIncomeAmount = incomeAmount;
           _totalMileageAmount = mileageAmount;
-          _totalReports = allReportsQuery.docs.length;
           _totalIncomeReports = allIncomeReportsQuery.docs.length;
         });
       }
@@ -967,6 +965,13 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
         color: Colors.teal,
         route: '/medical-reimbursement',
       ),
+      _MenuItem(
+        title: 'Payment Vouchers',
+        subtitle: 'Issue & track payments',
+        icon: Icons.receipt,
+        color: Colors.deepPurple,
+        route: '/payment-vouchers',
+      ),
     ];
 
     final visibleItems = menuItems.where((item) => item.visible).toList();
@@ -1143,6 +1148,13 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
                 route: '/income/new',
                 color: Colors.teal,
               ),
+              _buildQuickActionChip(
+                context,
+                icon: Icons.add_card,
+                label: 'New Voucher',
+                route: '/payment-vouchers/new',
+                color: Colors.deepPurple,
+              ),
             ],
           ),
         ),
@@ -1164,155 +1176,6 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
       labelStyle: TextStyle(color: color, fontWeight: FontWeight.w500),
       side: BorderSide(color: color.withValues(alpha: 0.3)),
       onPressed: () => context.push(route),
-    );
-  }
-
-  Widget _buildAiReportCard() {
-    final rangeLabel = _formatRangeLabel();
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.indigo.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  Icons.auto_graph,
-                  color: Colors.indigo.shade600,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  'AI Finance Report',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-              ),
-              TextButton.icon(
-                onPressed: _aiReportLoading ? null : _generateAiReport,
-                icon: _aiReportLoading
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.play_arrow, size: 18),
-                label: const Text('Generate'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _buildScopeChip('Transactions', _AiReportScope.transactions),
-              _buildScopeChip('Petty Cash', _AiReportScope.pettyCashReports),
-              _buildScopeChip('Project', _AiReportScope.projectReports),
-              _buildScopeChip('Income', _AiReportScope.incomeReports),
-              _buildScopeChip('Travel', _AiReportScope.travelReports),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<_AiReportRange>(
-                  value: _aiReportRange,
-                  decoration: const InputDecoration(
-                    labelText: 'Report Range',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  items: _AiReportRange.values
-                      .map(
-                        (range) => DropdownMenuItem(
-                          value: range,
-                          child: Text(range.label),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setState(() {
-                      _aiReportRange = value;
-                      _aiReportPreset = _AiReportPreset.none;
-                      _aiReportError = null;
-                    });
-                    _applyRangeDefault();
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              OutlinedButton.icon(
-                onPressed: _pickRange,
-                icon: const Icon(Icons.date_range),
-                label: const Text('Pick'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _buildPresetChip('This Month', _AiReportPreset.thisMonth),
-              _buildPresetChip('Last Month', _AiReportPreset.lastMonth),
-              _buildPresetChip('YTD', _AiReportPreset.ytd),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            rangeLabel,
-            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-          ),
-          if (_aiReportError != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              _aiReportError!,
-              style: const TextStyle(color: Colors.red, fontSize: 12),
-            ),
-          ],
-          const SizedBox(height: 16),
-          _buildChartSection(
-            title: 'Trend Line',
-            child: _buildTrendChart(_aiTrendPoints),
-          ),
-          const SizedBox(height: 16),
-          _buildChartSection(
-            title: 'Category Breakdown',
-            child: _buildCategoryChart(_aiCategoryTotals),
-          ),
-          const SizedBox(height: 16),
-          _buildChartSection(
-            title: 'Cash Flow',
-            child: _buildCashFlowChart(_aiCashFlow),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            _aiSummaryText,
-            style: TextStyle(fontSize: 13, color: Colors.grey[800]),
-          ),
-        ],
-      ),
     );
   }
 

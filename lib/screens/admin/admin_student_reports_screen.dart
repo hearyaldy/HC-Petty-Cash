@@ -247,7 +247,7 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
               height: 150,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withValues(alpha: 0.1),
               ),
             ),
           ),
@@ -259,7 +259,7 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
               height: 120,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.08),
+                color: Colors.white.withValues(alpha: 0.08),
               ),
             ),
           ),
@@ -271,7 +271,7 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
                   Text(
                     'Student Reports',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.9),
+                      color: Colors.white.withValues(alpha: 0.9),
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
@@ -299,7 +299,7 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       shape: BoxShape.circle,
                     ),
                     child:
@@ -322,7 +322,7 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
                         Text(
                           '${_reports.length} total reports',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.9),
+                            color: Colors.white.withValues(alpha: 0.9),
                             fontSize: 14,
                           ),
                         ),
@@ -351,7 +351,7 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: Colors.white, size: 20),
@@ -735,7 +735,7 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.1),
+                color: statusColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -854,7 +854,7 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
                 final studentField = _isLoadingStudents
                     ? const Center(child: CircularProgressIndicator())
                     : DropdownButtonFormField<String>(
-                        value: _selectedStudentId,
+                        initialValue: _selectedStudentId,
                         isExpanded: true,
                         decoration: InputDecoration(
                           labelText: 'Student',
@@ -888,7 +888,7 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
                       );
 
                 final statusField = DropdownButtonFormField<String>(
-                  value: _selectedStatus,
+                  initialValue: _selectedStatus,
                   isExpanded: true,
                   decoration: InputDecoration(
                     labelText: 'Status',

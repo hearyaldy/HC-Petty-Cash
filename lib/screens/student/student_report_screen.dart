@@ -160,12 +160,12 @@ class _StudentReportScreenState extends State<StudentReportScreen>
 
       setState(() => _isLoading = false);
     } catch (e) {
-      print('===========================================');
+      debugPrint('===========================================');
       debugPrint('DEBUG STUDENT: ERROR LOADING DATA');
-      print('Error type: ${e.runtimeType}');
-      print('Error message: $e');
-      print('Full error details: ${e.toString()}');
-      print('===========================================');
+      debugPrint('Error type: ${e.runtimeType}');
+      debugPrint('Error message: $e');
+      debugPrint('Full error details: ${e.toString()}');
+      debugPrint('===========================================');
 
       setState(() => _isLoading = false);
       if (mounted) {
@@ -903,7 +903,7 @@ class _StudentReportScreenState extends State<StudentReportScreen>
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -1223,7 +1223,7 @@ class _StudentReportScreenState extends State<StudentReportScreen>
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
+                    color: Colors.grey.withValues(alpha: 0.1),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -1300,7 +1300,7 @@ class _StudentReportScreenState extends State<StudentReportScreen>
               height: 140,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withValues(alpha: 0.1),
               ),
             ),
           ),
@@ -1312,7 +1312,7 @@ class _StudentReportScreenState extends State<StudentReportScreen>
               height: 120,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.08),
+                color: Colors.white.withValues(alpha: 0.08),
               ),
             ),
           ),
@@ -1324,7 +1324,7 @@ class _StudentReportScreenState extends State<StudentReportScreen>
                   Text(
                     'My Working Hours',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.9),
+                      color: Colors.white.withValues(alpha: 0.9),
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
@@ -1372,7 +1372,7 @@ class _StudentReportScreenState extends State<StudentReportScreen>
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -1398,7 +1398,7 @@ class _StudentReportScreenState extends State<StudentReportScreen>
                         Text(
                           'Rate: ฿${_studentProfile?.hourlyRate.toStringAsFixed(2) ?? '0.00'}/hr',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.9),
+                            color: Colors.white.withValues(alpha: 0.9),
                             fontSize: 14,
                           ),
                         ),
@@ -1427,7 +1427,7 @@ class _StudentReportScreenState extends State<StudentReportScreen>
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: Colors.white, size: 20),
@@ -1456,7 +1456,7 @@ class _StudentReportScreenState extends State<StudentReportScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.orange.withOpacity(0.3),
+            color: Colors.orange.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -1471,7 +1471,7 @@ class _StudentReportScreenState extends State<StudentReportScreen>
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -1509,7 +1509,7 @@ class _StudentReportScreenState extends State<StudentReportScreen>
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -1604,7 +1604,7 @@ class _StudentReportScreenState extends State<StudentReportScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -1631,7 +1631,7 @@ class _StudentReportScreenState extends State<StudentReportScreen>
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
+                    color: statusColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(

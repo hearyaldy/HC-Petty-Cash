@@ -127,13 +127,22 @@ class _NewIncomeReportScreenState extends State<NewIncomeReportScreen> {
                 // Header
                 Container(
                   width: double.infinity,
+                  margin: const EdgeInsets.all(16),
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [Colors.green.shade600, Colors.green.shade400],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.green.shade200,
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: Column(
                     children: [
@@ -157,7 +166,7 @@ class _NewIncomeReportScreenState extends State<NewIncomeReportScreen> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withValues(alpha: 0.2),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
@@ -231,7 +240,7 @@ class _NewIncomeReportScreenState extends State<NewIncomeReportScreen> {
                             ),
                             const SizedBox(height: 16),
                             DropdownButtonFormField<String>(
-                              value: _selectedDepartment,
+                              initialValue: _selectedDepartment,
                               decoration: InputDecoration(
                                 labelText: 'Department *',
                                 border: OutlineInputBorder(
@@ -458,7 +467,7 @@ class _NewIncomeReportScreenState extends State<NewIncomeReportScreen> {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: Colors.white, size: 20),

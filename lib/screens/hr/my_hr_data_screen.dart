@@ -160,18 +160,18 @@ class _MyHrDataScreenState extends State<MyHrDataScreen> {
               .where('submittedBy', isEqualTo: user.id)
               .snapshots(),
           builder: (context, snapshot) {
-            print(
+            debugPrint(
               'MyHrDataScreen: Connection state = ${snapshot.connectionState}',
             ); // Debug
             if (snapshot.hasError) {
-              print('MyHrDataScreen: Error = ${snapshot.error}'); // Debug
+              debugPrint('MyHrDataScreen: Error = ${snapshot.error}'); // Debug
               return _buildPageWithHeader(
                 child: Center(child: Text('Error: ${snapshot.error}')),
               );
             }
 
             if (snapshot.connectionState == ConnectionState.waiting) {
-              print('MyHrDataScreen: Loading...'); // Debug
+              debugPrint('MyHrDataScreen: Loading...'); // Debug
               return _buildPageWithHeader(
                 child: const Expanded(
                   child: Center(child: CircularProgressIndicator()),
@@ -180,10 +180,10 @@ class _MyHrDataScreenState extends State<MyHrDataScreen> {
             }
 
             if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-              print(
+              debugPrint(
                 'MyHrDataScreen: No data found for user ${user.id}',
               ); // Debug
-              print(
+              debugPrint(
                 'MyHrDataScreen: Query tried to find documents where submittedBy = ${user.id}',
               ); // Debug
               return _buildNoDataView(context);
@@ -204,11 +204,11 @@ class _MyHrDataScreenState extends State<MyHrDataScreen> {
               return bTimestamp.compareTo(aTimestamp); // Descending order
             });
 
-            print('MyHrDataScreen: Found ${docs.length} documents'); // Debug
+            debugPrint('MyHrDataScreen: Found ${docs.length} documents'); // Debug
             final doc = docs.first;
-            print('MyHrDataScreen: First document ID = ${doc.id}'); // Debug
+            debugPrint('MyHrDataScreen: First document ID = ${doc.id}'); // Debug
             final data = doc.data() as Map<String, dynamic>;
-            print('MyHrDataScreen: Document data keys = ${data.keys}'); // Debug
+            debugPrint('MyHrDataScreen: Document data keys = ${data.keys}'); // Debug
 
             return _buildDataView(context, data, doc.id);
           },
@@ -242,7 +242,7 @@ class _MyHrDataScreenState extends State<MyHrDataScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.teal.shade200.withOpacity(0.5),
+            color: Colors.teal.shade200.withValues(alpha: 0.5),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -287,7 +287,7 @@ class _MyHrDataScreenState extends State<MyHrDataScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
@@ -314,7 +314,7 @@ class _MyHrDataScreenState extends State<MyHrDataScreen> {
                       'View your HR information and benefits',
                       style: TextStyle(
                         fontSize: isMobile ? 12 : 14,
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                       ),
                     ),
                   ],
@@ -340,7 +340,7 @@ class _MyHrDataScreenState extends State<MyHrDataScreen> {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: Colors.white, size: 20),
@@ -357,7 +357,7 @@ class _MyHrDataScreenState extends State<MyHrDataScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -405,7 +405,7 @@ class _MyHrDataScreenState extends State<MyHrDataScreen> {
     required VoidCallback onPressed,
   }) {
     return Material(
-      color: color.withOpacity(0.1),
+      color: color.withValues(alpha: 0.1),
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onPressed,
@@ -1498,7 +1498,7 @@ class _MyHrDataScreenState extends State<MyHrDataScreen> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<DocumentType>(
-              value: selectedType,
+              initialValue: selectedType,
               isExpanded: true,
               decoration: InputDecoration(
                 labelText: 'Document Type',

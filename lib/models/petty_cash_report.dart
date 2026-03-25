@@ -24,6 +24,7 @@ class PettyCashReport {
   final String? companyName;
   final String? notes;
   final String? cashAdvanceId; // Links to CashAdvance when reportType='advance_settlement'
+  final String? purchaseRequisitionId; // Links to PurchaseRequisition when reportType='advance_settlement'
 
   PettyCashReport({
     required this.id,
@@ -47,6 +48,7 @@ class PettyCashReport {
     this.companyName,
     this.notes,
     this.cashAdvanceId,
+    this.purchaseRequisitionId,
   });
 
   // Get ReportStatus enum from string
@@ -104,6 +106,7 @@ class PettyCashReport {
       'companyName': companyName,
       'notes': notes,
       'cashAdvanceId': cashAdvanceId,
+      'purchaseRequisitionId': purchaseRequisitionId,
       'createdAt': firestore.Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt != null ? firestore.Timestamp.fromDate(updatedAt!) : null,
     };
@@ -134,6 +137,7 @@ class PettyCashReport {
       companyName: data['companyName'] as String?,
       notes: data['notes'] as String?,
       cashAdvanceId: data['cashAdvanceId'] as String?,
+      purchaseRequisitionId: data['purchaseRequisitionId'] as String?,
       createdAt: (data['createdAt'] as firestore.Timestamp).toDate(),
       updatedAt: data['updatedAt'] != null
           ? (data['updatedAt'] as firestore.Timestamp).toDate()
@@ -165,6 +169,7 @@ class PettyCashReport {
       'companyName': companyName,
       'notes': notes,
       'cashAdvanceId': cashAdvanceId,
+      'purchaseRequisitionId': purchaseRequisitionId,
     };
   }
 
@@ -197,6 +202,7 @@ class PettyCashReport {
       companyName: json['companyName'] as String?,
       notes: json['notes'] as String?,
       cashAdvanceId: json['cashAdvanceId'] as String?,
+      purchaseRequisitionId: json['purchaseRequisitionId'] as String?,
     );
   }
 
@@ -221,6 +227,7 @@ class PettyCashReport {
     String? companyName,
     String? notes,
     String? cashAdvanceId,
+    String? purchaseRequisitionId,
   }) {
     return PettyCashReport(
       id: id,
@@ -244,6 +251,7 @@ class PettyCashReport {
       companyName: companyName ?? this.companyName,
       notes: notes ?? this.notes,
       cashAdvanceId: cashAdvanceId ?? this.cashAdvanceId,
+      purchaseRequisitionId: purchaseRequisitionId ?? this.purchaseRequisitionId,
     );
   }
 }

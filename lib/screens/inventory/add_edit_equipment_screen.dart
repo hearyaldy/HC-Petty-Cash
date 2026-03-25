@@ -502,15 +502,15 @@ class _AddEditEquipmentScreenState extends State<AddEditEquipmentScreen> {
     if (!hasPermission) {
       return Scaffold(
         backgroundColor: Colors.grey[100],
-        appBar: AppBar(
-          title: Text(_isEditing ? 'Edit Equipment' : 'Add Equipment'),
-        ),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
+        body: SingleChildScrollView(
+          child: ResponsiveContainer(
+            padding: ResponsiveHelper.getScreenPadding(context).copyWith(
+              top: MediaQuery.of(context).padding.top + 16,
+            ),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                _buildPermissionDeniedHeader(),
+                const SizedBox(height: 48),
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
@@ -561,13 +561,14 @@ class _AddEditEquipmentScreenState extends State<AddEditEquipmentScreen> {
       backgroundColor: Colors.grey[100],
       body: _isLoading && _isEditing && _existingEquipment == null
           ? const Center(child: CircularProgressIndicator())
-          : SafeArea(
-              child: SingleChildScrollView(
-                child: ResponsiveContainer(
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 16),
-                      _buildHeaderBanner(),
+          : SingleChildScrollView(
+              child: ResponsiveContainer(
+                padding: ResponsiveHelper.getScreenPadding(context).copyWith(
+                  top: MediaQuery.of(context).padding.top + 16,
+                ),
+                child: Column(
+                  children: [
+                    _buildHeaderBanner(),
                       const SizedBox(height: 24),
                       Form(
                         key: _formKey,
@@ -579,7 +580,78 @@ class _AddEditEquipmentScreenState extends State<AddEditEquipmentScreen> {
                   ),
                 ),
               ),
-            ),
+    );
+  }
+
+  Widget _buildPermissionDeniedHeader() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.red.shade600, Colors.red.shade400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              InkWell(
+                onTap: () => context.pop(),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                ),
+              ),
+              const Spacer(),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.inventory_2, size: 40, color: Colors.white),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _isEditing ? 'Edit Equipment' : 'Add Equipment',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Access Restricted',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -897,7 +969,7 @@ class _AddEditEquipmentScreenState extends State<AddEditEquipmentScreen> {
         ),
         const SizedBox(height: 16),
         DropdownButtonFormField<String>(
-          value: _selectedCategory,
+          initialValue: _selectedCategory,
           decoration: const InputDecoration(
             labelText: 'Category *',
             prefixIcon: Icon(Icons.category),
@@ -1050,7 +1122,7 @@ class _AddEditEquipmentScreenState extends State<AddEditEquipmentScreen> {
         ),
         const SizedBox(height: 16),
         DropdownButtonFormField<String>(
-          value: _assignedToId,
+          initialValue: _assignedToId,
           isExpanded: true,
           decoration: const InputDecoration(
             labelText: 'Assign to Who',
@@ -1422,7 +1494,7 @@ class _AddEditEquipmentScreenState extends State<AddEditEquipmentScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: DropdownButtonFormField<int>(
-                value: _purchaseYear ?? _purchaseDate?.year,
+                initialValue: _purchaseYear ?? _purchaseDate?.year,
                 decoration: const InputDecoration(
                   labelText: 'Purchase Year',
                   prefixIcon: Icon(Icons.event),
@@ -1523,7 +1595,7 @@ class _AddEditEquipmentScreenState extends State<AddEditEquipmentScreen> {
       color: Colors.orange,
       children: [
         DropdownButtonFormField<EquipmentStatus>(
-          value: _selectedStatus,
+          initialValue: _selectedStatus,
           decoration: const InputDecoration(
             labelText: 'Status *',
             prefixIcon: Icon(Icons.info),
@@ -1556,7 +1628,7 @@ class _AddEditEquipmentScreenState extends State<AddEditEquipmentScreen> {
         ),
         const SizedBox(height: 16),
         DropdownButtonFormField<EquipmentCondition>(
-          value: _selectedCondition,
+          initialValue: _selectedCondition,
           decoration: const InputDecoration(
             labelText: 'Condition *',
             prefixIcon: Icon(Icons.star_rate),

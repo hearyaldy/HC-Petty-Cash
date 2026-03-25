@@ -13,6 +13,7 @@ import '../../services/staff_service.dart';
 import '../../services/salary_benefits_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/responsive_helper.dart';
+import '../../widgets/page_image_header.dart';
 
 class AddEditStaffScreen extends StatefulWidget {
   final String? staffId; // null for add, not null for edit
@@ -267,7 +268,7 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             DropdownButtonFormField<DocumentType>(
-              value: selectedType,
+              initialValue: selectedType,
               isExpanded: true,
               decoration: InputDecoration(
                 labelText: 'Document Type',
@@ -667,150 +668,67 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final header = PageImageHeader(
+      title: _isEditing ? 'Edit Staff' : 'Add New Staff',
+      subtitle: _isEditing
+          ? 'Update staff information'
+          : 'Enter staff details below',
+      actions: [
+        if (!_isLoading)
+          PageImageHeader.actionButton(
+            icon: Icons.save,
+            tooltip: _isEditing ? 'Save changes' : 'Save staff',
+            onPressed: _saveStaff,
+          ),
+      ],
+    );
+
+    final content = (_isLoading && _isEditing)
+        ? const Center(child: CircularProgressIndicator())
+        : SingleChildScrollView(
+            child: Center(
+              child: Container(
+                constraints: BoxConstraints(
+                  maxWidth: ResponsiveHelper.getMaxContentWidth(context),
+                ),
+                padding: ResponsiveHelper.getScreenPadding(context),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 16),
+                      _buildPhotoSection(),
+                      const SizedBox(height: 24),
+                      _buildBasicInfoSection(),
+                      const SizedBox(height: 24),
+                      _buildContactSection(),
+                      const SizedBox(height: 24),
+                      _buildEmploymentSection(),
+                      const SizedBox(height: 24),
+                      _buildFinancialSection(),
+                      const SizedBox(height: 24),
+                      _buildDocumentsSection(),
+                      const SizedBox(height: 24),
+                      _buildNotesSection(),
+                      const SizedBox(height: 32),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+
     return Scaffold(
       backgroundColor: Colors.grey[100],
-      body: _isLoading && _isEditing
-          ? const Center(child: CircularProgressIndicator())
-          : CustomScrollView(
-              slivers: [
-                // Modern SliverAppBar with gradient
-                SliverAppBar(
-                  expandedHeight: 180,
-                  floating: false,
-                  pinned: true,
-                  elevation: 0,
-                  backgroundColor: Colors.blue.shade600,
-                  flexibleSpace: FlexibleSpaceBar(
-                    background: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Colors.blue.shade700,
-                            Colors.blue.shade500,
-                            Colors.indigo.shade400,
-                          ],
-                        ),
-                      ),
-                      child: SafeArea(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Icon(
-                                      _isEditing
-                                          ? Icons.edit
-                                          : Icons.person_add,
-                                      color: Colors.white,
-                                      size: 28,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          _isEditing
-                                              ? 'Edit Staff'
-                                              : 'Add New Staff',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 24,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          _isEditing
-                                              ? 'Update staff information'
-                                              : 'Enter staff details below',
-                                          style: TextStyle(
-                                            color: Colors.white.withOpacity(
-                                              0.9,
-                                            ),
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  actions: [
-                    if (!_isLoading)
-                      Container(
-                        margin: const EdgeInsets.only(right: 16),
-                        child: ElevatedButton.icon(
-                          onPressed: _saveStaff,
-                          icon: const Icon(Icons.save, size: 20),
-                          label: const Text('Save'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.blue.shade700,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                // Form content
-                SliverToBoxAdapter(
-                  child: Center(
-                    child: Container(
-                      constraints: BoxConstraints(
-                        maxWidth: ResponsiveHelper.getMaxContentWidth(context),
-                      ),
-                      padding: ResponsiveHelper.getScreenPadding(context),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SizedBox(height: 16),
-                            _buildPhotoSection(),
-                            const SizedBox(height: 24),
-                            _buildBasicInfoSection(),
-                            const SizedBox(height: 24),
-                            _buildContactSection(),
-                            const SizedBox(height: 24),
-                            _buildEmploymentSection(),
-                            const SizedBox(height: 24),
-                            _buildFinancialSection(),
-                            const SizedBox(height: 24),
-                            _buildDocumentsSection(),
-                            const SizedBox(height: 24),
-                            _buildNotesSection(),
-                            const SizedBox(height: 32),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+      body: Column(
+        children: [
+          header,
+          Expanded(
+            child: content,
+          ),
+        ],
+      ),
     );
   }
 
@@ -827,7 +745,7 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -841,7 +759,7 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [iconGradient[0].withOpacity(0.1), Colors.transparent],
+                colors: [iconGradient[0].withValues(alpha: 0.1), Colors.transparent],
               ),
               border: Border(
                 left: BorderSide(color: iconGradient[0], width: 4),
@@ -860,7 +778,7 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
                     borderRadius: BorderRadius.circular(10),
                     boxShadow: [
                       BoxShadow(
-                        color: iconGradient[0].withOpacity(0.3),
+                        color: iconGradient[0].withValues(alpha: 0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -924,7 +842,7 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.purple.withOpacity(0.2),
+                            color: Colors.purple.withValues(alpha: 0.2),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
@@ -1063,7 +981,7 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
             const SizedBox(width: 16),
             Expanded(
               child: DropdownButtonFormField<Gender>(
-                value: _gender,
+                initialValue: _gender,
                 decoration: _buildInputDecoration(
                   label: 'Gender',
                   icon: Icons.wc,
@@ -1218,7 +1136,7 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
         ),
         const SizedBox(height: 16),
         DropdownButtonFormField<UserRole>(
-          value: _role,
+          initialValue: _role,
           decoration: _buildInputDecoration(
             label: 'System Role *',
             icon: Icons.security,
@@ -1235,7 +1153,7 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
           children: [
             Expanded(
               child: DropdownButtonFormField<EmploymentType>(
-                value: _employmentType,
+                initialValue: _employmentType,
                 decoration: _buildInputDecoration(
                   label: 'Employment Type',
                   icon: Icons.schedule,
@@ -1256,7 +1174,7 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
             const SizedBox(width: 16),
             Expanded(
               child: DropdownButtonFormField<EmploymentStatus>(
-                value: _employmentStatus,
+                initialValue: _employmentStatus,
                 decoration: _buildInputDecoration(
                   label: 'Status',
                   icon: Icons.toggle_on,

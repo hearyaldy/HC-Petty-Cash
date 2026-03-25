@@ -96,6 +96,11 @@ import 'providers/income_report_provider.dart';
 import 'providers/media_production_provider.dart';
 import 'providers/cash_advance_provider.dart';
 import 'providers/medical_bill_reimbursement_provider.dart';
+import 'providers/payment_voucher_provider.dart';
+import 'screens/payment_voucher/payment_vouchers_screen.dart';
+import 'screens/payment_voucher/new_payment_voucher_screen.dart';
+import 'screens/payment_voucher/payment_voucher_detail_screen.dart';
+import 'screens/payment_voucher/edit_payment_voucher_screen.dart';
 import 'screens/medical_reimbursement/medical_reimbursement_list_screen.dart';
 import 'screens/medical_reimbursement/medical_reimbursement_detail_screen.dart';
 import 'screens/hub/media_dashboard_screen.dart';
@@ -211,6 +216,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => MediaProductionProvider()),
         ChangeNotifierProvider(create: (_) => CashAdvanceProvider()),
         ChangeNotifierProvider(create: (_) => MedicalBillReimbursementProvider()),
+        ChangeNotifierProvider(create: (_) => PaymentVoucherProvider()),
       ],
       child: Consumer2<AuthProvider, ThemeProvider>(
         builder: (context, authProvider, themeProvider, _) {
@@ -708,7 +714,18 @@ class MyApp extends StatelessWidget {
         ),
         GoRoute(
           path: '/cash-advances/new',
-          builder: (context, state) => const NewCashAdvanceScreen(),
+          builder: (context, state) {
+            final prId = state.uri.queryParameters['purchaseRequisitionId'];
+            final purpose = state.uri.queryParameters['purpose'];
+            final amountStr = state.uri.queryParameters['amount'];
+            final department = state.uri.queryParameters['department'];
+            return NewCashAdvanceScreen(
+              purchaseRequisitionId: prId,
+              initialPurpose: purpose,
+              initialAmount: amountStr != null ? double.tryParse(amountStr) : null,
+              initialDepartment: department,
+            );
+          },
         ),
         GoRoute(
           path: '/cash-advances/:advanceId',
@@ -734,6 +751,29 @@ class MyApp extends StatelessWidget {
           builder: (context, state) {
             final reimbursementId = state.pathParameters['reimbursementId']!;
             return MedicalReimbursementDetailScreen(reimbursementId: reimbursementId);
+          },
+        ),
+        // Payment Voucher Routes
+        GoRoute(
+          path: '/payment-vouchers',
+          builder: (context, state) => const PaymentVouchersScreen(),
+        ),
+        GoRoute(
+          path: '/payment-vouchers/new',
+          builder: (context, state) => const NewPaymentVoucherScreen(),
+        ),
+        GoRoute(
+          path: '/payment-vouchers/:voucherId',
+          builder: (context, state) {
+            final voucherId = state.pathParameters['voucherId']!;
+            return PaymentVoucherDetailScreen(voucherId: voucherId);
+          },
+        ),
+        GoRoute(
+          path: '/payment-vouchers/:voucherId/edit',
+          builder: (context, state) {
+            final voucherId = state.pathParameters['voucherId']!;
+            return EditPaymentVoucherScreen(voucherId: voucherId);
           },
         ),
         // Equipment Inventory Routes

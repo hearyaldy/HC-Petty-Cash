@@ -74,16 +74,40 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
         if (snapshot.hasError) {
           return Scaffold(
             backgroundColor: Colors.grey[100],
-            appBar: AppBar(title: const Text('Equipment Details')),
-            body: Center(child: Text('Error: ${snapshot.error}')),
+            body: SingleChildScrollView(
+              child: ResponsiveContainer(
+                padding: ResponsiveHelper.getScreenPadding(context).copyWith(
+                  top: MediaQuery.of(context).padding.top + 16,
+                ),
+                child: Column(
+                  children: [
+                    _buildSimpleHeader('Equipment Details'),
+                    const SizedBox(height: 48),
+                    Center(child: Text('Error: ${snapshot.error}')),
+                  ],
+                ),
+              ),
+            ),
           );
         }
 
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Scaffold(
             backgroundColor: Colors.grey[100],
-            appBar: AppBar(title: const Text('Equipment Details')),
-            body: const Center(child: CircularProgressIndicator()),
+            body: SingleChildScrollView(
+              child: ResponsiveContainer(
+                padding: ResponsiveHelper.getScreenPadding(context).copyWith(
+                  top: MediaQuery.of(context).padding.top + 16,
+                ),
+                child: Column(
+                  children: [
+                    _buildSimpleHeader('Equipment Details'),
+                    const SizedBox(height: 48),
+                    const Center(child: CircularProgressIndicator()),
+                  ],
+                ),
+              ),
+            ),
           );
         }
 
@@ -93,8 +117,20 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
         if (currentIndex == -1) {
           return Scaffold(
             backgroundColor: Colors.grey[100],
-            appBar: AppBar(title: const Text('Equipment Details')),
-            body: const Center(child: Text('Equipment not found')),
+            body: SingleChildScrollView(
+              child: ResponsiveContainer(
+                padding: ResponsiveHelper.getScreenPadding(context).copyWith(
+                  top: MediaQuery.of(context).padding.top + 16,
+                ),
+                child: Column(
+                  children: [
+                    _buildSimpleHeader('Equipment Details'),
+                    const SizedBox(height: 48),
+                    const Center(child: Text('Equipment not found')),
+                  ],
+                ),
+              ),
+            ),
           );
         }
 
@@ -104,20 +140,20 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
 
         return Scaffold(
           backgroundColor: Colors.grey[100],
-          body: SafeArea(
-            child: Column(
-              children: [
-                // Header section (scrollable part)
-                Padding(
-                  padding: ResponsiveHelper.getScreenPadding(context),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 900),
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 24),
-                          // Custom header banner with navigation
-                          _buildHeaderBanner(
+          body: Column(
+            children: [
+              // Header section
+              Padding(
+                padding: ResponsiveHelper.getScreenPadding(context).copyWith(
+                  top: MediaQuery.of(context).padding.top + 16,
+                ),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 900),
+                    child: Column(
+                      children: [
+                        // Custom header banner with navigation
+                        _buildHeaderBanner(
                             equipment,
                             canEdit,
                             canDelete,
@@ -184,10 +220,68 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
                 ),
               ],
             ),
-          ),
           floatingActionButton: _buildActionButton(equipment),
         );
       },
+    );
+  }
+
+  Widget _buildSimpleHeader(String title) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.purple.shade600, Colors.purple.shade400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              InkWell(
+                onTap: () => context.pop(),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                ),
+              ),
+              const Spacer(),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.inventory_2, size: 40, color: Colors.white),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -458,23 +552,6 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
     );
   }
 
-  Widget _buildStatusChip(String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
 
   Widget? _buildActionButton(Equipment equipment) {
     final authProvider = context.watch<AuthProvider>();
@@ -1387,7 +1464,7 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<EquipmentCondition>(
-                  value: selectedCondition,
+                  initialValue: selectedCondition,
                   decoration: const InputDecoration(
                     labelText: 'Current Condition',
                     border: OutlineInputBorder(),
@@ -1524,7 +1601,7 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<EquipmentCondition>(
-                  value: selectedCondition,
+                  initialValue: selectedCondition,
                   decoration: const InputDecoration(
                     labelText: 'Condition at Return',
                     border: OutlineInputBorder(),
@@ -1807,7 +1884,7 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
                           ),
                           const SizedBox(height: 12),
                           DropdownButtonFormField<String>(
-                            value: selectedCategory,
+                            initialValue: selectedCategory,
                             decoration: const InputDecoration(
                               labelText: 'Category',
                               border: OutlineInputBorder(),
@@ -1854,7 +1931,7 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
                             children: [
                               Expanded(
                                 child: DropdownButtonFormField<EquipmentStatus>(
-                                  value: selectedStatus,
+                                  initialValue: selectedStatus,
                                   decoration: const InputDecoration(
                                     labelText: 'Status',
                                     border: OutlineInputBorder(),
@@ -1875,7 +1952,7 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
                               const SizedBox(width: 12),
                               Expanded(
                                 child: DropdownButtonFormField<EquipmentCondition>(
-                                  value: selectedCondition,
+                                  initialValue: selectedCondition,
                                   decoration: const InputDecoration(
                                     labelText: 'Condition',
                                     border: OutlineInputBorder(),
@@ -1953,7 +2030,7 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
                           ),
                           const SizedBox(height: 12),
                           DropdownButtonFormField<String>(
-                            value: assignedToId,
+                            initialValue: assignedToId,
                             isExpanded: true,
                             decoration: const InputDecoration(
                               labelText: 'Assigned To',
@@ -2065,7 +2142,7 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
                               const SizedBox(width: 12),
                               Expanded(
                                 child: DropdownButtonFormField<int>(
-                                  value: purchaseYear ?? purchaseDate?.year,
+                                  initialValue: purchaseYear ?? purchaseDate?.year,
                                   decoration: const InputDecoration(
                                     labelText: 'Purchase Year',
                                     border: OutlineInputBorder(),
@@ -2599,7 +2676,7 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                    value: selectedPreset,
+                    initialValue: selectedPreset,
                     decoration: const InputDecoration(
                       border: OutlineInputBorder(),
                       contentPadding:

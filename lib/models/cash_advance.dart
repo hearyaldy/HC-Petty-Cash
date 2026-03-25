@@ -40,6 +40,9 @@ class CashAdvance {
   final String? paymentMethod; // cash, bankTransfer, card, other
   final String? referenceNumber;
 
+  // Purchase Requisition Link
+  final String? purchaseRequisitionId; // Links to PurchaseRequisition this advance was raised for
+
   // Settlement Connection
   final String? settlementId; // Links to PettyCashReport (reportType='advance_settlement')
   final DateTime? settledAt;
@@ -77,6 +80,7 @@ class CashAdvance {
     this.disbursedAmount,
     this.paymentMethod,
     this.referenceNumber,
+    this.purchaseRequisitionId,
     this.settlementId,
     this.settledAt,
     this.settledAmount,
@@ -143,6 +147,7 @@ class CashAdvance {
       'disbursedAmount': disbursedAmount,
       'paymentMethod': paymentMethod,
       'referenceNumber': referenceNumber,
+      'purchaseRequisitionId': purchaseRequisitionId,
       'settlementId': settlementId,
       'settledAt': settledAt != null ? Timestamp.fromDate(settledAt!) : null,
       'settledAmount': settledAmount,
@@ -199,6 +204,7 @@ class CashAdvance {
       disbursedAmount: (data['disbursedAmount'] as num?)?.toDouble(),
       paymentMethod: data['paymentMethod'],
       referenceNumber: data['referenceNumber'],
+      purchaseRequisitionId: data['purchaseRequisitionId'],
       settlementId: data['settlementId'],
       settledAt: parseTimestampOptional(data['settledAt']),
       settledAmount: (data['settledAmount'] as num?)?.toDouble(),
@@ -268,6 +274,7 @@ class CashAdvance {
       disbursedAmount: (json['disbursedAmount'] as num?)?.toDouble(),
       paymentMethod: json['paymentMethod'],
       referenceNumber: json['referenceNumber'],
+      purchaseRequisitionId: json['purchaseRequisitionId'],
       settlementId: json['settlementId'],
       settledAt: json['settledAt'] != null
           ? (json['settledAt'] is Timestamp
@@ -309,6 +316,7 @@ class CashAdvance {
     double? disbursedAmount,
     String? paymentMethod,
     String? referenceNumber,
+    String? purchaseRequisitionId,
     String? settlementId,
     DateTime? settledAt,
     double? settledAmount,
@@ -343,6 +351,7 @@ class CashAdvance {
       disbursedAmount: disbursedAmount ?? this.disbursedAmount,
       paymentMethod: paymentMethod ?? this.paymentMethod,
       referenceNumber: referenceNumber ?? this.referenceNumber,
+      purchaseRequisitionId: purchaseRequisitionId ?? this.purchaseRequisitionId,
       settlementId: settlementId ?? this.settlementId,
       settledAt: settledAt ?? this.settledAt,
       settledAmount: settledAmount ?? this.settledAmount,

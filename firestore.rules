@@ -729,6 +729,30 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Payment Vouchers collection
+    match /payment_vouchers/{voucherId} {
+      // Owners and approvers can read
+      allow read: if isAuthenticated() && (
+        resource.data.createdById == request.auth.uid || canApprove()
+      );
+
+      // Any authenticated user can create their own voucher
+      allow create: if isAuthenticated() &&
+        request.resource.data.createdById == request.auth.uid;
+
+      // Owner can update draft vouchers; approvers can update any
+      allow update: if isAuthenticated() && (
+        (resource.data.createdById == request.auth.uid && resource.data.status == 'draft') ||
+        canApprove()
+      );
+
+      // Owner can delete draft vouchers; admin can delete any
+      allow delete: if isAuthenticated() && (
+        (resource.data.createdById == request.auth.uid && resource.data.status == 'draft') ||
+        isAdmin()
+      );
+    }
+
     // Medical Bill Reimbursements collection
     match /medical_bill_reimbursements/{reimbursementId} {
       // Owners can read their own reimbursements, approvers can read all

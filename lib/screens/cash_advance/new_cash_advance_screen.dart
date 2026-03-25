@@ -7,13 +7,25 @@ import '../../models/cash_advance.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/cash_advance_provider.dart';
 import '../../services/cash_advance_pdf_service.dart';
+import '../../services/firestore_service.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
 
 class NewCashAdvanceScreen extends StatefulWidget {
   final String? advanceId; // For editing existing advance
+  final String? purchaseRequisitionId; // Pre-linked PR
+  final String? initialPurpose;
+  final double? initialAmount;
+  final String? initialDepartment;
 
-  const NewCashAdvanceScreen({super.key, this.advanceId});
+  const NewCashAdvanceScreen({
+    super.key,
+    this.advanceId,
+    this.purchaseRequisitionId,
+    this.initialPurpose,
+    this.initialAmount,
+    this.initialDepartment,
+  });
 
   @override
   State<NewCashAdvanceScreen> createState() => _NewCashAdvanceScreenState();
@@ -47,6 +59,19 @@ class _NewCashAdvanceScreenState extends State<NewCashAdvanceScreen> {
 
     if (user != null) {
       _departmentController.text = user.department;
+    }
+
+    // Pre-fill from PR if provided
+    if (widget.purchaseRequisitionId != null) {
+      if (widget.initialPurpose != null) {
+        _purposeController.text = widget.initialPurpose!;
+      }
+      if (widget.initialAmount != null) {
+        _amountController.text = widget.initialAmount!.toStringAsFixed(2);
+      }
+      if (widget.initialDepartment != null) {
+        _departmentController.text = widget.initialDepartment!;
+      }
     }
 
     if (widget.advanceId != null) {
@@ -194,7 +219,18 @@ class _NewCashAdvanceScreenState extends State<NewCashAdvanceScreen> {
           notes: _notesController.text.trim().isEmpty
               ? null
               : _notesController.text.trim(),
+          purchaseRequisitionId: widget.purchaseRequisitionId,
         );
+
+        // Update the PR with the new CA id
+        if (advance != null && widget.purchaseRequisitionId != null) {
+          try {
+            await FirestoreService().updatePurchaseRequisitionCashAdvanceId(
+              widget.purchaseRequisitionId!,
+              advance.id,
+            );
+          } catch (_) {}
+        }
 
         if (advance != null && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -238,7 +274,6 @@ class _NewCashAdvanceScreenState extends State<NewCashAdvanceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = ResponsiveHelper.isMobile(context);
     final contentPadding = ResponsiveHelper.getScreenPadding(context);
     final maxWidth = ResponsiveHelper.getMaxContentWidth(context);
 

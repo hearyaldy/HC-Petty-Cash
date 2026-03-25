@@ -1,0 +1,117 @@
+import 'package:flutter/material.dart';
+
+final List<IconData> kCustomCategoryIcons = [
+  Icons.attach_money,
+  Icons.shopping_cart,
+  Icons.restaurant,
+  Icons.flight,
+  Icons.hotel,
+  Icons.directions_car,
+  Icons.local_gas_station,
+  Icons.coffee,
+  Icons.phone,
+  Icons.computer,
+  Icons.print,
+  Icons.email,
+  Icons.bolt,
+  Icons.water_drop,
+  Icons.business,
+  Icons.home,
+  Icons.build,
+  Icons.cleaning_services,
+  Icons.local_hospital,
+  Icons.school,
+  Icons.book,
+  Icons.sports,
+  Icons.music_note,
+  Icons.camera,
+  Icons.palette,
+  Icons.theater_comedy,
+  Icons.celebration,
+  Icons.card_giftcard,
+  Icons.local_shipping,
+  Icons.inventory,
+  Icons.science,
+  Icons.agriculture,
+  Icons.factory,
+  Icons.construction,
+  Icons.handyman,
+  Icons.engineering,
+  Icons.design_services,
+  Icons.calculate,
+  Icons.insights,
+  Icons.trending_up,
+  Icons.assessment,
+  Icons.account_balance,
+  Icons.credit_card,
+  Icons.receipt_long,
+  Icons.qr_code,
+  Icons.store,
+  Icons.storefront,
+  Icons.shopping_bag,
+  Icons.local_mall,
+  Icons.local_cafe,
+  Icons.local_pizza,
+  Icons.fastfood,
+  Icons.lunch_dining,
+  Icons.dinner_dining,
+  Icons.local_bar,
+  Icons.liquor,
+  Icons.bakery_dining,
+  Icons.icecream,
+  Icons.emoji_food_beverage,
+  Icons.medical_services,
+  Icons.vaccines,
+  Icons.medication,
+  Icons.spa,
+  Icons.fitness_center,
+  Icons.pool,
+  Icons.beach_access,
+  Icons.park,
+  Icons.forest,
+  Icons.pets,
+  Icons.child_care,
+  Icons.elderly,
+  Icons.accessible,
+  Icons.volunteer_activism,
+  Icons.favorite,
+  Icons.star,
+  Icons.workspace_premium,
+  Icons.verified,
+  Icons.security,
+  Icons.lock,
+  Icons.vpn_key,
+  Icons.badge,
+  Icons.notifications,
+  Icons.alarm,
+  Icons.schedule,
+  Icons.calendar_today,
+  Icons.event,
+  Icons.wb_sunny,
+  Icons.wb_cloudy,
+  Icons.ac_unit,
+  Icons.whatshot,
+  Icons.eco,
+  Icons.recycling,
+  Icons.light_mode,
+  Icons.dark_mode,
+  Icons.more_horiz,
+];
+
+final Map<int, IconData> _iconByCodePoint = _buildIconMap();
+
+Map<int, IconData> _buildIconMap() {
+  final map = <int, IconData>{};
+  for (final icon in kCustomCategoryIcons) {
+    map[icon.codePoint] = icon;
+  }
+  return map;
+}
+
+IconData iconFromCodePoint(String? codePoint) {
+  final parsed = int.tryParse(codePoint ?? '');
+  if (parsed == null) {
+    return Icons.category;
+  }
+  return _iconByCodePoint[parsed] ?? Icons.category;
+}

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import '../models/employment_letter.dart';
 
 class EmploymentLetterService {
@@ -67,19 +68,19 @@ class EmploymentLetterService {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
-          print('Debug: Got ${snapshot.docs.length} template documents from Firestore');
+          debugPrint('Debug: Got ${snapshot.docs.length} template documents from Firestore');
           final List<EmploymentLetterTemplate> templates = [];
           for (final doc in snapshot.docs) {
             try {
               final template = EmploymentLetterTemplate.fromFirestore(doc);
               templates.add(template);
             } catch (e) {
-              print('Debug: Error parsing template document ${doc.id}: $e');
-              print('Debug: Document data: ${doc.data()}');
+              debugPrint('Debug: Error parsing template document ${doc.id}: $e');
+              debugPrint('Debug: Document data: ${doc.data()}');
               // Continue processing other documents
             }
           }
-          print('Debug: Successfully parsed ${templates.length} templates');
+          debugPrint('Debug: Successfully parsed ${templates.length} templates');
           return templates;
         });
   }

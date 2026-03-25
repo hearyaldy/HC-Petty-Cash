@@ -428,7 +428,7 @@ class _MediaYearlyStatsScreenState extends State<MediaYearlyStatsScreen> {
               mobile: Column(
                 children: [
                   DropdownButtonFormField<int>(
-                    value: _selectedYear,
+                    initialValue: _selectedYear,
                     decoration: const InputDecoration(
                       labelText: 'Year',
                       border: OutlineInputBorder(),
@@ -448,7 +448,7 @@ class _MediaYearlyStatsScreenState extends State<MediaYearlyStatsScreen> {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: _selectedLanguage,
+                    initialValue: _selectedLanguage,
                     decoration: const InputDecoration(
                       labelText: 'Language',
                       border: OutlineInputBorder(),
@@ -473,7 +473,7 @@ class _MediaYearlyStatsScreenState extends State<MediaYearlyStatsScreen> {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: _selectedPlatform,
+                    initialValue: _selectedPlatform,
                     decoration: const InputDecoration(
                       labelText: 'Platform',
                       border: OutlineInputBorder(),
@@ -521,7 +521,7 @@ class _MediaYearlyStatsScreenState extends State<MediaYearlyStatsScreen> {
                     children: [
                       Expanded(
                         child: DropdownButtonFormField<int>(
-                          value: _selectedYear,
+                          initialValue: _selectedYear,
                           decoration: const InputDecoration(
                             labelText: 'Year',
                             border: OutlineInputBorder(),
@@ -543,7 +543,7 @@ class _MediaYearlyStatsScreenState extends State<MediaYearlyStatsScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          value: _selectedLanguage,
+                          initialValue: _selectedLanguage,
                           decoration: const InputDecoration(
                             labelText: 'Language',
                             border: OutlineInputBorder(),
@@ -574,7 +574,7 @@ class _MediaYearlyStatsScreenState extends State<MediaYearlyStatsScreen> {
                     children: [
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          value: _selectedPlatform,
+                          initialValue: _selectedPlatform,
                           decoration: const InputDecoration(
                             labelText: 'Platform',
                             border: OutlineInputBorder(),

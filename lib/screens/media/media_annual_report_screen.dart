@@ -263,7 +263,7 @@ class _MediaAnnualReportScreenState extends State<MediaAnnualReportScreen> {
           children: [
             Expanded(
               child: DropdownButtonFormField<int>(
-                value: _selectedYear,
+                initialValue: _selectedYear,
                 decoration: const InputDecoration(
                   labelText: 'Year',
                   border: OutlineInputBorder(),
@@ -285,7 +285,7 @@ class _MediaAnnualReportScreenState extends State<MediaAnnualReportScreen> {
             const SizedBox(width: 16),
             Expanded(
               child: DropdownButtonFormField<String?>(
-                value: _selectedLanguage,
+                initialValue: _selectedLanguage,
                 decoration: const InputDecoration(
                   labelText: 'Language',
                   border: OutlineInputBorder(),

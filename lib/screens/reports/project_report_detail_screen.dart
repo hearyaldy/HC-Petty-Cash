@@ -15,6 +15,7 @@ import '../../models/enums.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
 import '../../widgets/edit_project_report_dialog.dart';
+import '../../widgets/page_image_header.dart';
 
 class ProjectReportDetailScreen extends StatefulWidget {
   final String reportId;
@@ -69,12 +70,15 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
     if (report == null && (projectReportProvider.isLoading || projectReportProvider.projectReports.isEmpty)) {
       return Scaffold(
         backgroundColor: Colors.grey[50],
-        appBar: AppBar(
-          elevation: 0,
-          title: const Text('Loading...'),
-        ),
-        body: const Center(
-          child: CircularProgressIndicator(),
+        body: SafeArea(
+          child: Column(
+            children: [
+              const PageImageHeader(title: 'Loading...'),
+              const Expanded(
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -82,25 +86,30 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
     if (report == null) {
       return Scaffold(
         backgroundColor: Colors.grey[50],
-        appBar: AppBar(
-          elevation: 0,
-          title: const Text('Project Report'),
-        ),
-        body: Center(
+        body: SafeArea(
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
-              const SizedBox(height: 16),
-              Text(
-                'Project report not found',
-                style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: () => context.go('/admin-hub'),
-                icon: const Icon(Icons.home),
-                label: const Text('Go to Dashboard'),
+              const PageImageHeader(title: 'Project Report'),
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Project report not found',
+                        style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton.icon(
+                        onPressed: () => context.go('/admin-hub'),
+                        icon: const Icon(Icons.home),
+                        label: const Text('Go to Dashboard'),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
@@ -137,98 +146,108 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        elevation: 0,
-        title: Text(report.reportNumber),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.home_outlined),
-            onPressed: () => context.go('/admin-hub'),
-            tooltip: 'Home',
-          ),
-          if (report.statusEnum != ReportStatus.closed)
-            IconButton(
-              icon: const Icon(Icons.add),
-              onPressed: () => _showAddTransactionDialog(report),
-              tooltip: 'Add Transaction',
+      body: SafeArea(
+        child: Column(
+          children: [
+            PageImageHeader(
+              title: report.reportNumber,
+              actions: [
+                PageImageHeader.actionButton(
+                  icon: Icons.home_outlined,
+                  tooltip: 'Home',
+                  onPressed: () => context.go('/admin-hub'),
+                ),
+                if (report.statusEnum != ReportStatus.closed)
+                  PageImageHeader.actionButton(
+                    icon: Icons.add,
+                    tooltip: 'Add Transaction',
+                    onPressed: () => _showAddTransactionDialog(report),
+                  ),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert, color: Colors.white),
+                  tooltip: 'Actions',
+                  onSelected: (value) async {
+                    if (value == 'edit') {
+                      await _showEditReportDialog(report, projectReportProvider);
+                    } else if (value == 'submit') {
+                      await _submitReport(report, projectReportProvider);
+                    } else if (value == 'approve') {
+                      await _approveReport(report, projectReportProvider);
+                    } else if (value == 'close') {
+                      await _closeReport(report, projectReportProvider);
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    if (report.statusEnum == ReportStatus.draft ||
+                        authProvider.canApprove())
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit),
+                            SizedBox(width: 8),
+                            Text('Edit Report'),
+                          ],
+                        ),
+                      ),
+                    if (report.statusEnum == ReportStatus.draft)
+                      const PopupMenuItem(
+                        value: 'submit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.send),
+                            SizedBox(width: 8),
+                            Text('Submit Report'),
+                          ],
+                        ),
+                      ),
+                    if (authProvider.canApprove() &&
+                        (report.statusEnum == ReportStatus.submitted ||
+                            report.statusEnum ==
+                                ReportStatus.underReview))
+                      const PopupMenuItem(
+                        value: 'approve',
+                        child: Row(
+                          children: [
+                            Icon(Icons.check_circle, color: Colors.green),
+                            SizedBox(width: 8),
+                            Text('Approve Report'),
+                          ],
+                        ),
+                      ),
+                    if (authProvider.canApprove() &&
+                        report.statusEnum == ReportStatus.approved)
+                      const PopupMenuItem(
+                        value: 'close',
+                        child: Row(
+                          children: [
+                            Icon(Icons.lock, color: Colors.purple),
+                            SizedBox(width: 8),
+                            Text('Close Report'),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ],
             ),
-          PopupMenuButton<String>(
-            onSelected: (value) async {
-              if (value == 'edit') {
-                await _showEditReportDialog(report, projectReportProvider);
-              } else if (value == 'submit') {
-                await _submitReport(report, projectReportProvider);
-              } else if (value == 'approve') {
-                await _approveReport(report, projectReportProvider);
-              } else if (value == 'close') {
-                await _closeReport(report, projectReportProvider);
-              }
-            },
-            itemBuilder: (context) => [
-              if (report.statusEnum == ReportStatus.draft ||
-                  authProvider.canApprove())
-                const PopupMenuItem(
-                  value: 'edit',
-                  child: Row(
+            Expanded(
+              child: ResponsiveContainer(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.edit),
-                      SizedBox(width: 8),
-                      Text('Edit Report'),
+                      _buildHeader(report),
+                      const SizedBox(height: 24),
+                      _buildFinancialSummary(report, actualExpenses, remainingBudget),
+                      const SizedBox(height: 24),
+                      _buildTransactionsList(transactions, authProvider),
                     ],
                   ),
                 ),
-              if (report.statusEnum == ReportStatus.draft)
-                const PopupMenuItem(
-                  value: 'submit',
-                  child: Row(
-                    children: [
-                      Icon(Icons.send),
-                      SizedBox(width: 8),
-                      Text('Submit Report'),
-                    ],
-                  ),
-                ),
-              if (authProvider.canApprove() &&
-                  (report.statusEnum == ReportStatus.submitted ||
-                      report.statusEnum == ReportStatus.underReview))
-                const PopupMenuItem(
-                  value: 'approve',
-                  child: Row(
-                    children: [
-                      Icon(Icons.check_circle, color: Colors.green),
-                      SizedBox(width: 8),
-                      Text('Approve Report'),
-                    ],
-                  ),
-                ),
-              if (authProvider.canApprove() &&
-                  report.statusEnum == ReportStatus.approved)
-                const PopupMenuItem(
-                  value: 'close',
-                  child: Row(
-                    children: [
-                      Icon(Icons.lock, color: Colors.purple),
-                      SizedBox(width: 8),
-                      Text('Close Report'),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
-      body: ResponsiveContainer(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(report),
-              const SizedBox(height: 24),
-              _buildFinancialSummary(report, actualExpenses, remainingBudget),
-              const SizedBox(height: 24),
-              _buildTransactionsList(transactions, authProvider),
-            ],
-          ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -246,7 +265,7 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withOpacity(0.3),
+            color: Colors.blue.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -274,7 +293,7 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
                       report.reportNumber,
                       style: TextStyle(
                         fontSize: 16,
-                        color: Colors.white.withOpacity(0.8),
+                        color: Colors.white.withValues(alpha: 0.8),
                       ),
                     ),
                   ],
@@ -287,7 +306,7 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
+              color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
@@ -355,7 +374,7 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: backgroundColor.withOpacity(0.3),
+            color: backgroundColor.withValues(alpha: 0.3),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -384,7 +403,7 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
         Icon(
           icon,
           size: 20,
-          color: isWhite ? Colors.white.withOpacity(0.9) : Colors.grey[600],
+          color: isWhite ? Colors.white.withValues(alpha: 0.9) : Colors.grey[600],
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -420,7 +439,7 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -519,7 +538,7 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: gradientColors.first.withOpacity(0.3),
+            color: gradientColors.first.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -533,7 +552,7 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(icon, color: Colors.white, size: 20),
@@ -581,7 +600,7 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: gradientColors.first.withOpacity(0.3),
+            color: gradientColors.first.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -595,7 +614,7 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
@@ -630,7 +649,7 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
           Container(
             height: 8,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.3),
+              color: Colors.white.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(4),
             ),
             child: FractionallySizedBox(
@@ -660,7 +679,7 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),

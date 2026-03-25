@@ -462,7 +462,7 @@ class _AnnualLeaveRequestScreenState extends State<AnnualLeaveRequestScreen> {
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: sortedDocs.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      separatorBuilder: (_, _) => const SizedBox(height: 8),
                       itemBuilder: (context, index) {
                         final request =
                             AnnualLeaveRequest.fromFirestore(sortedDocs[index]);
@@ -550,7 +550,7 @@ class _AnnualLeaveRequestScreenState extends State<AnnualLeaveRequestScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.teal.shade200.withOpacity(0.5),
+            color: Colors.teal.shade200.withValues(alpha: 0.5),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -580,7 +580,7 @@ class _AnnualLeaveRequestScreenState extends State<AnnualLeaveRequestScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
@@ -607,7 +607,7 @@ class _AnnualLeaveRequestScreenState extends State<AnnualLeaveRequestScreen> {
                       'Submit and track your leave requests',
                       style: TextStyle(
                         fontSize: isMobile ? 12 : 14,
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                       ),
                     ),
                   ],
@@ -633,7 +633,7 @@ class _AnnualLeaveRequestScreenState extends State<AnnualLeaveRequestScreen> {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: Colors.white, size: 20),

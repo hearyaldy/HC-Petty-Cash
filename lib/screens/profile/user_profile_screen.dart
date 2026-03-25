@@ -122,7 +122,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         _salaryBenefits = salaryBenefits;
       }
     } catch (e) {
-      print('Debug: Could not load staff/salary data: $e');
+      debugPrint('Debug: Could not load staff/salary data: $e');
       // This is not critical - user may not have a staff record
     }
   }
@@ -328,7 +328,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.purple.shade200.withOpacity(0.5),
+            color: Colors.purple.shade200.withValues(alpha: 0.5),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -368,7 +368,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(Icons.person, color: Colors.white, size: 28),
@@ -391,7 +391,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       'Manage your personal information',
                       style: TextStyle(
                         fontSize: isMobile ? 12 : 14,
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                       ),
                     ),
                   ],
@@ -417,7 +417,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: Colors.white, size: 20),
@@ -439,7 +439,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   radius: 60,
                   backgroundColor: Theme.of(
                     context,
-                  ).primaryColor.withOpacity(0.1),
+                  ).primaryColor.withValues(alpha: 0.1),
                   backgroundImage: _pickedBytes != null
                       ? MemoryImage(_pickedBytes!)
                       : _pickedFile != null

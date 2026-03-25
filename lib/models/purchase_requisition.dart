@@ -7,7 +7,9 @@ class PurchaseRequisitionItem {
   final int itemNo;
   final String description;
   final int quantity;
-  final double unitPrice;
+  final double unitPrice; // always stored in THB
+  final double? usdUnitPrice; // original USD price if entered in USD
+  final double? exchangeRate; // USD→THB rate used at time of entry
   final String? remark;
   final DateTime createdAt;
   final List<String> supportDocumentUrls;
@@ -19,12 +21,16 @@ class PurchaseRequisitionItem {
     required this.description,
     required this.quantity,
     required this.unitPrice,
+    this.usdUnitPrice,
+    this.exchangeRate,
     this.remark,
     required this.createdAt,
     List<String>? supportDocumentUrls,
   }) : supportDocumentUrls = supportDocumentUrls ?? [];
 
   double get totalPrice => quantity * unitPrice;
+  double? get totalUsd =>
+      usdUnitPrice != null ? quantity * usdUnitPrice! : null;
 
   Map<String, dynamic> toFirestore() {
     return {
@@ -34,6 +40,8 @@ class PurchaseRequisitionItem {
       'description': description,
       'quantity': quantity,
       'unitPrice': unitPrice,
+      if (usdUnitPrice != null) 'usdUnitPrice': usdUnitPrice,
+      if (exchangeRate != null) 'exchangeRate': exchangeRate,
       'remark': remark,
       'createdAt': Timestamp.fromDate(createdAt),
       'supportDocumentUrls': supportDocumentUrls,
@@ -57,6 +65,8 @@ class PurchaseRequisitionItem {
       description: data['description'] ?? '',
       quantity: data['quantity'] ?? 0,
       unitPrice: (data['unitPrice'] ?? 0.0).toDouble(),
+      usdUnitPrice: (data['usdUnitPrice'] as num?)?.toDouble(),
+      exchangeRate: (data['exchangeRate'] as num?)?.toDouble(),
       remark: data['remark'],
       createdAt: parseTimestamp(data['createdAt'], DateTime.now()),
       supportDocumentUrls: List<String>.from(data['supportDocumentUrls'] ?? []),
@@ -71,6 +81,8 @@ class PurchaseRequisitionItem {
       description: data['description'] ?? '',
       quantity: data['quantity'] ?? 0,
       unitPrice: (data['unitPrice'] ?? 0.0).toDouble(),
+      usdUnitPrice: (data['usdUnitPrice'] as num?)?.toDouble(),
+      exchangeRate: (data['exchangeRate'] as num?)?.toDouble(),
       remark: data['remark'],
       createdAt: data['createdAt'] is Timestamp
           ? (data['createdAt'] as Timestamp).toDate()
@@ -81,6 +93,8 @@ class PurchaseRequisitionItem {
 
   Map<String, dynamic> toJson() => toFirestore();
 
+  static const _unset = Object();
+
   PurchaseRequisitionItem copyWith({
     String? id,
     String? requisitionId,
@@ -88,7 +102,9 @@ class PurchaseRequisitionItem {
     String? description,
     int? quantity,
     double? unitPrice,
-    String? remark,
+    Object? usdUnitPrice = _unset,
+    Object? exchangeRate = _unset,
+    Object? remark = _unset,
     DateTime? createdAt,
     List<String>? supportDocumentUrls,
   }) {
@@ -99,7 +115,9 @@ class PurchaseRequisitionItem {
       description: description ?? this.description,
       quantity: quantity ?? this.quantity,
       unitPrice: unitPrice ?? this.unitPrice,
-      remark: remark ?? this.remark,
+      usdUnitPrice: usdUnitPrice == _unset ? this.usdUnitPrice : usdUnitPrice as double?,
+      exchangeRate: exchangeRate == _unset ? this.exchangeRate : exchangeRate as double?,
+      remark: remark == _unset ? this.remark : remark as String?,
       createdAt: createdAt ?? this.createdAt,
       supportDocumentUrls: supportDocumentUrls ?? this.supportDocumentUrls,
     );
@@ -127,6 +145,7 @@ class PurchaseRequisition {
   final String? approvedBy;
   final String? actionNo; // For amounts more than 20,000 Baht per item
   final String? rejectionReason;
+  final String? cashAdvanceId; // Links to CashAdvance raised from this PR
   final List<String> supportDocumentUrls;
   final DateTime? updatedAt;
 
@@ -149,6 +168,7 @@ class PurchaseRequisition {
     this.approvedBy,
     this.actionNo,
     this.rejectionReason,
+    this.cashAdvanceId,
     List<String>? supportDocumentUrls,
     this.updatedAt,
   }) : supportDocumentUrls = supportDocumentUrls ?? [];
@@ -178,6 +198,7 @@ class PurchaseRequisition {
       'approvedBy': approvedBy,
       'actionNo': actionNo,
       'rejectionReason': rejectionReason,
+      'cashAdvanceId': cashAdvanceId,
       'supportDocumentUrls': supportDocumentUrls,
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
     };
@@ -220,6 +241,7 @@ class PurchaseRequisition {
       approvedBy: data['approvedBy'],
       actionNo: data['actionNo'],
       rejectionReason: data['rejectionReason'],
+      cashAdvanceId: data['cashAdvanceId'],
       supportDocumentUrls:
           (data['supportDocumentUrls'] as List<dynamic>?)?.cast<String>() ?? [],
       updatedAt: parseTimestampOptional(data['updatedAt']),
@@ -264,6 +286,7 @@ class PurchaseRequisition {
       approvedBy: json['approvedBy'],
       actionNo: json['actionNo'],
       rejectionReason: json['rejectionReason'],
+      cashAdvanceId: json['cashAdvanceId'],
       supportDocumentUrls:
           (json['supportDocumentUrls'] as List<dynamic>?)?.cast<String>() ?? [],
       updatedAt: json['updatedAt'] != null
@@ -293,6 +316,7 @@ class PurchaseRequisition {
     String? approvedBy,
     String? actionNo,
     String? rejectionReason,
+    Object? cashAdvanceId = _unset,
     List<String>? supportDocumentUrls,
     DateTime? updatedAt,
   }) {
@@ -315,8 +339,11 @@ class PurchaseRequisition {
       approvedBy: approvedBy ?? this.approvedBy,
       actionNo: actionNo ?? this.actionNo,
       rejectionReason: rejectionReason ?? this.rejectionReason,
+      cashAdvanceId: cashAdvanceId == _unset ? this.cashAdvanceId : cashAdvanceId as String?,
       supportDocumentUrls: supportDocumentUrls ?? this.supportDocumentUrls,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
+
+  static const _unset = Object();
 }

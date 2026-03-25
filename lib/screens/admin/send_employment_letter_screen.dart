@@ -9,6 +9,7 @@ import '../../models/employment_letter.dart';
 import '../../services/employment_letter_service.dart';
 import '../../services/employment_letter_pdf_service.dart';
 import '../../services/salary_benefits_service.dart';
+import '../../utils/responsive_helper.dart';
 
 class SendEmploymentLetterScreen extends StatefulWidget {
   const SendEmploymentLetterScreen({super.key});
@@ -155,7 +156,7 @@ class _SendEmploymentLetterScreenState
       });
 
       // Generate the PDF
-      final pdfBytes = await _pdfService.generateEmploymentLetterPdf(
+      await _pdfService.generateEmploymentLetterPdf(
         staff: _staff!,
         salaryBenefits: _salaryBenefits,
         templateContent: _selectedTemplate!.content,
@@ -222,117 +223,421 @@ class _SendEmploymentLetterScreenState
     return months[month - 1];
   }
 
+  Widget _buildHeaderCard({List<Widget>? actions}) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.indigo.shade600, Colors.indigo.shade400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          // Navigation row
+          Row(
+            children: [
+              InkWell(
+                onTap: () => context.pop(),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                ),
+              ),
+              const Spacer(),
+              if (actions != null) ...actions,
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: () => context.go('/admin-hub'),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.home_outlined, color: Colors.white, size: 20),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Content row
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.mail_outline, size: 40, color: Colors.white),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Send Employment Letter',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Generate and send employment letters',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSimpleHeader() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.indigo.shade600, Colors.indigo.shade400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              InkWell(
+                onTap: () => context.pop(),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                ),
+              ),
+              const Spacer(),
+              InkWell(
+                onTap: () => context.go('/admin-hub'),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.home_outlined, color: Colors.white, size: 20),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.mail_outline, size: 40, color: Colors.white),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Send Employment Letter',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Generate and send employment letters',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Send Employment Letter')),
-        body: const Center(child: CircularProgressIndicator()),
+        backgroundColor: Colors.grey[50],
+        body: SingleChildScrollView(
+          child: ResponsiveContainer(
+            padding: ResponsiveHelper.getScreenPadding(context).copyWith(
+              top: MediaQuery.of(context).padding.top + 16,
+            ),
+            child: Column(
+              children: [
+                _buildSimpleHeader(),
+                const SizedBox(height: 100),
+                const Center(child: CircularProgressIndicator()),
+              ],
+            ),
+          ),
+        ),
       );
     }
 
     if (_staff == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Send Employment Letter')),
-        body: const Center(child: Text('Invalid staff data')),
+        backgroundColor: Colors.grey[50],
+        body: SingleChildScrollView(
+          child: ResponsiveContainer(
+            padding: ResponsiveHelper.getScreenPadding(context).copyWith(
+              top: MediaQuery.of(context).padding.top + 16,
+            ),
+            child: Column(
+              children: [
+                _buildSimpleHeader(),
+                const SizedBox(height: 100),
+                const Center(child: Text('Invalid staff data')),
+              ],
+            ),
+          ),
+        ),
       );
     }
 
     if (_templates.isEmpty || _selectedTemplate == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Send Employment Letter')),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.description_outlined,
-                size: 64,
-                color: Colors.grey,
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'No employment letter templates found',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Please create a template first',
-                style: TextStyle(color: Colors.grey),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: () =>
-                    context.push('/admin/employment-letter-template'),
-                icon: const Icon(Icons.add),
-                label: const Text('Create Template'),
-              ),
-            ],
+        backgroundColor: Colors.grey[50],
+        body: SingleChildScrollView(
+          child: ResponsiveContainer(
+            padding: ResponsiveHelper.getScreenPadding(context).copyWith(
+              top: MediaQuery.of(context).padding.top + 16,
+            ),
+            child: Column(
+              children: [
+                _buildSimpleHeader(),
+                const SizedBox(height: 48),
+                const Icon(
+                  Icons.description_outlined,
+                  size: 64,
+                  color: Colors.grey,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'No employment letter templates found',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Please create a template first',
+                  style: TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () =>
+                      context.push('/admin/employment-letter-template'),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Create Template'),
+                ),
+              ],
+            ),
           ),
         ),
       );
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Send Employment Letter'),
-        actions: [
-          TextButton(
-            onPressed: _isGenerating ? null : _sendLetter,
-            child: _isGenerating
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text(
-                    'Send',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-          ),
-        ],
-      ),
+      backgroundColor: Colors.grey[50],
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Staff Information Card
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Sending to: ${_staff!.fullName}',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+        child: ResponsiveContainer(
+          padding: ResponsiveHelper.getScreenPadding(context).copyWith(
+            top: MediaQuery.of(context).padding.top + 16,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildHeaderCard(
+                actions: [
+                  _isGenerating
+                      ? Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          ),
+                        )
+                      : InkWell(
+                          onTap: _sendLetter,
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.send, color: Colors.white, size: 20),
+                          ),
+                        ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Staff Information Card
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Sending to: ${_staff!.fullName}',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Position: ${_staff!.position}',
-                      style: TextStyle(color: Colors.grey[700]),
-                    ),
-                    Text(
-                      'Department: ${_staff!.department}',
-                      style: TextStyle(color: Colors.grey[700]),
-                    ),
-                    Text(
-                      'Employee ID: ${_staff!.employeeId}',
-                      style: TextStyle(color: Colors.grey[700]),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      Text(
+                        'Position: ${_staff!.position}',
+                        style: TextStyle(color: Colors.grey[700]),
+                      ),
+                      Text(
+                        'Department: ${_staff!.department}',
+                        style: TextStyle(color: Colors.grey[700]),
+                      ),
+                      Text(
+                        'Employee ID: ${_staff!.employeeId}',
+                        style: TextStyle(color: Colors.grey[700]),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(height: 24),
 
-            const SizedBox(height: 24),
+              // Template Selection
+              if (_selectedTemplate != null)
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Letter Template',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<String>(
+                          initialValue: _selectedTemplate!.id,
+                          decoration: const InputDecoration(
+                            labelText: 'Select Template',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: _templates
+                              .map<DropdownMenuItem<String>>((template) {
+                                return DropdownMenuItem(
+                                  value: template.id,
+                                  child: Text(template.title),
+                                );
+                              }).toList(),
+                          onChanged: (value) {
+                            if (value != null) {
+                              final newTemplate = _templates.firstWhere(
+                                (t) => t.id == value,
+                                orElse: () => _selectedTemplate!,
+                              );
+                              setState(() {
+                                _selectedTemplate = newTemplate;
+                                _customContent = newTemplate.content;
+                              });
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: _isGenerating
+                                    ? null
+                                    : _generateAndPreviewPdf,
+                                icon: const Icon(Icons.preview),
+                                label: const Text('Preview Letter'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue,
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () {
+                                  if (_selectedTemplate != null) {
+                                    setState(() {
+                                      _customContent =
+                                          _selectedTemplate!.content;
+                                    });
+                                  }
+                                },
+                                icon: const Icon(Icons.restore),
+                                label: const Text('Reset'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
 
-            // Template Selection
-            if (_selectedTemplate != null)
+              const SizedBox(height: 24),
+
+              // Custom Content Editor
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -340,151 +645,72 @@ class _SendEmploymentLetterScreenState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Letter Template',
+                        'Customize Letter Content',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        value: _selectedTemplate!.id,
-                        decoration: const InputDecoration(
-                          labelText: 'Select Template',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: _templates.map<DropdownMenuItem<String>>((
-                          template,
-                        ) {
-                          return DropdownMenuItem(
-                            value: template.id,
-                            child: Text(template.title),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          if (value != null) {
-                            final newTemplate = _templates.firstWhere(
-                              (t) => t.id == value,
-                              orElse: () => _selectedTemplate!,
-                            );
-                            setState(() {
-                              _selectedTemplate = newTemplate;
-                              _customContent = newTemplate.content;
-                            });
-                          }
-                        },
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Edit the content below to customize the letter for this employee. Use placeholders like {{staffName}}, {{position}}, etc.',
+                        style:
+                            TextStyle(fontSize: 14, color: Colors.grey),
                       ),
                       const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: _isGenerating
-                                  ? null
-                                  : _generateAndPreviewPdf,
-                              icon: const Icon(Icons.preview),
-                              label: const Text('Preview Letter'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue,
-                                foregroundColor: Colors.white,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () {
-                                if (_selectedTemplate != null) {
-                                  setState(() {
-                                    _customContent = _selectedTemplate!.content;
-                                  });
-                                }
-                              },
-                              icon: const Icon(Icons.restore),
-                              label: const Text('Reset'),
-                            ),
-                          ),
-                        ],
+                      TextFormField(
+                        initialValue: _customContent,
+                        maxLines: 20,
+                        minLines: 10,
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          alignLabelWithHint: true,
+                        ),
+                        onChanged: (value) {
+                          setState(() {
+                            _customContent = value;
+                          });
+                        },
                       ),
                     ],
                   ),
                 ),
               ),
 
-            const SizedBox(height: 24),
+              const SizedBox(height: 24),
 
-            // Custom Content Editor
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Customize Letter Content',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+              // Action Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _isGenerating ? null : _generateAndPreviewPdf,
+                      icon: const Icon(Icons.picture_as_pdf),
+                      label: const Text('Preview PDF'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Edit the content below to customize the letter for this employee. Use placeholders like {{staffName}}, {{position}}, etc.',
-                      style: TextStyle(fontSize: 14, color: Colors.grey),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      initialValue: _customContent,
-                      maxLines: 20,
-                      minLines: 10,
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        alignLabelWithHint: true,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _isGenerating ? null : _sendLetter,
+                      icon: const Icon(Icons.send),
+                      label: const Text('Send Letter'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
                       ),
-                      onChanged: (value) {
-                        setState(() {
-                          _customContent = value;
-                        });
-                      },
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ),
 
-            const SizedBox(height: 24),
-
-            // Action Buttons
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _isGenerating ? null : _generateAndPreviewPdf,
-                    icon: const Icon(Icons.picture_as_pdf),
-                    label: const Text('Preview PDF'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _isGenerating ? null : _sendLetter,
-                    icon: const Icon(Icons.send),
-                    label: const Text('Send Letter'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 24),
-          ],
+              const SizedBox(height: 24),
+            ],
+          ),
         ),
       ),
     );

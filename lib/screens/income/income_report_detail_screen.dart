@@ -73,14 +73,6 @@ class _IncomeReportDetailScreenState extends State<IncomeReportDetailScreen> {
               ),
             ),
           ),
-          floatingActionButton: report.status == 'draft'
-              ? FloatingActionButton.extended(
-                  onPressed: () => _showAddEntryDialog(context),
-                  backgroundColor: Colors.green.shade600,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add Income'),
-                )
-              : null,
         );
       },
     );
@@ -90,7 +82,7 @@ class _IncomeReportDetailScreenState extends State<IncomeReportDetailScreen> {
     final dateFormat = DateFormat('MMM dd, yyyy');
 
     return Container(
-      width: double.infinity,
+      margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -98,6 +90,14 @@ class _IncomeReportDetailScreenState extends State<IncomeReportDetailScreen> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.green.shade200,
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -248,6 +248,26 @@ class _IncomeReportDetailScreenState extends State<IncomeReportDetailScreen> {
               ),
             ],
           ),
+          if (report.status == 'draft') ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => _showAddEntryDialog(context),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Add Income'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.green.shade700,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -266,7 +286,7 @@ class _IncomeReportDetailScreenState extends State<IncomeReportDetailScreen> {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: Colors.white, size: 20),
@@ -345,7 +365,7 @@ class _IncomeReportDetailScreenState extends State<IncomeReportDetailScreen> {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -421,7 +441,7 @@ class _IncomeReportDetailScreenState extends State<IncomeReportDetailScreen> {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -849,7 +869,7 @@ class _IncomeReportDetailScreenState extends State<IncomeReportDetailScreen> {
                           ),
                           const SizedBox(height: 16),
                           DropdownButtonFormField<String>(
-                            value: selectedDepartment,
+                            initialValue: selectedDepartment,
                             decoration: InputDecoration(
                               labelText: 'Department *',
                               border: OutlineInputBorder(
@@ -1382,7 +1402,7 @@ class _IncomeEntryFormState extends State<_IncomeEntryForm> {
                 const SizedBox(height: 16),
                 // Category
                 DropdownButtonFormField<IncomeCategory>(
-                  value: _selectedCategory,
+                  initialValue: _selectedCategory,
                   decoration: InputDecoration(
                     labelText: 'Category *',
                     border: OutlineInputBorder(
@@ -1446,7 +1466,7 @@ class _IncomeEntryFormState extends State<_IncomeEntryForm> {
                 const SizedBox(height: 16),
                 // Payment Method
                 DropdownButtonFormField<PaymentMethod>(
-                  value: _selectedPaymentMethod,
+                  initialValue: _selectedPaymentMethod,
                   decoration: InputDecoration(
                     labelText: 'Payment Method *',
                     border: OutlineInputBorder(

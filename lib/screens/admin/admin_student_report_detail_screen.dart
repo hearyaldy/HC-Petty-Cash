@@ -289,7 +289,7 @@ class _AdminStudentReportDetailScreenState
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: statusController.text,
+                  initialValue: statusController.text,
                   decoration: const InputDecoration(
                     labelText: 'Status',
                     border: OutlineInputBorder(),
@@ -449,7 +449,7 @@ class _AdminStudentReportDetailScreenState
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: isLoading
@@ -528,7 +528,7 @@ class _AdminStudentReportDetailScreenState
               height: 150,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withValues(alpha: 0.1),
               ),
             ),
           ),
@@ -540,7 +540,7 @@ class _AdminStudentReportDetailScreenState
               height: 120,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.08),
+                color: Colors.white.withValues(alpha: 0.08),
               ),
             ),
           ),
@@ -746,7 +746,7 @@ class _AdminStudentReportDetailScreenState
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(
@@ -773,7 +773,7 @@ class _AdminStudentReportDetailScreenState
                           _formatPeriodDisplay(),
                           style: TextStyle(
                             fontSize: 14,
-                            color: Colors.white.withOpacity(0.9),
+                            color: Colors.white.withValues(alpha: 0.9),
                           ),
                         ),
                       ],
@@ -808,7 +808,7 @@ class _AdminStudentReportDetailScreenState
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.9),
+                            color: Colors.white.withValues(alpha: 0.9),
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: const Text(
@@ -829,7 +829,7 @@ class _AdminStudentReportDetailScreenState
                         ),
                         decoration: BoxDecoration(
                           color: _getPaymentStatusColor(paymentStatus)
-                              .withOpacity(0.1),
+                              .withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Text(
@@ -860,7 +860,7 @@ class _AdminStudentReportDetailScreenState
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.15),
+          color: Colors.white.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(8),
         ),
         child: const Icon(Icons.sort, color: Colors.white, size: 20),
@@ -921,7 +921,7 @@ class _AdminStudentReportDetailScreenState
               height: 120,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withValues(alpha: 0.1),
               ),
             ),
           ),
@@ -933,7 +933,7 @@ class _AdminStudentReportDetailScreenState
               height: 100,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.08),
+                color: Colors.white.withValues(alpha: 0.08),
               ),
             ),
           ),
@@ -954,7 +954,7 @@ class _AdminStudentReportDetailScreenState
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(
@@ -1014,7 +1014,7 @@ class _AdminStudentReportDetailScreenState
               height: 120,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withValues(alpha: 0.1),
               ),
             ),
           ),
@@ -1026,7 +1026,7 @@ class _AdminStudentReportDetailScreenState
               height: 100,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.08),
+                color: Colors.white.withValues(alpha: 0.08),
               ),
             ),
           ),
@@ -1047,7 +1047,7 @@ class _AdminStudentReportDetailScreenState
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(
@@ -1133,7 +1133,7 @@ class _AdminStudentReportDetailScreenState
 
       setState(() => _isLoading = false);
     } catch (e) {
-      print('Error loading report details: $e');
+      debugPrint('Error loading report details: $e');
       setState(() => _isLoading = false);
     }
   }
@@ -1876,7 +1876,7 @@ class _AdminStudentReportDetailScreenState
         grade = profileData['grade'];
       }
     } catch (e) {
-      print('Error getting student profile: $e');
+      debugPrint('Error getting student profile: $e');
     }
 
     // Get student profile to get additional fields
@@ -1896,7 +1896,7 @@ class _AdminStudentReportDetailScreenState
         role = profileData['role'];
       }
     } catch (e) {
-      print('Error getting student profile: $e');
+      debugPrint('Error getting student profile: $e');
     }
 
     final service = StudentPdfExportService();
@@ -2059,7 +2059,7 @@ class _AdminStudentReportDetailScreenState
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
+            color: Colors.grey.withValues(alpha: 0.2),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -2121,7 +2121,7 @@ class _AdminStudentReportDetailScreenState
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
+                      color: statusColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Row(
@@ -2147,7 +2147,7 @@ class _AdminStudentReportDetailScreenState
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: paymentStatusColor.withOpacity(0.1),
+                      color: paymentStatusColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(
@@ -2343,7 +2343,7 @@ class _AdminStudentReportDetailScreenState
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.1),
+                        color: statusColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
@@ -2370,7 +2370,7 @@ class _AdminStudentReportDetailScreenState
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: taskStatusColor.withOpacity(0.1),
+                          color: taskStatusColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(

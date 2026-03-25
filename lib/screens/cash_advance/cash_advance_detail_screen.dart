@@ -310,7 +310,7 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
                 const Text('Payment Method'),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: paymentMethod,
+                  initialValue: paymentMethod,
                   decoration: const InputDecoration(
                     border: OutlineInputBorder(),
                   ),
@@ -441,7 +441,6 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final isAdmin = authProvider.canManageUsers();
-    final isMobile = ResponsiveHelper.isMobile(context);
     final contentPadding = ResponsiveHelper.getScreenPadding(context);
     final maxWidth = ResponsiveHelper.getMaxContentWidth(context);
 
@@ -484,6 +483,10 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
                                 if (_advance!.disbursedAmount != null) ...[
                                   const SizedBox(height: 16),
                                   _buildDisbursementCard(),
+                                ],
+                                if (_advance!.purchaseRequisitionId != null) ...[
+                                  const SizedBox(height: 16),
+                                  _buildLinkedPRCard(),
                                 ],
                                 if (_advance!.settlementId != null) ...[
                                   const SizedBox(height: 16),
@@ -1046,6 +1049,52 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
     );
   }
 
+  Widget _buildLinkedPRCard() {
+    return Card(
+      color: Colors.teal.shade50,
+      child: InkWell(
+        onTap: () => context.push(
+          '/purchase-requisitions/${_advance!.purchaseRequisitionId}',
+        ),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Icon(Icons.shopping_cart_outlined, color: Colors.teal[700]),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Linked Purchase Requisition',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.teal[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _advance!.purchaseRequisitionId!,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.teal[800],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: Colors.teal[400]),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildSettlementCard() {
     return Card(
       color: Colors.purple.shade50,
@@ -1210,9 +1259,11 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
           onPressed: () {
             final advanceId = _advance?.id;
             if (advanceId == null) return;
-            context.push(
-              '/reports/new/advance-settlement?cashAdvanceId=$advanceId',
-            );
+            final prId = _advance?.purchaseRequisitionId;
+            final uri = prId != null
+                ? '/reports/new/advance-settlement?cashAdvanceId=$advanceId&purchaseRequisitionId=$prId'
+                : '/reports/new/advance-settlement?cashAdvanceId=$advanceId';
+            context.push(uri);
           },
           icon: const Icon(Icons.receipt_long),
           label: const Text('Create Settlement'),

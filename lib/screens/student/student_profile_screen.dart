@@ -44,7 +44,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: Colors.white, size: 20),
@@ -66,7 +66,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.orange.withOpacity(0.3),
+            color: Colors.orange.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -89,7 +89,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
                       ? Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.15),
+                            color: Colors.white.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const SizedBox(
@@ -115,7 +115,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
           CircleAvatar(
             radius: 48,
             backgroundImage: _buildAvatarImage(),
-            backgroundColor: Colors.white.withOpacity(0.2),
+            backgroundColor: Colors.white.withValues(alpha: 0.2),
             child:
                 (_photoUrl == null &&
                     _pickedBytes == null &&
@@ -136,7 +136,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
           Text(
             email,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withValues(alpha: 0.9),
               fontSize: 14,
             ),
           ),

@@ -121,6 +121,8 @@ class _PurchaseRequisitionDetailScreenState
           description: result['description'] as String,
           quantity: result['quantity'] as int,
           unitPrice: result['unitPrice'] as double,
+          usdUnitPrice: result['usdUnitPrice'] as double?,
+          exchangeRate: result['exchangeRate'] as double?,
           remark: result['remark'] as String?,
           createdAt: DateTime.now(),
         );
@@ -173,6 +175,8 @@ class _PurchaseRequisitionDetailScreenState
           description: result['description'] as String,
           quantity: result['quantity'] as int,
           unitPrice: result['unitPrice'] as double,
+          usdUnitPrice: result['usdUnitPrice'] as double?,
+          exchangeRate: result['exchangeRate'] as double?,
           remark: result['remark'] as String?,
         );
 
@@ -665,8 +669,12 @@ class _PurchaseRequisitionDetailScreenState
           children: [
             _buildRequisitionHeader(requisition, isAdmin),
             _buildInfoSection(requisition),
+            if (requisition.cashAdvanceId != null)
+              _buildLinkedCACard(requisition),
             _buildItemsSection(requisition),
             _buildSummarySection(requisition),
+            if (requisition.status == 'approved' && requisition.cashAdvanceId == null)
+              _buildCreateCAButton(requisition),
             _buildNoteSection(),
             _buildSignatureSection(requisition),
             _buildSupportDocumentsSection(requisition),
@@ -865,7 +873,7 @@ class _PurchaseRequisitionDetailScreenState
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.18),
+            color: Colors.white.withValues(alpha: 0.18),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: Colors.white, size: 20),
@@ -877,7 +885,7 @@ class _PurchaseRequisitionDetailScreenState
   Widget _buildHeaderMenuButton(bool isAdmin) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.18),
+        color: Colors.white.withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(8),
       ),
       child: PopupMenuButton<String>(
@@ -974,6 +982,74 @@ class _PurchaseRequisitionDetailScreenState
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildCreateCAButton(PurchaseRequisition requisition) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: () => context.push(
+          '/cash-advances/new?purchaseRequisitionId=${requisition.id}&purpose=${Uri.encodeComponent(requisition.purchaseReason ?? requisition.requisitionNumber)}&amount=${requisition.totalAmount}&department=${Uri.encodeComponent(requisition.chargeToDepartment)}',
+        ),
+        icon: const Icon(Icons.account_balance_wallet_outlined),
+        label: const Text('Create Cash Advance from this PR'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.teal,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLinkedCACard(PurchaseRequisition requisition) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Card(
+        color: Colors.teal.shade50,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: InkWell(
+          onTap: () => context.push('/cash-advances/${requisition.cashAdvanceId}'),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Icon(Icons.account_balance_wallet_outlined, color: Colors.teal[700]),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Linked Cash Advance',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.teal[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        requisition.cashAdvanceId!,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.teal[800],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right, color: Colors.teal[400]),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1382,22 +1458,50 @@ class _PurchaseRequisitionDetailScreenState
                     ),
                   ),
                   SizedBox(
-                    width: 100,
-                    child: Text(
-                      '฿${currencyFormat.format(item.unitPrice)}',
-                      style: const TextStyle(fontSize: 13),
-                      textAlign: TextAlign.right,
+                    width: 110,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '฿${currencyFormat.format(item.unitPrice)}',
+                          style: const TextStyle(fontSize: 13),
+                          textAlign: TextAlign.right,
+                        ),
+                        if (item.usdUnitPrice != null)
+                          Text(
+                            '\$${currencyFormat.format(item.usdUnitPrice)}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.green.shade700,
+                            ),
+                            textAlign: TextAlign.right,
+                          ),
+                      ],
                     ),
                   ),
                   SizedBox(
-                    width: 100,
-                    child: Text(
-                      '฿${currencyFormat.format(item.totalPrice)}',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      textAlign: TextAlign.right,
+                    width: 110,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '฿${currencyFormat.format(item.totalPrice)}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          textAlign: TextAlign.right,
+                        ),
+                        if (item.totalUsd != null)
+                          Text(
+                            '\$${currencyFormat.format(item.totalUsd)}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.green.shade700,
+                            ),
+                            textAlign: TextAlign.right,
+                          ),
+                      ],
                     ),
                   ),
                   Expanded(

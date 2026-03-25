@@ -6,6 +6,7 @@ import '../../models/salary_benefits.dart';
 import '../../services/salary_benefits_service.dart';
 import '../../services/staff_service.dart';
 import '../../utils/responsive_helper.dart';
+import '../../widgets/page_image_header.dart';
 
 class AddEditSalaryBenefitsScreen extends StatefulWidget {
   final String? salaryBenefitsId;
@@ -323,9 +324,9 @@ class _AddEditSalaryBenefitsScreenState
   }
 
   Future<void> _saveSalaryBenefits() async {
-    print('Debug: Starting _saveSalaryBenefits method'); // Debug message
+    debugPrint('Debug: Starting _saveSalaryBenefits method'); // Debug message
     if (!_formKey.currentState!.validate()) {
-      print('Debug: Form validation failed'); // Debug message
+      debugPrint('Debug: Form validation failed'); // Debug message
       return;
     }
 
@@ -336,7 +337,7 @@ class _AddEditSalaryBenefitsScreenState
     try {
       // Check if staff is loaded
       if (_staff == null) {
-        print(
+        debugPrint(
           'Debug: Staff is null, cannot save salary benefits',
         ); // Debug message
         if (mounted) {
@@ -350,7 +351,7 @@ class _AddEditSalaryBenefitsScreenState
         return;
       }
 
-      print('Debug: Preparing SalaryBenefits object'); // Debug message
+      debugPrint('Debug: Preparing SalaryBenefits object'); // Debug message
       final salaryBenefits = SalaryBenefits(
         id:
             _editingSalaryBenefitsId ??
@@ -437,21 +438,21 @@ class _AddEditSalaryBenefitsScreenState
             : null,
       );
 
-      print(
+      debugPrint(
         'Debug: Created SalaryBenefits object for staff: ${salaryBenefits.staffId}',
       ); // Debug message
-      print(
+      debugPrint(
         'Debug: Base salary: ${salaryBenefits.baseSalary}',
       ); // Debug message
 
       if (_editingSalaryBenefitsId != null || widget.salaryBenefitsId != null) {
-        print(
+        debugPrint(
           'Debug: Updating existing salary benefits record',
         ); // Debug message
         // Update existing
         await _salaryBenefitsService.updateSalaryBenefits(salaryBenefits);
       } else {
-        print('Debug: Creating new salary benefits record'); // Debug message
+        debugPrint('Debug: Creating new salary benefits record'); // Debug message
         // Create new
         await _salaryBenefitsService.createSalaryBenefits(salaryBenefits);
       }
@@ -472,7 +473,7 @@ class _AddEditSalaryBenefitsScreenState
         context.pop();
       }
     } catch (e) {
-      print('Debug: Error in _saveSalaryBenefits: $e'); // Debug message
+      debugPrint('Debug: Error in _saveSalaryBenefits: $e'); // Debug message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -535,7 +536,7 @@ class _AddEditSalaryBenefitsScreenState
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -591,9 +592,9 @@ class _AddEditSalaryBenefitsScreenState
     return Container(
       padding: EdgeInsets.all(isLarge ? 20 : 16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -629,91 +630,23 @@ class _AddEditSalaryBenefitsScreenState
         backgroundColor: Colors.grey[100],
         body: CustomScrollView(
           slivers: [
-            SliverAppBar(
-              expandedHeight: 200,
-              floating: false,
-              pinned: true,
-              elevation: 0,
-              backgroundColor: Colors.green.shade600,
-              flexibleSpace: FlexibleSpaceBar(
-                background: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Colors.green.shade700,
-                        Colors.green.shade500,
-                        Colors.teal.shade400,
-                      ],
-                    ),
+            SliverToBoxAdapter(
+              child: PageImageHeader(
+                title:
+                    isEditing ? 'Edit Salary & Benefits' : 'Add Salary & Benefits',
+                subtitle: 'Loading staff information...',
+                actions: [
+                  PageImageHeader.actionButton(
+                    icon: Icons.close,
+                    tooltip: 'Close',
+                    onPressed: () {
+                      if (mounted) {
+                        Navigator.of(context).pop();
+                      }
+                    },
                   ),
-                  child: SafeArea(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Icon(
-                                  Icons.monetization_on,
-                                  color: Colors.white,
-                                  size: 28,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      isEditing
-                                          ? 'Edit Salary & Benefits'
-                                          : 'Add Salary & Benefits',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Loading staff information...',
-                                      style: TextStyle(
-                                        color: Colors.white.withOpacity(0.9),
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
+                ],
               ),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () {
-                    if (mounted) {
-                      Navigator.of(context).pop();
-                    }
-                  },
-                  tooltip: 'Close',
-                ),
-              ],
             ),
             SliverFillRemaining(
               child: Center(
@@ -747,109 +680,32 @@ class _AddEditSalaryBenefitsScreenState
       body: CustomScrollView(
         slivers: [
           // Modern SliverAppBar with gradient
-          SliverAppBar(
-            expandedHeight: 200,
-            floating: false,
-            pinned: true,
-            elevation: 0,
-            backgroundColor: Colors.green.shade600,
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.green.shade700,
-                      Colors.green.shade500,
-                      Colors.teal.shade400,
-                    ],
-                  ),
-                ),
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.monetization_on,
-                                color: Colors.white,
-                                size: 28,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    isEditing
-                                        ? 'Edit Salary & Benefits'
-                                        : 'Add Salary & Benefits',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    _staff?.fullName ?? '',
-                                    style: TextStyle(
-                                      color: Colors.white.withOpacity(0.9),
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            actions: [
-              if (_isLoading)
-                const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  ),
-                )
-              else
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: TextButton.icon(
-                    onPressed: _saveSalaryBenefits,
-                    icon: const Icon(Icons.save, color: Colors.white),
-                    label: const Text(
-                      'Save',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
+          SliverToBoxAdapter(
+            child: PageImageHeader(
+              title:
+                  isEditing ? 'Edit Salary & Benefits' : 'Add Salary & Benefits',
+              subtitle: _staff?.fullName ?? '',
+              actions: [
+                if (_isLoading)
+                  const Padding(
+                    padding: EdgeInsets.all(8),
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
                     ),
+                  )
+                else
+                  PageImageHeader.actionButton(
+                    icon: Icons.save,
+                    tooltip: 'Save',
+                    onPressed: _saveSalaryBenefits,
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
           // Content
           SliverToBoxAdapter(
@@ -1339,7 +1195,7 @@ class _AddEditSalaryBenefitsScreenState
                         ],
                         children: [
                           DropdownButtonFormField<String>(
-                            value: _currency,
+                            initialValue: _currency,
                             decoration: _buildInputDecoration(
                               label: 'Currency',
                               icon: Icons.currency_exchange,
@@ -1422,7 +1278,7 @@ class _AddEditSalaryBenefitsScreenState
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.green.withOpacity(0.3),
+                              color: Colors.green.withValues(alpha: 0.3),
                               blurRadius: 12,
                               offset: const Offset(0, 6),
                             ),
@@ -1455,7 +1311,7 @@ class _AddEditSalaryBenefitsScreenState
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
+                                color: Colors.white.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: const Icon(

@@ -80,10 +80,10 @@ class _SupportDocumentUploadDialogState
       final auth = FirebaseAuth.instance;
       final currentUser = auth.currentUser;
 
-      print('============ UPLOAD DEBUG START ============');
-      print('User ID: ${currentUser?.uid ?? "NOT AUTHENTICATED"}');
-      print('User Email: ${currentUser?.email ?? "N/A"}');
-      print('Transaction ID: ${widget.transactionId}');
+      debugPrint('============ UPLOAD DEBUG START ============');
+      debugPrint('User ID: ${currentUser?.uid ?? "NOT AUTHENTICATED"}');
+      debugPrint('User Email: ${currentUser?.email ?? "N/A"}');
+      debugPrint('Transaction ID: ${widget.transactionId}');
 
       AppLogger.info(
         'User attempting upload: ${currentUser?.uid ?? "NOT AUTHENTICATED"}',
@@ -91,7 +91,7 @@ class _SupportDocumentUploadDialogState
       AppLogger.info('User email: ${currentUser?.email ?? "N/A"}');
 
       if (currentUser == null) {
-        print('ERROR: User is not authenticated!');
+        debugPrint('ERROR: User is not authenticated!');
         throw Exception('User is not authenticated. Please log in again.');
       }
 
@@ -169,26 +169,26 @@ class _SupportDocumentUploadDialogState
         }
       }
 
-      print('File picked: $fileName');
-      print('File size: ${imageBytes?.length ?? 0} bytes');
+      debugPrint('File picked: $fileName');
+      debugPrint('File size: ${imageBytes?.length ?? 0} bytes');
       setState(() => _uploadProgress = 0.2);
 
       // Check if file is an image
       final isImage = _isImageFile(fileName);
-      print('File is image: $isImage');
+      debugPrint('File is image: $isImage');
 
       Uint8List finalBytes;
       if (imageBytes != null) {
         if (isImage) {
           // Compress image
-          print('Compressing image...');
+          debugPrint('Compressing image...');
           finalBytes = await ImageCompressionService.compressImageBytes(
             imageBytes,
           );
-          print('Compressed size: ${finalBytes.length} bytes');
+          debugPrint('Compressed size: ${finalBytes.length} bytes');
         } else {
           // For non-image files (PDF, DOC, etc.), use original bytes
-          print('Skipping compression for non-image file');
+          debugPrint('Skipping compression for non-image file');
           finalBytes = imageBytes;
         }
       } else {
@@ -197,13 +197,13 @@ class _SupportDocumentUploadDialogState
       setState(() => _uploadProgress = 0.5);
 
       // Upload to Firebase Storage
-      print('Starting upload to Firebase Storage...');
+      debugPrint('Starting upload to Firebase Storage...');
       final downloadUrl = await _storageService.uploadSupportDocument(
         transactionId: widget.transactionId,
         bytes: finalBytes,
         fileName: fileName,
       );
-      print('Upload successful! URL: $downloadUrl');
+      debugPrint('Upload successful! URL: $downloadUrl');
 
       setState(() {
         _uploadProgress = 1.0;
@@ -223,11 +223,11 @@ class _SupportDocumentUploadDialogState
         );
       }
     } catch (e, stackTrace) {
-      print('============ UPLOAD ERROR ============');
-      print('Error: $e');
-      print('Error type: ${e.runtimeType}');
-      print('Stack trace: $stackTrace');
-      print('======================================');
+      debugPrint('============ UPLOAD ERROR ============');
+      debugPrint('Error: $e');
+      debugPrint('Error type: ${e.runtimeType}');
+      debugPrint('Stack trace: $stackTrace');
+      debugPrint('======================================');
 
       AppLogger.severe('Error uploading support document: $e');
       AppLogger.severe('Stack trace: $stackTrace');
@@ -290,8 +290,8 @@ class _SupportDocumentUploadDialogState
         return freshUrl;
       }
     } catch (e) {
-      print('Error getting fresh download URL: $e');
-      print('Original URL: $originalUrl');
+      debugPrint('Error getting fresh download URL: $e');
+      debugPrint('Original URL: $originalUrl');
       // If we can't get a fresh URL, return the original one
     }
     return originalUrl;
@@ -304,7 +304,7 @@ class _SupportDocumentUploadDialogState
       final storageService = FirebaseStorageService();
       return await storageService.downloadImageData(originalUrl);
     } catch (e) {
-      print('Error downloading image data: $e');
+      debugPrint('Error downloading image data: $e');
       return null;
     }
   }
@@ -339,11 +339,11 @@ class _SupportDocumentUploadDialogState
     });
 
     try {
-      print('Deleting document from storage: $url');
+      debugPrint('Deleting document from storage: $url');
 
       // Delete from Firebase Storage
       await _storageService.deleteAttachment(url);
-      print('Document deleted from storage successfully');
+      debugPrint('Document deleted from storage successfully');
 
       // Update local state
       setState(() {
@@ -352,7 +352,7 @@ class _SupportDocumentUploadDialogState
       });
 
       // Notify parent to update Firestore
-      print('Notifying parent with updated URLs: $_uploadedUrls');
+      debugPrint('Notifying parent with updated URLs: $_uploadedUrls');
       widget.onDocumentsUploaded(_uploadedUrls);
 
       if (mounted) {
@@ -366,7 +366,7 @@ class _SupportDocumentUploadDialogState
         );
       }
     } catch (e) {
-      print('Error deleting document: $e');
+      debugPrint('Error deleting document: $e');
       setState(() {
         _errorMessage = 'Failed to delete: ${e.toString()}';
         _isUploading = false;
@@ -386,16 +386,16 @@ class _SupportDocumentUploadDialogState
   // Method to download image data directly from Firebase Storage
   Future<Uint8List?> _getImageDataGrid(String originalUrl) async {
     try {
-      print('Widget requesting image data for URL: $originalUrl');
+      debugPrint('Widget requesting image data for URL: $originalUrl');
       // Use the Firebase Storage service to download image data directly
       final storageService = FirebaseStorageService();
       final result = await storageService.downloadImageData(originalUrl);
-      print(
+      debugPrint(
         'Widget received result: ${result != null ? "Success (${result.length} bytes)" : "Null"}',
       );
       return result;
     } catch (e) {
-      print('Error downloading image data: $e');
+      debugPrint('Error downloading image data: $e');
       return null;
     }
   }
@@ -544,9 +544,9 @@ class _SupportDocumentUploadDialogState
                                           );
                                         },
                                     errorBuilder: (context, error, stackTrace) {
-                                      print('Image load error: $error');
-                                      print('URL: $url');
-                                      print('Stack trace: $stackTrace');
+                                      debugPrint('Image load error: $error');
+                                      debugPrint('URL: $url');
+                                      debugPrint('Stack trace: $stackTrace');
                                       return Center(
                                         child: Column(
                                           mainAxisAlignment:
@@ -625,11 +625,11 @@ class _SupportDocumentUploadDialogState
                                           },
                                           errorBuilder:
                                               (context, error, stackTrace) {
-                                                print(
+                                                debugPrint(
                                                   'Image load error: $error',
                                                 );
-                                                print('URL: $url');
-                                                print(
+                                                debugPrint('URL: $url');
+                                                debugPrint(
                                                   'Stack trace: $stackTrace',
                                                 );
                                                 return Center(
@@ -689,9 +689,9 @@ class _SupportDocumentUploadDialogState
                                         snapshot.data!,
                                         fit: BoxFit.contain,
                                         errorBuilder: (context, error, stackTrace) {
-                                          print('Image load error: $error');
-                                          print('URL: $url');
-                                          print('Stack trace: $stackTrace');
+                                          debugPrint('Image load error: $error');
+                                          debugPrint('URL: $url');
+                                          debugPrint('Stack trace: $stackTrace');
                                           return Center(
                                             child: Column(
                                               mainAxisAlignment:
@@ -1259,7 +1259,7 @@ class _SupportDocumentSelectionDialogState
                           if (isSelected)
                             Container(
                               decoration: BoxDecoration(
-                                color: Colors.blue.withOpacity(0.3),
+                                color: Colors.blue.withValues(alpha: 0.3),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Center(
@@ -1477,21 +1477,21 @@ class _SupportDocumentGalleryState extends State<SupportDocumentGallery> {
   // Method to download image data directly from Firebase Storage
   Future<Uint8List?> _getImageData(String originalUrl) async {
     try {
-      print('Fetching support document: $originalUrl');
+      debugPrint('Fetching support document: $originalUrl');
 
       // Use the Firebase Storage service to download image data directly
       final storageService = FirebaseStorageService();
       final result = await storageService.downloadImageData(originalUrl);
 
       if (result != null) {
-        print('Successfully downloaded image data: ${result.length} bytes');
+        debugPrint('Successfully downloaded image data: ${result.length} bytes');
         return result;
       } else {
-        print('Firebase Storage download returned null');
+        debugPrint('Firebase Storage download returned null');
         return null;
       }
     } catch (e) {
-      print('Error downloading image data: $e');
+      debugPrint('Error downloading image data: $e');
       return null;
     }
   }
@@ -1670,8 +1670,8 @@ class _SupportDocumentGalleryState extends State<SupportDocumentGallery> {
                                       );
                                     },
                                 errorBuilder: (context, error, stackTrace) {
-                                  print('Image load error: $error');
-                                  print('URL: $url');
+                                  debugPrint('Image load error: $error');
+                                  debugPrint('URL: $url');
                                   return Center(
                                     child: Column(
                                       mainAxisAlignment:
@@ -1988,8 +1988,8 @@ class _SupportDocumentPreviewState extends State<SupportDocumentPreview> {
         return freshUrl;
       }
     } catch (e) {
-      print('Error getting fresh download URL: $e');
-      print('Original URL: $originalUrl');
+      debugPrint('Error getting fresh download URL: $e');
+      debugPrint('Original URL: $originalUrl');
       // If we can't get a fresh URL, return the original one
     }
     return originalUrl;
@@ -1998,16 +1998,16 @@ class _SupportDocumentPreviewState extends State<SupportDocumentPreview> {
   // Method to download image data directly from Firebase Storage
   Future<Uint8List?> _getImageData(String originalUrl) async {
     try {
-      print('Widget requesting image data for URL: $originalUrl');
+      debugPrint('Widget requesting image data for URL: $originalUrl');
       // Use the Firebase Storage service to download image data directly
       final storageService = FirebaseStorageService();
       final result = await storageService.downloadImageData(originalUrl);
-      print(
+      debugPrint(
         'Widget received result: ${result != null ? "Success (${result.length} bytes)" : "Null"}',
       );
       return result;
     } catch (e) {
-      print('Error downloading image data: $e');
+      debugPrint('Error downloading image data: $e');
       return null;
     }
   }
@@ -2015,21 +2015,21 @@ class _SupportDocumentPreviewState extends State<SupportDocumentPreview> {
   // Method to download image data directly from Firebase Storage
   Future<Uint8List?> _getImageDataPreview(String originalUrl) async {
     try {
-      print('Fetching support document: $originalUrl');
+      debugPrint('Fetching support document: $originalUrl');
 
       // Use the Firebase Storage service to download image data directly
       final storageService = FirebaseStorageService();
       final result = await storageService.downloadImageData(originalUrl);
 
       if (result != null) {
-        print('Successfully downloaded image data: ${result.length} bytes');
+        debugPrint('Successfully downloaded image data: ${result.length} bytes');
         return result;
       } else {
-        print('Firebase Storage download returned null');
+        debugPrint('Firebase Storage download returned null');
         return null;
       }
     } catch (e) {
-      print('Error downloading image data: $e');
+      debugPrint('Error downloading image data: $e');
       return null;
     }
   }
@@ -2105,8 +2105,8 @@ class _SupportDocumentPreviewState extends State<SupportDocumentPreview> {
                           );
                         },
                         errorBuilder: (context, error, stackTrace) {
-                          print('Preview image load error: $error');
-                          print('Stack trace: $stackTrace');
+                          debugPrint('Preview image load error: $error');
+                          debugPrint('Stack trace: $stackTrace');
                           return Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -2183,8 +2183,8 @@ class _SupportDocumentPreviewState extends State<SupportDocumentPreview> {
                                     );
                                   },
                               errorBuilder: (context, error, stackTrace) {
-                                print('Preview image load error: $error');
-                                print('Stack trace: $stackTrace');
+                                debugPrint('Preview image load error: $error');
+                                debugPrint('Stack trace: $stackTrace');
                                 return Center(
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
@@ -2236,8 +2236,8 @@ class _SupportDocumentPreviewState extends State<SupportDocumentPreview> {
                             snapshot.data!,
                             fit: BoxFit.contain,
                             errorBuilder: (context, error, stackTrace) {
-                              print('Preview image load error: $error');
-                              print('Stack trace: $stackTrace');
+                              debugPrint('Preview image load error: $error');
+                              debugPrint('Stack trace: $stackTrace');
                               return Center(
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,

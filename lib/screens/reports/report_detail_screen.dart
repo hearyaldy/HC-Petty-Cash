@@ -26,6 +26,7 @@ import '../../widgets/support_document_upload_dialog.dart';
 import '../../services/settings_service.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
+import '../../utils/icon_registry.dart';
 
 enum TransactionSortOption {
   dateNewest,
@@ -133,32 +134,71 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         (reportProvider.isLoading || reportProvider.reports.isEmpty)) {
       return Scaffold(
         backgroundColor: Colors.grey[50],
-        appBar: AppBar(elevation: 0, title: const Text('Loading...')),
-        body: const Center(child: CircularProgressIndicator()),
+        body: ResponsiveContainer(
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                _buildPageHeader(
+                  title: 'Loading...',
+                  subtitle: 'Loading report details',
+                  showBackButton: false,
+                  actions: [
+                    _buildHeaderActionButton(
+                      icon: Icons.home_outlined,
+                      tooltip: 'Home',
+                      onPressed: () => context.go('/admin-hub'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+                const Center(child: CircularProgressIndicator()),
+              ],
+            ),
+          ),
+        ),
       );
     }
 
     if (report == null) {
       return Scaffold(
         backgroundColor: Colors.grey[50],
-        appBar: AppBar(elevation: 0, title: const Text('Report')),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
-              const SizedBox(height: 16),
-              Text(
-                'Report not found',
-                style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: () => context.go('/admin-hub'),
-                icon: const Icon(Icons.home),
-                label: const Text('Go to Dashboard'),
-              ),
-            ],
+        body: ResponsiveContainer(
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                _buildPageHeader(
+                  title: 'Report',
+                  subtitle: 'Report details are unavailable',
+                  showBackButton: false,
+                  actions: [
+                    _buildHeaderActionButton(
+                      icon: Icons.home_outlined,
+                      tooltip: 'Home',
+                      onPressed: () => context.go('/admin-hub'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Center(
+                  child: Column(
+                    children: [
+                      Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Report not found',
+                        style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton.icon(
+                        onPressed: () => context.go('/admin-hub'),
+                        icon: const Icon(Icons.home),
+                        label: const Text('Go to Dashboard'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -180,146 +220,160 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         .toList();
     _sortTransactions(transactions); // Sort transactions
 
+    final pageHeaderActions = <Widget>[
+      _buildHeaderActionButton(
+        icon: Icons.home_outlined,
+        tooltip: 'Home',
+        onPressed: () => context.go('/admin-hub'),
+      ),
+      if (report.status != ReportStatus.closed.name)
+        _buildHeaderActionButton(
+          icon: Icons.add,
+          tooltip: 'Add Transaction',
+          onPressed: () => _showAddTransactionDialog(report),
+        ),
+      Theme(
+        data: Theme.of(context).copyWith(
+          popupMenuTheme: PopupMenuThemeData(
+            color: Colors.white,
+            textStyle: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ),
+        child: PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert, color: Colors.white),
+          tooltip: 'More Actions',
+          onSelected: (value) async {
+            if (value == 'edit') {
+              await _showEditReportDialog(report, reportProvider);
+            } else if (value == 'export_excel') {
+              await _exportExcel(report, transactions);
+            } else if (value == 'export_pdf') {
+              await _exportPdf(report, transactions);
+            } else if (value == 'export_advance_settlement_pdf') {
+              await _exportAdvanceSettlementPdf(report, transactions);
+            } else if (value == 'print_all_support_docs') {
+              _showPrintAllSupportDocumentsDialog(report, transactions);
+            } else if (value == 'submit') {
+              await _submitReport(report, reportProvider);
+            } else if (value == 'approve') {
+              await _approveReport(report, reportProvider);
+            } else if (value == 'close') {
+              await _closeReport(report, reportProvider);
+            }
+          },
+          itemBuilder: (context) => [
+            if (report.status == ReportStatus.draft.name ||
+                authProvider.canApprove())
+              const PopupMenuItem(
+                value: 'edit',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit),
+                    SizedBox(width: 8),
+                    Text('Edit Report'),
+                  ],
+                ),
+              ),
+            const PopupMenuItem(
+              value: 'export_excel',
+              child: Row(
+                children: [
+                  Icon(Icons.table_chart),
+                  SizedBox(width: 8),
+                  Text('Export to Excel'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'export_pdf',
+              child: Row(
+                children: [
+                  Icon(Icons.picture_as_pdf),
+                  SizedBox(width: 8),
+                  Text('Export to PDF'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'export_advance_settlement_pdf',
+              child: Row(
+                children: [
+                  Icon(Icons.request_page),
+                  SizedBox(width: 8),
+                  Text('Export Advance Settlement'),
+                ],
+              ),
+            ),
+            if (transactions.any((t) => t.supportDocumentUrls.isNotEmpty))
+              const PopupMenuItem(
+                value: 'print_all_support_docs',
+                child: Row(
+                  children: [
+                    Icon(Icons.print, color: Colors.green),
+                    SizedBox(width: 8),
+                    Text('Print All Support Docs'),
+                  ],
+                ),
+              ),
+            if (report.status == ReportStatus.draft.name)
+              const PopupMenuItem(
+                value: 'submit',
+                child: Row(
+                  children: [
+                    Icon(Icons.send),
+                    SizedBox(width: 8),
+                    Text('Submit Report'),
+                  ],
+                ),
+              ),
+            if (authProvider.canApprove() &&
+                (report.status == ReportStatus.submitted.name ||
+                    report.status == ReportStatus.underReview.name))
+              const PopupMenuItem(
+                value: 'approve',
+                child: Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.green),
+                    SizedBox(width: 8),
+                    Text(
+                      'Approve Report',
+                      style: TextStyle(color: Colors.green),
+                    ),
+                  ],
+                ),
+              ),
+            if (report.status == ReportStatus.approved.name &&
+                authProvider.canApprove())
+              const PopupMenuItem(
+                value: 'close',
+                child: Row(
+                  children: [
+                    Icon(Icons.archive),
+                    SizedBox(width: 8),
+                    Text('Close Report'),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    ];
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        elevation: 0,
-        title: Text(report.reportNumber),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.home_outlined),
-            onPressed: () => context.go('/admin-hub'),
-            tooltip: 'Home',
-          ),
-          if (report.status != ReportStatus.closed.name)
-            IconButton(
-              icon: const Icon(Icons.add),
-              onPressed: () => _showAddTransactionDialog(report),
-              tooltip: 'Add Transaction',
-            ),
-          PopupMenuButton<String>(
-            onSelected: (value) async {
-              if (value == 'edit') {
-                await _showEditReportDialog(report, reportProvider);
-              } else if (value == 'export_excel') {
-                await _exportExcel(report, transactions);
-              } else if (value == 'export_pdf') {
-                await _exportPdf(report, transactions);
-              } else if (value == 'export_advance_settlement_pdf') {
-                await _exportAdvanceSettlementPdf(report, transactions);
-              } else if (value == 'print_all_support_docs') {
-                _showPrintAllSupportDocumentsDialog(report, transactions);
-              } else if (value == 'submit') {
-                await _submitReport(report, reportProvider);
-              } else if (value == 'approve') {
-                await _approveReport(report, reportProvider);
-              } else if (value == 'close') {
-                await _closeReport(report, reportProvider);
-              }
-            },
-            itemBuilder: (context) => [
-              if (report.status == ReportStatus.draft.name ||
-                  authProvider.canApprove())
-                const PopupMenuItem(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit),
-                      SizedBox(width: 8),
-                      Text('Edit Report'),
-                    ],
-                  ),
-                ),
-              const PopupMenuItem(
-                value: 'export_excel',
-                child: Row(
-                  children: [
-                    Icon(Icons.table_chart),
-                    SizedBox(width: 8),
-                    Text('Export to Excel'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'export_pdf',
-                child: Row(
-                  children: [
-                    Icon(Icons.picture_as_pdf),
-                    SizedBox(width: 8),
-                    Text('Export to PDF'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'export_advance_settlement_pdf',
-                child: Row(
-                  children: [
-                    Icon(Icons.request_page),
-                    SizedBox(width: 8),
-                    Text('Export Advance Settlement'),
-                  ],
-                ),
-              ),
-              if (transactions.any((t) => t.supportDocumentUrls.isNotEmpty))
-                const PopupMenuItem(
-                  value: 'print_all_support_docs',
-                  child: Row(
-                    children: [
-                      Icon(Icons.print, color: Colors.green),
-                      SizedBox(width: 8),
-                      Text('Print All Support Docs'),
-                    ],
-                  ),
-                ),
-              if (report.status == ReportStatus.draft.name)
-                const PopupMenuItem(
-                  value: 'submit',
-                  child: Row(
-                    children: [
-                      Icon(Icons.send),
-                      SizedBox(width: 8),
-                      Text('Submit Report'),
-                    ],
-                  ),
-                ),
-              if (authProvider.canApprove() &&
-                  (report.status == ReportStatus.submitted.name ||
-                      report.status == ReportStatus.underReview.name))
-                const PopupMenuItem(
-                  value: 'approve',
-                  child: Row(
-                    children: [
-                      Icon(Icons.check_circle, color: Colors.green),
-                      SizedBox(width: 8),
-                      Text(
-                        'Approve Report',
-                        style: TextStyle(color: Colors.green),
-                      ),
-                    ],
-                  ),
-                ),
-              if (report.status == ReportStatus.approved.name &&
-                  authProvider.canApprove())
-                const PopupMenuItem(
-                  value: 'close',
-                  child: Row(
-                    children: [
-                      Icon(Icons.archive),
-                      SizedBox(width: 8),
-                      Text('Close Report'),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
       body: ResponsiveContainer(
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildPageHeader(report),
+              _buildPageHeader(
+                title: report.reportNumber,
+                subtitle:
+                    '${report.department} • Created ${DateFormat('MMM d, y').format(report.createdAt)}',
+                actions: pageHeaderActions,
+                showBackButton: true,
+                status: report.statusEnum,
+              ),
               const SizedBox(height: 24),
               _buildReportHeader(report),
               const SizedBox(height: 24),
@@ -403,66 +457,123 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     );
   }
 
-  Widget _buildPageHeader(PettyCashReport report) {
+  Widget _buildHeaderActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return IconButton(
+      onPressed: onPressed,
+      tooltip: tooltip,
+      icon: Icon(icon, color: Colors.white),
+      style: IconButton.styleFrom(
+        backgroundColor: Colors.black.withValues(alpha: 0.3),
+        foregroundColor: Colors.white,
+        minimumSize: const Size(40, 40),
+        shape: const CircleBorder(),
+      ),
+    );
+  }
+
+  Widget _buildPageHeader({
+    required String title,
+    String? subtitle,
+    List<Widget> actions = const [],
+    bool showBackButton = true,
+    ReportStatus? status,
+  }) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      height: 210,
+      margin: const EdgeInsets.only(bottom: 0),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.blue.shade600, Colors.blue.shade400],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+        borderRadius: BorderRadius.circular(20),
+        image: const DecorationImage(
+          image: AssetImage('assets/assets/images/app_icon.png'),
+          fit: BoxFit.cover,
+          alignment: Alignment.centerRight,
         ),
-        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  report.reportNumber,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Stack(
+          children: [
+            Container(color: Colors.black.withValues(alpha: 0.25)),
+            Positioned.fill(
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.transparent, Colors.black54],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  report.department,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.white.withOpacity(0.9),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Created ${DateFormat('MMM d, y').format(report.createdAt)}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white.withOpacity(0.8),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              shape: BoxShape.circle,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      if (showBackButton)
+                        _buildHeaderActionButton(
+                          icon: Icons.arrow_back,
+                          tooltip: 'Back',
+                          onPressed: () {
+                            if (context.canPop()) {
+                              context.pop();
+                            } else {
+                              context.go('/reports');
+                            }
+                          },
+                        )
+                      else
+                        const SizedBox(width: 40),
+                      const Spacer(),
+                      ...actions,
+                    ],
+                  ),
+                  const Spacer(),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (status != null) _buildStatusChip(status),
+                        if (status != null) const SizedBox(height: 10),
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        if (subtitle != null) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            subtitle,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-            child: const Icon(Icons.description, size: 48, color: Colors.white),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -475,7 +586,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -599,7 +710,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -755,7 +866,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -1474,15 +1585,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         ),
       );
 
-      try {
-        return IconData(
-          int.parse(custom.iconCodePoint),
-          fontFamily: 'MaterialIcons',
-        );
-      } catch (_) {
-        // If parsing fails, fall back to generic icon
-        return Icons.category;
-      }
+      return iconFromCodePoint(custom.iconCodePoint);
     }
 
     return _getTransactionIcon(transaction.categoryEnum);
@@ -2008,7 +2111,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                           const SizedBox(height: 16),
                           // Project selection dropdown
                           DropdownButtonFormField<String?>(
-                            value: selectedProjectId,
+                            initialValue: selectedProjectId,
                             decoration: const InputDecoration(
                               labelText: 'Project (Optional)',
                               border: OutlineInputBorder(),
@@ -2037,7 +2140,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                           // Category dropdown (hidden for medical claims since it's auto-set)
                           if (!isMedicalClaim)
                             DropdownButtonFormField<String>(
-                              value: selectedCategory,
+                              initialValue: selectedCategory,
                               decoration: const InputDecoration(
                                 labelText: 'Category',
                                 border: OutlineInputBorder(),
@@ -2070,9 +2173,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                     child: Row(
                                       children: [
                                         Icon(
-                                          IconData(
-                                            int.parse(category.iconCodePoint),
-                                            fontFamily: 'MaterialIcons',
+                                          iconFromCodePoint(
+                                            category.iconCodePoint,
                                           ),
                                           size: 20,
                                           color: Colors.purple,
@@ -2133,7 +2235,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                           if (!isMedicalClaim) const SizedBox(height: 16),
 
                           DropdownButtonFormField<PaymentMethod>(
-                            value: selectedPaymentMethod,
+                            initialValue: selectedPaymentMethod,
                             decoration: const InputDecoration(
                               labelText: 'Payment Method',
                               border: OutlineInputBorder(),
@@ -2932,7 +3034,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     const SizedBox(height: 16),
                     // Project selection dropdown
                     DropdownButtonFormField<String?>(
-                      value: selectedProjectId,
+                      initialValue: selectedProjectId,
                       decoration: const InputDecoration(
                         labelText: 'Project (Optional)',
                         border: OutlineInputBorder(),
@@ -2960,7 +3062,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     // Hide category dropdown for medical claims (auto-set)
                     if (!isMedicalClaim)
                       DropdownButtonFormField<String>(
-                        value: selectedCategory,
+                        initialValue: selectedCategory,
                         decoration: const InputDecoration(
                           labelText: 'Category',
                           border: OutlineInputBorder(),
@@ -2978,9 +3080,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                               child: Row(
                                 children: [
                                   Icon(
-                                    IconData(
-                                      int.parse(category.iconCodePoint),
-                                      fontFamily: 'MaterialIcons',
+                                    iconFromCodePoint(
+                                      category.iconCodePoint,
                                     ),
                                     size: 20,
                                     color: Colors.purple,
@@ -3038,7 +3139,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       ),
                     if (!isMedicalClaim) const SizedBox(height: 16),
                     DropdownButtonFormField<PaymentMethod>(
-                      value: selectedPaymentMethod,
+                      initialValue: selectedPaymentMethod,
                       decoration: const InputDecoration(
                         labelText: 'Payment Method',
                         border: OutlineInputBorder(),

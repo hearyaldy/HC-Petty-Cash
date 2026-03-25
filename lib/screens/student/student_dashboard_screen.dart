@@ -162,7 +162,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
 
       setState(() => _isLoading = false);
     } catch (e) {
-      print('Error loading dashboard data: $e');
+      debugPrint('Error loading dashboard data: $e');
       setState(() => _isLoading = false);
     }
   }
@@ -319,7 +319,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.1),
+                        color: statusColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: statusColor),
                       ),
@@ -428,7 +428,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
               height: 150,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withValues(alpha: 0.1),
               ),
             ),
           ),
@@ -440,7 +440,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
               height: 120,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.08),
+                color: Colors.white.withValues(alpha: 0.08),
               ),
             ),
           ),
@@ -454,7 +454,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                   Text(
                     'Student Dashboard',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.9),
+                      color: Colors.white.withValues(alpha: 0.9),
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
@@ -488,7 +488,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       shape: BoxShape.circle,
                     ),
                     child:
@@ -502,7 +502,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                         Text(
                           'Welcome back,',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.9),
+                            color: Colors.white.withValues(alpha: 0.9),
                             fontSize: 14,
                           ),
                         ),
@@ -523,7 +523,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -564,7 +564,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: Colors.white, size: 20),
@@ -638,7 +638,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -654,7 +654,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
               height: 100,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: stat.gradient.map((c) => c.withOpacity(0.1)).toList(),
+                  colors: stat.gradient.map((c) => c.withValues(alpha: 0.1)).toList(),
                 ),
                 shape: BoxShape.circle,
               ),
@@ -764,7 +764,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: gradient[1].withOpacity(0.3),
+              color: gradient[1].withValues(alpha: 0.3),
               blurRadius: 8,
               offset: const Offset(0, 4),
             ),
@@ -872,7 +872,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
+                    color: Colors.grey.withValues(alpha: 0.1),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -932,7 +932,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.1),
+                        color: statusColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Row(
@@ -1007,7 +1007,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -1121,7 +1121,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.1),
+                color: statusColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(statusIcon, color: statusColor),
@@ -1132,9 +1132,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    timesheet.date != null
-                        ? dateFormat.format(timesheet.date)
-                        : 'N/A',
+                    dateFormat.format(timesheet.date),
                     style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 16,
@@ -1188,7 +1186,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: statusColor.withOpacity(0.1),
+                            color: statusColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
@@ -1792,7 +1790,7 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<TaskType>(
-                value: _selectedTaskType,
+                initialValue: _selectedTaskType,
                 decoration: InputDecoration(
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -1918,7 +1916,7 @@ class _EditTimesheetDialogState extends State<_EditTimesheetDialog> {
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<TaskStatus>(
-                value: _selectedTaskStatus,
+                initialValue: _selectedTaskStatus,
                 decoration: InputDecoration(
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -2295,7 +2293,7 @@ class _EditMonthlyReportDialogState extends State<_EditMonthlyReportDialog> {
 
             // Status dropdown
             DropdownButtonFormField<String>(
-              value: _statusController.text,
+              initialValue: _statusController.text,
               decoration: const InputDecoration(
                 labelText: 'Status',
                 border: OutlineInputBorder(),

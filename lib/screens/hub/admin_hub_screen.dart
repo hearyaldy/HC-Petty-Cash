@@ -76,8 +76,6 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
     final user = authProvider.currentUser;
     final isAdmin = user?.role == 'admin';
     final canApprove = authProvider.canApprove();
-    final hubTitle = isAdmin ? 'Admin Hub' : 'Staff Hub';
-
     return Scaffold(
       backgroundColor: Colors.grey[100],
       body: SafeArea(

@@ -260,7 +260,7 @@ class _EditProjectReportDialogState extends State<EditProjectReportDialog> {
 
                 // Language
                 DropdownButtonFormField<String>(
-                  value: _selectedLanguage?.code,
+                  initialValue: _selectedLanguage?.code,
                   decoration: const InputDecoration(
                     labelText: 'Project Language',
                     border: OutlineInputBorder(),

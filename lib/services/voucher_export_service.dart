@@ -1,6 +1,6 @@
 import 'dart:io' show File;
 import 'dart:typed_data' show Uint8List;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -113,7 +113,7 @@ class VoucherExportService {
     final bytes = await pdf.save();
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => bytes,
-      name: 'Vouchers_${report.reportNumber ?? report.id}',
+      name: 'Vouchers_${report.reportNumber}',
     );
   }
 
@@ -1389,7 +1389,7 @@ class VoucherExportService {
     Map<String, Map<String, dynamic>>? documentDetails,
   }) async {
     try {
-      print('=== PRINTING MULTIPLE SUPPORT DOCUMENTS GRID ===');
+      debugPrint('=== PRINTING MULTIPLE SUPPORT DOCUMENTS GRID ===');
       final pdf = await generateMultipleSupportDocumentsGrid(
         documentUrls,
         transactionReceiptNo,
@@ -1398,17 +1398,17 @@ class VoucherExportService {
         documentDetails: documentDetails,
       );
 
-      print('Saving PDF to bytes...');
+      debugPrint('Saving PDF to bytes...');
       final bytes = await pdf.save();
-      print('PDF saved successfully, size: ${bytes.length} bytes, pages: ${pdf.document.pdfPageList.pages.length}');
+      debugPrint('PDF saved successfully, size: ${bytes.length} bytes, pages: ${pdf.document.pdfPageList.pages.length}');
       AppLogger.info(
         'PDF generated successfully, size: ${bytes.length} bytes, pages: ${pdf.document.pdfPageList.pages.length}',
       );
 
-      print('Sending PDF to printer...');
+      debugPrint('Sending PDF to printer...');
       await Printing.layoutPdf(
         onLayout: (PdfPageFormat format) async {
-          print('Printing layoutPdf called, returning ${bytes.length} bytes');
+          debugPrint('Printing layoutPdf called, returning ${bytes.length} bytes');
           AppLogger.info(
             'Printing layoutPdf called, returning ${bytes.length} bytes',
           );
@@ -1416,7 +1416,7 @@ class VoucherExportService {
         },
         name: 'Support_Documents_Grid_$transactionReceiptNo',
       );
-      print('PDF sent to printer successfully');
+      debugPrint('PDF sent to printer successfully');
 
       AppLogger.info(
         'Successfully printed ${documentUrls.length} documents in grid layout',
@@ -1885,7 +1885,7 @@ class VoucherExportService {
     PettyCashReport report,
   ) async {
     try {
-      print(
+      debugPrint(
         'Printing all support documents for ${transactions.length} transactions',
       );
 
@@ -1918,7 +1918,7 @@ class VoucherExportService {
       // Add a page for each support document
       for (var transaction in transactionsWithDocs) {
         try {
-          print('Fetching document for voucher ${transaction.receiptNo}');
+          debugPrint('Fetching document for voucher ${transaction.receiptNo}');
 
           final response = await http.get(
             Uri.parse(transaction.supportDocumentUrl!),
@@ -1972,12 +1972,12 @@ class VoucherExportService {
               ),
             );
           } else {
-            print(
+            debugPrint(
               'Failed to load document for voucher ${transaction.receiptNo}',
             );
           }
         } catch (e) {
-          print(
+          debugPrint(
             'Error loading document for voucher ${transaction.receiptNo}: $e',
           );
           // Continue with other documents even if one fails
@@ -1994,7 +1994,7 @@ class VoucherExportService {
         name: 'All_Support_Documents_${report.reportNumber}',
       );
 
-      print(
+      debugPrint(
         'Successfully printed ${pdf.document.pdfPageList.pages.length} support documents',
       );
     } catch (e) {

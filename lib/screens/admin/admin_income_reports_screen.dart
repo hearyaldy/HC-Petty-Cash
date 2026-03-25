@@ -77,7 +77,7 @@ class _AdminIncomeReportsScreenState extends State<AdminIncomeReportsScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.green.shade200.withOpacity(0.5),
+            color: Colors.green.shade200.withValues(alpha: 0.5),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -111,7 +111,7 @@ class _AdminIncomeReportsScreenState extends State<AdminIncomeReportsScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
@@ -138,7 +138,7 @@ class _AdminIncomeReportsScreenState extends State<AdminIncomeReportsScreen> {
                       'Manage and review all income reports',
                       style: TextStyle(
                         fontSize: isMobile ? 12 : 14,
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                       ),
                     ),
                   ],
@@ -164,7 +164,7 @@ class _AdminIncomeReportsScreenState extends State<AdminIncomeReportsScreen> {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: Colors.white, size: 20),

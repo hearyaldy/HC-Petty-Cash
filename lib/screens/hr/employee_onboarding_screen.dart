@@ -3,11 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:provider/provider.dart';
 import '../../models/staff.dart';
 import '../../models/enums.dart';
 import '../../services/staff_service.dart';
-import '../../providers/auth_provider.dart';
 import '../../utils/responsive_helper.dart';
 
 class EmployeeOnboardingScreen extends StatefulWidget {
@@ -119,9 +117,6 @@ class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
     });
 
     try {
-      final authProvider = context.read<AuthProvider>();
-      final currentUserId = authProvider.currentUser?.id;
-
       // Create Staff object
       final staff = Staff(
         id: '', // Will be auto-generated
@@ -265,7 +260,7 @@ class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -357,7 +352,7 @@ class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
                     boxShadow: isActive
                         ? [
                             BoxShadow(
-                              color: Colors.blue.withOpacity(0.3),
+                              color: Colors.blue.withValues(alpha: 0.3),
                               blurRadius: 8,
                               offset: const Offset(0, 4),
                             ),
@@ -415,7 +410,7 @@ class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.black.withValues(alpha: 0.05),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
@@ -458,7 +453,7 @@ class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withOpacity(0.3),
+            color: Colors.blue.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -493,7 +488,7 @@ class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
@@ -519,7 +514,7 @@ class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
                     Text(
                       'Welcome to the team! Please fill in your details.',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                         fontSize: isMobile ? 12 : 14,
                       ),
                     ),
@@ -546,7 +541,7 @@ class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: Colors.white, size: 20),
@@ -761,7 +756,7 @@ class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
             const SizedBox(width: 16),
             Expanded(
               child: DropdownButtonFormField<Gender>(
-                value: _gender,
+                initialValue: _gender,
                 decoration: _buildInputDecoration(
                   label: 'Gender',
                   icon: Icons.wc,
@@ -890,7 +885,7 @@ class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
         ),
         const SizedBox(height: 16),
         DropdownButtonFormField<UserRole>(
-          value: _role,
+          initialValue: _role,
           decoration: _buildInputDecoration(
             label: 'System Role *',
             icon: Icons.security,
@@ -907,7 +902,7 @@ class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
           children: [
             Expanded(
               child: DropdownButtonFormField<EmploymentType>(
-                value: _employmentType,
+                initialValue: _employmentType,
                 decoration: _buildInputDecoration(label: 'Employment Type'),
                 items: EmploymentType.values.map((type) {
                   return DropdownMenuItem(
@@ -925,7 +920,7 @@ class _EmployeeOnboardingScreenState extends State<EmployeeOnboardingScreen> {
             const SizedBox(width: 16),
             Expanded(
               child: DropdownButtonFormField<EmploymentStatus>(
-                value: _employmentStatus,
+                initialValue: _employmentStatus,
                 decoration: _buildInputDecoration(label: 'Status'),
                 items: EmploymentStatus.values.map((status) {
                   return DropdownMenuItem(

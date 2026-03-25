@@ -3,6 +3,7 @@ import '../models/enums.dart';
 import '../models/app_settings.dart';
 import '../services/settings_service.dart';
 import 'icon_picker_dialog.dart';
+import '../utils/icon_registry.dart';
 
 class EnhancedCategoryManagementDialog extends StatefulWidget {
   const EnhancedCategoryManagementDialog({super.key});
@@ -200,10 +201,7 @@ class _EnhancedCategoryManagementDialogState
   }
 
   Widget _buildCustomCategoryTile(CustomCategory category) {
-    final iconData = IconData(
-      int.parse(category.iconCodePoint),
-      fontFamily: 'MaterialIcons',
-    );
+    final iconData = iconFromCodePoint(category.iconCodePoint);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -449,10 +447,7 @@ class _EnhancedCategoryManagementDialogState
     final nameController = TextEditingController(text: category.name);
     final descriptionController = TextEditingController(text: category.description);
     final formKey = GlobalKey<FormState>();
-    IconData? selectedIcon = IconData(
-      int.parse(category.iconCodePoint),
-      fontFamily: 'MaterialIcons',
-    );
+    IconData? selectedIcon = iconFromCodePoint(category.iconCodePoint);
 
     showDialog(
       context: context,

@@ -69,28 +69,23 @@ class _NewReportScreenState extends State<NewReportScreen> {
       symbol: AppConstants.currencySymbol,
       decimalDigits: 2,
     );
+    final title = _reportType == 'advance_settlement'
+        ? 'Create Advance Settlement Report'
+        : 'Create New Report';
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          _reportType == 'advance_settlement'
-              ? 'Create Advance Settlement Report'
-              : 'Create New Report',
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.home_outlined),
-            onPressed: () => context.go('/admin-hub'),
-            tooltip: 'Home',
+      backgroundColor: Colors.grey[50],
+      body: SingleChildScrollView(
+        child: ResponsiveContainer(
+          padding: ResponsiveHelper.getScreenPadding(context).copyWith(
+            top: MediaQuery.of(context).padding.top + 16,
           ),
-        ],
-      ),
-      body: ResponsiveContainer(
-        child: SingleChildScrollView(
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                _buildHeaderCard(title),
+                const SizedBox(height: 16),
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
@@ -103,7 +98,7 @@ class _NewReportScreenState extends State<NewReportScreen> {
                           ),
                           const SizedBox(height: 24),
                           DropdownButtonFormField<String>(
-                            value: _reportType,
+                            initialValue: _reportType,
                             decoration: InputDecoration(
                               labelText: 'Report Type',
                               border: const OutlineInputBorder(),
@@ -298,13 +293,15 @@ class _NewReportScreenState extends State<NewReportScreen> {
                               ),
                               const SizedBox(width: 16),
                               Expanded(
-                                child: _buildDateField('End Date', _periodEnd, (
-                                  date,
-                                ) {
-                                  setState(() {
-                                    _periodEnd = date;
-                                  });
-                                }),
+                                child: _buildDateField(
+                                  'End Date',
+                                  _periodEnd,
+                                  (date) {
+                                    setState(() {
+                                      _periodEnd = date;
+                                    });
+                                  },
+                                ),
                               ),
                             ],
                           ),
@@ -366,12 +363,101 @@ class _NewReportScreenState extends State<NewReportScreen> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 32),
                 ],
               ),
             ),
           ),
         ),
       );
+  }
+
+  Widget _buildHeaderCard(String title) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.blue.shade600, Colors.blue.shade400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          // Navigation row
+          Row(
+            children: [
+              InkWell(
+                onTap: () => context.pop(),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                ),
+              ),
+              const Spacer(),
+              InkWell(
+                onTap: () => context.go('/admin-hub'),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.home_outlined, color: Colors.white, size: 20),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Content row
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.description, size: 40, color: Colors.white),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _reportType == 'advance_settlement'
+                          ? 'Settlement Report'
+                          : 'Petty Cash Report',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildDateField(

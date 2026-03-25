@@ -128,7 +128,7 @@ class _StudentOnboardingScreenState extends State<StudentOnboardingScreen> {
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
+                    color: Colors.grey.withValues(alpha: 0.1),
                     blurRadius: 20,
                     offset: const Offset(0, 4),
                   ),
@@ -158,7 +158,7 @@ class _StudentOnboardingScreenState extends State<StudentOnboardingScreen> {
                         Container(
                           padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
+                            color: Colors.white.withValues(alpha: 0.2),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
@@ -293,7 +293,7 @@ class _StudentOnboardingScreenState extends State<StudentOnboardingScreen> {
                           const SizedBox(height: 16),
                           // Year Level
                           DropdownButtonFormField<String>(
-                            value: _selectedYearLevel,
+                            initialValue: _selectedYearLevel,
                             decoration: InputDecoration(
                               labelText: 'Year Level *',
                               border: OutlineInputBorder(
@@ -314,7 +314,7 @@ class _StudentOnboardingScreenState extends State<StudentOnboardingScreen> {
                           const SizedBox(height: 16),
                           // Language
                           DropdownButtonFormField<String>(
-                            value: _selectedLanguage,
+                            initialValue: _selectedLanguage,
                             decoration: InputDecoration(
                               labelText: 'Language',
                               hintText: 'Select your language',
@@ -336,7 +336,7 @@ class _StudentOnboardingScreenState extends State<StudentOnboardingScreen> {
                           const SizedBox(height: 16),
                           // Role
                           DropdownButtonFormField<String>(
-                            value: _selectedRole,
+                            initialValue: _selectedRole,
                             decoration: InputDecoration(
                               labelText: 'Role',
                               hintText: 'Select your role',
@@ -373,7 +373,7 @@ class _StudentOnboardingScreenState extends State<StudentOnboardingScreen> {
                                 borderRadius: BorderRadius.circular(12),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.orange.withOpacity(0.3),
+                                    color: Colors.orange.withValues(alpha: 0.3),
                                     blurRadius: 8,
                                     offset: const Offset(0, 4),
                                   ),

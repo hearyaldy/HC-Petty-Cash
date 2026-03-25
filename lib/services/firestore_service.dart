@@ -1443,6 +1443,21 @@ class FirestoreService {
     }
   }
 
+  /// Link a cash advance to a purchase requisition
+  Future<void> updatePurchaseRequisitionCashAdvanceId(
+    String requisitionId,
+    String cashAdvanceId,
+  ) async {
+    try {
+      await _purchaseRequisitionsCollection
+          .doc(requisitionId)
+          .update({'cashAdvanceId': cashAdvanceId});
+    } catch (e) {
+      AppLogger.severe('Error linking cash advance to purchase requisition: $e');
+      rethrow;
+    }
+  }
+
   /// Delete a purchase requisition and its items
   Future<void> deletePurchaseRequisition(String requisitionId) async {
     try {

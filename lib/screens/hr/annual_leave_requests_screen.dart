@@ -299,6 +299,90 @@ class _AnnualLeaveRequestsScreenState extends State<AnnualLeaveRequestsScreen> {
     await Printing.layoutPdf(onLayout: (_) async => bytes);
   }
 
+  Widget _buildSimpleHeader() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.teal.shade600, Colors.cyan.shade400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              InkWell(
+                onTap: () => context.pop(),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                ),
+              ),
+              const Spacer(),
+              InkWell(
+                onTap: () => context.go('/admin-hub'),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.home_outlined, color: Colors.white, size: 20),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.event_available, size: 40, color: Colors.white),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Annual Leave Requests',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Review and approve annual leave',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
@@ -306,13 +390,16 @@ class _AnnualLeaveRequestsScreenState extends State<AnnualLeaveRequestsScreen> {
 
     if (!canManage) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Annual Leave Requests')),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
+        backgroundColor: Colors.grey[50],
+        body: SingleChildScrollView(
+          child: ResponsiveContainer(
+            padding: ResponsiveHelper.getScreenPadding(context).copyWith(
+              top: MediaQuery.of(context).padding.top + 16,
+            ),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                _buildSimpleHeader(),
+                const SizedBox(height: 100),
                 Icon(Icons.lock_outline, size: 48, color: Colors.red.shade300),
                 const SizedBox(height: 12),
                 const Text(
@@ -323,6 +410,7 @@ class _AnnualLeaveRequestsScreenState extends State<AnnualLeaveRequestsScreen> {
                 Text(
                   'You do not have permission to review leave requests.',
                   style: TextStyle(color: Colors.grey.shade600),
+                  textAlign: TextAlign.center,
                 ),
               ],
             ),
@@ -336,13 +424,15 @@ class _AnnualLeaveRequestsScreenState extends State<AnnualLeaveRequestsScreen> {
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      body: SafeArea(
+      body: SingleChildScrollView(
         child: ResponsiveContainer(
-          child: SingleChildScrollView(
-            child: _buildPageWithHeader(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+          padding: ResponsiveHelper.getScreenPadding(context).copyWith(
+            top: MediaQuery.of(context).padding.top + 16,
+          ),
+          child: _buildPageWithHeader(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Text(
                   'Pending & Reviewed Requests',
                   style: Theme.of(context).textTheme.titleMedium,
@@ -379,7 +469,7 @@ class _AnnualLeaveRequestsScreenState extends State<AnnualLeaveRequestsScreen> {
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: docs.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      separatorBuilder: (_, _) => const SizedBox(height: 8),
                       itemBuilder: (context, index) {
                         final request =
                             AnnualLeaveRequest.fromFirestore(docs[index]);
@@ -413,8 +503,7 @@ class _AnnualLeaveRequestsScreenState extends State<AnnualLeaveRequestsScreen> {
                                         vertical: 4,
                                       ),
                                       decoration: BoxDecoration(
-                                        color:
-                                            statusColor.withValues(alpha: 0.1),
+                                        color: statusColor.withValues(alpha: 0.1),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Text(
@@ -489,8 +578,8 @@ class _AnnualLeaveRequestsScreenState extends State<AnnualLeaveRequestsScreen> {
                     );
                   },
                 ),
+                const SizedBox(height: 24),
               ],
-              ),
             ),
           ),
         ),
@@ -523,7 +612,7 @@ class _AnnualLeaveRequestsScreenState extends State<AnnualLeaveRequestsScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.teal.shade200.withOpacity(0.5),
+            color: Colors.teal.shade200.withValues(alpha: 0.5),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -563,7 +652,7 @@ class _AnnualLeaveRequestsScreenState extends State<AnnualLeaveRequestsScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
@@ -590,7 +679,7 @@ class _AnnualLeaveRequestsScreenState extends State<AnnualLeaveRequestsScreen> {
                       'Review and approve annual leave',
                       style: TextStyle(
                         fontSize: isMobile ? 12 : 14,
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                       ),
                     ),
                   ],
@@ -616,7 +705,7 @@ class _AnnualLeaveRequestsScreenState extends State<AnnualLeaveRequestsScreen> {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: Colors.white, size: 20),

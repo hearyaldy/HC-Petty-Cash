@@ -44,8 +44,6 @@ class _InventoryDashboardScreenState extends State<InventoryDashboardScreen> {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final currentUser = authProvider.currentUser;
       final userOrgId = currentUser?.organizationId;
-      final isAdmin = currentUser?.role == 'admin';
-
       // Store organization name for display
       if (mounted) {
         setState(() {

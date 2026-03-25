@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
-import '../../models/user.dart' show User, InventoryPermissions;
+import '../../models/user.dart' show User, InventoryPermissions, SectionPermissions;
 import '../../models/enums.dart';
 import '../../models/organization.dart';
 import '../../models/student_timesheet.dart';
@@ -148,7 +148,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               Text(
                 'User Management',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.9),
+                  color: Colors.white.withValues(alpha: 0.9),
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                 ),
@@ -182,7 +182,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.people, color: Colors.white, size: 32),
@@ -204,7 +204,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     Text(
                       '${_users.length} users in system',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                         fontSize: 14,
                       ),
                     ),
@@ -231,7 +231,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: Colors.white, size: 20),
@@ -250,7 +250,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
+              color: Colors.grey.withValues(alpha: 0.1),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -300,7 +300,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.purple.withOpacity(0.3),
+                    color: Colors.purple.withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 4),
                   ),
@@ -483,7 +483,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -505,7 +505,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: _getRoleColor(user.role).withOpacity(0.3),
+                    color: _getRoleColor(user.role).withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -630,7 +630,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: _getRoleColor(user.role).withOpacity(0.3),
+                              color: _getRoleColor(user.role).withValues(alpha: 0.3),
                               blurRadius: 4,
                               offset: const Offset(0, 2),
                             ),
@@ -653,6 +653,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       const SizedBox(width: 8),
                       if (_hasAnyInventoryPermission(user))
                         _buildInventoryBadge(user),
+                      if (_hasAnySectionPermission(user)) ...[
+                        const SizedBox(width: 8),
+                        _buildSectionBadge(user),
+                      ],
                     ],
                   ),
                 ],
@@ -668,6 +672,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   _showEditRateDialog(user, hourlyRate ?? 0.0);
                 } else if (value == 'inventory') {
                   _showInventoryPermissionsDialog(user);
+                } else if (value == 'sections') {
+                  _showSectionPermissionsDialog(user);
                 }
               },
               itemBuilder: (context) => [
@@ -688,6 +694,16 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       Icon(Icons.inventory_2, color: Colors.indigo.shade600),
                       const SizedBox(width: 8),
                       const Text('Inventory Access'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'sections',
+                  child: Row(
+                    children: [
+                      Icon(Icons.tune, color: Colors.teal.shade600),
+                      const SizedBox(width: 8),
+                      const Text('Section Access'),
                     ],
                   ),
                 ),
@@ -1364,7 +1380,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: selectedRole,
+                    initialValue: selectedRole,
                     decoration: const InputDecoration(
                       labelText: 'Role',
                       border: OutlineInputBorder(),
@@ -1542,7 +1558,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
-                      value: selectedRole,
+                      initialValue: selectedRole,
                       decoration: const InputDecoration(
                         labelText: 'Role',
                         border: OutlineInputBorder(),
@@ -1578,7 +1594,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     isLoadingOrgs
                         ? const LinearProgressIndicator()
                         : DropdownButtonFormField<String?>(
-                            value: selectedOrganizationId,
+                            initialValue: selectedOrganizationId,
                             decoration: const InputDecoration(
                               labelText: 'Organization (for Inventory)',
                               border: OutlineInputBorder(),
@@ -2281,7 +2297,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     const SizedBox(height: 16),
                     // Year Level
                     DropdownButtonFormField<String>(
-                      value: selectedYearLevel,
+                      initialValue: selectedYearLevel,
                       decoration: InputDecoration(
                         labelText: 'Year Level *',
                         border: OutlineInputBorder(
@@ -2303,7 +2319,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     const SizedBox(height: 16),
                     // Language
                     DropdownButtonFormField<String>(
-                      value: selectedLanguage,
+                      initialValue: selectedLanguage,
                       decoration: InputDecoration(
                         labelText: 'Language',
                         hintText: 'Select language',
@@ -2326,7 +2342,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     const SizedBox(height: 16),
                     // Role
                     DropdownButtonFormField<String>(
-                      value: selectedRole,
+                      initialValue: selectedRole,
                       decoration: InputDecoration(
                         labelText: 'Role',
                         hintText: 'Select role',
@@ -2349,7 +2365,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     const SizedBox(height: 16),
                     // Grade
                     DropdownButtonFormField<String>(
-                      value: selectedGrade,
+                      initialValue: selectedGrade,
                       decoration: InputDecoration(
                         labelText: 'Grade',
                         hintText: 'Select grade',
@@ -2808,10 +2824,457 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         ),
         value: value,
         onChanged: onChanged,
-        activeColor: color,
+        activeThumbColor: color,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       ),
     );
+  }
+
+  // ── Section permissions ────────────────────────────────────────────────────
+
+  bool _hasAnySectionPermission(User user) {
+    if (user.role == 'admin') return true;
+    return user.sectionPermissions.hasAny;
+  }
+
+  Widget _buildSectionBadge(User user) {
+    final isAdmin = user.role == 'admin';
+    final count = isAdmin ? 10 : user.sectionPermissions.enabledCount;
+    return Tooltip(
+      message: isAdmin
+          ? 'Full section access (Admin)'
+          : '$count section permission(s) granted',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.teal.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.teal.shade200),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.tune, size: 12, color: Colors.teal.shade600),
+            const SizedBox(width: 4),
+            Text(
+              isAdmin ? 'Full' : '$count/10',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: Colors.teal.shade700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSectionPermissionsDialog(User user) {
+    final p = user.sectionPermissions;
+    bool financeView = p.financeView;
+    bool financeEdit = p.financeEdit;
+    bool meetingsView = p.meetingsView;
+    bool meetingsEdit = p.meetingsEdit;
+    bool hrView = p.hrView;
+    bool hrEdit = p.hrEdit;
+    bool reportsView = p.reportsView;
+    bool reportsEdit = p.reportsEdit;
+    bool studentView = p.studentView;
+    bool studentEdit = p.studentEdit;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.teal.shade400, Colors.teal.shade600],
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.tune, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Section Access', style: TextStyle(fontSize: 18)),
+                    Text(
+                      user.name,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.normal,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 480,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (user.role == 'admin')
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.amber.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline,
+                              color: Colors.amber.shade700, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Admins automatically have full access to all sections.',
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.amber.shade800),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  // Quick actions
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => setState(() {
+                            financeView = financeEdit = true;
+                            meetingsView = meetingsEdit = true;
+                            hrView = hrEdit = true;
+                            reportsView = reportsEdit = true;
+                            studentView = studentEdit = true;
+                          }),
+                          icon: const Icon(Icons.check_circle, size: 16),
+                          label: const Text('Grant All'),
+                          style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.green.shade700),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => setState(() {
+                            financeView = financeEdit = false;
+                            meetingsView = meetingsEdit = false;
+                            hrView = hrEdit = false;
+                            reportsView = reportsEdit = false;
+                            studentView = studentEdit = false;
+                          }),
+                          icon: const Icon(Icons.cancel, size: 16),
+                          label: const Text('Revoke All'),
+                          style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red.shade700),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 24),
+                  // Finance
+                  _buildSectionHeader2('Finance', Icons.account_balance_wallet,
+                      Colors.green),
+                  _buildViewEditRow(
+                    canView: financeView,
+                    canEdit: financeEdit,
+                    color: Colors.green,
+                    subtitle:
+                        'Cash advance, petty cash, purchase requisitions, income',
+                    onViewChanged: (v) => setState(() {
+                      financeView = v;
+                      if (!v) financeEdit = false;
+                    }),
+                    onEditChanged: (v) => setState(() {
+                      financeEdit = v;
+                      if (v) financeView = true;
+                    }),
+                  ),
+                  const SizedBox(height: 8),
+                  // Meetings
+                  _buildSectionHeader2(
+                      'Meetings', Icons.event_note, Colors.indigo),
+                  _buildViewEditRow(
+                    canView: meetingsView,
+                    canEdit: meetingsEdit,
+                    color: Colors.indigo,
+                    subtitle: 'Meeting agenda, ADCOM minutes',
+                    onViewChanged: (v) => setState(() {
+                      meetingsView = v;
+                      if (!v) meetingsEdit = false;
+                    }),
+                    onEditChanged: (v) => setState(() {
+                      meetingsEdit = v;
+                      if (v) meetingsView = true;
+                    }),
+                  ),
+                  const SizedBox(height: 8),
+                  // HR
+                  _buildSectionHeader2('HR', Icons.people, Colors.deepPurple),
+                  _buildViewEditRow(
+                    canView: hrView,
+                    canEdit: hrEdit,
+                    color: Colors.deepPurple,
+                    subtitle:
+                        'Staff directory, salary & benefits, employment letters, annual leave',
+                    onViewChanged: (v) => setState(() {
+                      hrView = v;
+                      if (!v) hrEdit = false;
+                    }),
+                    onEditChanged: (v) => setState(() {
+                      hrEdit = v;
+                      if (v) hrView = true;
+                    }),
+                  ),
+                  const SizedBox(height: 8),
+                  // Reports
+                  _buildSectionHeader2(
+                      'Reports', Icons.assessment, Colors.teal),
+                  _buildViewEditRow(
+                    canView: reportsView,
+                    canEdit: reportsEdit,
+                    color: Colors.teal,
+                    subtitle: 'Traveling reports, project reports',
+                    onViewChanged: (v) => setState(() {
+                      reportsView = v;
+                      if (!v) reportsEdit = false;
+                    }),
+                    onEditChanged: (v) => setState(() {
+                      reportsEdit = v;
+                      if (v) reportsView = true;
+                    }),
+                  ),
+                  const SizedBox(height: 8),
+                  // Student
+                  _buildSectionHeader2(
+                      'Student', Icons.school, Colors.orange),
+                  _buildViewEditRow(
+                    canView: studentView,
+                    canEdit: studentEdit,
+                    color: Colors.orange,
+                    subtitle: 'Student management, timesheets',
+                    onViewChanged: (v) => setState(() {
+                      studentView = v;
+                      if (!v) studentEdit = false;
+                    }),
+                    onEditChanged: (v) => setState(() {
+                      studentEdit = v;
+                      if (v) studentView = true;
+                    }),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.teal.shade400, Colors.teal.shade600],
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await _updateSectionPermissions(
+                      user,
+                      SectionPermissions(
+                        financeView: financeView,
+                        financeEdit: financeEdit,
+                        meetingsView: meetingsView,
+                        meetingsEdit: meetingsEdit,
+                        hrView: hrView,
+                        hrEdit: hrEdit,
+                        reportsView: reportsView,
+                        reportsEdit: reportsEdit,
+                        studentView: studentView,
+                        studentEdit: studentEdit,
+                      ),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: const Padding(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: Text(
+                      'Save Permissions',
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader2(String title, IconData icon, MaterialColor color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: color.shade600),
+          const SizedBox(width: 6),
+          Text(
+            title,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+              color: color.shade700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildViewEditRow({
+    required bool canView,
+    required bool canEdit,
+    required MaterialColor color,
+    required String subtitle,
+    required ValueChanged<bool> onViewChanged,
+    required ValueChanged<bool> onEditChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: (canView || canEdit)
+            ? color.withValues(alpha: 0.05)
+            : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: (canView || canEdit)
+              ? color.withValues(alpha: 0.25)
+              : Colors.grey.shade200,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            subtitle,
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _buildToggleChip(
+                  label: 'View',
+                  icon: Icons.visibility_outlined,
+                  active: canView,
+                  color: color,
+                  onTap: () => onViewChanged(!canView),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildToggleChip(
+                  label: 'Edit',
+                  icon: Icons.edit_outlined,
+                  active: canEdit,
+                  color: color,
+                  onTap: () => onEditChanged(!canEdit),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToggleChip({
+    required String label,
+    required IconData icon,
+    required bool active,
+    required MaterialColor color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: active ? color.shade600 : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: active ? color.shade600 : Colors.grey.shade300,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 14,
+                color: active ? Colors.white : Colors.grey.shade500),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: active ? Colors.white : Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _updateSectionPermissions(
+      User user, SectionPermissions permissions) async {
+    try {
+      final updatedUser = user.copyWith(
+        sectionPermissions: permissions,
+        updatedAt: DateTime.now(),
+      );
+      await _firestoreService.updateUser(updatedUser);
+      await _loadUsers();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Section permissions updated successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating permissions: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _updateInventoryPermissions(

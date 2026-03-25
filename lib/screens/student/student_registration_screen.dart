@@ -57,7 +57,7 @@ class _StudentRegistrationScreenState extends State<StudentRegistrationScreen> {
     try {
       final authProvider = context.read<AuthProvider>();
 
-      print('DEBUG: Starting registration for $email');
+      debugPrint('DEBUG: Starting registration for $email');
 
       final userId = await authProvider.registerUser(
         email: email,
@@ -67,16 +67,16 @@ class _StudentRegistrationScreenState extends State<StudentRegistrationScreen> {
         department: _departmentController.text.trim(),
       );
 
-      print('DEBUG: Registration completed, userId: $userId');
+      debugPrint('DEBUG: Registration completed, userId: $userId');
 
       if (!mounted) return;
 
       if (userId != null) {
-        print('DEBUG: Navigating to onboarding');
+        debugPrint('DEBUG: Navigating to onboarding');
         // Navigate immediately with the user data we have
         final navUrl =
             '/student-onboarding?userId=$userId&userName=${Uri.encodeComponent(name)}&userEmail=${Uri.encodeComponent(email)}';
-        print('DEBUG: Navigation URL: $navUrl');
+        debugPrint('DEBUG: Navigation URL: $navUrl');
         context.go(navUrl);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -87,7 +87,7 @@ class _StudentRegistrationScreenState extends State<StudentRegistrationScreen> {
         );
       }
     } catch (e) {
-      print('DEBUG: Registration error: $e');
+      debugPrint('DEBUG: Registration error: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

@@ -123,6 +123,7 @@ class CashAdvanceProvider extends ChangeNotifier {
     String? notes,
     List<String>? supportDocumentUrls,
     List<CashAdvanceItem>? items,
+    String? purchaseRequisitionId,
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -141,6 +142,7 @@ class CashAdvanceProvider extends ChangeNotifier {
         notes: notes,
         supportDocumentUrls: supportDocumentUrls,
         items: items,
+        purchaseRequisitionId: purchaseRequisitionId,
       );
 
       _advances.insert(0, advance);

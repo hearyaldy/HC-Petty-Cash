@@ -386,7 +386,7 @@ class _AddEditEngagementScreenState extends State<AddEditEngagementScreen> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              value: _selectedProductionId,
+              initialValue: _selectedProductionId,
               decoration: const InputDecoration(
                 labelText: 'Production *',
                 border: OutlineInputBorder(),
@@ -435,7 +435,7 @@ class _AddEditEngagementScreenState extends State<AddEditEngagementScreen> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              value: _selectedPlatform,
+              initialValue: _selectedPlatform,
               decoration: const InputDecoration(
                 labelText: 'Platform *',
                 border: OutlineInputBorder(),

@@ -590,7 +590,7 @@ class _AddEditProductionScreenState extends State<AddEditProductionScreen> {
               mobile: Column(
                 children: [
                   DropdownButtonFormField<String>(
-                    value: _selectedLanguage,
+                    initialValue: _selectedLanguage,
                     decoration: const InputDecoration(
                       labelText: 'Language *',
                       border: OutlineInputBorder(),
@@ -608,7 +608,7 @@ class _AddEditProductionScreenState extends State<AddEditProductionScreen> {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: _selectedType,
+                    initialValue: _selectedType,
                     decoration: const InputDecoration(
                       labelText: 'Type *',
                       border: OutlineInputBorder(),
@@ -630,7 +630,7 @@ class _AddEditProductionScreenState extends State<AddEditProductionScreen> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: _selectedLanguage,
+                      initialValue: _selectedLanguage,
                       decoration: const InputDecoration(
                         labelText: 'Language *',
                         border: OutlineInputBorder(),
@@ -650,7 +650,7 @@ class _AddEditProductionScreenState extends State<AddEditProductionScreen> {
                   const SizedBox(width: 16),
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: _selectedType,
+                      initialValue: _selectedType,
                       decoration: const InputDecoration(
                         labelText: 'Type *',
                         border: OutlineInputBorder(),
@@ -673,7 +673,7 @@ class _AddEditProductionScreenState extends State<AddEditProductionScreen> {
             const SizedBox(height: 16),
             if (_isEditMode)
               DropdownButtonFormField<String>(
-                value: _selectedStatus,
+                initialValue: _selectedStatus,
                 decoration: const InputDecoration(
                   labelText: 'Status',
                   border: OutlineInputBorder(),
@@ -791,7 +791,7 @@ class _AddEditProductionScreenState extends State<AddEditProductionScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     DropdownButtonFormField<String>(
-                      value: selectedValue,
+                      initialValue: selectedValue,
                       decoration: const InputDecoration(
                         labelText: 'Linked Project Report (optional)',
                         border: OutlineInputBorder(),
@@ -866,7 +866,7 @@ class _AddEditProductionScreenState extends State<AddEditProductionScreen> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              value: _selectedCategory,
+              initialValue: _selectedCategory,
               decoration: const InputDecoration(
                 labelText: 'Category',
                 border: OutlineInputBorder(),

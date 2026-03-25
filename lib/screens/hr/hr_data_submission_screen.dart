@@ -503,7 +503,7 @@ class _HrDataSubmissionScreenState extends State<HrDataSubmissionScreen> {
     });
 
     try {
-      print('Starting HR data submission...'); // Debug message
+      debugPrint('Starting HR data submission...'); // Debug message
 
       final authProvider = context.read<AuthProvider>();
       final user = authProvider.currentUser;
@@ -512,11 +512,11 @@ class _HrDataSubmissionScreenState extends State<HrDataSubmissionScreen> {
         throw 'User not authenticated';
       }
 
-      print('User authenticated: ${user.id}, ${user.name}'); // Debug message
+      debugPrint('User authenticated: ${user.id}, ${user.name}'); // Debug message
 
       // Generate employee ID if not provided
       String employeeId = _employeeIdController.text.trim();
-      print('Original employee ID: "$employeeId"'); // Debug message
+      debugPrint('Original employee ID: "$employeeId"'); // Debug message
 
       if (employeeId.isEmpty) {
         // Generate custom employee ID: HC-[current year]-[last 2 digits of birth year if available]
@@ -529,15 +529,15 @@ class _HrDataSubmissionScreenState extends State<HrDataSubmissionScreen> {
           }
         }
         employeeId = 'HC-$currentYear-$birthYearSuffix';
-        print('Auto-generated employee ID: $employeeId'); // Debug message
+        debugPrint('Auto-generated employee ID: $employeeId'); // Debug message
       } else {
-        print('Using provided employee ID: $employeeId'); // Debug message
+        debugPrint('Using provided employee ID: $employeeId'); // Debug message
       }
 
       // Upload photo if selected, or use existing photo URL
       String? photoUrl;
       if (_selectedPhoto != null || _selectedPhotoBytes != null) {
-        print('Uploading profile photo...'); // Debug message
+        debugPrint('Uploading profile photo...'); // Debug message
         photoUrl = await _uploadPhotoToStorage(user.id);
       } else if (_existingPhotoUrl != null && _existingPhotoUrl!.isNotEmpty) {
         // Keep existing photo URL if no new photo selected
@@ -602,8 +602,8 @@ class _HrDataSubmissionScreenState extends State<HrDataSubmissionScreen> {
         'processed': false,
       };
 
-      print('HR Data submission object prepared'); // Debug message
-      print('Attempting to save to Firestore...'); // Debug message
+      debugPrint('HR Data submission object prepared'); // Debug message
+      debugPrint('Attempting to save to Firestore...'); // Debug message
 
       // Check if user already has an HR submission - UPDATE instead of CREATE
       final existingSubmission = await FirebaseFirestore.instance
@@ -626,7 +626,7 @@ class _HrDataSubmissionScreenState extends State<HrDataSubmissionScreen> {
             .doc(hrDocId)
             .update(hrDataSubmission);
 
-        print(
+        debugPrint(
           'HR Data updated successfully (existing submission)',
         ); // Debug message
       } else {
@@ -636,7 +636,7 @@ class _HrDataSubmissionScreenState extends State<HrDataSubmissionScreen> {
             .add(hrDataSubmission);
         hrDocId = hrDocRef.id;
 
-        print(
+        debugPrint(
           'HR Data submitted successfully (new submission)',
         ); // Debug message
       }
@@ -648,7 +648,7 @@ class _HrDataSubmissionScreenState extends State<HrDataSubmissionScreen> {
       // Upload documents if any
       if (_attachedDocuments.isNotEmpty) {
         // In a real app, you would upload each document to Firebase Storage
-        print(
+        debugPrint(
           'Processing ${_attachedDocuments.length} document uploads...',
         ); // Debug message
       }
@@ -673,8 +673,8 @@ class _HrDataSubmissionScreenState extends State<HrDataSubmissionScreen> {
         context.go('/hr/my-data');
       }
     } catch (e) {
-      print('Error in HR data submission: $e'); // Debug message
-      print('Error type: ${e.runtimeType}'); // Debug message
+      debugPrint('Error in HR data submission: $e'); // Debug message
+      debugPrint('Error type: ${e.runtimeType}'); // Debug message
 
       if (mounted) {
         ScaffoldMessenger.of(
@@ -1022,7 +1022,7 @@ class _HrDataSubmissionScreenState extends State<HrDataSubmissionScreen> {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: Colors.white, size: 20),
@@ -1346,7 +1346,7 @@ class _HrDataSubmissionScreenState extends State<HrDataSubmissionScreen> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: _selectedGender,
+                    initialValue: _selectedGender,
                     decoration: const InputDecoration(
                       labelText: 'Gender',
                       border: OutlineInputBorder(),
@@ -1655,7 +1655,7 @@ class _HrDataSubmissionScreenState extends State<HrDataSubmissionScreen> {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: _selectedEmploymentType,
+                    initialValue: _selectedEmploymentType,
                     decoration: const InputDecoration(
                       labelText: 'Employment Type',
                       border: OutlineInputBorder(),
@@ -1686,7 +1686,7 @@ class _HrDataSubmissionScreenState extends State<HrDataSubmissionScreen> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: _selectedEmploymentStatus,
+                    initialValue: _selectedEmploymentStatus,
                     decoration: const InputDecoration(
                       labelText: 'Employment Status',
                       border: OutlineInputBorder(),
@@ -1746,7 +1746,7 @@ class _HrDataSubmissionScreenState extends State<HrDataSubmissionScreen> {
               color: Colors.indigo,
             ),
             DropdownButtonFormField<String>(
-              value: _selectedEducationLevel,
+              initialValue: _selectedEducationLevel,
               decoration: const InputDecoration(
                 labelText: 'Highest Education Level',
                 border: OutlineInputBorder(),

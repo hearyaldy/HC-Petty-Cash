@@ -301,7 +301,7 @@ class _MediaProductionsScreenState extends State<MediaProductionsScreen> {
             mobile: Column(
               children: [
                 DropdownButtonFormField<String>(
-                  value: _selectedLanguage,
+                  initialValue: _selectedLanguage,
                   decoration: const InputDecoration(
                     labelText: 'Language',
                     border: OutlineInputBorder(),
@@ -318,7 +318,7 @@ class _MediaProductionsScreenState extends State<MediaProductionsScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: _selectedType,
+                  initialValue: _selectedType,
                   decoration: const InputDecoration(
                     labelText: 'Type',
                     border: OutlineInputBorder(),
@@ -335,7 +335,7 @@ class _MediaProductionsScreenState extends State<MediaProductionsScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: _selectedStatus,
+                  initialValue: _selectedStatus,
                   decoration: const InputDecoration(
                     labelText: 'Status',
                     border: OutlineInputBorder(),
@@ -356,7 +356,7 @@ class _MediaProductionsScreenState extends State<MediaProductionsScreen> {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: _selectedLanguage,
+                    initialValue: _selectedLanguage,
                     decoration: const InputDecoration(
                       labelText: 'Language',
                       border: OutlineInputBorder(),
@@ -375,7 +375,7 @@ class _MediaProductionsScreenState extends State<MediaProductionsScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: _selectedType,
+                    initialValue: _selectedType,
                     decoration: const InputDecoration(
                       labelText: 'Type',
                       border: OutlineInputBorder(),
@@ -394,7 +394,7 @@ class _MediaProductionsScreenState extends State<MediaProductionsScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: _selectedStatus,
+                    initialValue: _selectedStatus,
                     decoration: const InputDecoration(
                       labelText: 'Status',
                       border: OutlineInputBorder(),

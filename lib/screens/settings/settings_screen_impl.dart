@@ -527,7 +527,7 @@ class _SettingsScreenImplState extends State<SettingsScreenImpl> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.blueGrey.shade200.withOpacity(0.5),
+            color: Colors.blueGrey.shade200.withValues(alpha: 0.5),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -561,7 +561,7 @@ class _SettingsScreenImplState extends State<SettingsScreenImpl> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
@@ -588,7 +588,7 @@ class _SettingsScreenImplState extends State<SettingsScreenImpl> {
                       'Configure your app preferences',
                       style: TextStyle(
                         fontSize: isMobile ? 12 : 14,
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                       ),
                     ),
                   ],
@@ -614,7 +614,7 @@ class _SettingsScreenImplState extends State<SettingsScreenImpl> {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: Colors.white, size: 20),
@@ -644,7 +644,7 @@ class _SettingsScreenImplState extends State<SettingsScreenImpl> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withOpacity(0.3),
+            color: Colors.blue.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -659,7 +659,7 @@ class _SettingsScreenImplState extends State<SettingsScreenImpl> {
               children: [
                 CircleAvatar(
                   radius: 30,
-                  backgroundColor: Colors.white.withOpacity(0.3),
+                  backgroundColor: Colors.white.withValues(alpha: 0.3),
                   backgroundImage: avatarImage,
                   child: _isUploadingPhoto
                       ? const SizedBox(
@@ -691,7 +691,7 @@ class _SettingsScreenImplState extends State<SettingsScreenImpl> {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
+                          color: Colors.black.withValues(alpha: 0.2),
                           blurRadius: 4,
                         ),
                       ],
@@ -723,7 +723,7 @@ class _SettingsScreenImplState extends State<SettingsScreenImpl> {
                 Text(
                   email,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                     fontSize: 14,
                   ),
                 ),
@@ -747,7 +747,7 @@ class _SettingsScreenImplState extends State<SettingsScreenImpl> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -808,7 +808,7 @@ class _SettingsScreenImplState extends State<SettingsScreenImpl> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: (iconColor ?? Colors.blue).withOpacity(0.1),
+                color: (iconColor ?? Colors.blue).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(icon, color: iconColor ?? Colors.blue, size: 20),
@@ -854,7 +854,7 @@ class _SettingsScreenImplState extends State<SettingsScreenImpl> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
+              color: Colors.blue.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, color: Colors.blue, size: 20),
@@ -902,7 +902,7 @@ class _SettingsScreenImplState extends State<SettingsScreenImpl> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
+                  color: Colors.red.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(Icons.logout, color: Colors.red, size: 20),
@@ -1082,7 +1082,7 @@ class _SettingsScreenImplState extends State<SettingsScreenImpl> {
                         : null,
                     boxShadow: [
                       BoxShadow(
-                        color: gradientColors[0].withOpacity(0.3),
+                        color: gradientColors[0].withValues(alpha: 0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),

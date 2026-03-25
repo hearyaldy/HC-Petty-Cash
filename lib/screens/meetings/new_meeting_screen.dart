@@ -1100,7 +1100,7 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            value: chairValue,
+            initialValue: chairValue,
             decoration: const InputDecoration(
               labelText: 'Chairperson',
               border: OutlineInputBorder(),
@@ -1149,7 +1149,7 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            value: secretaryValue,
+            initialValue: secretaryValue,
             decoration: const InputDecoration(
               labelText: 'Secretary / Minutes Taker',
               border: OutlineInputBorder(),

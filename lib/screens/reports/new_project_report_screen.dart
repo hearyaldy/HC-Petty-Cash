@@ -54,225 +54,308 @@ class _NewProjectReportScreenState extends State<NewProjectReportScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create New Project Report'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.home_outlined),
-            onPressed: () => context.go('/admin-hub'),
-            tooltip: 'Home',
+      backgroundColor: Colors.grey[50],
+      body: SingleChildScrollView(
+        child: ResponsiveContainer(
+          padding: ResponsiveHelper.getScreenPadding(context).copyWith(
+            top: MediaQuery.of(context).padding.top + 16,
           ),
-        ],
-      ),
-      body: ResponsiveContainer(
-        child: SingleChildScrollView(
           child: Form(
             key: _formKey,
             child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Project Information',
-                            style: Theme.of(context).textTheme.headlineSmall,
-                          ),
-                          const SizedBox(height: 24),
-                          TextFormField(
-                            controller: _projectNameController,
-                            decoration: const InputDecoration(
-                              labelText: 'Project Name',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.folder_special),
-                              helperText:
-                                  'Enter a descriptive name for the project',
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildHeaderCard(),
+                const SizedBox(height: 16),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Project Information',
+                              style: Theme.of(context).textTheme.headlineSmall,
                             ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter a project name';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _budgetController,
-                            decoration: InputDecoration(
-                              labelText: 'Budget Amount',
-                              border: const OutlineInputBorder(),
-                              prefixIcon: const Icon(Icons.attach_money),
-                              prefixText: AppConstants.currencySymbol,
-                              helperText:
-                                  'Total budget allocated for this project',
-                            ),
-                            keyboardType: TextInputType.number,
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter a budget amount';
-                              }
-                              if (double.tryParse(value) == null) {
-                                return 'Please enter a valid number';
-                              }
-                              if (double.parse(value) <= 0) {
-                                return 'Budget must be greater than zero';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          DropdownButtonFormField<String>(
-                            value: _selectedLanguage?.code,
-                            decoration: const InputDecoration(
-                              labelText: 'Project Language',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.language),
-                              helperText:
-                                  'Select the language for this project report',
-                            ),
-                            items: [
-                              ..._languages.map((lang) => DropdownMenuItem(
-                                    value: lang.code,
-                                    child: Text('${lang.name} (${lang.code})'),
-                                  )),
-                              const DropdownMenuItem(
-                                value: '__add_new__',
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.add, size: 18),
-                                    SizedBox(width: 8),
-                                    Text('Add Language...'),
-                                  ],
-                                ),
+                            const SizedBox(height: 24),
+                            TextFormField(
+                              controller: _projectNameController,
+                              decoration: const InputDecoration(
+                                labelText: 'Project Name',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.folder_special),
+                                helperText:
+                                    'Enter a descriptive name for the project',
                               ),
-                            ],
-                            onChanged: (value) {
-                              if (value == '__add_new__') {
-                                _showAddLanguageDialog();
-                              } else if (value != null) {
-                                setState(() {
-                                  _selectedLanguage = _languages
-                                      .firstWhere((l) => l.code == value);
-                                });
-                              }
-                            },
-                            validator: (value) {
-                              if (value == null || value.isEmpty || value == '__add_new__') {
-                                return 'Please select a language';
-                              }
-                              return null;
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Project Timeline',
-                            style: Theme.of(context).textTheme.headlineSmall,
-                          ),
-                          const SizedBox(height: 24),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildDateField(
-                                  'Start Date',
-                                  _startDate,
-                                  (date) {
-                                    setState(() {
-                                      _startDate = date;
-                                    });
-                                  },
-                                ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter a project name';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _budgetController,
+                              decoration: InputDecoration(
+                                labelText: 'Budget Amount',
+                                border: const OutlineInputBorder(),
+                                prefixIcon: const Icon(Icons.attach_money),
+                                prefixText: AppConstants.currencySymbol,
+                                helperText:
+                                    'Total budget allocated for this project',
                               ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: _buildDateField('End Date', _endDate, (
-                                  date,
-                                ) {
+                              keyboardType: TextInputType.number,
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter a budget amount';
+                                }
+                                if (double.tryParse(value) == null) {
+                                  return 'Please enter a valid number';
+                                }
+                                if (double.parse(value) <= 0) {
+                                  return 'Budget must be greater than zero';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            DropdownButtonFormField<String>(
+                              initialValue: _selectedLanguage?.code,
+                              decoration: const InputDecoration(
+                                labelText: 'Project Language',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.language),
+                                helperText:
+                                    'Select the language for this project report',
+                              ),
+                              items: [
+                                ..._languages.map((lang) => DropdownMenuItem(
+                                      value: lang.code,
+                                      child: Text('${lang.name} (${lang.code})'),
+                                    )),
+                                const DropdownMenuItem(
+                                  value: '__add_new__',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.add, size: 18),
+                                      SizedBox(width: 8),
+                                      Text('Add Language...'),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                              onChanged: (value) {
+                                if (value == '__add_new__') {
+                                  _showAddLanguageDialog();
+                                } else if (value != null) {
                                   setState(() {
-                                    _endDate = date;
+                                    _selectedLanguage = _languages
+                                        .firstWhere((l) => l.code == value);
                                   });
-                                }),
-                              ),
-                            ],
-                          ),
-                          if (_endDate.isBefore(_startDate)) ...[
-                            const SizedBox(height: 8),
-                            const Text(
-                              'End date must be after start date',
-                              style: TextStyle(color: Colors.red, fontSize: 12),
+                                }
+                              },
+                              validator: (value) {
+                                if (value == null || value.isEmpty || value == '__add_new__') {
+                                  return 'Please select a language';
+                                }
+                                return null;
+                              },
                             ),
                           ],
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Project Description',
-                            style: Theme.of(context).textTheme.headlineSmall,
-                          ),
-                          const SizedBox(height: 24),
-                          TextFormField(
-                            controller: _descriptionController,
-                            decoration: const InputDecoration(
-                              labelText: 'Description (Optional)',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.description),
-                              helperText:
-                                  'Provide details about the project scope and objectives',
-                            ),
-                            maxLines: 4,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      OutlinedButton(
-                        onPressed: () => context.pop(),
-                        child: const Text('Cancel'),
-                      ),
-                      const SizedBox(width: 16),
-                      ElevatedButton.icon(
-                        onPressed: _createProjectReport,
-                        icon: const Icon(Icons.check),
-                        label: const Text('Create Project Report'),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 32,
-                            vertical: 16,
-                          ),
                         ),
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                    const SizedBox(height: 24),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Project Timeline',
+                              style: Theme.of(context).textTheme.headlineSmall,
+                            ),
+                            const SizedBox(height: 24),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildDateField(
+                                    'Start Date',
+                                    _startDate,
+                                    (date) {
+                                      setState(() {
+                                        _startDate = date;
+                                      });
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildDateField('End Date', _endDate, (
+                                    date,
+                                  ) {
+                                    setState(() {
+                                      _endDate = date;
+                                    });
+                                  }),
+                                ),
+                              ],
+                            ),
+                            if (_endDate.isBefore(_startDate)) ...[
+                              const SizedBox(height: 8),
+                              const Text(
+                                'End date must be after start date',
+                                style: TextStyle(color: Colors.red, fontSize: 12),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Project Description',
+                              style: Theme.of(context).textTheme.headlineSmall,
+                            ),
+                            const SizedBox(height: 24),
+                            TextFormField(
+                              controller: _descriptionController,
+                              decoration: const InputDecoration(
+                                labelText: 'Description (Optional)',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.description),
+                                helperText:
+                                    'Provide details about the project scope and objectives',
+                              ),
+                              maxLines: 4,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        OutlinedButton(
+                          onPressed: () => context.pop(),
+                          child: const Text('Cancel'),
+                        ),
+                        const SizedBox(width: 16),
+                        ElevatedButton.icon(
+                          onPressed: _createProjectReport,
+                          icon: const Icon(Icons.check),
+                          label: const Text('Create Project Report'),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 32,
+                              vertical: 16,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 32),
+                  ],
+                ),
               ),
             ),
           ),
+        );
+  }
+
+  Widget _buildHeaderCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.green.shade600, Colors.green.shade400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-      );
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          // Navigation row
+          Row(
+            children: [
+              InkWell(
+                onTap: () => context.pop(),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                ),
+              ),
+              const Spacer(),
+              InkWell(
+                onTap: () => context.go('/admin-hub'),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.home_outlined, color: Colors.white, size: 20),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Content row
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.folder_special, size: 40, color: Colors.white),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Create New Project Report',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Manage project budgets and expenses',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildDateField(

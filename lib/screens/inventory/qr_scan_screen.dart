@@ -199,44 +199,154 @@ class _QrScanScreenState extends State<QrScanScreen> {
 
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        title: const Text('Scan QR'),
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        actions: [
-          // Manual input button
-          IconButton(
-            icon: const Icon(Icons.keyboard),
-            tooltip: 'Enter code manually',
-            onPressed: _showManualInputDialog,
+      body: Column(
+        children: [
+          Padding(
+            padding: EdgeInsets.only(
+              top: MediaQuery.of(context).padding.top + 8,
+              left: 16,
+              right: 16,
+              bottom: 8,
+            ),
+            child: _buildHeaderCard(),
           ),
-          if (_controller != null && !_isInitializing) ...[
-            IconButton(
-              icon: Icon(_torchEnabled ? Icons.flash_on : Icons.flash_off),
-              tooltip: 'Toggle flashlight',
-              onPressed: () async {
-                await _controller!.toggleTorch();
-                setState(() => _torchEnabled = !_torchEnabled);
-              },
+          Expanded(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: isMobile ? double.infinity : 640,
+                ),
+                child: _buildBody(),
+              ),
             ),
-            IconButton(
-              icon: Icon(_frontCamera ? Icons.camera_front : Icons.camera_rear),
-              tooltip: 'Switch camera',
-              onPressed: () async {
-                await _controller!.switchCamera();
-                setState(() => _frontCamera = !_frontCamera);
-              },
-            ),
-          ],
+          ),
         ],
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: isMobile ? double.infinity : 640,
-          ),
-          child: _buildBody(),
+    );
+  }
+
+  Widget _buildHeaderCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.purple.shade600, Colors.purple.shade400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              InkWell(
+                onTap: () => context.pop(),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                ),
+              ),
+              const Spacer(),
+              InkWell(
+                onTap: _showManualInputDialog,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.keyboard, color: Colors.white, size: 20),
+                ),
+              ),
+              if (_controller != null && !_isInitializing) ...[
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: () async {
+                    await _controller!.toggleTorch();
+                    setState(() => _torchEnabled = !_torchEnabled);
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      _torchEnabled ? Icons.flash_on : Icons.flash_off,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: () async {
+                    await _controller!.switchCamera();
+                    setState(() => _frontCamera = !_frontCamera);
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      _frontCamera ? Icons.camera_front : Icons.camera_rear,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.qr_code_scanner, size: 32, color: Colors.white),
+              ),
+              const SizedBox(width: 16),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Scan QR Code',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Point camera at equipment QR code',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

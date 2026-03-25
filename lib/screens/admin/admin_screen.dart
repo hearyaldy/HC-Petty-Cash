@@ -11,6 +11,7 @@ import '../../utils/responsive_helper.dart';
 import '../../utils/student_rate_config.dart';
 import '../../utils/constants.dart';
 import '../../widgets/app_drawer.dart';
+import '../../widgets/page_image_header.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
@@ -92,22 +93,39 @@ class _AdminScreenState extends State<AdminScreen> {
 
     if (!authProvider.canManageUsers()) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Admin')),
         drawer: const AppDrawer(),
-        body: const Center(
+        body: ResponsiveContainer(
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Icon(Icons.lock, size: 80, color: Colors.grey),
-              SizedBox(height: 16),
-              Text(
-                'Access Denied',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              const PageImageHeader(
+                title: 'Admin',
+                subtitle: 'Access Denied',
+                showBackButton: false,
               ),
-              SizedBox(height: 8),
-              Text(
-                'You do not have permission to access this page',
-                style: TextStyle(color: Colors.grey),
+              const SizedBox(height: 24),
+              const Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.lock, size: 80, color: Colors.grey),
+                      SizedBox(height: 16),
+                      Text(
+                        'Access Denied',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'You do not have permission to access this page',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
@@ -116,25 +134,34 @@ class _AdminScreenState extends State<AdminScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('User Management'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadUsers,
-            tooltip: 'Refresh Users',
-          ),
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: _showAddUserDialog,
-            tooltip: 'Add User',
-          ),
-        ],
-      ),
       drawer: const AppDrawer(),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : ResponsiveContainer(child: _buildUsersList()),
+          : ResponsiveContainer(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  PageImageHeader(
+                    title: 'User Management',
+                    subtitle: 'Manage application users',
+                    actions: [
+                      PageImageHeader.actionButton(
+                        icon: Icons.refresh,
+                        tooltip: 'Refresh Users',
+                        onPressed: _loadUsers,
+                      ),
+                      PageImageHeader.actionButton(
+                        icon: Icons.add,
+                        tooltip: 'Add User',
+                        onPressed: _showAddUserDialog,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  _buildUsersList(),
+                ],
+              ),
+            ),
     );
   }
 
@@ -927,7 +954,7 @@ class _AdminScreenState extends State<AdminScreen> {
                           ),
                           const SizedBox(height: 16),
                           DropdownButtonFormField<UserRole>(
-                            value: selectedRole,
+                            initialValue: selectedRole,
                             decoration: const InputDecoration(
                               labelText: 'Role',
                               border: OutlineInputBorder(),
@@ -1258,7 +1285,7 @@ class _AdminScreenState extends State<AdminScreen> {
                       ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<UserRole>(
-                        value: selectedRole,
+                        initialValue: selectedRole,
                         decoration: const InputDecoration(
                           labelText: 'Role',
                           border: OutlineInputBorder(),
@@ -1562,7 +1589,7 @@ class _AdminScreenState extends State<AdminScreen> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      value: selectedYearLevel,
+                      initialValue: selectedYearLevel,
                       decoration: const InputDecoration(
                         labelText: 'Year Level',
                         border: OutlineInputBorder(),
@@ -1577,7 +1604,7 @@ class _AdminScreenState extends State<AdminScreen> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      value: selectedLanguage,
+                      initialValue: selectedLanguage,
                       decoration: const InputDecoration(
                         labelText: 'Language',
                         border: OutlineInputBorder(),
@@ -1592,7 +1619,7 @@ class _AdminScreenState extends State<AdminScreen> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      value: selectedRole,
+                      initialValue: selectedRole,
                       decoration: const InputDecoration(
                         labelText: 'Role',
                         border: OutlineInputBorder(),
@@ -1607,7 +1634,7 @@ class _AdminScreenState extends State<AdminScreen> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      value: selectedGrade,
+                      initialValue: selectedGrade,
                       decoration: const InputDecoration(
                         labelText: 'Grade',
                         border: OutlineInputBorder(),
@@ -1806,7 +1833,7 @@ class _AdminScreenState extends State<AdminScreen> {
 
       await batch.commit();
     } catch (e) {
-      print('Error updating student reports rate: $e');
+      debugPrint('Error updating student reports rate: $e');
     }
   }
 }

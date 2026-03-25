@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:http/http.dart' as http;
@@ -139,10 +139,10 @@ class FirebaseStorageService {
     required String fileName,
   }) async {
     try {
-      print('=== STORAGE SERVICE: UPLOAD DEBUG START ===');
-      print('Transaction ID: $transactionId');
-      print('File name: $fileName');
-      print('File size: ${bytes.length} bytes');
+      debugPrint('=== STORAGE SERVICE: UPLOAD DEBUG START ===');
+      debugPrint('Transaction ID: $transactionId');
+      debugPrint('File name: $fileName');
+      debugPrint('File size: ${bytes.length} bytes');
 
       AppLogger.info('=== UPLOAD DEBUG START ===');
       AppLogger.info('Transaction ID: $transactionId');
@@ -151,10 +151,10 @@ class FirebaseStorageService {
 
       // Check authentication
       final currentUser = firebase_auth.FirebaseAuth.instance.currentUser;
-      print(
+      debugPrint(
         'Firebase Auth User ID: ${currentUser?.uid ?? "NOT AUTHENTICATED"}',
       );
-      print('Firebase Auth User Email: ${currentUser?.email ?? "N/A"}');
+      debugPrint('Firebase Auth User Email: ${currentUser?.email ?? "N/A"}');
 
       AppLogger.info(
         'Current user: ${currentUser?.uid ?? "NOT AUTHENTICATED"}',
@@ -166,14 +166,14 @@ class FirebaseStorageService {
       final storagePath =
           'support_documents/$transactionId/${timestamp}_support.$extension';
 
-      print('Storage path: $storagePath');
+      debugPrint('Storage path: $storagePath');
       AppLogger.info('Storage path: $storagePath');
 
       final ref = _storage.ref().child(storagePath);
-      print('Storage reference created, bucket: ${_storage.bucket}');
+      debugPrint('Storage reference created, bucket: ${_storage.bucket}');
       AppLogger.info('Storage reference created');
 
-      print('Starting upload...');
+      debugPrint('Starting upload...');
       AppLogger.info('Starting upload...');
       final uploadTask = ref.putData(bytes);
 
@@ -198,11 +198,11 @@ class FirebaseStorageService {
 
       return downloadUrl;
     } catch (e, stackTrace) {
-      print('=== STORAGE SERVICE: UPLOAD ERROR ===');
-      print('Error: $e');
-      print('Error type: ${e.runtimeType}');
-      print('Stack trace: $stackTrace');
-      print('=====================================');
+      debugPrint('=== STORAGE SERVICE: UPLOAD ERROR ===');
+      debugPrint('Error: $e');
+      debugPrint('Error type: ${e.runtimeType}');
+      debugPrint('Stack trace: $stackTrace');
+      debugPrint('=====================================');
 
       AppLogger.severe('Upload support document error: $e');
       AppLogger.severe('Stack trace: $stackTrace');
@@ -263,11 +263,11 @@ class FirebaseStorageService {
 
       return downloadUrl;
     } catch (e, stackTrace) {
-      print('=== STORAGE SERVICE: UPLOAD ERROR ===');
-      print('Error: $e');
-      print('Error type: ${e.runtimeType}');
-      print('Stack trace: $stackTrace');
-      print('=====================================');
+      debugPrint('=== STORAGE SERVICE: UPLOAD ERROR ===');
+      debugPrint('Error: $e');
+      debugPrint('Error type: ${e.runtimeType}');
+      debugPrint('Stack trace: $stackTrace');
+      debugPrint('=====================================');
 
       AppLogger.severe('Upload support document error: $e');
       AppLogger.severe('Stack trace: $stackTrace');
@@ -299,22 +299,22 @@ class FirebaseStorageService {
     const timeout = Duration(seconds: 30);
 
     try {
-      print('Attempting to download image data from URL: $downloadUrl');
+      debugPrint('Attempting to download image data from URL: $downloadUrl');
 
       // Extract the storage path from the download URL
       final uri = Uri.parse(downloadUrl);
       final pathSegments = uri.pathSegments;
 
-      print('URI path segments: $pathSegments');
+      debugPrint('URI path segments: $pathSegments');
 
       // Find the storage path from the URL
       int storageIndex = -1;
       for (int i = 0; i < pathSegments.length; i++) {
-        print('Checking segment $i: ${pathSegments[i]}');
+        debugPrint('Checking segment $i: ${pathSegments[i]}');
         if (pathSegments[i] == 'o') {
           // 'o' is for objects in Firebase Storage URLs
           storageIndex = i + 1;
-          print('Found storage path starting at index: $storageIndex');
+          debugPrint('Found storage path starting at index: $storageIndex');
           break;
         }
       }
@@ -323,41 +323,39 @@ class FirebaseStorageService {
         final storagePath = pathSegments.sublist(storageIndex).join('/');
         // Decode URL-encoded characters
         final decodedPath = Uri.decodeComponent(storagePath);
-        print('Decoded storage path: $decodedPath');
+        debugPrint('Decoded storage path: $decodedPath');
 
         final ref = _storage.ref().child(decodedPath);
-        print('Created reference: ${ref.fullPath}');
+        debugPrint('Created reference: ${ref.fullPath}');
 
         // Check if file exists first with timeout
         try {
           final metadata = await ref.getMetadata().timeout(timeout);
-          print(
+          debugPrint(
             'File metadata retrieved: ${metadata.contentType}, size: ${metadata.size}',
           );
         } catch (metaError) {
-          print('Error getting metadata: $metaError');
+          debugPrint('Error getting metadata: $metaError');
         }
 
         // Download with timeout
         final imageData = await ref.getData().timeout(timeout);
-        print('Successfully downloaded ${imageData?.length ?? 0} bytes');
+        debugPrint('Successfully downloaded ${imageData?.length ?? 0} bytes');
         return imageData;
       } else {
-        print('Could not extract storage path from URL');
+        debugPrint('Could not extract storage path from URL');
         // If we can't extract the path, try using the download URL directly
         return await _downloadImageDataFromUrl(downloadUrl);
       }
-
-      return null;
     } catch (e) {
-      print('Download image data error: $e');
-      print('Error type: ${e.runtimeType}');
+      debugPrint('Download image data error: $e');
+      debugPrint('Error type: ${e.runtimeType}');
       AppLogger.severe('Download image data error: $e');
       // If the direct approach fails, try using the download URL directly
       try {
         return await _downloadImageDataFromUrl(downloadUrl);
       } catch (fallbackError) {
-        print('Fallback download also failed: $fallbackError');
+        debugPrint('Fallback download also failed: $fallbackError');
         return null;
       }
     }
@@ -368,19 +366,19 @@ class FirebaseStorageService {
     const timeout = Duration(seconds: 30);
 
     try {
-      print('Trying fallback method with direct download URL: $downloadUrl');
+      debugPrint('Trying fallback method with direct download URL: $downloadUrl');
 
       // For web platform, try using http package to fetch the image
       if (kIsWeb) {
         final uri = Uri.parse(downloadUrl);
         final response = await http.get(uri).timeout(timeout);
         if (response.statusCode == 200) {
-          print(
+          debugPrint(
             'HTTP download succeeded, downloaded ${response.bodyBytes.length} bytes',
           );
           return response.bodyBytes;
         } else {
-          print('HTTP download failed with status: ${response.statusCode}');
+          debugPrint('HTTP download failed with status: ${response.statusCode}');
           throw Exception(
             'HTTP request failed with status: ${response.statusCode}',
           );
@@ -390,12 +388,12 @@ class FirebaseStorageService {
       // Use the download URL directly to get a fresh reference for mobile
       final ref = _storage.refFromURL(downloadUrl);
       final imageData = await ref.getData().timeout(timeout);
-      print(
+      debugPrint(
         'Firebase Storage download succeeded, downloaded ${imageData?.length ?? 0} bytes',
       );
       return imageData;
     } catch (e) {
-      print('Fallback method failed: $e');
+      debugPrint('Fallback method failed: $e');
       return null;
     }
   }

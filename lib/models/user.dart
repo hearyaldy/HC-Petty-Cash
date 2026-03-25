@@ -84,6 +84,143 @@ class MediaPermissions {
   }
 }
 
+/// Section-level access permissions for app modules.
+/// Each section has independent view (read) and edit (create/modify/delete) flags.
+class SectionPermissions {
+  // Finance: cash advance, petty cash, purchase requisitions, income reports
+  final bool financeView;
+  final bool financeEdit;
+
+  // Meetings: meetings list, ADCOM agenda, minutes
+  final bool meetingsView;
+  final bool meetingsEdit;
+
+  // HR: staff directory, salary/benefits, employment letters, annual leave
+  final bool hrView;
+  final bool hrEdit;
+
+  // Reports: traveling reports, project reports
+  final bool reportsView;
+  final bool reportsEdit;
+
+  // Student: student management, timesheets
+  final bool studentView;
+  final bool studentEdit;
+
+  const SectionPermissions({
+    this.financeView = false,
+    this.financeEdit = false,
+    this.meetingsView = false,
+    this.meetingsEdit = false,
+    this.hrView = false,
+    this.hrEdit = false,
+    this.reportsView = false,
+    this.reportsEdit = false,
+    this.studentView = false,
+    this.studentEdit = false,
+  });
+
+  factory SectionPermissions.fromMap(Map<String, dynamic>? map) {
+    if (map == null) return const SectionPermissions();
+    return SectionPermissions(
+      financeView: map['financeView'] as bool? ?? false,
+      financeEdit: map['financeEdit'] as bool? ?? false,
+      meetingsView: map['meetingsView'] as bool? ?? false,
+      meetingsEdit: map['meetingsEdit'] as bool? ?? false,
+      hrView: map['hrView'] as bool? ?? false,
+      hrEdit: map['hrEdit'] as bool? ?? false,
+      reportsView: map['reportsView'] as bool? ?? false,
+      reportsEdit: map['reportsEdit'] as bool? ?? false,
+      studentView: map['studentView'] as bool? ?? false,
+      studentEdit: map['studentEdit'] as bool? ?? false,
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+        'financeView': financeView,
+        'financeEdit': financeEdit,
+        'meetingsView': meetingsView,
+        'meetingsEdit': meetingsEdit,
+        'hrView': hrView,
+        'hrEdit': hrEdit,
+        'reportsView': reportsView,
+        'reportsEdit': reportsEdit,
+        'studentView': studentView,
+        'studentEdit': studentEdit,
+      };
+
+  SectionPermissions copyWith({
+    bool? financeView,
+    bool? financeEdit,
+    bool? meetingsView,
+    bool? meetingsEdit,
+    bool? hrView,
+    bool? hrEdit,
+    bool? reportsView,
+    bool? reportsEdit,
+    bool? studentView,
+    bool? studentEdit,
+  }) =>
+      SectionPermissions(
+        financeView: financeView ?? this.financeView,
+        financeEdit: financeEdit ?? this.financeEdit,
+        meetingsView: meetingsView ?? this.meetingsView,
+        meetingsEdit: meetingsEdit ?? this.meetingsEdit,
+        hrView: hrView ?? this.hrView,
+        hrEdit: hrEdit ?? this.hrEdit,
+        reportsView: reportsView ?? this.reportsView,
+        reportsEdit: reportsEdit ?? this.reportsEdit,
+        studentView: studentView ?? this.studentView,
+        studentEdit: studentEdit ?? this.studentEdit,
+      );
+
+  /// Returns full access to all sections.
+  static SectionPermissions get full => const SectionPermissions(
+        financeView: true,
+        financeEdit: true,
+        meetingsView: true,
+        meetingsEdit: true,
+        hrView: true,
+        hrEdit: true,
+        reportsView: true,
+        reportsEdit: true,
+        studentView: true,
+        studentEdit: true,
+      );
+
+  /// Returns view-only access to all sections.
+  static SectionPermissions get viewOnly => const SectionPermissions(
+        financeView: true,
+        meetingsView: true,
+        hrView: true,
+        reportsView: true,
+        studentView: true,
+      );
+
+  /// Returns no section permissions.
+  static SectionPermissions get none => const SectionPermissions();
+
+  bool get hasAny =>
+      financeView ||
+      financeEdit ||
+      meetingsView ||
+      meetingsEdit ||
+      hrView ||
+      hrEdit ||
+      reportsView ||
+      reportsEdit ||
+      studentView ||
+      studentEdit;
+
+  int get enabledCount => [
+        financeView, financeEdit,
+        meetingsView, meetingsEdit,
+        hrView, hrEdit,
+        reportsView, reportsEdit,
+        studentView, studentEdit,
+      ].where((b) => b).length;
+}
+
 /// Inventory permission settings for a user
 class InventoryPermissions {
   final bool canView;
@@ -172,6 +309,7 @@ class User {
   final DateTime? updatedAt;
   final InventoryPermissions inventoryPermissions;
   final MediaPermissions mediaPermissions;
+  final SectionPermissions sectionPermissions;
 
   User({
     required this.id,
@@ -186,6 +324,7 @@ class User {
     this.updatedAt,
     this.inventoryPermissions = const InventoryPermissions(),
     this.mediaPermissions = const MediaPermissions(),
+    this.sectionPermissions = const SectionPermissions(),
   });
 
   // Get UserRole enum from string
@@ -209,6 +348,7 @@ class User {
       'updatedAt': updatedAt != null ? firestore.Timestamp.fromDate(updatedAt!) : null,
       'inventoryPermissions': inventoryPermissions.toMap(),
       'mediaPermissions': mediaPermissions.toMap(),
+      'sectionPermissions': sectionPermissions.toMap(),
     };
   }
 
@@ -253,6 +393,9 @@ class User {
       mediaPermissions: MediaPermissions.fromMap(
         data['mediaPermissions'] as Map<String, dynamic>?,
       ),
+      sectionPermissions: SectionPermissions.fromMap(
+        data['sectionPermissions'] as Map<String, dynamic>?,
+      ),
     );
   }
 
@@ -271,6 +414,7 @@ class User {
       'updatedAt': updatedAt?.toIso8601String(),
       'inventoryPermissions': inventoryPermissions.toMap(),
       'mediaPermissions': mediaPermissions.toMap(),
+      'sectionPermissions': sectionPermissions.toMap(),
     };
   }
 
@@ -294,6 +438,9 @@ class User {
       mediaPermissions: MediaPermissions.fromMap(
         json['mediaPermissions'] as Map<String, dynamic>?,
       ),
+      sectionPermissions: SectionPermissions.fromMap(
+        json['sectionPermissions'] as Map<String, dynamic>?,
+      ),
     );
   }
 
@@ -309,6 +456,7 @@ class User {
     DateTime? updatedAt,
     InventoryPermissions? inventoryPermissions,
     MediaPermissions? mediaPermissions,
+    SectionPermissions? sectionPermissions,
   }) {
     return User(
       id: id,
@@ -323,6 +471,7 @@ class User {
       updatedAt: updatedAt ?? this.updatedAt,
       inventoryPermissions: inventoryPermissions ?? this.inventoryPermissions,
       mediaPermissions: mediaPermissions ?? this.mediaPermissions,
+      sectionPermissions: sectionPermissions ?? this.sectionPermissions,
     );
   }
 }

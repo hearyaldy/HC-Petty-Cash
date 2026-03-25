@@ -159,154 +159,508 @@ class _EditAgendaScreenState extends State<EditAgendaScreen> {
     final presenterController = TextEditingController(
       text: item.presenterName ?? '',
     );
+
+    final titleUndoController = UndoHistoryController();
+    final descriptionUndoController = UndoHistoryController();
+    final timeUndoController = UndoHistoryController();
+    final presenterUndoController = UndoHistoryController();
+
     String selectedType = item.type;
 
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: Text(
-                item.title.isEmpty ? 'Add Agenda Item' : 'Edit Agenda Item',
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: titleController,
-                      decoration: const InputDecoration(
-                        labelText: 'Title *',
-                        border: OutlineInputBorder(),
-                      ),
-                      textCapitalization: TextCapitalization.sentences,
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: descriptionController,
-                      decoration: const InputDecoration(
-                        labelText: 'Description (optional)',
-                        border: OutlineInputBorder(),
-                      ),
-                      maxLines: 2,
-                      textCapitalization: TextCapitalization.sentences,
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      value: selectedType,
-                      decoration: const InputDecoration(
-                        labelText: 'Item Type',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'opening',
-                          child: Text('Opening'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'approval',
-                          child: Text('Approval'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'report',
-                          child: Text('Report'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'discussion',
-                          child: Text('Discussion'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'action',
-                          child: Text('Action Item'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'information',
-                          child: Text('Information'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'closing',
-                          child: Text('Closing'),
-                        ),
-                        DropdownMenuItem(value: 'other', child: Text('Other')),
-                      ],
-                      onChanged: (value) {
-                        setDialogState(() {
-                          selectedType = value ?? 'discussion';
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: timeController,
-                      decoration: const InputDecoration(
-                        labelText: 'Time Allocation (minutes)',
-                        border: OutlineInputBorder(),
-                        suffixText: 'min',
-                      ),
-                      keyboardType: TextInputType.number,
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: presenterController,
-                      decoration: const InputDecoration(
-                        labelText: 'Presenter (optional)',
-                        border: OutlineInputBorder(),
-                      ),
-                      textCapitalization: TextCapitalization.words,
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    // If it's a new item with empty title, remove it
-                    if (item.title.isEmpty) {
-                      setState(() {
-                        _items.removeAt(index);
-                      });
-                    }
-                    Navigator.pop(context);
-                  },
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    if (titleController.text.trim().isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Please enter a title'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                      return;
-                    }
+    void applyFormatting(
+      TextEditingController ctrl,
+      UndoHistoryController undoCtrl,
+      String prefix,
+      String suffix,
+    ) {
+      final text = ctrl.text;
+      final selection = ctrl.selection;
+      if (!selection.isValid) return;
 
-                    setState(() {
-                      _items[index] = item.copyWith(
-                        title: titleController.text.trim(),
-                        description:
-                            descriptionController.text.trim().isNotEmpty
-                            ? descriptionController.text.trim()
-                            : null,
-                        type: selectedType,
-                        timeAllocation: int.tryParse(timeController.text) ?? 10,
-                        presenterName:
-                            presenterController.text.trim().isNotEmpty
-                            ? presenterController.text.trim()
-                            : null,
-                      );
-                    });
-                    Navigator.pop(context);
-                  },
-                  child: const Text('Save'),
-                ),
-              ],
+      final selectedText = selection.textInside(text);
+      final replacement = '$prefix$selectedText$suffix';
+      final newText =
+          text.replaceRange(selection.start, selection.end, replacement);
+      final newOffset = selection.start + replacement.length;
+
+      ctrl.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: newOffset),
+      );
+    }
+
+    void insertBullet(TextEditingController ctrl) {
+      final text = ctrl.text;
+      final selection = ctrl.selection;
+      if (!selection.isValid) return;
+
+      // Find start of current line
+      final lineStart =
+          text.lastIndexOf('\n', selection.start - 1) + 1;
+      final newText =
+          text.replaceRange(lineStart, lineStart, '• ');
+      final newOffset = selection.baseOffset + 2;
+
+      ctrl.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: newOffset),
+      );
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Drag handle
+                  const SizedBox(height: 12),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Header
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          item.title.isEmpty
+                              ? 'Add Agenda Item'
+                              : 'Edit Agenda Item',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () {
+                            if (item.title.isEmpty) {
+                              setState(() => _items.removeAt(index));
+                            }
+                            Navigator.pop(sheetContext);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  // Scrollable content
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Title field with undo/redo
+                          _buildUndoRedoField(
+                            label: 'Title *',
+                            controller: titleController,
+                            undoController: titleUndoController,
+                            textCapitalization:
+                                TextCapitalization.sentences,
+                          ),
+                          const SizedBox(height: 16),
+                          // Description field with formatting toolbar + undo/redo
+                          _buildDescriptionField(
+                            controller: descriptionController,
+                            undoController: descriptionUndoController,
+                            onBold: () => applyFormatting(
+                              descriptionController,
+                              descriptionUndoController,
+                              '**',
+                              '**',
+                            ),
+                            onItalic: () => applyFormatting(
+                              descriptionController,
+                              descriptionUndoController,
+                              '_',
+                              '_',
+                            ),
+                            onUnderline: () => applyFormatting(
+                              descriptionController,
+                              descriptionUndoController,
+                              '<u>',
+                              '</u>',
+                            ),
+                            onBullet: () =>
+                                insertBullet(descriptionController),
+                          ),
+                          const SizedBox(height: 16),
+                          // Item Type
+                          DropdownButtonFormField<String>(
+                            initialValue: selectedType,
+                            decoration: const InputDecoration(
+                              labelText: 'Item Type',
+                              border: OutlineInputBorder(),
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'opening',
+                                child: Text('Opening'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'approval',
+                                child: Text('Approval'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'report',
+                                child: Text('Report'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'discussion',
+                                child: Text('Discussion'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'action',
+                                child: Text('Action Item'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'information',
+                                child: Text('Information'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'closing',
+                                child: Text('Closing'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'other',
+                                child: Text('Other'),
+                              ),
+                            ],
+                            onChanged: (value) {
+                              setSheetState(() {
+                                selectedType = value ?? 'discussion';
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          // Time field with undo/redo
+                          _buildUndoRedoField(
+                            label: 'Time Allocation (minutes)',
+                            controller: timeController,
+                            undoController: timeUndoController,
+                            keyboardType: TextInputType.number,
+                            suffixText: 'min',
+                          ),
+                          const SizedBox(height: 16),
+                          // Presenter field with undo/redo
+                          _buildUndoRedoField(
+                            label: 'Presenter (optional)',
+                            controller: presenterController,
+                            undoController: presenterUndoController,
+                            textCapitalization: TextCapitalization.words,
+                          ),
+                          const SizedBox(height: 24),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // Action buttons
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () {
+                              if (item.title.isEmpty) {
+                                setState(() => _items.removeAt(index));
+                              }
+                              Navigator.pop(sheetContext);
+                            },
+                            child: const Text('Cancel'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              if (titleController.text.trim().isEmpty) {
+                                ScaffoldMessenger.of(sheetContext)
+                                    .showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Please enter a title'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                                return;
+                              }
+                              setState(() {
+                                _items[index] = item.copyWith(
+                                  title: titleController.text.trim(),
+                                  description: descriptionController.text
+                                          .trim()
+                                          .isNotEmpty
+                                      ? descriptionController.text.trim()
+                                      : null,
+                                  type: selectedType,
+                                  timeAllocation:
+                                      int.tryParse(timeController.text) ??
+                                      10,
+                                  presenterName: presenterController.text
+                                          .trim()
+                                          .isNotEmpty
+                                      ? presenterController.text.trim()
+                                      : null,
+                                );
+                              });
+                              Navigator.pop(sheetContext);
+                            },
+                            child: const Text('Save'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             );
           },
         );
       },
+    ).whenComplete(() {
+      titleController.dispose();
+      descriptionController.dispose();
+      timeController.dispose();
+      presenterController.dispose();
+      titleUndoController.dispose();
+      descriptionUndoController.dispose();
+      timeUndoController.dispose();
+      presenterUndoController.dispose();
+    });
+  }
+
+  Widget _buildUndoRedoField({
+    required String label,
+    required TextEditingController controller,
+    required UndoHistoryController undoController,
+    TextInputType? keyboardType,
+    TextCapitalization textCapitalization = TextCapitalization.none,
+    String? suffixText,
+    int maxLines = 1,
+  }) {
+    return ValueListenableBuilder<UndoHistoryValue>(
+      valueListenable: undoController,
+      builder: (context, undoValue, _) {
+        return TextField(
+          controller: controller,
+          undoController: undoController,
+          keyboardType: keyboardType,
+          textCapitalization: textCapitalization,
+          maxLines: maxLines,
+          decoration: InputDecoration(
+            labelText: label,
+            border: const OutlineInputBorder(),
+            suffixText: suffixText,
+            suffixIcon: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.undo, size: 18),
+                  tooltip: 'Undo',
+                  onPressed:
+                      undoValue.canUndo ? () => undoController.undo() : null,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.redo, size: 18),
+                  tooltip: 'Redo',
+                  onPressed:
+                      undoValue.canRedo ? () => undoController.redo() : null,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDescriptionField({
+    required TextEditingController controller,
+    required UndoHistoryController undoController,
+    required VoidCallback onBold,
+    required VoidCallback onItalic,
+    required VoidCallback onUnderline,
+    required VoidCallback onBullet,
+  }) {
+    return ValueListenableBuilder<UndoHistoryValue>(
+      valueListenable: undoController,
+      builder: (context, undoValue, _) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Formatting toolbar
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(8),
+                  topRight: Radius.circular(8),
+                ),
+                border: Border.all(color: Colors.grey.shade400),
+              ),
+              child: Row(
+                children: [
+                  _buildFormatButton(
+                    label: 'B',
+                    tooltip: 'Bold (**text**)',
+                    onPressed: onBold,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  _buildFormatButton(
+                    label: 'I',
+                    tooltip: 'Italic (_text_)',
+                    onPressed: onItalic,
+                    style: const TextStyle(fontStyle: FontStyle.italic),
+                  ),
+                  _buildFormatButton(
+                    label: 'U',
+                    tooltip: 'Underline (<u>text</u>)',
+                    onPressed: onUnderline,
+                    style: const TextStyle(
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Container(
+                    width: 1,
+                    height: 20,
+                    color: Colors.grey[400],
+                  ),
+                  const SizedBox(width: 4),
+                  Tooltip(
+                    message: 'Bullet point',
+                    child: InkWell(
+                      onTap: onBullet,
+                      borderRadius: BorderRadius.circular(4),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        child: Icon(
+                          Icons.format_list_bulleted,
+                          size: 18,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.undo, size: 18),
+                    tooltip: 'Undo',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                    onPressed:
+                        undoValue.canUndo ? () => undoController.undo() : null,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.redo, size: 18),
+                    tooltip: 'Redo',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                    onPressed:
+                        undoValue.canRedo ? () => undoController.redo() : null,
+                  ),
+                ],
+              ),
+            ),
+            // Text field (no top border radius to blend with toolbar)
+            TextField(
+              controller: controller,
+              undoController: undoController,
+              maxLines: 5,
+              minLines: 3,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: InputDecoration(
+                hintText: 'Enter description... (supports **bold**, _italic_, • bullets)',
+                hintStyle: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[400],
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(4),
+                    bottomRight: Radius.circular(4),
+                  ),
+                  borderSide: BorderSide(color: Colors.grey.shade400),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(4),
+                    bottomRight: Radius.circular(4),
+                  ),
+                  borderSide: BorderSide(color: Colors.grey.shade400),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(4),
+                    bottomRight: Radius.circular(4),
+                  ),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).colorScheme.primary,
+                    width: 2,
+                  ),
+                ),
+                contentPadding: const EdgeInsets.all(12),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 4, left: 4),
+              child: Text(
+                'Tip: select text then tap B / I / U to format',
+                style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildFormatButton({
+    required String label,
+    required String tooltip,
+    required VoidCallback onPressed,
+    TextStyle? style,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(4),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Text(label, style: style?.copyWith(fontSize: 14) ?? const TextStyle(fontSize: 14)),
+        ),
+      ),
     );
   }
 

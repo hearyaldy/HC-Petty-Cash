@@ -438,7 +438,7 @@ class _EditTravelingReportDialogState extends State<EditTravelingReportDialog> {
 
                 // Travel Location (Local/Abroad)
                 DropdownButtonFormField<TravelLocation>(
-                  value: _travelLocation,
+                  initialValue: _travelLocation,
                   decoration: const InputDecoration(
                     labelText: 'Travel Location',
                     border: OutlineInputBorder(),

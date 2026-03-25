@@ -18,6 +18,7 @@ import '../../widgets/edit_traveling_report_dialog.dart';
 import '../../widgets/staff_directory_widget.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/dashboard_section.dart';
+import '../../widgets/page_image_header.dart';
 
 class _StatData {
   final String title;
@@ -62,7 +63,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // Store income and traveling data locally to avoid StreamBuilder issues on web
   List<IncomeReport> _incomeReports = [];
   List<TravelingReport> _travelingReports = [];
-  List<PurchaseRequisition> _purchaseRequisitions = [];
 
   // Store student reports and HR data to avoid Firestore web stream issues
   List<Map<String, dynamic>> _studentReports = [];
@@ -104,16 +104,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
           final service = ManagedFirestoreService();
           final incomeReports = await service.getAllIncomeReports();
           final travelingReports = await service.getAllTravelingReports();
-          final purchaseRequisitions = await service.getAllPurchaseRequisitions();
 
           if (mounted) {
             setState(() {
               _incomeReports = incomeReports;
               _travelingReports = travelingReports;
-              _purchaseRequisitions = purchaseRequisitions;
             });
           }
-          debugPrint('DEBUG DASHBOARD: Loaded ${incomeReports.length} income, ${travelingReports.length} traveling, ${purchaseRequisitions.length} purchase requisitions');
+          debugPrint('DEBUG DASHBOARD: Loaded ${incomeReports.length} income, ${travelingReports.length} traveling');
         } catch (e) {
           debugPrint('DEBUG DASHBOARD: Error loading extra data: $e');
         }
@@ -285,78 +283,112 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
 
     return Scaffold(
-              backgroundColor: Colors.grey[50],
-              appBar: _buildResponsiveAppBar(context, user),
-              drawer: const AppDrawer(),
-              body: ResponsiveBuilder(
-                mobile: _buildMobileLayout(
-                  context,
-                  totalReportsCount,
-                  allReports,
-                  myReports,
-                  myPettyCashReports,
-                  myAdvanceSettlementReports,
-                  draftReports,
-                  pendingApprovals,
-                  pettyCashReceived,
-                  pettyCashUsed,
-                  projectBudgetTotal,
-                  projectExpensesTotal,
-                  authProvider,
-                  pendingTravelingReports,
-                  allTravelingReports,
-                  totalIncomeAmount,
-                  incomeReports.length,
-                  pendingIncomeReports,
-                  totalMileageKm,
-                  totalMileageAmount,
+      backgroundColor: Colors.grey[50],
+      drawer: const AppDrawer(),
+      body: Builder(
+        builder: (scaffoldContext) => SafeArea(
+          child: Column(
+            children: [
+              PageImageHeader(
+                title: 'Dashboard',
+                subtitle: user != null
+                    ? '${user.name ?? ''}${user.role.isNotEmpty ? ' • ${_userRoleDisplay(user.role)}' : ''}'
+                    : null,
+                leading: PageImageHeader.actionButton(
+                  icon: Icons.menu,
+                  tooltip: 'Open menu',
+                  onPressed: () => Scaffold.of(scaffoldContext).openDrawer(),
                 ),
-                tablet: _buildTabletLayout(
-                  context,
-                  totalReportsCount,
-                  allReports,
-                  myReports,
-                  myPettyCashReports,
-                  myAdvanceSettlementReports,
-                  draftReports,
-                  pendingApprovals,
-                  pettyCashReceived,
-                  pettyCashUsed,
-                  projectBudgetTotal,
-                  projectExpensesTotal,
-                  authProvider,
-                  pendingTravelingReports,
-                  allTravelingReports,
-                  totalIncomeAmount,
-                  incomeReports.length,
-                  pendingIncomeReports,
-                  totalMileageKm,
-                  totalMileageAmount,
-                ),
-                desktop: _buildDesktopLayout(
-                  context,
-                  totalReportsCount,
-                  allReports,
-                  myReports,
-                  myPettyCashReports,
-                  myAdvanceSettlementReports,
-                  draftReports,
-                  pendingApprovals,
-                  pettyCashReceived,
-                  pettyCashUsed,
-                  projectBudgetTotal,
-                  projectExpensesTotal,
-                  authProvider,
-                  pendingTravelingReports,
-                  allTravelingReports,
-                  totalIncomeAmount,
-                  incomeReports.length,
-                  pendingIncomeReports,
-                  totalMileageKm,
-                  totalMileageAmount,
+                actions: [
+                  PageImageHeader.actionButton(
+                    icon: Icons.settings_outlined,
+                    tooltip: 'Settings',
+                    onPressed: () => context.push('/settings'),
+                  ),
+                  PageImageHeader.actionButton(
+                    icon: Icons.logout,
+                    tooltip: 'Logout',
+                    onPressed: () async {
+                      await context.read<AuthProvider>().logout();
+                    },
+                  ),
+                ],
+              ),
+              Expanded(
+                child: ResponsiveBuilder(
+                  mobile: _buildMobileLayout(
+                    context,
+                    totalReportsCount,
+                    allReports,
+                    myReports,
+                    myPettyCashReports,
+                    myAdvanceSettlementReports,
+                    draftReports,
+                    pendingApprovals,
+                    pettyCashReceived,
+                    pettyCashUsed,
+                    projectBudgetTotal,
+                    projectExpensesTotal,
+                    authProvider,
+                    pendingTravelingReports,
+                    allTravelingReports,
+                    totalIncomeAmount,
+                    incomeReports.length,
+                    pendingIncomeReports,
+                    totalMileageKm,
+                    totalMileageAmount,
+                  ),
+                  tablet: _buildTabletLayout(
+                    context,
+                    totalReportsCount,
+                    allReports,
+                    myReports,
+                    myPettyCashReports,
+                    myAdvanceSettlementReports,
+                    draftReports,
+                    pendingApprovals,
+                    pettyCashReceived,
+                    pettyCashUsed,
+                    projectBudgetTotal,
+                    projectExpensesTotal,
+                    authProvider,
+                    pendingTravelingReports,
+                    allTravelingReports,
+                    totalIncomeAmount,
+                    incomeReports.length,
+                    pendingIncomeReports,
+                    totalMileageKm,
+                    totalMileageAmount,
+                  ),
+                  desktop: _buildDesktopLayout(
+                    context,
+                    totalReportsCount,
+                    allReports,
+                    myReports,
+                    myPettyCashReports,
+                    myAdvanceSettlementReports,
+                    draftReports,
+                    pendingApprovals,
+                    pettyCashReceived,
+                    pettyCashUsed,
+                    projectBudgetTotal,
+                    projectExpensesTotal,
+                    authProvider,
+                    pendingTravelingReports,
+                    allTravelingReports,
+                    totalIncomeAmount,
+                    incomeReports.length,
+                    pendingIncomeReports,
+                    totalMileageKm,
+                    totalMileageAmount,
+                  ),
                 ),
               ),
-            );
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildIncomeMileageSummary(
@@ -518,58 +550,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  AppBar _buildResponsiveAppBar(BuildContext context, dynamic user) {
-    return AppBar(
-      elevation: ResponsiveHelper.isDesktop(context) ? 1 : 0,
-      title: Text(
-        'Dashboard',
-        style: ResponsiveHelper.getResponsiveTextTheme(context).titleLarge,
-      ),
-      actions: [
-        if (!ResponsiveHelper.isMobile(context))
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    user?.name ?? '',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    user != null
-                        ? UserRole.values
-                              .firstWhere(
-                                (e) => e.name == user.role.trim().toLowerCase(),
-                                orElse: () => UserRole.requester,
-                              )
-                              .displayName
-                        : '',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        IconButton(
-          icon: const Icon(Icons.settings_outlined),
-          onPressed: () => context.push('/settings'),
-          tooltip: 'Settings',
-        ),
-        IconButton(
-          icon: const Icon(Icons.logout),
-          onPressed: () async {
-            await context.read<AuthProvider>().logout();
-          },
-          tooltip: 'Logout',
-        ),
-      ],
-    );
+  String _userRoleDisplay(String? role) {
+    if (role == null || role.isEmpty) {
+      return '';
+    }
+    final normalizedRole = role.trim().toLowerCase();
+    return UserRole.values
+        .firstWhere(
+          (e) => e.name == normalizedRole,
+          orElse: () => UserRole.requester,
+        )
+        .displayName;
   }
 
   Widget _buildMobileLayout(
@@ -3897,7 +3888,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: selectedStatus,
+                initialValue: selectedStatus,
                 decoration: const InputDecoration(
                   labelText: 'Status',
                   border: OutlineInputBorder(),

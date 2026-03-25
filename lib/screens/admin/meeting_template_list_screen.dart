@@ -56,7 +56,7 @@ class _MeetingTemplateListScreenState extends State<MeetingTemplateListScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.teal.withOpacity(0.3),
+            color: Colors.teal.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -95,7 +95,7 @@ class _MeetingTemplateListScreenState extends State<MeetingTemplateListScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
@@ -121,7 +121,7 @@ class _MeetingTemplateListScreenState extends State<MeetingTemplateListScreen> {
                     Text(
                       'Manage agenda and minutes templates',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                         fontSize: isMobile ? 12 : 14,
                       ),
                     ),
@@ -148,7 +148,7 @@ class _MeetingTemplateListScreenState extends State<MeetingTemplateListScreen> {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: Colors.white, size: 20),
@@ -290,7 +290,7 @@ class _MeetingTemplateListScreenState extends State<MeetingTemplateListScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -352,7 +352,7 @@ class _MeetingTemplateListScreenState extends State<MeetingTemplateListScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -368,7 +368,7 @@ class _MeetingTemplateListScreenState extends State<MeetingTemplateListScreen> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: typeColor.withOpacity(0.1),
+                  color: typeColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
@@ -576,7 +576,7 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: _selectedOrganization,
+              initialValue: _selectedOrganization,
               decoration: InputDecoration(
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -599,7 +599,7 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<MeetingTemplateType>(
-              value: _selectedType,
+              initialValue: _selectedType,
               decoration: InputDecoration(
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),

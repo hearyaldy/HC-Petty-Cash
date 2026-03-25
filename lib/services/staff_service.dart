@@ -37,25 +37,25 @@ class StaffService {
   String _generateCustomEmployeeId(Staff staff) {
     // Get full year of joining
     String yearOfJoining = staff.dateOfJoining.year.toString();
-    print('Debug: Date of Joining: ${staff.dateOfJoining}');
-    print('Debug: Year of Joining: $yearOfJoining');
+    debugPrint('Debug: Date of Joining: ${staff.dateOfJoining}');
+    debugPrint('Debug: Year of Joining: $yearOfJoining');
 
     // Get last 2 digits of birth year if available
     String birthYearSuffix = '00'; // Default if no birth date
     if (staff.dateOfBirth != null) {
       String fullBirthYear = staff.dateOfBirth!.year.toString();
-      print('Debug: Date of Birth: ${staff.dateOfBirth}');
-      print('Debug: Full Birth Year: $fullBirthYear');
+      debugPrint('Debug: Date of Birth: ${staff.dateOfBirth}');
+      debugPrint('Debug: Full Birth Year: $fullBirthYear');
       if (fullBirthYear.length >= 2) {
         birthYearSuffix = fullBirthYear.substring(fullBirthYear.length - 2);
       }
     } else {
-      print('Debug: Date of Birth is null, using default 00');
+      debugPrint('Debug: Date of Birth is null, using default 00');
     }
 
     // Format: HC-[year of joining]-[last 2 digits of birth year]
     final employeeId = 'HC-$yearOfJoining-$birthYearSuffix';
-    print('Debug: Generated Employee ID: $employeeId');
+    debugPrint('Debug: Generated Employee ID: $employeeId');
     return employeeId;
   }
 
@@ -162,12 +162,12 @@ class StaffService {
 
   // Get all staff
   Stream<List<Staff>> getAllStaff() {
-    print('Debug: StaffService.getAllStaff() called');
+    debugPrint('Debug: StaffService.getAllStaff() called');
     return _firestore
         .collection(collectionName)
         .snapshots()
         .map((snapshot) {
-          print(
+          debugPrint(
             'Debug: Got ${snapshot.docs.length} staff documents from Firestore',
           );
           final List<Staff> staffList = [];
@@ -176,12 +176,12 @@ class StaffService {
               final staff = Staff.fromFirestore(doc);
               staffList.add(staff);
             } catch (e) {
-              print('Debug: Error parsing staff document ${doc.id}: $e');
-              print('Debug: Document data: ${doc.data()}');
+              debugPrint('Debug: Error parsing staff document ${doc.id}: $e');
+              debugPrint('Debug: Document data: ${doc.data()}');
               // Continue processing other documents instead of failing
             }
           }
-          print('Debug: Successfully parsed ${staffList.length} staff records');
+          debugPrint('Debug: Successfully parsed ${staffList.length} staff records');
           // Sort locally instead of using Firestore orderBy
           staffList.sort(
             (a, b) =>
@@ -190,7 +190,7 @@ class StaffService {
           return staffList;
         })
         .handleError((error) {
-          print('Debug: Error in getAllStaff stream: $error');
+          debugPrint('Debug: Error in getAllStaff stream: $error');
           throw error;
         });
   }
@@ -561,7 +561,7 @@ class StaffService {
           await ref.delete();
         } catch (e) {
           // Continue even if storage deletion fails
-          print('Warning: Failed to delete file from storage: $e');
+          debugPrint('Warning: Failed to delete file from storage: $e');
         }
 
         // Delete from Firestore
@@ -616,7 +616,7 @@ class StaffService {
         'updatedAt': Timestamp.now(),
       });
     } catch (e) {
-      print('Warning: Failed to update documents count: $e');
+      debugPrint('Warning: Failed to update documents count: $e');
     }
   }
 

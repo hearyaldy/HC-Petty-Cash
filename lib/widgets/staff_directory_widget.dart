@@ -153,7 +153,7 @@ class _StaffDirectoryWidgetState extends State<StaffDirectoryWidget> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Theme.of(context).primaryColor.withOpacity(0.05),
+        color: Theme.of(context).primaryColor.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -245,7 +245,7 @@ class _StaffDirectoryWidgetState extends State<StaffDirectoryWidget> {
               children: [
                 CircleAvatar(
                   radius: avatarRadius,
-                  backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+                  backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                   backgroundImage: staff.photoUrl != null
                       ? NetworkImage(staff.photoUrl!)
                       : null,
@@ -283,7 +283,7 @@ class _StaffDirectoryWidgetState extends State<StaffDirectoryWidget> {
                   Container(
                     padding: EdgeInsets.symmetric(horizontal: isCompact ? 6 : 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: _getRoleColor(staff.role).withOpacity(0.1),
+                      color: _getRoleColor(staff.role).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(

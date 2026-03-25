@@ -326,7 +326,7 @@ class _TravelingReportsScreenState extends State<TravelingReportsScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.orange.withOpacity(0.3),
+            color: Colors.orange.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -374,7 +374,7 @@ class _TravelingReportsScreenState extends State<TravelingReportsScreen> {
                       'Traveling Reports',
                       style: TextStyle(
                         fontSize: isMobile ? 14 : 16,
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -391,7 +391,7 @@ class _TravelingReportsScreenState extends State<TravelingReportsScreen> {
                       'Submitted by $userName',
                       style: TextStyle(
                         fontSize: isMobile ? 12 : 14,
-                        color: Colors.white.withOpacity(0.8),
+                        color: Colors.white.withValues(alpha: 0.8),
                       ),
                     ),
                   ],
@@ -400,7 +400,7 @@ class _TravelingReportsScreenState extends State<TravelingReportsScreen> {
               Container(
                 padding: EdgeInsets.all(isMobile ? 12 : 16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -429,7 +429,7 @@ class _TravelingReportsScreenState extends State<TravelingReportsScreen> {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: Colors.white, size: 20),
@@ -458,7 +458,7 @@ class _TravelingReportsScreenState extends State<TravelingReportsScreen> {
             children: [
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: _selectedStatus,
+                  initialValue: _selectedStatus,
                   decoration: const InputDecoration(
                     labelText: 'Status',
                     prefixIcon: Icon(Icons.filter_alt),

@@ -292,7 +292,7 @@ class _FinanceAiReportScreenState extends State<FinanceAiReportScreen> {
             children: [
               Expanded(
                 child: DropdownButtonFormField<_AiReportRange>(
-                  value: _aiReportRange,
+                  initialValue: _aiReportRange,
                   decoration: const InputDecoration(
                     labelText: 'Report Range',
                     border: OutlineInputBorder(),

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -218,8 +219,6 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
         ),
       );
     }
-
-    final headingText = _resolveHeadingText();
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -553,15 +552,97 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
               const SizedBox(width: columnGap),
               Expanded(
                 child: item.description.isNotEmpty
-                    ? Text(
+                    ? _buildFormattedText(
                         item.description,
-                        style: const TextStyle(fontSize: 11, height: 1.5),
+                        const TextStyle(fontSize: 11, height: 1.5),
                       )
                     : const SizedBox.shrink(),
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  /// Parses inline formatting markers into segments.
+  /// Supported: **bold**, _italic_, <u>underline</u>
+  List<({String text, bool bold, bool italic, bool underline})>
+  _parseFormatting(String text) {
+    final result = <({String text, bool bold, bool italic, bool underline})>[];
+    bool bold = false, italic = false, underline = false;
+    int pos = 0;
+
+    final markers = RegExp(r'\*\*|_|<u>|</u>');
+    for (final match in markers.allMatches(text)) {
+      if (match.start > pos) {
+        result.add((
+          text: text.substring(pos, match.start),
+          bold: bold,
+          italic: italic,
+          underline: underline,
+        ));
+      }
+      switch (match.group(0)) {
+        case '**':
+          bold = !bold;
+        case '_':
+          italic = !italic;
+        case '<u>':
+          underline = true;
+        case '</u>':
+          underline = false;
+      }
+      pos = match.end;
+    }
+    if (pos < text.length) {
+      result.add((
+        text: text.substring(pos),
+        bold: bold,
+        italic: italic,
+        underline: underline,
+      ));
+    }
+    return result;
+  }
+
+  /// Flutter UI: renders formatted text (Delta JSON or legacy markdown).
+  Widget _buildFormattedText(String text, TextStyle baseStyle) {
+    if (text.startsWith('[')) {
+      try {
+        final List<dynamic> ops = jsonDecode(text) as List;
+        final spans = <TextSpan>[];
+        for (final op in ops) {
+          if (op is! Map) continue;
+          final insert = op['insert'];
+          if (insert is! String) continue;
+          final attrs = (op['attributes'] as Map?) ?? {};
+          spans.add(TextSpan(
+            text: insert,
+            style: TextStyle(
+              fontWeight: attrs['bold'] == true ? FontWeight.bold : FontWeight.normal,
+              fontStyle: attrs['italic'] == true ? FontStyle.italic : FontStyle.normal,
+              decoration: attrs['underline'] == true ? TextDecoration.underline : TextDecoration.none,
+            ),
+          ));
+        }
+        if (spans.isNotEmpty) {
+          return Text.rich(TextSpan(style: baseStyle, children: spans));
+        }
+      } catch (_) {}
+    }
+    final segments = _parseFormatting(text);
+    return Text.rich(
+      TextSpan(
+        style: baseStyle,
+        children: segments.map((seg) => TextSpan(
+          text: seg.text,
+          style: TextStyle(
+            fontWeight: seg.bold ? FontWeight.bold : FontWeight.normal,
+            fontStyle: seg.italic ? FontStyle.italic : FontStyle.normal,
+            decoration: seg.underline ? TextDecoration.underline : TextDecoration.none,
+          ),
+        )).toList(),
       ),
     );
   }
@@ -637,7 +718,20 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
   }
 
   Future<void> _generatePdf() async {
-    final pdf = pw.Document();
+    // Load Unicode-supporting fonts (required for bullet • and non-ASCII chars)
+    final fontRegular = await PdfGoogleFonts.notoSansRegular();
+    final fontBold = await PdfGoogleFonts.notoSansBold();
+    final fontItalic = await PdfGoogleFonts.notoSansItalic();
+    final fontBoldItalic = await PdfGoogleFonts.notoSansBoldItalic();
+
+    final pdf = pw.Document(
+      theme: pw.ThemeData.withFont(
+        base: fontRegular,
+        bold: fontBold,
+        italic: fontItalic,
+        boldItalic: fontBoldItalic,
+      ),
+    );
 
     // Load logo
     pw.ImageProvider? logoImage;
@@ -899,15 +993,55 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
               pw.SizedBox(width: columnGap),
               pw.Expanded(
                 child: item.description.isNotEmpty
-                    ? pw.Text(
+                    ? _buildPdfFormattedText(
                         item.description,
-                        style: pw.TextStyle(fontSize: 10, lineSpacing: 1.5),
+                        pw.TextStyle(fontSize: 10, lineSpacing: 1.5),
                       )
                     : pw.SizedBox.shrink(),
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  /// PDF: renders formatted text as pw.RichText.
+  pw.Widget _buildPdfFormattedText(String text, pw.TextStyle baseStyle) {
+    if (text.startsWith('[')) {
+      try {
+        final List<dynamic> ops = jsonDecode(text) as List;
+        final spans = <pw.TextSpan>[];
+        for (final op in ops) {
+          if (op is! Map) continue;
+          final insert = op['insert'];
+          if (insert is! String) continue;
+          final attrs = (op['attributes'] as Map?) ?? {};
+          spans.add(pw.TextSpan(
+            text: insert,
+            style: baseStyle.copyWith(
+              fontWeight: attrs['bold'] == true ? pw.FontWeight.bold : pw.FontWeight.normal,
+              fontStyle: attrs['italic'] == true ? pw.FontStyle.italic : pw.FontStyle.normal,
+              decoration: attrs['underline'] == true ? pw.TextDecoration.underline : pw.TextDecoration.none,
+            ),
+          ));
+        }
+        if (spans.isNotEmpty) {
+          return pw.RichText(text: pw.TextSpan(children: spans));
+        }
+      } catch (_) {}
+    }
+    final segments = _parseFormatting(text);
+    return pw.RichText(
+      text: pw.TextSpan(
+        children: segments.map((seg) => pw.TextSpan(
+          text: seg.text,
+          style: baseStyle.copyWith(
+            fontWeight: seg.bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+            fontStyle: seg.italic ? pw.FontStyle.italic : pw.FontStyle.normal,
+            decoration: seg.underline ? pw.TextDecoration.underline : pw.TextDecoration.none,
+          ),
+        )).toList(),
       ),
     );
   }

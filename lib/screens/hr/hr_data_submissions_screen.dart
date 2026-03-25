@@ -93,7 +93,7 @@ class _HrDataSubmissionsScreenState extends State<HrDataSubmissionsScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.indigo.withOpacity(0.3),
+            color: Colors.indigo.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -133,7 +133,7 @@ class _HrDataSubmissionsScreenState extends State<HrDataSubmissionsScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
@@ -159,7 +159,7 @@ class _HrDataSubmissionsScreenState extends State<HrDataSubmissionsScreen> {
                     Text(
                       'Review and manage submitted HR data',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                         fontSize: isMobile ? 12 : 14,
                       ),
                     ),
@@ -186,7 +186,7 @@ class _HrDataSubmissionsScreenState extends State<HrDataSubmissionsScreen> {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: Colors.white, size: 20),
@@ -283,7 +283,7 @@ class _HrDataSubmissionsScreenState extends State<HrDataSubmissionsScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: gradient[0].withOpacity(0.3),
+            color: gradient[0].withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -305,7 +305,7 @@ class _HrDataSubmissionsScreenState extends State<HrDataSubmissionsScreen> {
           Text(
             label,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withValues(alpha: 0.9),
               fontSize: 11,
             ),
             textAlign: TextAlign.center,
@@ -323,7 +323,7 @@ class _HrDataSubmissionsScreenState extends State<HrDataSubmissionsScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -372,7 +372,7 @@ class _HrDataSubmissionsScreenState extends State<HrDataSubmissionsScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -424,7 +424,7 @@ class _HrDataSubmissionsScreenState extends State<HrDataSubmissionsScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -703,7 +703,7 @@ class _HrDataSubmissionsScreenState extends State<HrDataSubmissionsScreen> {
                             borderRadius: BorderRadius.circular(10),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.green.withOpacity(0.3),
+                                color: Colors.green.withValues(alpha: 0.3),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
@@ -775,7 +775,7 @@ class _HrDataSubmissionsScreenState extends State<HrDataSubmissionsScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [gradient[0].withOpacity(0.1), Colors.transparent],
+                colors: [gradient[0].withValues(alpha: 0.1), Colors.transparent],
               ),
               border: Border(left: BorderSide(color: gradient[0], width: 3)),
               borderRadius: const BorderRadius.only(
@@ -873,9 +873,9 @@ class _HrDataSubmissionsScreenState extends State<HrDataSubmissionsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

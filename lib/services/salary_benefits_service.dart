@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import '../models/salary_benefits.dart';
 import '../services/staff_service.dart';
 
@@ -9,10 +10,10 @@ class SalaryBenefitsService {
 
   // Create a new salary benefits record
   Future<String> createSalaryBenefits(SalaryBenefits salaryBenefits) async {
-    print(
+    debugPrint(
       'Debug: Creating salary benefits record for staffId: ${salaryBenefits.staffId}',
     ); // Debug message
-    print(
+    debugPrint(
       'Debug: Salary amount: ${salaryBenefits.baseSalary}',
     ); // Debug message
 
@@ -21,7 +22,7 @@ class SalaryBenefitsService {
           .collection(collectionName)
           .add(salaryBenefits.toFirestore());
 
-      print(
+      debugPrint(
         'Debug: Salary benefits record created with ID: ${docRef.id}',
       ); // Debug message
 
@@ -29,10 +30,10 @@ class SalaryBenefitsService {
       final createdSalaryBenefits = salaryBenefits.copyWith(id: docRef.id);
       await _syncSalaryDataToStaff(createdSalaryBenefits);
 
-      print('Debug: Staff record synced with salary data'); // Debug message
+      debugPrint('Debug: Staff record synced with salary data'); // Debug message
       return docRef.id;
     } catch (e) {
-      print(
+      debugPrint(
         'Debug: Error creating salary benefits record: $e',
       ); // Debug message
       throw Exception('Failed to create salary benefits record: $e');
@@ -50,7 +51,7 @@ class SalaryBenefitsService {
       // Sync salary data to staff record so staff can see updated data
       await _syncSalaryDataToStaff(salaryBenefits);
 
-      print(
+      debugPrint(
         'Debug: Salary benefits updated and synced to staff record',
       ); // Debug message
     } catch (e) {
@@ -93,7 +94,7 @@ class SalaryBenefitsService {
             'currentSalaryBenefitsId': salaryBenefits.id,
             'updatedAt': FieldValue.serverTimestamp(),
           });
-      print('Debug: Staff record synced with salary data'); // Debug message
+      debugPrint('Debug: Staff record synced with salary data'); // Debug message
 
       // Also sync to HR data submissions if user has submitted HR data
       await _syncSalaryDataToHrSubmission(
@@ -102,7 +103,7 @@ class SalaryBenefitsService {
         staffEmail,
       );
     } catch (e) {
-      print('Warning: Failed to sync salary data to staff record: $e');
+      debugPrint('Warning: Failed to sync salary data to staff record: $e');
     }
   }
 
@@ -114,7 +115,7 @@ class SalaryBenefitsService {
   ) async {
     try {
       if (staffUserId == null && staffEmail == null) {
-        print('Debug: No userId or email found for HR submission sync');
+        debugPrint('Debug: No userId or email found for HR submission sync');
         return;
       }
 
@@ -192,14 +193,14 @@ class SalaryBenefitsService {
               'salaryUpdatedBy': 'admin_sync',
             });
 
-        print(
+        debugPrint(
           'Debug: HR submission synced with salary data for doc ${hrDoc.id}',
         );
       } else {
-        print('Debug: No HR submission found to sync salary data');
+        debugPrint('Debug: No HR submission found to sync salary data');
       }
     } catch (e) {
-      print('Warning: Failed to sync salary data to HR submission: $e');
+      debugPrint('Warning: Failed to sync salary data to HR submission: $e');
     }
   }
 
@@ -210,7 +211,7 @@ class SalaryBenefitsService {
       final salaryBenefits = await getCurrentSalaryBenefitsOnce(staffId);
 
       if (salaryBenefits == null) {
-        print('Debug: No salary benefits found for staff $staffId');
+        debugPrint('Debug: No salary benefits found for staff $staffId');
         return false;
       }
 
@@ -221,7 +222,7 @@ class SalaryBenefitsService {
           .get();
 
       if (!staffDoc.exists) {
-        print('Debug: Staff record not found for $staffId');
+        debugPrint('Debug: Staff record not found for $staffId');
         return false;
       }
 
@@ -231,7 +232,7 @@ class SalaryBenefitsService {
 
       // If userId is not set in staff record, try to find user by email
       if (staffUserId == null && staffEmail != null) {
-        print(
+        debugPrint(
           'Debug: Staff userId not set, looking up user by email: $staffEmail',
         );
         final userQuery = await _firestore
@@ -242,14 +243,14 @@ class SalaryBenefitsService {
 
         if (userQuery.docs.isNotEmpty) {
           staffUserId = userQuery.docs.first.id;
-          print('Debug: Found user ID by email: $staffUserId');
+          debugPrint('Debug: Found user ID by email: $staffUserId');
 
           // Update staff record with the found userId
           await _firestore
               .collection(StaffService.collectionName)
               .doc(staffId)
               .update({'userId': staffUserId});
-          print('Debug: Updated staff record with userId');
+          debugPrint('Debug: Updated staff record with userId');
         }
       }
 
@@ -263,10 +264,10 @@ class SalaryBenefitsService {
       // Also update staff record
       await _syncSalaryDataToStaff(salaryBenefits);
 
-      print('Debug: Successfully synced staff data for $staffId');
+      debugPrint('Debug: Successfully synced staff data for $staffId');
       return true;
     } catch (e) {
-      print('Error syncing staff data to HR submission: $e');
+      debugPrint('Error syncing staff data to HR submission: $e');
       return false;
     }
   }
@@ -365,7 +366,7 @@ class SalaryBenefitsService {
     subscription = getCurrentSalaryBenefitsForStaff(staffId).listen(
       controller.add,
       onError: (error, stackTrace) {
-        print(
+        debugPrint(
           'Warning: Active salary benefits query failed, falling back to latest. Error: $error',
         );
         listenToLatest();
@@ -458,7 +459,7 @@ class SalaryBenefitsService {
           });
     } catch (e) {
       // This is not critical, so we'll just log the error
-      print('Warning: Failed to update staff current salary benefits ID: $e');
+      debugPrint('Warning: Failed to update staff current salary benefits ID: $e');
     }
   }
 
@@ -489,7 +490,7 @@ class SalaryBenefitsService {
 
       return 0.0;
     } catch (e) {
-      print('Warning: Failed to calculate total compensation: $e');
+      debugPrint('Warning: Failed to calculate total compensation: $e');
       return 0.0;
     }
   }

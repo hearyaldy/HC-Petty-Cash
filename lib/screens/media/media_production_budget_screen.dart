@@ -372,7 +372,7 @@ class _MediaProductionBudgetScreenState
             SizedBox(
               width: 220,
               child: DropdownButtonFormField<String>(
-                value: _selectedYear,
+                initialValue: _selectedYear,
                 decoration: const InputDecoration(
                   labelText: 'Year',
                   border: OutlineInputBorder(),

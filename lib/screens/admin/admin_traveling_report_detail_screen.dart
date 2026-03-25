@@ -268,100 +268,170 @@ class _AdminTravelingReportDetailScreenState
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text('Traveling Report'),
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Colors.orange.shade400, Colors.orange.shade600],
-            ),
-          ),
+  Widget _buildHeaderCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.orange.shade600, Colors.orange.shade400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.home_outlined),
-            onPressed: () => context.go('/admin-hub'),
-            tooltip: 'Home',
-          ),
-          PopupMenuButton<String>(
-            onSelected: (value) async {
-              final report = await _firestoreService.getTravelingReport(
-                widget.reportId,
-              );
-              if (report == null) return;
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          // Navigation row
+          Row(
+            children: [
+              InkWell(
+                onTap: () => context.pop(),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                ),
+              ),
+              const Spacer(),
+              PopupMenuButton<String>(
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.more_vert, color: Colors.white, size: 20),
+                ),
+                tooltip: 'Actions',
+                onSelected: (value) async {
+                  final report = await _firestoreService.getTravelingReport(
+                    widget.reportId,
+                  );
+                  if (report == null) return;
 
-              switch (value) {
-                case 'revert':
-                  _revertReportToDraft(report);
-                  break;
-                case 'approve':
-                  _approveReport(report);
-                  break;
-                case 'reject':
-                  _rejectReport(report);
-                  break;
-                case 'export':
-                  _exportPDF(report);
-                  break;
-                case 'print':
-                  _printReport(report);
-                  break;
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'revert',
-                child: Row(
-                  children: [
-                    Icon(Icons.restore, color: Colors.grey, size: 20),
-                    SizedBox(width: 12),
-                    Text('Revert to Draft'),
-                  ],
+                  switch (value) {
+                    case 'revert':
+                      _revertReportToDraft(report);
+                      break;
+                    case 'approve':
+                      _approveReport(report);
+                      break;
+                    case 'reject':
+                      _rejectReport(report);
+                      break;
+                    case 'export':
+                      _exportPDF(report);
+                      break;
+                    case 'print':
+                      _printReport(report);
+                      break;
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'revert',
+                    child: Row(
+                      children: [
+                        Icon(Icons.restore, color: Colors.grey, size: 20),
+                        SizedBox(width: 12),
+                        Text('Revert to Draft'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'approve',
+                    child: Row(
+                      children: [
+                        Icon(Icons.check_circle, color: Colors.green, size: 20),
+                        SizedBox(width: 12),
+                        Text('Approve'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'reject',
+                    child: Row(
+                      children: [
+                        Icon(Icons.cancel, color: Colors.red, size: 20),
+                        SizedBox(width: 12),
+                        Text('Reject'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'export',
+                    child: Row(
+                      children: [
+                        Icon(Icons.picture_as_pdf, size: 20),
+                        SizedBox(width: 12),
+                        Text('Export PDF'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'print',
+                    child: Row(
+                      children: [
+                        Icon(Icons.print, size: 20),
+                        SizedBox(width: 12),
+                        Text('Print'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: () => context.go('/admin-hub'),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.home_outlined, color: Colors.white, size: 20),
                 ),
               ),
-              const PopupMenuItem(
-                value: 'approve',
-                child: Row(
-                  children: [
-                    Icon(Icons.check_circle, color: Colors.green, size: 20),
-                    SizedBox(width: 12),
-                    Text('Approve'),
-                  ],
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Content row
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
                 ),
+                child: const Icon(Icons.flight_takeoff, size: 40, color: Colors.white),
               ),
-              const PopupMenuItem(
-                value: 'reject',
-                child: Row(
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.cancel, color: Colors.red, size: 20),
-                    SizedBox(width: 12),
-                    Text('Reject'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'export',
-                child: Row(
-                  children: [
-                    Icon(Icons.picture_as_pdf, size: 20),
-                    SizedBox(width: 12),
-                    Text('Export PDF'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'print',
-                child: Row(
-                  children: [
-                    Icon(Icons.print, size: 20),
-                    SizedBox(width: 12),
-                    Text('Print'),
+                    const Text(
+                      'Traveling Report',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Admin Review',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 14,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -369,20 +439,66 @@ class _AdminTravelingReportDetailScreenState
           ),
         ],
       ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.grey[50],
       body: FutureBuilder<TravelingReport?>(
         future: _firestoreService.getTravelingReport(widget.reportId),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return SingleChildScrollView(
+              child: ResponsiveContainer(
+                padding: ResponsiveHelper.getScreenPadding(context).copyWith(
+                  top: MediaQuery.of(context).padding.top + 16,
+                ),
+                child: Column(
+                  children: [
+                    _buildHeaderCard(),
+                    const SizedBox(height: 100),
+                    const Center(child: CircularProgressIndicator()),
+                  ],
+                ),
+              ),
+            );
           }
 
           if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
+            return SingleChildScrollView(
+              child: ResponsiveContainer(
+                padding: ResponsiveHelper.getScreenPadding(context).copyWith(
+                  top: MediaQuery.of(context).padding.top + 16,
+                ),
+                child: Column(
+                  children: [
+                    _buildHeaderCard(),
+                    const SizedBox(height: 100),
+                    Center(child: Text('Error: ${snapshot.error}')),
+                  ],
+                ),
+              ),
+            );
           }
 
           final report = snapshot.data;
           if (report == null) {
-            return const Center(child: Text('Report not found'));
+            return SingleChildScrollView(
+              child: ResponsiveContainer(
+                padding: ResponsiveHelper.getScreenPadding(context).copyWith(
+                  top: MediaQuery.of(context).padding.top + 16,
+                ),
+                child: Column(
+                  children: [
+                    _buildHeaderCard(),
+                    const SizedBox(height: 100),
+                    const Center(child: Text('Report not found')),
+                  ],
+                ),
+              ),
+            );
           }
 
           return _buildReportContent(report);
@@ -395,8 +511,13 @@ class _AdminTravelingReportDetailScreenState
     final spacing = ResponsiveHelper.getSpacing(context);
     return SingleChildScrollView(
       child: ResponsiveContainer(
+        padding: ResponsiveHelper.getScreenPadding(context).copyWith(
+          top: MediaQuery.of(context).padding.top + 16,
+        ),
         child: Column(
           children: [
+            _buildHeaderCard(),
+            const SizedBox(height: 16),
             _buildReportHeader(report),
             _buildTravelingDetails(report),
             _buildMileageSection(report),

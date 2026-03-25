@@ -248,7 +248,7 @@ class _MediaPeriodReportsScreenState extends State<MediaPeriodReportsScreen> {
                         children: [
                           _buildSectionTitle('Period'),
                           DropdownButtonFormField<String>(
-                            value: periodType,
+                            initialValue: periodType,
                             decoration: const InputDecoration(
                               labelText: 'Period Type',
                               border: OutlineInputBorder(),
@@ -277,7 +277,7 @@ class _MediaPeriodReportsScreenState extends State<MediaPeriodReportsScreen> {
                             children: [
                               Expanded(
                                 child: DropdownButtonFormField<int>(
-                                  value: selectedYear,
+                                  initialValue: selectedYear,
                                   decoration: const InputDecoration(
                                     labelText: 'Year',
                                     border: OutlineInputBorder(),
@@ -299,7 +299,7 @@ class _MediaPeriodReportsScreenState extends State<MediaPeriodReportsScreen> {
                               if (periodType == 'monthly')
                                 Expanded(
                                   child: DropdownButtonFormField<int>(
-                                    value: selectedMonth,
+                                    initialValue: selectedMonth,
                                     decoration: const InputDecoration(
                                       labelText: 'Month',
                                       border: OutlineInputBorder(),
@@ -326,7 +326,7 @@ class _MediaPeriodReportsScreenState extends State<MediaPeriodReportsScreen> {
                               if (periodType == 'quarterly')
                                 Expanded(
                                   child: DropdownButtonFormField<int>(
-                                    value: selectedQuarter,
+                                    initialValue: selectedQuarter,
                                     decoration: const InputDecoration(
                                       labelText: 'Quarter',
                                       border: OutlineInputBorder(),
@@ -391,7 +391,7 @@ class _MediaPeriodReportsScreenState extends State<MediaPeriodReportsScreen> {
                             children: [
                               Expanded(
                                 child: DropdownButtonFormField<String>(
-                                  value: language,
+                                  initialValue: language,
                                   decoration: const InputDecoration(
                                     labelText: 'Language',
                                     border: OutlineInputBorder(),
@@ -411,7 +411,7 @@ class _MediaPeriodReportsScreenState extends State<MediaPeriodReportsScreen> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: DropdownButtonFormField<String>(
-                                  value: platform,
+                                  initialValue: platform,
                                   decoration: const InputDecoration(
                                     labelText: 'Platform',
                                     border: OutlineInputBorder(),
@@ -1087,7 +1087,7 @@ class _MediaPeriodReportsScreenState extends State<MediaPeriodReportsScreen> {
               mobile: Column(
                 children: [
                   DropdownButtonFormField<int>(
-                    value: _selectedYear,
+                    initialValue: _selectedYear,
                     decoration: const InputDecoration(
                       labelText: 'Year',
                       border: OutlineInputBorder(),
@@ -1107,7 +1107,7 @@ class _MediaPeriodReportsScreenState extends State<MediaPeriodReportsScreen> {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: _selectedLanguage,
+                    initialValue: _selectedLanguage,
                     decoration: const InputDecoration(
                       labelText: 'Language',
                       border: OutlineInputBorder(),
@@ -1132,7 +1132,7 @@ class _MediaPeriodReportsScreenState extends State<MediaPeriodReportsScreen> {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: _selectedPlatform,
+                    initialValue: _selectedPlatform,
                     decoration: const InputDecoration(
                       labelText: 'Platform',
                       border: OutlineInputBorder(),
@@ -1180,7 +1180,7 @@ class _MediaPeriodReportsScreenState extends State<MediaPeriodReportsScreen> {
                     children: [
                       Expanded(
                         child: DropdownButtonFormField<int>(
-                          value: _selectedYear,
+                          initialValue: _selectedYear,
                           decoration: const InputDecoration(
                             labelText: 'Year',
                             border: OutlineInputBorder(),
@@ -1202,7 +1202,7 @@ class _MediaPeriodReportsScreenState extends State<MediaPeriodReportsScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          value: _selectedLanguage,
+                          initialValue: _selectedLanguage,
                           decoration: const InputDecoration(
                             labelText: 'Language',
                             border: OutlineInputBorder(),
@@ -1233,7 +1233,7 @@ class _MediaPeriodReportsScreenState extends State<MediaPeriodReportsScreen> {
                     children: [
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          value: _selectedPlatform,
+                          initialValue: _selectedPlatform,
                           decoration: const InputDecoration(
                             labelText: 'Platform',
                             border: OutlineInputBorder(),

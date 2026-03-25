@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../models/employment_letter.dart';
 import '../../services/employment_letter_service.dart';
 import '../../utils/responsive_helper.dart';
+import '../../widgets/page_image_header.dart';
 
 class AddEditEmploymentLetterTemplateScreen extends StatefulWidget {
   const AddEditEmploymentLetterTemplateScreen({super.key});
@@ -266,7 +267,7 @@ Hope Channel Southeast Asia''';
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -306,109 +307,32 @@ Hope Channel Southeast Asia''';
       body: CustomScrollView(
         slivers: [
           // Modern SliverAppBar with gradient
-          SliverAppBar(
-            expandedHeight: 200,
-            floating: false,
-            pinned: true,
-            elevation: 0,
-            backgroundColor: Colors.orange.shade600,
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.orange.shade700,
-                      Colors.orange.shade500,
-                      Colors.deepOrange.shade400,
-                    ],
-                  ),
-                ),
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.description,
-                                color: Colors.white,
-                                size: 28,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    isEditing
-                                        ? 'Edit Letter Template'
-                                        : 'Add Letter Template',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Create and customize employment letter templates',
-                                    style: TextStyle(
-                                      color: Colors.white.withOpacity(0.9),
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            actions: [
-              if (_isLoading)
-                const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  ),
-                )
-              else
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: TextButton.icon(
-                    onPressed: _saveTemplate,
-                    icon: const Icon(Icons.save, color: Colors.white),
-                    label: const Text(
-                      'Save',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
+          SliverToBoxAdapter(
+            child: PageImageHeader(
+              title:
+                  isEditing ? 'Edit Letter Template' : 'Add Letter Template',
+              subtitle: 'Create and customize employment letter templates',
+              actions: [
+                if (_isLoading)
+                  const Padding(
+                    padding: EdgeInsets.all(8),
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
                     ),
+                  )
+                else
+                  PageImageHeader.actionButton(
+                    icon: Icons.save,
+                    tooltip: 'Save',
+                    onPressed: _saveTemplate,
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
           // Content
           SliverToBoxAdapter(
@@ -494,7 +418,7 @@ Hope Channel Southeast Asia''';
                               Expanded(
                                 flex: 2,
                                 child: DropdownButtonFormField<String>(
-                                  value: _fontFamily,
+                                  initialValue: _fontFamily,
                                   decoration: _buildInputDecoration(
                                     label: 'Font Family',
                                     icon: Icons.font_download,
@@ -515,7 +439,7 @@ Hope Channel Southeast Asia''';
                               const SizedBox(width: 16),
                               Expanded(
                                 child: DropdownButtonFormField<double>(
-                                  value: _fontSize,
+                                  initialValue: _fontSize,
                                   decoration: _buildInputDecoration(
                                     label: 'Font Size',
                                     icon: Icons.format_size,
@@ -906,7 +830,7 @@ Hope Channel Southeast Asia''';
                               border: Border.all(color: Colors.grey.shade300),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
+                                  color: Colors.black.withValues(alpha: 0.05),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                 ),

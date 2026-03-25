@@ -400,78 +400,206 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        title: const Text('Edit Meeting'),
-        actions: [
-          TextButton.icon(
-            onPressed: _isSaving ? null : _updateMeeting,
-            icon: _isSaving
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.save),
-            label: const Text('Save'),
-            style: TextButton.styleFrom(foregroundColor: Colors.white),
+  Widget _buildHeaderCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.blue.shade600, Colors.blue.shade400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          // Navigation row
+          Row(
+            children: [
+              InkWell(
+                onTap: () => context.pop(),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                ),
+              ),
+              const Spacer(),
+              InkWell(
+                onTap: _isSaving ? null : _updateMeeting,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: _isSaving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Icon(Icons.save, color: Colors.white, size: 20),
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: () => context.go('/admin-hub'),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.home_outlined, color: Colors.white, size: 20),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Content row
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.edit_calendar, size: 40, color: Colors.white),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Edit Meeting',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Update meeting details',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _meeting == null
-              ? const Center(child: Text('Meeting not found'))
-              : SafeArea(
-                  child: SingleChildScrollView(
-                    child: ResponsiveContainer(
-                      child: Padding(
-                        padding: ResponsiveHelper.getScreenPadding(context),
-                        child: Form(
-                          key: _formKey,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildMeetingTypeSelector(),
-                              const SizedBox(height: 16),
-                              _buildBasicInfoSection(),
-                              const SizedBox(height: 16),
-                              _buildDateTimeSection(),
-                              const SizedBox(height: 16),
-                              _buildLocationSection(),
-                              const SizedBox(height: 16),
-                              _buildRolesSection(),
-                              const SizedBox(height: 16),
-                              _buildMembersSection(),
-                              const SizedBox(height: 16),
-                              _buildHeadingSection(),
-                              const SizedBox(height: 16),
-                              _buildNotesSection(),
-                              const SizedBox(height: 24),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton.icon(
-                                  onPressed: _isSaving ? null : _updateMeeting,
-                                  icon: const Icon(Icons.save),
-                                  label: const Text('Save Changes'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.blue,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 14,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: Colors.grey[100],
+        body: SingleChildScrollView(
+          child: ResponsiveContainer(
+            padding: ResponsiveHelper.getScreenPadding(context).copyWith(
+              top: MediaQuery.of(context).padding.top + 16,
+            ),
+            child: Column(
+              children: [
+                _buildHeaderCard(),
+                const SizedBox(height: 100),
+                const Center(child: CircularProgressIndicator()),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_meeting == null) {
+      return Scaffold(
+        backgroundColor: Colors.grey[100],
+        body: SingleChildScrollView(
+          child: ResponsiveContainer(
+            padding: ResponsiveHelper.getScreenPadding(context).copyWith(
+              top: MediaQuery.of(context).padding.top + 16,
+            ),
+            child: Column(
+              children: [
+                _buildHeaderCard(),
+                const SizedBox(height: 100),
+                const Center(child: Text('Meeting not found')),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: Colors.grey[100],
+      body: SingleChildScrollView(
+        child: ResponsiveContainer(
+          padding: ResponsiveHelper.getScreenPadding(context).copyWith(
+            top: MediaQuery.of(context).padding.top + 16,
+          ),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildHeaderCard(),
+                const SizedBox(height: 16),
+                _buildMeetingTypeSelector(),
+                const SizedBox(height: 16),
+                _buildBasicInfoSection(),
+                const SizedBox(height: 16),
+                _buildDateTimeSection(),
+                const SizedBox(height: 16),
+                _buildLocationSection(),
+                const SizedBox(height: 16),
+                _buildRolesSection(),
+                const SizedBox(height: 16),
+                _buildMembersSection(),
+                const SizedBox(height: 16),
+                _buildHeadingSection(),
+                const SizedBox(height: 16),
+                _buildNotesSection(),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _isSaving ? null : _updateMeeting,
+                    icon: const Icon(Icons.save),
+                    label: const Text('Save Changes'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 14,
                       ),
                     ),
                   ),
                 ),
+                const SizedBox(height: 24),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -894,7 +1022,7 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            value: chairValue,
+            initialValue: chairValue,
             decoration: const InputDecoration(
               labelText: 'Chairperson',
               border: OutlineInputBorder(),
@@ -943,7 +1071,7 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            value: secretaryValue,
+            initialValue: secretaryValue,
             decoration: const InputDecoration(
               labelText: 'Secretary / Minutes Taker',
               border: OutlineInputBorder(),

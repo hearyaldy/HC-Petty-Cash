@@ -715,7 +715,7 @@ class _PurchaseRequisitionsScreenState
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: Colors.white, size: 20),
@@ -1201,6 +1201,32 @@ class _PurchaseRequisitionsScreenState
                             ),
                           ],
                         ),
+                        if (requisition.purchaseReason != null &&
+                            requisition.purchaseReason!.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.notes,
+                                size: 14,
+                                color: Colors.grey.shade500,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  requisition.purchaseReason!,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade600,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                         const SizedBox(height: 8),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1452,7 +1478,7 @@ class _PurchaseRequisitionsScreenState
               const SizedBox(width: 8),
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: _selectedStatus,
+                  initialValue: _selectedStatus,
                   decoration: InputDecoration(
                     labelText: 'Filter by Status',
                     border: const OutlineInputBorder(),
@@ -1773,6 +1799,20 @@ class _PurchaseRequisitionsScreenState
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
+            if (requisition.purchaseReason != null &&
+                requisition.purchaseReason!.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text(
+                requisition.purchaseReason!,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade500,
+                  fontStyle: FontStyle.italic,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ],
         ),
         trailing: Row(
