@@ -256,9 +256,20 @@ class _StudentReportScreenState extends State<StudentReportScreen>
                   InkWell(
                     onTap: () async {
                       final today = DateTime.now();
-                      final maxDate =
-                          DateTime(today.year, today.month, today.day);
-                      final minDate = maxDate.subtract(const Duration(days: 7));
+                      final todayOnly = DateTime(today.year, today.month, today.day);
+                      DateTime minDate;
+                      DateTime maxDate;
+                      if (_selectedMonth != null) {
+                        final parts = _selectedMonth!.split('-');
+                        final year = int.parse(parts[0]);
+                        final month = int.parse(parts[1]);
+                        minDate = DateTime(year, month, 1);
+                        final periodEnd = DateTime(year, month + 1, 0);
+                        maxDate = periodEnd.isBefore(todayOnly) ? periodEnd : todayOnly;
+                      } else {
+                        maxDate = todayOnly;
+                        minDate = todayOnly.subtract(const Duration(days: 7));
+                      }
 
                       DateTime initialDate = selectedDate;
                       if (initialDate.isBefore(minDate)) {
@@ -516,14 +527,26 @@ class _StudentReportScreenState extends State<StudentReportScreen>
 
     try {
       final today = DateTime.now();
-      final maxDate = DateTime(today.year, today.month, today.day);
-      final minDate = maxDate.subtract(const Duration(days: 7));
+      final todayOnly = DateTime(today.year, today.month, today.day);
+      DateTime minDate;
+      DateTime maxDate;
+      if (_selectedMonth != null) {
+        final parts = _selectedMonth!.split('-');
+        final year = int.parse(parts[0]);
+        final month = int.parse(parts[1]);
+        minDate = DateTime(year, month, 1);
+        final periodEnd = DateTime(year, month + 1, 0);
+        maxDate = periodEnd.isBefore(todayOnly) ? periodEnd : todayOnly;
+      } else {
+        maxDate = todayOnly;
+        minDate = todayOnly.subtract(const Duration(days: 7));
+      }
       if (date.isBefore(minDate) || date.isAfter(maxDate)) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
-                'Date must be within the last 7 days',
+                'Date must be within the report period',
               ),
               backgroundColor: Colors.red,
             ),

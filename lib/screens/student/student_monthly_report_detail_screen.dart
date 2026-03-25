@@ -84,30 +84,17 @@ class _StudentMonthlyReportDetailScreenState
     return '${dateFormat.format(_getPeriodStart())} - ${dateFormat.format(_getPeriodEnd())}';
   }
 
-  DateTime _backdateMin() {
+  DateTime _getAllowedDateMin() => _getPeriodStart();
+
+  DateTime _getAllowedDateMax() {
+    final periodEnd = _getPeriodEnd();
     final today = _dateOnly(DateTime.now());
-    return today.subtract(const Duration(days: 7));
-  }
-
-  DateTime _backdateMax() => _dateOnly(DateTime.now());
-
-  DateTime? _getAllowedDateMin() {
-    final min = _getPeriodStart();
-    final backdateMin = _backdateMin();
-    return min.isAfter(backdateMin) ? min : backdateMin;
-  }
-
-  DateTime? _getAllowedDateMax() {
-    final max = _getPeriodEnd();
-    final backdateMax = _backdateMax();
-    return max.isBefore(backdateMax) ? max : backdateMax;
+    return periodEnd.isBefore(today) ? periodEnd : today;
   }
 
   bool _isDateAllowed(DateTime date) {
     final min = _getAllowedDateMin();
     final max = _getAllowedDateMax();
-    if (min == null || max == null) return false;
-    if (max.isBefore(min)) return false;
     return !date.isBefore(min) && !date.isAfter(max);
   }
 
@@ -2728,9 +2715,7 @@ class _StudentMonthlyReportDetailScreenState
                         final minDate = _getAllowedDateMin();
                         final maxDate = _getAllowedDateMax();
 
-                        if (minDate == null ||
-                            maxDate == null ||
-                            maxDate.isBefore(minDate)) {
+                        if (maxDate.isBefore(minDate)) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text(
@@ -3099,7 +3084,7 @@ class _StudentMonthlyReportDetailScreenState
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text(
-                          'Date must be within the report period and within the last 7 days',
+                          'Date must be within the report period',
                         ),
                         backgroundColor: Colors.red,
                       ),
@@ -3292,9 +3277,7 @@ class _StudentMonthlyReportDetailScreenState
                         final minDate = _getAllowedDateMin();
                         final maxDate = _getAllowedDateMax();
 
-                        if (minDate == null ||
-                            maxDate == null ||
-                            maxDate.isBefore(minDate)) {
+                        if (maxDate.isBefore(minDate)) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text(
@@ -3670,7 +3653,7 @@ class _StudentMonthlyReportDetailScreenState
                     ScaffoldMessenger.of(dialogContext).showSnackBar(
                       const SnackBar(
                         content: Text(
-                          'Date must be within the report period and within the last 7 days',
+                          'Date must be within the report period',
                         ),
                         backgroundColor: Colors.red,
                       ),
