@@ -325,24 +325,38 @@ class MeetingService {
       query = query.where('assigneeId', isEqualTo: assigneeId);
     }
 
-    return query.orderBy('dueDate').snapshots().map(
-          (snapshot) => snapshot.docs
+    return query.snapshots().map((snapshot) {
+          final items = snapshot.docs
               .map((doc) => MeetingActionItem.fromFirestore(doc))
-              .toList(),
-        );
+              .toList();
+          items.sort((a, b) {
+            if (a.dueDate == null && b.dueDate == null) return 0;
+            if (a.dueDate == null) return 1;
+            if (b.dueDate == null) return -1;
+            return a.dueDate!.compareTo(b.dueDate!);
+          });
+          return items;
+        });
   }
 
   // Get pending action items
   Stream<List<MeetingActionItem>> getPendingActionItems() {
     return _actionItemsCollection
         .where('status', whereIn: ['pending', 'inProgress'])
-        .orderBy('dueDate')
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
+        .map((snapshot) {
+          final items = snapshot.docs
               .map((doc) => MeetingActionItem.fromFirestore(doc))
-              .toList(),
-        );
+              .toList();
+          // Sort client-side: overdue first, then by dueDate (nulls last)
+          items.sort((a, b) {
+            if (a.dueDate == null && b.dueDate == null) return 0;
+            if (a.dueDate == null) return 1;
+            if (b.dueDate == null) return -1;
+            return a.dueDate!.compareTo(b.dueDate!);
+          });
+          return items;
+        });
   }
 
   // Get overdue action items

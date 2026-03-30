@@ -11,6 +11,8 @@ import '../utils/logger.dart';
 class PaymentVoucherPdfExportService {
   pw.Font? _ttf;
   pw.Font? _ttfBold;
+  pw.Font? _notoFallback;
+  pw.Font? _emojiFont;
   pw.ImageProvider? _logoImage;
 
   Future<void> _loadAssets() async {
@@ -26,6 +28,13 @@ class PaymentVoucherPdfExportService {
     } catch (e) {
       AppLogger.warning('PaymentVoucherPdf: Failed to load custom fonts: $e');
     }
+
+    try {
+      _notoFallback = await PdfGoogleFonts.notoSansRegular();
+    } catch (_) {}
+    try {
+      _emojiFont = await PdfGoogleFonts.notoColorEmojiRegular();
+    } catch (_) {}
 
     try {
       final logoData =
@@ -51,7 +60,7 @@ class PaymentVoucherPdfExportService {
         theme: pw.ThemeData.withFont(
           base: _ttf ?? pw.Font.helvetica(),
           bold: _ttfBold ?? pw.Font.helveticaBold(),
-          fontFallback: [pw.Font.helvetica()],
+          fontFallback: [?_notoFallback, ?_emojiFont],
         ),
         header: (context) => _buildHeader(voucher, dateFormat),
         footer: (context) => _buildFooter(context),

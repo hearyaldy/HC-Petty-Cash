@@ -79,6 +79,7 @@ import 'screens/meetings/meeting_detail_screen.dart';
 import 'screens/meetings/action_items_screen.dart';
 import 'screens/meetings/edit_agenda_screen.dart';
 import 'screens/meetings/edit_minutes_screen.dart';
+import 'screens/meetings/meeting_members_screen.dart';
 import 'screens/hub/admin_hub_screen.dart';
 import 'screens/hub/finance_dashboard_screen.dart';
 import 'screens/hub/finance_ai_report_screen.dart';
@@ -836,6 +837,10 @@ class MyApp extends StatelessWidget {
             final meetingId = state.uri.queryParameters['meetingId'];
             return ActionItemsScreen(meetingId: meetingId);
           },
+        ),
+        GoRoute(
+          path: '/meetings/committee-members',
+          builder: (context, state) => const MeetingMembersScreen(),
         ),
         GoRoute(
           path: '/meetings/:meetingId/agenda/edit',

@@ -101,41 +101,44 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: Colors.grey[100],
       body: SafeArea(
-        child: Column(
-          children: [
-            _buildWelcomeHeader(),
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : ResponsiveContainer(
-                      child: _users.isEmpty
-                          ? _buildEmptyState()
-                          : _buildUserList(),
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                child: ResponsiveContainer(
+                  child: Padding(
+                    padding: ResponsiveHelper.getScreenPadding(context),
+                    child: Column(
+                      children: [
+                        _buildWelcomeHeader(),
+                        const SizedBox(height: 16),
+                        _users.isEmpty ? _buildEmptyState() : _buildUserList(),
+                        const SizedBox(height: 32),
+                      ],
                     ),
-            ),
-          ],
-        ),
+                  ),
+                ),
+              ),
       ),
     );
   }
 
   Widget _buildWelcomeHeader() {
+    final isMobile = ResponsiveHelper.isMobile(context);
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Colors.purple.shade400, Colors.purple.shade600],
+          colors: [Colors.purple.shade600, Colors.purple.shade400],
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.purple.shade200,
-            blurRadius: 12,
+            color: Colors.purple.withValues(alpha: 0.3),
+            blurRadius: 8,
             offset: const Offset(0, 4),
           ),
         ],
@@ -176,27 +179,27 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: isMobile ? 16 : 20),
           Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.people, color: Colors.white, size: 32),
+                child: const Icon(Icons.people, color: Colors.white, size: 28),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Manage Users',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 22,
+                        fontSize: isMobile ? 20 : 24,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -356,15 +359,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     final others = _users.where((u) => !knownRoles.contains(u.role)).toList();
 
     return ListView(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       children: [
-        // Debug info - total users loaded
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text(
-            'Total users: ${_users.length}',
-            style: TextStyle(color: Colors.grey[600], fontSize: 12),
-          ),
-        ),
         if (admins.isNotEmpty) ...[
           _buildSectionHeader(
             'Admins',

@@ -12,6 +12,8 @@ import '../utils/logger.dart';
 class IncomeReportPdfExportService {
   pw.Font? _ttf;
   pw.Font? _ttfBold;
+  pw.Font? _notoFallback;
+  pw.Font? _emojiFont;
   pw.ImageProvider? _logoImage;
 
   Future<void> _loadFonts() async {
@@ -29,6 +31,13 @@ class IncomeReportPdfExportService {
     } catch (e) {
       AppLogger.warning('Failed to load custom fonts: $e');
     }
+
+    try {
+      _notoFallback = await PdfGoogleFonts.notoSansRegular();
+    } catch (_) {}
+    try {
+      _emojiFont = await PdfGoogleFonts.notoColorEmojiRegular();
+    } catch (_) {}
 
     // Load default logo
     try {
@@ -72,7 +81,7 @@ class IncomeReportPdfExportService {
         theme: pw.ThemeData.withFont(
           base: _ttf ?? pw.Font.helvetica(),
           bold: _ttfBold ?? pw.Font.helveticaBold(),
-          fontFallback: [pw.Font.helvetica()],
+          fontFallback: [?_notoFallback, ?_emojiFont],
         ),
         header: (context) =>
             _buildHeader(report, dateFormat, organization: organization),

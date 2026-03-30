@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -780,10 +781,9 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
               item.description,
               TextStyle(fontSize: 13, color: Colors.grey.shade700),
             ),
-            // Resolution if voted
+            // Resolution if voted and has real content
             if (item.status == MinutesItemStatus.voted &&
-                item.resolution != null &&
-                item.resolution!.isNotEmpty) ...[
+                _hasContent(item.resolution)) ...[
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.all(8),
@@ -798,9 +798,9 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
                     Icon(Icons.gavel, size: 16, color: Colors.green.shade700),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
+                      child: _buildFormattedText(
                         item.resolution!,
-                        style: TextStyle(
+                        TextStyle(
                           fontSize: 12,
                           color: Colors.green.shade800,
                           fontStyle: FontStyle.italic,
@@ -811,8 +811,8 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
                 ),
               ),
             ],
-            // Notes if any
-            if (item.notes != null && item.notes!.isNotEmpty) ...[
+            // Discussion notes if any real content
+            if (_hasContent(item.notes)) ...[
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.all(8),
@@ -826,12 +826,9 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
                     Icon(Icons.note, size: 16, color: Colors.grey.shade600),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
+                      child: _buildFormattedText(
                         item.notes!,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade700,
-                        ),
+                        TextStyle(fontSize: 12, color: Colors.grey.shade700),
                       ),
                     ),
                   ],
@@ -866,303 +863,39 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
   }
 
   Future<void> _editMinutesItem(MinutesItem item, int index) async {
-    final resolutionController = TextEditingController(
-      text: item.resolution ?? '',
-    );
-    final notesController = TextEditingController(text: item.notes ?? '');
-    final allowedStatuses = _allowedStatusesFor(item.actionType);
-    MinutesItemStatus selectedStatus = allowedStatuses.contains(item.status)
-        ? item.status
-        : MinutesItemStatus.pending;
-
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          return AlertDialog(
-            title: Row(
-              children: [
-                const Icon(Icons.edit_note),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    item.itemNumber,
-                    style: const TextStyle(fontSize: 18),
-                  ),
-                ),
-              ],
-            ),
-            content: SizedBox(
-              width: 500,
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Title
-                    Text(
-                      item.title.toUpperCase(),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    _buildFormattedText(
-                      item.description,
-                      TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    const Divider(),
-                    const SizedBox(height: 16),
-                    // Status selection
-                    const Text(
-                      'Status',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: allowedStatuses.map((status) {
-                        final isSelected = selectedStatus == status;
-                        Color color;
-                        switch (status) {
-                          case MinutesItemStatus.voted:
-                            color = Colors.green;
-                            break;
-                          case MinutesItemStatus.tabled:
-                            color = Colors.orange;
-                            break;
-                          case MinutesItemStatus.discussed:
-                            color = Colors.blue;
-                            break;
-                          case MinutesItemStatus.pending:
-                            color = Colors.grey;
-                            break;
-                        }
-                        return ChoiceChip(
-                          label: Text(status.displayName),
-                          selected: isSelected,
-                          selectedColor: color.withValues(alpha: 0.2),
-                          labelStyle: TextStyle(
-                            color: isSelected ? color : Colors.grey.shade700,
-                            fontWeight: isSelected
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                          ),
-                          onSelected: (selected) {
-                            if (selected) {
-                              setDialogState(() {
-                                selectedStatus = status;
-                              });
-                            }
-                          },
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 20),
-                    // Resolution (shown when Voted)
-                    if (selectedStatus == MinutesItemStatus.voted) ...[
-                      Row(
-                        children: [
-                          const Text(
-                            'Resolution',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          const Spacer(),
-                          _buildAIButton(
-                            icon: Icons.auto_fix_high,
-                            label: 'Generate',
-                            tooltip: 'AI Generate Resolution',
-                            onPressed: () async {
-                              setDialogState(() {});
-                              final result = await _aiService
-                                  .generateResolution(
-                                    item.title,
-                                    item.description,
-                                  );
-                              if (result.success && result.text != null) {
-                                resolutionController.text = result.text!;
-                                setDialogState(() {});
-                              } else {
-                                _showAIError(result.error ?? 'Unknown error');
-                              }
-                            },
-                          ),
-                          const SizedBox(width: 4),
-                          _buildAIButton(
-                            icon: Icons.auto_awesome,
-                            label: 'Enhance',
-                            tooltip: 'AI Enhance Text',
-                            onPressed: () async {
-                              if (resolutionController.text.isEmpty) return;
-                              final result = await _aiService.enhanceText(
-                                resolutionController.text,
-                                context: 'ADCOM meeting resolution',
-                              );
-                              if (result.success && result.text != null) {
-                                resolutionController.text = result.text!;
-                                setDialogState(() {});
-                              } else {
-                                _showAIError(result.error ?? 'Unknown error');
-                              }
-                            },
-                          ),
-                          const SizedBox(width: 4),
-                          _buildAIButton(
-                            icon: Icons.spellcheck,
-                            label: 'Spell',
-                            tooltip: 'Spell Check',
-                            onPressed: () async {
-                              if (resolutionController.text.isEmpty) return;
-                              final result = await _aiService.checkSpelling(
-                                resolutionController.text,
-                              );
-                              if (result.success) {
-                                if (result.hasIssues) {
-                                  _showSpellCheckResult(result, (corrected) {
-                                    resolutionController.text = corrected;
-                                    setDialogState(() {});
-                                  });
-                                } else {
-                                  _showNoSpellingErrors();
-                                }
-                              } else {
-                                _showAIError(result.error ?? 'Unknown error');
-                              }
-                            },
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: resolutionController,
-                        maxLines: 3,
-                        decoration: InputDecoration(
-                          hintText: 'Enter the resolution...',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                    // Notes
-                    Row(
-                      children: [
-                        const Text(
-                          'Notes / Discussion Points',
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        const Spacer(),
-                        _buildAIButton(
-                          icon: Icons.auto_awesome,
-                          label: 'Enhance',
-                          tooltip: 'AI Enhance Text',
-                          onPressed: () async {
-                            if (notesController.text.isEmpty) return;
-                            final result = await _aiService.enhanceText(
-                              notesController.text,
-                              context: 'ADCOM meeting discussion notes',
-                            );
-                            if (result.success && result.text != null) {
-                              notesController.text = result.text!;
-                              setDialogState(() {});
-                            } else {
-                              _showAIError(result.error ?? 'Unknown error');
-                            }
-                          },
-                        ),
-                        const SizedBox(width: 4),
-                        _buildAIButton(
-                          icon: Icons.spellcheck,
-                          label: 'Spell',
-                          tooltip: 'Spell Check',
-                          onPressed: () async {
-                            if (notesController.text.isEmpty) return;
-                            final result = await _aiService.checkSpelling(
-                              notesController.text,
-                            );
-                            if (result.success) {
-                              if (result.hasIssues) {
-                                _showSpellCheckResult(result, (corrected) {
-                                  notesController.text = corrected;
-                                  setDialogState(() {});
-                                });
-                              } else {
-                                _showNoSpellingErrors();
-                              }
-                            } else {
-                              _showAIError(result.error ?? 'Unknown error');
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: notesController,
-                      maxLines: 3,
-                      decoration: InputDecoration(
-                        hintText: 'Add any notes or discussion points...',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () => _confirmDeleteItem(index),
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('Delete'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context, {
-                    'status': selectedStatus,
-                    'resolution': resolutionController.text,
-                    'notes': notesController.text,
-                  });
-                },
-                child: const Text('Save'),
-              ),
-            ],
-          );
-        },
+      builder: (context) => _EditMinutesItemDialog(
+        item: item,
+        allowedStatuses: _allowedStatusesFor(item.actionType),
+        aiService: _aiService,
       ),
     );
 
-    if (result != null) {
-      final updatedItem = item.copyWith(
-        status: result['status'] as MinutesItemStatus,
-        resolution: result['resolution'] as String?,
-        notes: result['notes'] as String?,
-      );
+    if (result == null) return;
 
-      final updatedItems = List<MinutesItem>.from(_minutes!.minutesItems);
-      updatedItems[index] = updatedItem;
-
-      setState(() {
-        _minutes = _minutes!.copyWith(
-          minutesItems: updatedItems,
-          updatedAt: DateTime.now(),
-        );
-      });
-
-      await _service.updateMinutes(_minutes!);
+    if (result['action'] == 'delete') {
+      _confirmDeleteItem(index);
+      return;
     }
+
+    final updatedItem = item.copyWith(
+      status: result['status'] as MinutesItemStatus,
+      resolution: result['resolution'] as String?,
+      notes: result['notes'] as String?,
+    );
+
+    final updatedItems = List<MinutesItem>.from(_minutes!.minutesItems);
+    updatedItems[index] = updatedItem;
+
+    setState(() {
+      _minutes = _minutes!.copyWith(
+        minutesItems: updatedItems,
+        updatedAt: DateTime.now(),
+      );
+    });
+
+    await _service.updateMinutes(_minutes!);
   }
 
   List<MinutesItemStatus> _allowedStatusesFor(AgendaActionType actionType) {
@@ -1170,7 +903,6 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
   }
 
   Future<void> _confirmDeleteItem(int index) async {
-    Navigator.pop(context); // Close edit dialog first
 
     final confirm = await showDialog<bool>(
       context: context,
@@ -1555,6 +1287,25 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
     return result;
   }
 
+  // Returns true only when a stored resolution/notes string has real visible content.
+  // Handles both plain text and Quill JSON (e.g. [{"insert":"\n"}] is treated as empty).
+  bool _hasContent(String? s) {
+    if (s == null || s.isEmpty) return false;
+    if (s.startsWith('[')) {
+      try {
+        final ops = jsonDecode(s) as List;
+        final plain = ops
+            .whereType<Map>()
+            .map((op) => op['insert'])
+            .whereType<String>()
+            .join()
+            .trim();
+        return plain.isNotEmpty;
+      } catch (_) {}
+    }
+    return s.trim().isNotEmpty;
+  }
+
   Widget _buildFormattedText(String text, TextStyle baseStyle) {
     if (text.startsWith('[')) {
       try {
@@ -1591,6 +1342,497 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
             decoration: seg.underline ? TextDecoration.underline : TextDecoration.none,
           ),
         )).toList(),
+      ),
+    );
+  }
+}
+
+// ── Rich-text edit dialog for an ADCOM minutes item ─────────────────────────
+
+class _EditMinutesItemDialog extends StatefulWidget {
+  final MinutesItem item;
+  final List<MinutesItemStatus> allowedStatuses;
+  final AITextService aiService;
+
+  const _EditMinutesItemDialog({
+    required this.item,
+    required this.allowedStatuses,
+    required this.aiService,
+  });
+
+  @override
+  State<_EditMinutesItemDialog> createState() =>
+      _EditMinutesItemDialogState();
+}
+
+class _EditMinutesItemDialogState extends State<_EditMinutesItemDialog> {
+  late MinutesItemStatus _selectedStatus;
+  late quill.QuillController _resController;
+  late quill.QuillController _notesController;
+  final FocusNode _resFocusNode = FocusNode();
+  final FocusNode _notesFocusNode = FocusNode();
+  final ScrollController _resScrollCtrl = ScrollController();
+  final ScrollController _notesScrollCtrl = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedStatus = widget.allowedStatuses.contains(widget.item.status)
+        ? widget.item.status
+        : MinutesItemStatus.pending;
+    _resController = _controllerFrom(widget.item.resolution ?? '');
+    _notesController = _controllerFrom(widget.item.notes ?? '');
+  }
+
+  quill.QuillController _controllerFrom(String text) {
+    if (text.isEmpty) return quill.QuillController.basic();
+    if (text.startsWith('[')) {
+      try {
+        final doc = quill.Document.fromJson(jsonDecode(text) as List);
+        return quill.QuillController(
+          document: doc,
+          selection: const TextSelection.collapsed(offset: 0),
+        );
+      } catch (_) {}
+    }
+    final doc = quill.Document()..insert(0, text);
+    return quill.QuillController(
+      document: doc,
+      selection: const TextSelection.collapsed(offset: 0),
+    );
+  }
+
+  @override
+  void dispose() {
+    _resController.dispose();
+    _notesController.dispose();
+    _resFocusNode.dispose();
+    _notesFocusNode.dispose();
+    _resScrollCtrl.dispose();
+    _notesScrollCtrl.dispose();
+    super.dispose();
+  }
+
+  // Returns null when the editor has no meaningful content (empty or just "\n")
+  String? _toJsonOrNull(quill.QuillController c) {
+    final plain = c.document.toPlainText().trim();
+    if (plain.isEmpty) return null;
+    return jsonEncode(c.document.toDelta().toJson());
+  }
+
+  void _setControllerText(quill.QuillController c, String text) {
+    final doc = quill.Document()..insert(0, text);
+    if (mounted) setState(() => c.document = doc);
+  }
+
+  Future<void> _generateResolution() async {
+    final res = await widget.aiService.generateResolution(
+      widget.item.title,
+      widget.item.description,
+    );
+    if (res.success && res.text != null) {
+      _setControllerText(_resController, res.text!);
+    } else {
+      _showAIError(res.error ?? 'Unknown error');
+    }
+  }
+
+  Future<void> _enhance(quill.QuillController c, String ctx) async {
+    final plain = c.document.toPlainText().trim();
+    if (plain.isEmpty) return;
+    final res = await widget.aiService.enhanceText(plain, context: ctx);
+    if (res.success && res.text != null) {
+      _setControllerText(c, res.text!);
+    } else {
+      _showAIError(res.error ?? 'Unknown error');
+    }
+  }
+
+  Future<void> _spellCheck(quill.QuillController c) async {
+    final plain = c.document.toPlainText().trim();
+    if (plain.isEmpty) return;
+    final res = await widget.aiService.checkSpelling(plain);
+    if (!res.success) {
+      _showAIError(res.error ?? 'Unknown error');
+      return;
+    }
+    if (res.hasIssues) {
+      _showSpellCheckResult(res, (corrected) => _setControllerText(c, corrected));
+    } else {
+      _showNoSpellingErrors();
+    }
+  }
+
+  void _showAIError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Row(children: [
+        const Icon(Icons.error_outline, color: Colors.white),
+        const SizedBox(width: 8),
+        Expanded(child: Text(message)),
+      ]),
+      backgroundColor: Colors.red,
+    ));
+  }
+
+  void _showNoSpellingErrors() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Row(children: [
+        Icon(Icons.check_circle, color: Colors.white),
+        SizedBox(width: 8),
+        Text('No spelling or grammar errors found!'),
+      ]),
+      backgroundColor: Colors.green,
+      duration: Duration(seconds: 2),
+    ));
+  }
+
+  void _showSpellCheckResult(SpellCheckResult result, Function(String) onApply) {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(children: [
+          Icon(Icons.spellcheck, color: Colors.purple),
+          SizedBox(width: 8),
+          Text('Spell Check Results'),
+        ]),
+        content: SizedBox(
+          width: 450,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Found ${result.issues.length} issue(s):',
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 12),
+                ...result.issues.map((issue) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade100,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(issue.original,
+                          style: TextStyle(
+                              color: Colors.red.shade800,
+                              decoration: TextDecoration.lineThrough)),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.arrow_forward, size: 16),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade100,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(issue.correction,
+                          style: TextStyle(
+                              color: Colors.green.shade800,
+                              fontWeight: FontWeight.w600)),
+                    ),
+                  ]),
+                )),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green.shade200),
+                  ),
+                  child: Text(result.correctedText ?? '',
+                      style: const TextStyle(fontSize: 13)),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel')),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pop(ctx);
+              onApply(result.correctedText ?? '');
+            },
+            icon: const Icon(Icons.check),
+            label: const Text('Apply Corrections'),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green, foregroundColor: Colors.white),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Row(children: [
+        const Icon(Icons.edit_note),
+        const SizedBox(width: 8),
+        Expanded(
+            child: Text(widget.item.itemNumber,
+                style: const TextStyle(fontSize: 18))),
+      ]),
+      content: SizedBox(
+        width: 520,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Item title
+              Text(widget.item.title.toUpperCase(),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 6),
+              Text(widget.item.description,
+                  style: TextStyle(
+                      fontSize: 13, color: Colors.grey.shade700)),
+              const SizedBox(height: 20),
+              const Divider(),
+              const SizedBox(height: 16),
+
+              // Status chips
+              const Text('Status',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: widget.allowedStatuses.map((status) {
+                  final isSelected = _selectedStatus == status;
+                  final color = switch (status) {
+                    MinutesItemStatus.voted => Colors.green,
+                    MinutesItemStatus.tabled => Colors.orange,
+                    MinutesItemStatus.discussed => Colors.blue,
+                    MinutesItemStatus.pending => Colors.grey,
+                  };
+                  return ChoiceChip(
+                    label: Text(status.displayName),
+                    selected: isSelected,
+                    selectedColor: color.withValues(alpha: 0.2),
+                    labelStyle: TextStyle(
+                      color: isSelected ? color : Colors.grey.shade700,
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                    ),
+                    onSelected: (v) {
+                      if (v) setState(() => _selectedStatus = status);
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 20),
+
+              // Resolution (voted only)
+              if (_selectedStatus == MinutesItemStatus.voted) ...[
+                _buildQuillSection(
+                  label: 'Resolution',
+                  controller: _resController,
+                  focusNode: _resFocusNode,
+                  scrollController: _resScrollCtrl,
+                  placeholder: 'Enter the resolution...',
+                  aiButtons: [
+                    _buildAIBtn(Icons.auto_fix_high, 'Generate',
+                        'AI Generate Resolution', _generateResolution),
+                    _buildAIBtn(Icons.auto_awesome, 'Enhance',
+                        'AI Enhance Text',
+                        () => _enhance(_resController, 'ADCOM meeting resolution')),
+                    _buildAIBtn(Icons.spellcheck, 'Spell', 'Spell Check',
+                        () => _spellCheck(_resController)),
+                  ],
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              // Notes / Discussion
+              _buildQuillSection(
+                label: 'Notes / Discussion Points',
+                controller: _notesController,
+                focusNode: _notesFocusNode,
+                scrollController: _notesScrollCtrl,
+                placeholder: 'Add any notes or discussion points...',
+                aiButtons: [
+                  _buildAIBtn(Icons.auto_awesome, 'Enhance',
+                      'AI Enhance Text',
+                      () => _enhance(_notesController, 'ADCOM meeting discussion notes')),
+                  _buildAIBtn(Icons.spellcheck, 'Spell', 'Spell Check',
+                      () => _spellCheck(_notesController)),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel')),
+        TextButton(
+          onPressed: () =>
+              Navigator.pop(context, {'action': 'delete'}),
+          style: TextButton.styleFrom(foregroundColor: Colors.red),
+          child: const Text('Delete'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context, {
+            'action': 'save',
+            'status': _selectedStatus,
+            'resolution': _toJsonOrNull(_resController),
+            'notes': _toJsonOrNull(_notesController),
+          }),
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuillSection({
+    required String label,
+    required quill.QuillController controller,
+    required FocusNode focusNode,
+    required ScrollController scrollController,
+    required String placeholder,
+    required List<Widget> aiButtons,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          Text(label,
+              style: const TextStyle(fontWeight: FontWeight.w600)),
+          const Spacer(),
+          ...aiButtons
+              .expand((btn) => [btn, const SizedBox(width: 4)])
+              .toList()
+            ..removeLast(),
+        ]),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade400),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            children: [
+              _buildUndoRedoBar(controller),
+              const Divider(height: 1),
+              quill.QuillSimpleToolbar(
+                controller: controller,
+                config: const quill.QuillSimpleToolbarConfig(
+                  showFontFamily: false,
+                  showFontSize: false,
+                  showBackgroundColorButton: false,
+                  showColorButton: false,
+                  showAlignmentButtons: false,
+                  showDirection: false,
+                  showDividers: true,
+                  showHeaderStyle: false,
+                  showIndent: false,
+                  showLink: false,
+                  showSearchButton: false,
+                  showSubscript: false,
+                  showSuperscript: false,
+                  showCodeBlock: false,
+                  showInlineCode: false,
+                  showQuote: false,
+                  showSmallButton: false,
+                ),
+              ),
+              const Divider(height: 1),
+              SizedBox(
+                height: 140,
+                child: quill.QuillEditor(
+                  controller: controller,
+                  focusNode: focusNode,
+                  scrollController: scrollController,
+                  config: quill.QuillEditorConfig(
+                    placeholder: placeholder,
+                    padding: const EdgeInsets.all(12),
+                    autoFocus: false,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUndoRedoBar(quill.QuillController controller) {
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius:
+              const BorderRadius.vertical(top: Radius.circular(8)),
+        ),
+        child: Row(children: [
+          Icon(Icons.format_color_text,
+              size: 13, color: Colors.grey.shade500),
+          const SizedBox(width: 4),
+          Text('Rich text',
+              style: TextStyle(
+                  fontSize: 11, color: Colors.grey.shade500)),
+          const Spacer(),
+          IconButton(
+            icon: const Icon(Icons.undo),
+            iconSize: 18,
+            onPressed: () => controller.undo(),
+            tooltip: 'Undo (Ctrl+Z)',
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.all(4),
+          ),
+          IconButton(
+            icon: const Icon(Icons.redo),
+            iconSize: 18,
+            onPressed: () => controller.redo(),
+            tooltip: 'Redo (Ctrl+Y)',
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.all(4),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildAIBtn(
+      IconData icon, String label, String tooltip, VoidCallback onPressed) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.purple.shade50,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: Colors.purple.shade200),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 14, color: Colors.purple.shade700),
+            const SizedBox(width: 4),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.purple.shade700,
+                    fontWeight: FontWeight.w500)),
+          ]),
+        ),
       ),
     );
   }

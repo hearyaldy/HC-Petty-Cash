@@ -3,6 +3,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 import '../models/cash_advance.dart';
 import '../utils/constants.dart';
@@ -12,25 +13,29 @@ class CashAdvancePdfService {
   pw.Font? _boldFont;
 
   Future<pw.ThemeData> _getTheme() async {
-    pw.Font? regular;
-    pw.Font? bold;
+    pw.Font? thaiRegular;
+    pw.Font? thaiBold;
     try {
-      regular = _regularFont ??
+      thaiRegular = _regularFont ??
           pw.Font.ttf(
             await rootBundle.load('assets/fonts/NotoSansThai-Regular.ttf'),
           );
-      bold = _boldFont ??
+      thaiBold = _boldFont ??
           pw.Font.ttf(
             await rootBundle.load('assets/fonts/NotoSansThai-Bold.ttf'),
           );
-      _regularFont = regular;
-      _boldFont = bold;
+      _regularFont = thaiRegular;
+      _boldFont = thaiBold;
     } catch (_) {}
 
+    // NotoSans covers Latin + Unicode punctuation (en dash, etc.)
+    final notoRegular = await PdfGoogleFonts.notoSansRegular();
+    final notoBold = await PdfGoogleFonts.notoSansBold();
+
     return pw.ThemeData.withFont(
-      base: regular ?? pw.Font.helvetica(),
-      bold: bold ?? pw.Font.helveticaBold(),
-      fontFallback: [pw.Font.helvetica(), pw.Font.courier()],
+      base: thaiRegular ?? notoRegular,
+      bold: thaiBold ?? notoBold,
+      fontFallback: [notoRegular, notoBold],
     );
   }
 
@@ -54,98 +59,130 @@ class CashAdvancePdfService {
     } catch (_) {}
 
     pdf.addPage(
-      pw.Page(
+      pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(24),
-        build: (context) => pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            _buildHeader(logoImage),
-            pw.SizedBox(height: 14),
-            _buildHero(
-              requestNumber: advance.requestNumber,
-              status: advance.status.toUpperCase(),
-              amount: currency.format(advance.requestedAmount),
-              brandColor: brandColor,
-              lightBrand: lightBrand,
-            ),
-            pw.SizedBox(height: 14),
-            _sectionCard(
-              title: 'Request Information',
-              child: pw.Column(
-                children: [
-                  _row('Requester', advance.requesterName, darkText, mutedText),
-                  _row('Department', advance.department, darkText, mutedText),
+        build: (context) => [
+          _buildHeader(logoImage),
+          pw.SizedBox(height: 14),
+          _buildHero(
+            requestNumber: advance.requestNumber,
+            status: advance.status.toUpperCase(),
+            amount: currency.format(advance.requestedAmount),
+            actionNo: advance.actionNo,
+            brandColor: brandColor,
+            lightBrand: lightBrand,
+          ),
+          pw.SizedBox(height: 14),
+          _sectionCard(
+            title: 'Request Information',
+            child: pw.Column(
+              children: [
+                _row('Requester', advance.requesterName, darkText, mutedText),
+                _row('Department', advance.department, darkText, mutedText),
+                _row(
+                  'Request Date',
+                  dateFormat.format(advance.requestDate),
+                  darkText,
+                  mutedText,
+                ),
+                if (advance.requiredByDate != null)
                   _row(
-                    'Request Date',
-                    dateFormat.format(advance.requestDate),
+                    'Required By',
+                    dateFormat.format(advance.requiredByDate!),
                     darkText,
                     mutedText,
                   ),
-                  if (advance.requiredByDate != null)
-                    _row(
-                      'Required By',
-                      dateFormat.format(advance.requiredByDate!),
-                      darkText,
-                      mutedText,
-                    ),
-                ],
-              ),
+              ],
             ),
+          ),
+          pw.SizedBox(height: 12),
+          _sectionCard(
+            title: 'Purpose',
+            child: _boxedText(advance.purpose),
+          ),
+          if (advance.items.isNotEmpty) ...[
             pw.SizedBox(height: 12),
             _sectionCard(
-              title: 'Purpose',
-              child: _boxedText(advance.purpose),
+              title: 'Items',
+              child: _buildItemsTable(advance, currency),
             ),
-            if (advance.items.isNotEmpty) ...[
-              pw.SizedBox(height: 12),
-              _sectionCard(
-                title: 'Items',
-                child: _buildItemsTable(advance, currency),
-              ),
-            ],
+          ],
+          if (advance.linkedMinutesId != null) ...[
             pw.SizedBox(height: 12),
             _sectionCard(
-              title: 'Summary',
+              title: 'Meeting Reference',
               child: pw.Column(
                 children: [
-                  _row(
-                    'Requested Amount',
-                    currency.format(advance.requestedAmount),
-                    darkText,
-                    mutedText,
-                  ),
-                  _row(
-                    'Status',
-                    advance.status.toUpperCase(),
-                    darkText,
-                    mutedText,
-                  ),
+                  if (advance.linkedMinutesLabel != null)
+                    _row('Minutes', advance.linkedMinutesLabel!, darkText,
+                        mutedText),
+                  if (advance.linkedActionItemNumber != null)
+                    _row('Item No.', advance.linkedActionItemNumber!,
+                        darkText, mutedText),
+                  if (advance.linkedActionItemAction != null)
+                    _row('Action', advance.linkedActionItemAction!,
+                        darkText, mutedText),
+                  if (advance.linkedActionItemTitle != null)
+                    _row('Heading', advance.linkedActionItemTitle!,
+                        darkText, mutedText),
+                  if (advance.linkedActionItemDescription != null &&
+                      advance.linkedActionItemDescription!.isNotEmpty)
+                    _row('Description',
+                        advance.linkedActionItemDescription!, darkText,
+                        mutedText),
                 ],
-              ),
-            ),
-            if (advance.notes != null && advance.notes!.isNotEmpty) ...[
-              pw.SizedBox(height: 12),
-              _sectionCard(
-                title: 'Notes',
-                child: _boxedText(advance.notes!),
-              ),
-            ],
-            pw.SizedBox(height: 18),
-            _sectionCard(
-              title: 'Signatures',
-              child: _buildSignatureSection(),
-            ),
-            pw.SizedBox(height: 16),
-            pw.Align(
-              alignment: pw.Alignment.centerRight,
-              child: pw.Text(
-                'Generated on: ${dateFormat.format(DateTime.now())}',
-                style: pw.TextStyle(fontSize: 9, color: mutedText),
               ),
             ),
           ],
-        ),
+          pw.SizedBox(height: 12),
+          _sectionCard(
+            title: 'Summary',
+            child: pw.Column(
+              children: [
+                _row(
+                  'Requested Amount',
+                  currency.format(advance.requestedAmount),
+                  darkText,
+                  mutedText,
+                ),
+                _row(
+                  'Status',
+                  advance.status.toUpperCase(),
+                  darkText,
+                  mutedText,
+                ),
+                if (advance.actionNo != null)
+                  _row(
+                    'Action No.',
+                    advance.actionNo!,
+                    darkText,
+                    mutedText,
+                  ),
+              ],
+            ),
+          ),
+          if (advance.notes != null && advance.notes!.isNotEmpty) ...[
+            pw.SizedBox(height: 12),
+            _sectionCard(
+              title: 'Notes',
+              child: _boxedText(advance.notes!),
+            ),
+          ],
+          pw.SizedBox(height: 18),
+          _sectionCard(
+            title: 'Signatures',
+            child: _buildSignatureSection(),
+          ),
+          pw.SizedBox(height: 16),
+          pw.Align(
+            alignment: pw.Alignment.centerRight,
+            child: pw.Text(
+              'Generated on: ${dateFormat.format(DateTime.now())}',
+              style: pw.TextStyle(fontSize: 9, color: mutedText),
+            ),
+          ),
+        ],
       ),
     );
 
@@ -259,6 +296,7 @@ class CashAdvancePdfService {
     required String amount,
     required PdfColor brandColor,
     required PdfColor lightBrand,
+    String? actionNo,
   }) {
     return pw.Container(
       padding: const pw.EdgeInsets.all(16),
@@ -320,6 +358,28 @@ class CashAdvancePdfService {
                   ),
                 ),
               ),
+              if (actionNo != null) ...[
+                pw.SizedBox(height: 4),
+                pw.Container(
+                  padding: const pw.EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: pw.BoxDecoration(
+                    color: const PdfColor.fromInt(0xFFE8EAF6),
+                    borderRadius: pw.BorderRadius.circular(10),
+                    border: pw.Border.all(color: brandColor),
+                  ),
+                  child: pw.Text(
+                    'Action No: $actionNo',
+                    style: pw.TextStyle(
+                      fontSize: 8,
+                      fontWeight: pw.FontWeight.bold,
+                      color: brandColor,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ],

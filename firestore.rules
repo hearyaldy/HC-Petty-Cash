@@ -27,6 +27,13 @@ service cloud.firestore {
       return isManager() || isFinance() || isAdmin();
     }
 
+    function canEditMeetings() {
+      return isAdmin() || (
+        isAuthenticated() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.sectionPermissions.meetingsEdit == true
+      );
+    }
+
     function canReadMedia() {
       return isAuthenticated();
     }
@@ -607,96 +614,57 @@ service cloud.firestore {
 
     // Meetings collection (ADCOM & Board meetings)
     match /meetings/{meetingId} {
-      // All authenticated users can read meetings
       allow read: if isAuthenticated();
-
-      // Only admins can create meetings
-      allow create: if isAdmin();
-
-      // Only admins can update meetings
-      allow update: if isAdmin();
-
-      // Only admins can delete meetings
+      allow create, update: if canEditMeetings();
       allow delete: if isAdmin();
     }
 
     // Meeting Agendas collection
     match /meeting_agendas/{agendaId} {
-      // All authenticated users can read agendas
       allow read: if isAuthenticated();
-
-      // Only admins can create agendas
-      allow create: if isAdmin();
-
-      // Only admins can update agendas
-      allow update: if isAdmin();
-
-      // Only admins can delete agendas
+      allow create, update: if canEditMeetings();
       allow delete: if isAdmin();
     }
 
     // Meeting Minutes collection
     match /meeting_minutes/{minutesId} {
-      // All authenticated users can read minutes
       allow read: if isAuthenticated();
-
-      // Only admins can create minutes
-      allow create: if isAdmin();
-
-      // Only admins can update minutes
-      allow update: if isAdmin();
-
-      // Only admins can delete minutes
+      allow create, update: if canEditMeetings();
       allow delete: if isAdmin();
     }
 
     // Meeting Action Items collection
     match /meeting_action_items/{actionItemId} {
-      // All authenticated users can read action items
       allow read: if isAuthenticated();
-
-      // Only admins can create action items
-      allow create: if isAdmin();
-
-      // Admins can update any action item
-      // Assignees can update their own action items (status, completedNotes, completedAt)
-      allow update: if isAuthenticated() && (
-        isAdmin() ||
-        resource.data.assigneeId == request.auth.uid
+      allow create: if canEditMeetings();
+      // Editors can update any action item; assignees can update their own
+      allow update: if canEditMeetings() || (
+        isAuthenticated() && resource.data.assigneeId == request.auth.uid
       );
-
-      // Only admins can delete action items
       allow delete: if isAdmin();
     }
 
     // ADCOM Agendas collection
     match /adcom_agendas/{agendaId} {
-      // All authenticated users can read ADCOM agendas
       allow read: if isAuthenticated();
-
-      // Only admins can create ADCOM agendas
-      allow create: if isAdmin();
-
-      // Only admins can update ADCOM agendas
-      allow update: if isAdmin();
-
-      // Only admins can delete ADCOM agendas
+      allow create, update: if canEditMeetings();
       allow delete: if isAdmin();
     }
 
     // ADCOM Minutes collection
     match /adcom_minutes/{minutesId} {
-      // All authenticated users can read ADCOM minutes
+      allow read: if isAuthenticated();
+      allow create, update: if canEditMeetings();
+      allow delete: if isAdmin();
+    }
+
+    // Meeting Committee Members collection (ADCOM & Board member lists)
+    match /meeting_committee_members/{memberId} {
+      // All authenticated users can read (needed in meeting edit screen)
       allow read: if isAuthenticated();
 
-      // Only admins can create ADCOM minutes
-      allow create: if isAdmin();
-
-      // Only admins can update ADCOM minutes
-      allow update: if isAdmin();
-
-      // Only admins can delete ADCOM minutes
-      allow delete: if isAdmin();
+      // Only admins can create, update, or delete
+      allow create, update, delete: if isAdmin();
     }
 
     // Meeting Templates collection

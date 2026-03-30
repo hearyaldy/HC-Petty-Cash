@@ -939,13 +939,14 @@ class _MeetingsDashboardScreenState extends State<MeetingsDashboardScreen> {
 
             final agendaCard = _buildAgendaMinutesCard(
               title: 'Agendas',
-              subtitle: 'Assign agenda to a meeting',
+              subtitle: 'Meetings needing an agenda',
               icon: Icons.list_alt,
               color: Colors.indigo,
               meetings: agendaTargets,
               emptyMessage: 'All upcoming meetings have agendas.',
               actionLabel: 'Create Agenda',
-              onAction: (meeting) => context.push('/meetings/${meeting.id}'),
+              onAction: (meeting) =>
+                  context.push('/meetings/${meeting.id}/agenda/edit'),
             );
 
             final minutesCard = _buildAgendaMinutesCard(
@@ -1370,6 +1371,12 @@ class _MeetingsDashboardScreenState extends State<MeetingsDashboardScreen> {
                 color: Colors.grey,
                 onPressed: () =>
                     context.push('/meetings/list?status=completed'),
+              ),
+              _buildQuickActionChip(
+                icon: Icons.people_alt,
+                label: 'Committee Members',
+                color: Colors.teal,
+                onPressed: () => context.push('/meetings/committee-members'),
               ),
             ],
           ),

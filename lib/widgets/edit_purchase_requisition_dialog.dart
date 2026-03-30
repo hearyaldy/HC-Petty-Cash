@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/purchase_requisition.dart';
+import '../models/adcom_minutes.dart';
+import '../services/adcom_minutes_service.dart';
 
 class EditPurchaseRequisitionDialog extends StatefulWidget {
   final PurchaseRequisition? requisition; // null for new requisition
@@ -30,6 +32,17 @@ class _EditPurchaseRequisitionDialogState
   late TextEditingController _notesController;
   late DateTime _requisitionDate;
 
+  // Meeting reference
+  String? _linkedMinutesId;
+  String? _linkedMinutesLabel;
+  String? _linkedActionItemNumber;
+  String? _linkedActionItemTitle;
+  String? _linkedActionItemDescription;
+  String? _linkedActionItemAction;
+
+  final _minutesService = AdcomMinutesService();
+  final _dateFormat = DateFormat('MMM dd, yyyy');
+
   @override
   void initState() {
     super.initState();
@@ -55,6 +68,111 @@ class _EditPurchaseRequisitionDialogState
     );
 
     _requisitionDate = requisition?.requisitionDate ?? DateTime.now();
+
+    _linkedMinutesId = requisition?.linkedMinutesId;
+    _linkedMinutesLabel = requisition?.linkedMinutesLabel;
+    _linkedActionItemNumber = requisition?.linkedActionItemNumber;
+    _linkedActionItemTitle = requisition?.linkedActionItemTitle;
+    _linkedActionItemDescription = requisition?.linkedActionItemDescription;
+    _linkedActionItemAction = requisition?.linkedActionItemAction;
+  }
+
+  Future<void> _pickMinutesReference() async {
+    final allMinutes = await _minutesService.getMinutes().first;
+    if (!mounted) return;
+
+    final AdcomMinutes? selectedMinutes = await showDialog<AdcomMinutes>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Select Meeting Minutes'),
+        content: SizedBox(
+          width: 400,
+          height: 400,
+          child: allMinutes.isEmpty
+              ? const Center(child: Text('No minutes available'))
+              : ListView.builder(
+                  itemCount: allMinutes.length,
+                  itemBuilder: (_, i) {
+                    final m = allMinutes[i];
+                    return ListTile(
+                      title: Text('ADCOM \u2013 ${_dateFormat.format(m.meetingDate)}'),
+                      subtitle: Text(m.organization),
+                      onTap: () => Navigator.pop(ctx, m),
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+    if (selectedMinutes == null || !mounted) return;
+
+    final MinutesItem? selectedItem = await showDialog<MinutesItem>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Select Action Item'),
+        content: SizedBox(
+          width: 400,
+          height: 400,
+          child: selectedMinutes.minutesItems.isEmpty
+              ? const Center(child: Text('No action items'))
+              : ListView.builder(
+                  itemCount: selectedMinutes.minutesItems.length,
+                  itemBuilder: (_, i) {
+                    final item = selectedMinutes.minutesItems[i];
+                    return ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.indigo.shade50,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.indigo.shade200),
+                        ),
+                        child: Text(
+                          item.itemNumber,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.indigo.shade700,
+                          ),
+                        ),
+                      ),
+                      title: Text(item.title,
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      subtitle: item.resolution != null
+                          ? Text(item.resolution!,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 11, color: Colors.grey[600]))
+                          : null,
+                      onTap: () => Navigator.pop(ctx, item),
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Back'),
+          ),
+        ],
+      ),
+    );
+    if (selectedItem == null || !mounted) return;
+
+    setState(() {
+      _linkedMinutesId = selectedMinutes.id;
+      _linkedMinutesLabel = 'ADCOM \u2013 ${_dateFormat.format(selectedMinutes.meetingDate)}';
+      _linkedActionItemNumber = selectedItem.itemNumber;
+      _linkedActionItemTitle = selectedItem.title;
+      _linkedActionItemDescription = selectedItem.description;
+      _linkedActionItemAction = selectedItem.status.displayName;
+    });
   }
 
   @override
@@ -98,6 +216,12 @@ class _EditPurchaseRequisitionDialogState
         'notes': _notesController.text.trim().isEmpty
             ? null
             : _notesController.text.trim(),
+        'linkedMinutesId': _linkedMinutesId,
+        'linkedMinutesLabel': _linkedMinutesLabel,
+        'linkedActionItemNumber': _linkedActionItemNumber,
+        'linkedActionItemTitle': _linkedActionItemTitle,
+        'linkedActionItemDescription': _linkedActionItemDescription,
+        'linkedActionItemAction': _linkedActionItemAction,
       };
 
       Navigator.of(context).pop(result);
@@ -257,6 +381,119 @@ class _EditPurchaseRequisitionDialogState
                     border: OutlineInputBorder(),
                   ),
                   maxLines: 3,
+                ),
+                const SizedBox(height: 16),
+
+                // Meeting Reference
+                InkWell(
+                  onTap: _pickMinutesReference,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: _linkedMinutesId != null
+                            ? Colors.indigo.shade300
+                            : Colors.grey.shade400,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      color: _linkedMinutesId != null ? Colors.indigo.shade50 : null,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.article_outlined,
+                          color: _linkedMinutesId != null ? Colors.indigo : Colors.grey[500],
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _linkedMinutesId != null
+                              ? Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _linkedMinutesLabel ?? '',
+                                      style: TextStyle(fontSize: 12, color: Colors.indigo[600]),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.indigo.shade100,
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            _linkedActionItemNumber ?? '',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.indigo[700],
+                                            ),
+                                          ),
+                                        ),
+                                        if (_linkedActionItemAction != null) ...[
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: Colors.teal.shade50,
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(color: Colors.teal.shade200),
+                                            ),
+                                            child: Text(
+                                              _linkedActionItemAction!,
+                                              style: TextStyle(fontSize: 11, color: Colors.teal[700]),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                    if (_linkedActionItemTitle != null) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        _linkedActionItemTitle!,
+                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                      ),
+                                    ],
+                                  ],
+                                )
+                              : Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Link to Meeting Minutes',
+                                      style: TextStyle(fontSize: 15, color: Colors.grey[500]),
+                                    ),
+                                    Text(
+                                      'Tap to select minutes & action item',
+                                      style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                                    ),
+                                  ],
+                                ),
+                        ),
+                        if (_linkedMinutesId != null)
+                          IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            color: Colors.grey[500],
+                            constraints: const BoxConstraints(),
+                            padding: const EdgeInsets.all(4),
+                            onPressed: () => setState(() {
+                              _linkedMinutesId = null;
+                              _linkedMinutesLabel = null;
+                              _linkedActionItemNumber = null;
+                              _linkedActionItemTitle = null;
+                              _linkedActionItemDescription = null;
+                              _linkedActionItemAction = null;
+                            }),
+                          )
+                        else
+                          Icon(Icons.chevron_right, color: Colors.grey[400], size: 20),
+                      ],
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 24),
 

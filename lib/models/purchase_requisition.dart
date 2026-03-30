@@ -149,6 +149,14 @@ class PurchaseRequisition {
   final List<String> supportDocumentUrls;
   final DateTime? updatedAt;
 
+  // Meeting minutes reference
+  final String? linkedMinutesId;
+  final String? linkedMinutesLabel;
+  final String? linkedActionItemNumber;
+  final String? linkedActionItemTitle;
+  final String? linkedActionItemDescription;
+  final String? linkedActionItemAction;
+
   PurchaseRequisition({
     required this.id,
     required this.requisitionNumber,
@@ -171,6 +179,12 @@ class PurchaseRequisition {
     this.cashAdvanceId,
     List<String>? supportDocumentUrls,
     this.updatedAt,
+    this.linkedMinutesId,
+    this.linkedMinutesLabel,
+    this.linkedActionItemNumber,
+    this.linkedActionItemTitle,
+    this.linkedActionItemDescription,
+    this.linkedActionItemAction,
   }) : supportDocumentUrls = supportDocumentUrls ?? [];
 
   ReportStatus get statusEnum => status.toReportStatus();
@@ -201,6 +215,12 @@ class PurchaseRequisition {
       'cashAdvanceId': cashAdvanceId,
       'supportDocumentUrls': supportDocumentUrls,
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
+      'linkedMinutesId': linkedMinutesId,
+      'linkedMinutesLabel': linkedMinutesLabel,
+      'linkedActionItemNumber': linkedActionItemNumber,
+      'linkedActionItemTitle': linkedActionItemTitle,
+      'linkedActionItemDescription': linkedActionItemDescription,
+      'linkedActionItemAction': linkedActionItemAction,
     };
   }
 
@@ -245,6 +265,12 @@ class PurchaseRequisition {
       supportDocumentUrls:
           (data['supportDocumentUrls'] as List<dynamic>?)?.cast<String>() ?? [],
       updatedAt: parseTimestampOptional(data['updatedAt']),
+      linkedMinutesId: data['linkedMinutesId'],
+      linkedMinutesLabel: data['linkedMinutesLabel'],
+      linkedActionItemNumber: data['linkedActionItemNumber'],
+      linkedActionItemTitle: data['linkedActionItemTitle'],
+      linkedActionItemDescription: data['linkedActionItemDescription'],
+      linkedActionItemAction: data['linkedActionItemAction'],
     );
   }
 
@@ -294,6 +320,12 @@ class PurchaseRequisition {
                 ? (json['updatedAt'] as Timestamp).toDate()
                 : DateTime.parse(json['updatedAt']))
           : null,
+      linkedMinutesId: json['linkedMinutesId'],
+      linkedMinutesLabel: json['linkedMinutesLabel'],
+      linkedActionItemNumber: json['linkedActionItemNumber'],
+      linkedActionItemTitle: json['linkedActionItemTitle'],
+      linkedActionItemDescription: json['linkedActionItemDescription'],
+      linkedActionItemAction: json['linkedActionItemAction'],
     );
   }
 
@@ -319,6 +351,12 @@ class PurchaseRequisition {
     Object? cashAdvanceId = _unset,
     List<String>? supportDocumentUrls,
     DateTime? updatedAt,
+    Object? linkedMinutesId = _unset,
+    Object? linkedMinutesLabel = _unset,
+    Object? linkedActionItemNumber = _unset,
+    Object? linkedActionItemTitle = _unset,
+    Object? linkedActionItemDescription = _unset,
+    Object? linkedActionItemAction = _unset,
   }) {
     return PurchaseRequisition(
       id: id ?? this.id,
@@ -342,6 +380,12 @@ class PurchaseRequisition {
       cashAdvanceId: cashAdvanceId == _unset ? this.cashAdvanceId : cashAdvanceId as String?,
       supportDocumentUrls: supportDocumentUrls ?? this.supportDocumentUrls,
       updatedAt: updatedAt ?? this.updatedAt,
+      linkedMinutesId: linkedMinutesId == _unset ? this.linkedMinutesId : linkedMinutesId as String?,
+      linkedMinutesLabel: linkedMinutesLabel == _unset ? this.linkedMinutesLabel : linkedMinutesLabel as String?,
+      linkedActionItemNumber: linkedActionItemNumber == _unset ? this.linkedActionItemNumber : linkedActionItemNumber as String?,
+      linkedActionItemTitle: linkedActionItemTitle == _unset ? this.linkedActionItemTitle : linkedActionItemTitle as String?,
+      linkedActionItemDescription: linkedActionItemDescription == _unset ? this.linkedActionItemDescription : linkedActionItemDescription as String?,
+      linkedActionItemAction: linkedActionItemAction == _unset ? this.linkedActionItemAction : linkedActionItemAction as String?,
     );
   }
 

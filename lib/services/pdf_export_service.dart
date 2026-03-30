@@ -5,6 +5,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:printing/printing.dart';
 import '../models/petty_cash_report.dart';
 import '../models/transaction.dart';
 import '../models/equipment.dart';
@@ -91,10 +92,19 @@ class PdfExportService {
       // Fall back to built-in fonts if custom fonts fail to load.
     }
 
+    pw.Font? notoFallback;
+    pw.Font? emojiFont;
+    try {
+      notoFallback = await PdfGoogleFonts.notoSansRegular();
+    } catch (_) {}
+    try {
+      emojiFont = await PdfGoogleFonts.notoColorEmojiRegular();
+    } catch (_) {}
+
     _pdfTheme = pw.ThemeData.withFont(
       base: regular ?? pw.Font.helvetica(),
       bold: bold ?? pw.Font.helveticaBold(),
-      fontFallback: [pw.Font.helvetica(), pw.Font.courier()],
+      fontFallback: [?notoFallback, ?emojiFont],
     );
     return _pdfTheme!;
   }

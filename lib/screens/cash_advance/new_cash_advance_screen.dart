@@ -1,19 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:printing/printing.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import '../../models/cash_advance.dart';
+import '../../models/adcom_minutes.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/cash_advance_provider.dart';
-import '../../services/cash_advance_pdf_service.dart';
+import '../../services/adcom_minutes_service.dart';
 import '../../services/firestore_service.dart';
-import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
 
 class NewCashAdvanceScreen extends StatefulWidget {
-  final String? advanceId; // For editing existing advance
-  final String? purchaseRequisitionId; // Pre-linked PR
+  final String? advanceId;
+  final String? purchaseRequisitionId;
   final String? initialPurpose;
   final double? initialAmount;
   final String? initialDepartment;
@@ -34,17 +32,24 @@ class NewCashAdvanceScreen extends StatefulWidget {
 class _NewCashAdvanceScreenState extends State<NewCashAdvanceScreen> {
   final _formKey = GlobalKey<FormState>();
   final _purposeController = TextEditingController();
-  final _amountController = TextEditingController();
   final _departmentController = TextEditingController();
   final _idNoController = TextEditingController();
   final _notesController = TextEditingController();
-  final List<CashAdvanceItem> _items = [];
 
   DateTime _requestDate = DateTime.now();
   DateTime? _requiredByDate;
   bool _isLoading = false;
   bool _isEditing = false;
 
+  // Meeting minutes reference
+  String? _linkedMinutesId;
+  String? _linkedMinutesLabel;
+  String? _linkedActionItemNumber;
+  String? _linkedActionItemTitle;
+  String? _linkedActionItemDescription;
+  String? _linkedActionItemAction;
+
+  final _minutesService = AdcomMinutesService();
   final _dateFormat = DateFormat('MMM dd, yyyy');
 
   @override
@@ -56,24 +61,15 @@ class _NewCashAdvanceScreenState extends State<NewCashAdvanceScreen> {
   void _initializeForm() {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final user = authProvider.currentUser;
-
     if (user != null) {
       _departmentController.text = user.department;
     }
-
-    // Pre-fill from PR if provided
-    if (widget.purchaseRequisitionId != null) {
-      if (widget.initialPurpose != null) {
-        _purposeController.text = widget.initialPurpose!;
-      }
-      if (widget.initialAmount != null) {
-        _amountController.text = widget.initialAmount!.toStringAsFixed(2);
-      }
-      if (widget.initialDepartment != null) {
-        _departmentController.text = widget.initialDepartment!;
-      }
+    if (widget.initialPurpose != null) {
+      _purposeController.text = widget.initialPurpose!;
     }
-
+    if (widget.initialDepartment != null) {
+      _departmentController.text = widget.initialDepartment!;
+    }
     if (widget.advanceId != null) {
       _isEditing = true;
       _loadExistingAdvance();
@@ -81,58 +77,44 @@ class _NewCashAdvanceScreenState extends State<NewCashAdvanceScreen> {
   }
 
   Future<void> _loadExistingAdvance() async {
-    if (widget.advanceId == null) return;
-
     setState(() => _isLoading = true);
-
     try {
-      final provider =
-          Provider.of<CashAdvanceProvider>(context, listen: false);
+      final provider = Provider.of<CashAdvanceProvider>(context, listen: false);
       final advance = await provider.loadAdvance(widget.advanceId!);
-
       if (advance != null && mounted) {
         setState(() {
           _purposeController.text = advance.purpose;
-          _amountController.text = advance.requestedAmount.toString();
           _idNoController.text = advance.idNo ?? '';
           _notesController.text = advance.notes ?? '';
           _departmentController.text = advance.department;
           _requestDate = advance.requestDate;
           _requiredByDate = advance.requiredByDate;
-          _items
-            ..clear()
-            ..addAll(advance.items);
-          _syncAmountWithItems();
+          _linkedMinutesId = advance.linkedMinutesId;
+          _linkedMinutesLabel = advance.linkedMinutesLabel;
+          _linkedActionItemNumber = advance.linkedActionItemNumber;
+          _linkedActionItemTitle = advance.linkedActionItemTitle;
+          _linkedActionItemDescription = advance.linkedActionItemDescription;
+          _linkedActionItemAction = advance.linkedActionItemAction;
           _isLoading = false;
         });
       } else if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cash advance not found')),
-        );
       }
     } catch (e) {
-      setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading advance: $e')),
-        );
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _selectDate(BuildContext context, bool isRequestDate) async {
-    final initialDate = isRequestDate
+  Future<void> _selectDate(bool isRequestDate) async {
+    final initial = isRequestDate
         ? _requestDate
         : (_requiredByDate ?? DateTime.now().add(const Duration(days: 7)));
-
     final picked = await showDatePicker(
       context: context,
-      initialDate: initialDate,
+      initialDate: initial,
       firstDate: DateTime.now().subtract(const Duration(days: 30)),
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
-
     if (picked != null) {
       setState(() {
         if (isRequestDate) {
@@ -144,41 +126,191 @@ class _NewCashAdvanceScreenState extends State<NewCashAdvanceScreen> {
     }
   }
 
-  Future<void> _saveAdvance() async {
-    if (!_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fix the highlighted fields')),
-      );
-      return;
-    }
+  Future<void> _pickMinutesReference() async {
+    // Step 1 – pick a minutes document
+    setState(() => _isLoading = true);
+    List<AdcomMinutes> minutesList = [];
+    try {
+      minutesList = await _minutesService.getMinutes().first;
+    } catch (_) {}
+    setState(() => _isLoading = false);
+
+    if (!mounted) return;
+
+    final AdcomMinutes? selectedMinutes = await showDialog<AdcomMinutes>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Select Meeting Minutes'),
+        contentPadding: const EdgeInsets.fromLTRB(0, 12, 0, 0),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: minutesList.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Text('No meeting minutes found.'),
+                )
+              : ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: minutesList.length,
+                  separatorBuilder: (_, _) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final m = minutesList[index];
+                    final dateStr =
+                        DateFormat('MMM dd, yyyy').format(m.meetingDate);
+                    return ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.indigo.shade50,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.article_outlined,
+                            size: 20, color: Colors.indigo.shade600),
+                      ),
+                      title: Text('ADCOM – $dateStr',
+                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: Text(m.location,
+                          style: TextStyle(
+                              fontSize: 12, color: Colors.grey[600])),
+                      trailing: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: m.status == 'finalized'
+                              ? Colors.green.shade50
+                              : Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: m.status == 'finalized'
+                                ? Colors.green.shade200
+                                : Colors.orange.shade200,
+                          ),
+                        ),
+                        child: Text(
+                          m.status.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: m.status == 'finalized'
+                                ? Colors.green[700]
+                                : Colors.orange[700],
+                          ),
+                        ),
+                      ),
+                      onTap: () => Navigator.pop(context, m),
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+
+    if (selectedMinutes == null || !mounted) return;
+
+    // Step 2 – pick an action item from that minutes
+    final MinutesItem? selectedItem = await showDialog<MinutesItem>(
+      context: context,
+      builder: (context) {
+        final items = selectedMinutes.minutesItems;
+        final dateStr =
+            DateFormat('MMM dd, yyyy').format(selectedMinutes.meetingDate);
+        return AlertDialog(
+          title: Text('ADCOM – $dateStr'),
+          contentPadding: const EdgeInsets.fromLTRB(0, 12, 0, 0),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: items.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Text('No action items in this minutes.'),
+                  )
+                : ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: items.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      return ListTile(
+                        leading: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.indigo.shade50,
+                            borderRadius: BorderRadius.circular(6),
+                            border:
+                                Border.all(color: Colors.indigo.shade200),
+                          ),
+                          child: Text(
+                            item.itemNumber,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.indigo.shade700,
+                            ),
+                          ),
+                        ),
+                        title: Text(item.title,
+                            style: const TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w600)),
+                        subtitle: item.resolution != null
+                            ? Text(item.resolution!,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                    fontSize: 11, color: Colors.grey[600]))
+                            : null,
+                        onTap: () => Navigator.pop(context, item),
+                      );
+                    },
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Back'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (selectedItem == null || !mounted) return;
+
+    final dateStr =
+        DateFormat('MMM dd, yyyy').format(selectedMinutes.meetingDate);
+    setState(() {
+      _linkedMinutesId = selectedMinutes.id;
+      _linkedMinutesLabel = 'ADCOM – $dateStr';
+      _linkedActionItemNumber = selectedItem.itemNumber;
+      _linkedActionItemTitle = selectedItem.title;
+      _linkedActionItemDescription = selectedItem.description;
+      _linkedActionItemAction = selectedItem.status.displayName;
+    });
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final user = authProvider.currentUser;
-
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('User not found')),
-      );
-      return;
-    }
+    if (user == null) return;
 
     setState(() => _isLoading = true);
 
     try {
-      final provider =
-          Provider.of<CashAdvanceProvider>(context, listen: false);
-      final amount = _items.isNotEmpty
-          ? _itemsTotal
-          : double.parse(_amountController.text.trim());
+      final provider = Provider.of<CashAdvanceProvider>(context, listen: false);
 
       if (_isEditing && widget.advanceId != null) {
-        // Update existing advance
-        final existingAdvance = provider.selectedAdvance;
-        if (existingAdvance != null) {
-          final updated = existingAdvance.copyWith(
-            items: List<CashAdvanceItem>.from(_items),
+        final existing = provider.selectedAdvance;
+        if (existing != null) {
+          final updated = existing.copyWith(
             purpose: _purposeController.text.trim(),
-            requestedAmount: amount,
             requestDate: _requestDate,
             requiredByDate: _requiredByDate,
             department: _departmentController.text.trim(),
@@ -188,15 +320,19 @@ class _NewCashAdvanceScreenState extends State<NewCashAdvanceScreen> {
             notes: _notesController.text.trim().isEmpty
                 ? null
                 : _notesController.text.trim(),
+            linkedMinutesId: _linkedMinutesId,
+            linkedMinutesLabel: _linkedMinutesLabel,
+            linkedActionItemNumber: _linkedActionItemNumber,
+            linkedActionItemTitle: _linkedActionItemTitle,
+            linkedActionItemDescription: _linkedActionItemDescription,
+            linkedActionItemAction: _linkedActionItemAction,
             updatedAt: DateTime.now(),
           );
-
           final success = await provider.updateAdvance(updated);
-
           if (success && mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Cash advance updated successfully'),
+                content: Text('Cash advance updated'),
                 backgroundColor: Colors.green,
               ),
             );
@@ -204,11 +340,9 @@ class _NewCashAdvanceScreenState extends State<NewCashAdvanceScreen> {
           }
         }
       } else {
-        // Create new advance
         final advance = await provider.createAdvance(
-          items: List<CashAdvanceItem>.from(_items),
           purpose: _purposeController.text.trim(),
-          requestedAmount: amount,
+          requestedAmount: widget.initialAmount ?? 0.0,
           department: _departmentController.text.trim(),
           requester: user,
           requestDate: _requestDate,
@@ -220,9 +354,14 @@ class _NewCashAdvanceScreenState extends State<NewCashAdvanceScreen> {
               ? null
               : _notesController.text.trim(),
           purchaseRequisitionId: widget.purchaseRequisitionId,
+          linkedMinutesId: _linkedMinutesId,
+          linkedMinutesLabel: _linkedMinutesLabel,
+          linkedActionItemNumber: _linkedActionItemNumber,
+          linkedActionItemTitle: _linkedActionItemTitle,
+          linkedActionItemDescription: _linkedActionItemDescription,
+          linkedActionItemAction: _linkedActionItemAction,
         );
 
-        // Update the PR with the new CA id
         if (advance != null && widget.purchaseRequisitionId != null) {
           try {
             await FirestoreService().updatePurchaseRequisitionCashAdvanceId(
@@ -233,12 +372,6 @@ class _NewCashAdvanceScreenState extends State<NewCashAdvanceScreen> {
         }
 
         if (advance != null && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Cash advance created successfully'),
-              backgroundColor: Colors.green,
-            ),
-          );
           context.go('/cash-advances/${advance.id}');
         } else if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -256,16 +389,13 @@ class _NewCashAdvanceScreenState extends State<NewCashAdvanceScreen> {
         );
       }
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   void dispose() {
     _purposeController.dispose();
-    _amountController.dispose();
     _departmentController.dispose();
     _idNoController.dispose();
     _notesController.dispose();
@@ -300,17 +430,111 @@ class _NewCashAdvanceScreenState extends State<NewCashAdvanceScreen> {
                             children: [
                               _buildHeaderBanner(),
                               const SizedBox(height: 16),
-                              _buildBasicInfoCard(),
+                              _buildSectionCard(
+                                title: 'Basic Information',
+                                icon: Icons.info_outline,
+                                children: [
+                                  _buildField(
+                                    controller: _purposeController,
+                                    label: 'Purpose *',
+                                    hint: 'What is this advance for?',
+                                    icon: Icons.description_outlined,
+                                    maxLines: 3,
+                                    validator: (v) => (v == null || v.trim().isEmpty)
+                                        ? 'Please enter the purpose'
+                                        : null,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _buildField(
+                                    controller: _departmentController,
+                                    label: 'Department *',
+                                    hint: 'Enter department name',
+                                    icon: Icons.business_outlined,
+                                    validator: (v) => (v == null || v.trim().isEmpty)
+                                        ? 'Please enter the department'
+                                        : null,
+                                  ),
+                                ],
+                              ),
                               const SizedBox(height: 16),
-                              _buildAmountCard(),
+                              _buildSectionCard(
+                                title: 'Dates',
+                                icon: Icons.calendar_month_outlined,
+                                children: [
+                                  _buildDateTile(
+                                    label: 'Request Date',
+                                    value: _dateFormat.format(_requestDate),
+                                    onTap: () => _selectDate(true),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  _buildDateTile(
+                                    label: 'Required By (optional)',
+                                    value: _requiredByDate != null
+                                        ? _dateFormat.format(_requiredByDate!)
+                                        : 'Not set',
+                                    isPlaceholder: _requiredByDate == null,
+                                    onTap: () => _selectDate(false),
+                                    trailing: _requiredByDate != null
+                                        ? IconButton(
+                                            icon: const Icon(Icons.clear, size: 18),
+                                            onPressed: () =>
+                                                setState(() => _requiredByDate = null),
+                                          )
+                                        : null,
+                                  ),
+                                ],
+                              ),
                               const SizedBox(height: 16),
-                              _buildItemsCard(),
+                              _buildSectionCard(
+                                title: 'Additional Information',
+                                icon: Icons.notes_outlined,
+                                children: [
+                                  _buildField(
+                                    controller: _idNoController,
+                                    label: 'ID Number (optional)',
+                                    hint: 'Employee / Staff ID',
+                                    icon: Icons.badge_outlined,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _buildField(
+                                    controller: _notesController,
+                                    label: 'Notes (optional)',
+                                    hint: 'Any additional remarks',
+                                    icon: Icons.notes_outlined,
+                                    maxLines: 3,
+                                  ),
+                                ],
+                              ),
                               const SizedBox(height: 16),
-                              _buildDatesCard(),
-                              const SizedBox(height: 16),
-                              _buildAdditionalInfoCard(),
+                              _buildSectionCard(
+                                title: 'Meeting Reference (optional)',
+                                icon: Icons.meeting_room_outlined,
+                                children: [
+                                  _buildMinutesReferenceTile(),
+                                ],
+                              ),
                               const SizedBox(height: 24),
-                              _buildSubmitButton(),
+                              SizedBox(
+                                height: 52,
+                                child: ElevatedButton.icon(
+                                  onPressed: _save,
+                                  icon: Icon(_isEditing ? Icons.save : Icons.add),
+                                  label: Text(
+                                    _isEditing ? 'Save Changes' : 'Create Cash Advance',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.indigo,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                              ),
                               const SizedBox(height: 80),
                             ],
                           ),
@@ -348,7 +572,6 @@ class _NewCashAdvanceScreenState extends State<NewCashAdvanceScreen> {
       ),
       child: Column(
         children: [
-          // Navigation row
           Row(
             children: [
               InkWell(
@@ -359,6 +582,7 @@ class _NewCashAdvanceScreenState extends State<NewCashAdvanceScreen> {
                     context.go('/cash-advances');
                   }
                 },
+                borderRadius: BorderRadius.circular(8),
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
@@ -368,49 +592,38 @@ class _NewCashAdvanceScreenState extends State<NewCashAdvanceScreen> {
                   child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
                 ),
               ),
-              const Spacer(),
-              InkWell(
-                onTap: _printRequest,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.print, color: Colors.white, size: 20),
-                ),
-              ),
             ],
           ),
           const SizedBox(height: 16),
-          // Title row
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
+                padding: const EdgeInsets.all(14),
+                decoration: const BoxDecoration(
+                  color: Colors.white24,
+                  shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.request_quote, color: Colors.white),
+                child: const Icon(Icons.request_quote, color: Colors.white, size: 28),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _isEditing ? 'Edit Cash Advance' : 'Cash Advance Request',
+                      _isEditing ? 'Edit Cash Advance' : 'New Cash Advance',
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
-                        fontSize: 18,
+                        fontSize: 20,
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      'Complete the form below to create a request.',
-                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    Text(
+                      _isEditing
+                          ? 'Update the request details below.'
+                          : 'Create the request, then add items to tally the total.',
+                      style: const TextStyle(color: Colors.white70, fontSize: 12),
                     ),
                   ],
                 ),
@@ -422,552 +635,244 @@ class _NewCashAdvanceScreenState extends State<NewCashAdvanceScreen> {
     );
   }
 
-  Widget _buildBasicInfoCard() {
+  Widget _buildSectionCard({
+    required String title,
+    required IconData icon,
+    required List<Widget> children,
+  }) {
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Basic Information',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _purposeController,
-              decoration: const InputDecoration(
-                labelText: 'Purpose *',
-                hintText: 'Enter the purpose of this cash advance',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.description),
-              ),
-              maxLines: 3,
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Please enter the purpose';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _departmentController,
-              decoration: const InputDecoration(
-                labelText: 'Department *',
-                hintText: 'Enter department name',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.business),
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Please enter the department';
-                }
-                return null;
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAmountCard() {
-    final amount = double.tryParse(_amountController.text) ?? 0;
-    final requiresActionNo = amount > 20000;
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Amount',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _amountController,
-              decoration: InputDecoration(
-                labelText: 'Requested Amount *',
-                hintText: '0.00',
-                border: const OutlineInputBorder(),
-                prefixIcon: const Icon(Icons.attach_money),
-                prefixText: '${AppConstants.currencySymbol} ',
-                helperText: _items.isNotEmpty
-                    ? 'Auto-calculated from items'
-                    : null,
-              ),
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              readOnly: _items.isNotEmpty,
-              onChanged: (value) {
-                setState(() {}); // Trigger rebuild for action no. warning
-              },
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Please enter the amount';
-                }
-                final amount = double.tryParse(value.trim());
-                if (amount == null || amount <= 0) {
-                  return 'Please enter a valid amount';
-                }
-                return null;
-              },
-            ),
-            if (requiresActionNo) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.amber.shade200),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.warning_amber, color: Colors.amber[800]),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Amounts exceeding ${AppConstants.currencySymbol}20,000 require an Action Number for approval.',
-                        style: TextStyle(
-                          color: Colors.amber[800],
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildItemsCard() {
-    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Items (Optional)',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                TextButton.icon(
-                  onPressed: _showAddItemDialog,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add Item'),
+                Icon(icon, size: 20, color: Colors.indigo),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            if (_items.isEmpty)
-              Text(
-                'Add items with quantity and unit price to auto-calculate the total amount.',
-                style: TextStyle(color: Colors.grey[600], fontSize: 13),
-              )
-            else
-              Column(
-                children: [
-                  ..._items.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final item = entry.value;
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  item.name,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                  ),
+            const SizedBox(height: 16),
+            ...children,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    int maxLines = 1,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      maxLines: maxLines,
+      validator: validator,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        prefixIcon: Icon(icon),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Colors.indigo, width: 2),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMinutesReferenceTile() {
+    final hasReference = _linkedMinutesId != null;
+    return InkWell(
+      onTap: _pickMinutesReference,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: hasReference ? Colors.indigo.shade300 : Colors.grey.shade400,
+          ),
+          borderRadius: BorderRadius.circular(12),
+          color: hasReference ? Colors.indigo.shade50 : null,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.article_outlined,
+              color: hasReference ? Colors.indigo : Colors.grey[500],
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: hasReference
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _linkedMinutesLabel!,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.indigo[600],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.indigo.shade100,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                _linkedActionItemNumber!,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.indigo[700],
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${item.quantity} x ${AppConstants.currencySymbol}${item.unitPrice.toStringAsFixed(2)} = ${AppConstants.currencySymbol}${item.total.toStringAsFixed(2)}',
+                              ),
+                            ),
+                            if (_linkedActionItemAction != null) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.teal.shade50,
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                      color: Colors.teal.shade200),
+                                ),
+                                child: Text(
+                                  _linkedActionItemAction!,
                                   style: TextStyle(
-                                    color: Colors.grey[700],
-                                    fontSize: 12,
+                                    fontSize: 11,
+                                    color: Colors.teal[700],
                                   ),
                                 ),
-                                if (item.notes != null &&
-                                    item.notes!.isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 4),
-                                    child: Text(
-                                      item.notes!,
-                                      style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                              ],
+                              ),
+                            ],
+                          ],
+                        ),
+                        if (_linkedActionItemTitle != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            _linkedActionItemTitle!,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
                             ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.edit, size: 18),
-                            onPressed: () => _showAddItemDialog(
-                              existing: item,
-                              index: index,
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete, size: 18),
-                            color: Colors.red,
-                            onPressed: () => _removeItem(index),
                           ),
                         ],
-                      ),
-                    );
-                  }),
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      'Total: ${AppConstants.currencySymbol}${_itemsTotal.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
+                        if (_linkedActionItemDescription != null &&
+                            _linkedActionItemDescription!.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            _linkedActionItemDescription!,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontSize: 12, color: Colors.grey[600]),
+                          ),
+                        ],
+                      ],
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Link to Meeting Minutes',
+                          style: TextStyle(
+                              fontSize: 15, color: Colors.grey[500]),
+                        ),
+                        Text(
+                          'Tap to select minutes & action item',
+                          style: TextStyle(
+                              fontSize: 12, color: Colors.grey[400]),
+                        ),
+                      ],
+                    ),
+            ),
+            if (hasReference)
+              IconButton(
+                icon: const Icon(Icons.clear, size: 18),
+                color: Colors.grey[500],
+                constraints: const BoxConstraints(),
+                padding: const EdgeInsets.all(4),
+                onPressed: () => setState(() {
+                  _linkedMinutesId = null;
+                  _linkedMinutesLabel = null;
+                  _linkedActionItemNumber = null;
+                  _linkedActionItemTitle = null;
+                  _linkedActionItemDescription = null;
+                  _linkedActionItemAction = null;
+                }),
+              )
+            else
+              Icon(Icons.chevron_right, color: Colors.grey[400], size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDateTile({
+    required String label,
+    required String value,
+    required VoidCallback onTap,
+    bool isPlaceholder = false,
+    Widget? trailing,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade400),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.calendar_today, color: Colors.indigo, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: isPlaceholder ? Colors.grey[400] : Colors.black87,
                     ),
                   ),
                 ],
               ),
+            ),
+            trailing ??
+                Icon(Icons.edit_outlined, color: Colors.grey[500], size: 18),
           ],
         ),
       ),
     );
-  }
-
-  Widget _buildDatesCard() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Dates',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            InkWell(
-              onTap: () => _selectDate(context, true),
-              child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: 'Request Date *',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.calendar_today),
-                ),
-                child: Text(_dateFormat.format(_requestDate)),
-              ),
-            ),
-            const SizedBox(height: 16),
-            InkWell(
-              onTap: () => _selectDate(context, false),
-              child: InputDecorator(
-                decoration: InputDecoration(
-                  labelText: 'Required By Date (optional)',
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.event),
-                  suffixIcon: _requiredByDate != null
-                      ? IconButton(
-                          icon: const Icon(Icons.clear),
-                          onPressed: () {
-                            setState(() => _requiredByDate = null);
-                          },
-                        )
-                      : null,
-                ),
-                child: Text(
-                  _requiredByDate != null
-                      ? _dateFormat.format(_requiredByDate!)
-                      : 'Select date',
-                  style: TextStyle(
-                    color: _requiredByDate != null
-                        ? Colors.black
-                        : Colors.grey[500],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAdditionalInfoCard() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Additional Information',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _idNoController,
-              decoration: const InputDecoration(
-                labelText: 'ID Number (optional)',
-                hintText: 'Employee/Staff ID',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.badge),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _notesController,
-              decoration: const InputDecoration(
-                labelText: 'Notes (optional)',
-                hintText: 'Any additional notes or remarks',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.notes),
-              ),
-              maxLines: 3,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSubmitButton() {
-    return SizedBox(
-      height: 50,
-      child: ElevatedButton.icon(
-        onPressed: _isLoading ? null : _saveAdvance,
-        icon: _isLoading
-            ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              )
-            : Icon(_isEditing ? Icons.save : Icons.add),
-        label: Text(
-          _isEditing ? 'Save Changes' : 'Create Cash Advance',
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.indigo,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _printRequest() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final user = authProvider.currentUser;
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('User not found')),
-      );
-      return;
-    }
-
-    final amount = _items.isNotEmpty
-        ? _itemsTotal
-        : double.tryParse(_amountController.text.trim()) ?? 0;
-
-    if (amount <= 0 || _purposeController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Fill in the form before printing'),
-        ),
-      );
-      return;
-    }
-
-    final provider = Provider.of<CashAdvanceProvider>(context, listen: false);
-    final existing = provider.selectedAdvance;
-    final now = DateTime.now();
-    final requestNumber = existing?.requestNumber ??
-        'DRAFT-${DateFormat('yyyyMMddHHmm').format(now)}';
-
-    final advance = (existing ?? CashAdvance(
-          id: existing?.id ?? 'draft',
-          requestNumber: requestNumber,
-          purpose: _purposeController.text.trim(),
-          requestedAmount: amount,
-          requestDate: _requestDate,
-          requiredByDate: _requiredByDate,
-          requesterId: user.id,
-          requesterName: user.name,
-          department: _departmentController.text.trim(),
-          idNo: _idNoController.text.trim().isEmpty
-              ? null
-              : _idNoController.text.trim(),
-          status: 'draft',
-          createdAt: now,
-          notes: _notesController.text.trim().isEmpty
-              ? null
-              : _notesController.text.trim(),
-          items: List<CashAdvanceItem>.from(_items),
-        ))
-        .copyWith(
-          items: List<CashAdvanceItem>.from(_items),
-          purpose: _purposeController.text.trim(),
-          requestedAmount: amount,
-          requestDate: _requestDate,
-          requiredByDate: _requiredByDate,
-          department: _departmentController.text.trim(),
-          idNo: _idNoController.text.trim().isEmpty
-              ? null
-              : _idNoController.text.trim(),
-          notes: _notesController.text.trim().isEmpty
-              ? null
-              : _notesController.text.trim(),
-        );
-
-    final bytes = await CashAdvancePdfService().buildPdf(advance);
-    await Printing.layoutPdf(onLayout: (_) => bytes);
-  }
-
-  double get _itemsTotal =>
-      _items.fold(0, (sum, item) => sum + item.total);
-
-  void _syncAmountWithItems() {
-    if (_items.isEmpty) return;
-    _amountController.text = _itemsTotal.toStringAsFixed(2);
-  }
-
-  Future<void> _showAddItemDialog({
-    CashAdvanceItem? existing,
-    int? index,
-  }) async {
-    final nameController = TextEditingController(text: existing?.name ?? '');
-    final qtyController =
-        TextEditingController(text: existing?.quantity.toString() ?? '1');
-    final priceController = TextEditingController(
-      text: existing?.unitPrice.toStringAsFixed(2) ?? '',
-    );
-    final notesController = TextEditingController(text: existing?.notes ?? '');
-
-    final result = await showDialog<CashAdvanceItem>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(existing == null ? 'Add Item' : 'Edit Item'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Item Name',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: qtyController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Quantity',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: priceController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(
-                  labelText: 'Unit Price',
-                  border: const OutlineInputBorder(),
-                  prefixText: '${AppConstants.currencySymbol} ',
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: notesController,
-                maxLines: 2,
-                decoration: const InputDecoration(
-                  labelText: 'Notes (optional)',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final name = nameController.text.trim();
-              final qty = int.tryParse(qtyController.text.trim()) ?? 0;
-              final price = double.tryParse(priceController.text.trim()) ?? 0;
-              if (name.isEmpty || qty <= 0 || price <= 0) {
-                return;
-              }
-              Navigator.pop(
-                context,
-                CashAdvanceItem(
-                  name: name,
-                  quantity: qty,
-                  unitPrice: price,
-                  notes: notesController.text.trim().isEmpty
-                      ? null
-                      : notesController.text.trim(),
-                ),
-              );
-            },
-            child: Text(existing == null ? 'Add' : 'Save'),
-          ),
-        ],
-      ),
-    );
-
-    if (result == null || !mounted) return;
-    setState(() {
-      if (index != null && index >= 0 && index < _items.length) {
-        _items[index] = result;
-      } else {
-        _items.add(result);
-      }
-      _syncAmountWithItems();
-    });
-  }
-
-  void _removeItem(int index) {
-    setState(() {
-      _items.removeAt(index);
-      if (_items.isNotEmpty) {
-        _syncAmountWithItems();
-      }
-    });
   }
 }

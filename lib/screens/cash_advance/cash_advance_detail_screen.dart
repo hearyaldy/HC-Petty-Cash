@@ -61,6 +61,136 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
     }
   }
 
+  // ── Item management ──────────────────────────────────────────────────────
+
+  Future<void> _updateItems(List<CashAdvanceItem> newItems) async {
+    final total = newItems.fold<double>(0, (sum, i) => sum + i.total);
+    final updated = _advance!.copyWith(
+      items: newItems,
+      requestedAmount: total,
+      updatedAt: DateTime.now(),
+    );
+    final success =
+        await context.read<CashAdvanceProvider>().updateAdvance(updated);
+    if (success && mounted) {
+      setState(() => _advance = updated);
+    }
+  }
+
+  Future<void> _showAddItemDialog({
+    CashAdvanceItem? existing,
+    int? index,
+  }) async {
+    final nameController =
+        TextEditingController(text: existing?.name ?? '');
+    final qtyController =
+        TextEditingController(text: existing?.quantity.toString() ?? '1');
+    final priceController = TextEditingController(
+        text: existing != null
+            ? existing.unitPrice.toStringAsFixed(2)
+            : '');
+    final notesController =
+        TextEditingController(text: existing?.notes ?? '');
+
+    final result = await showDialog<CashAdvanceItem>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(existing == null ? 'Add Item' : 'Edit Item'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Item Name *',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: qtyController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Quantity *',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: priceController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  labelText: 'Unit Price *',
+                  border: const OutlineInputBorder(),
+                  prefixText: '${AppConstants.currencySymbol} ',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: notesController,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Notes (optional)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo),
+            onPressed: () {
+              final name = nameController.text.trim();
+              final qty = int.tryParse(qtyController.text.trim()) ?? 0;
+              final price =
+                  double.tryParse(priceController.text.trim()) ?? 0;
+              if (name.isEmpty || qty <= 0 || price <= 0) return;
+              Navigator.pop(
+                context,
+                CashAdvanceItem(
+                  name: name,
+                  quantity: qty,
+                  unitPrice: price,
+                  notes: notesController.text.trim().isEmpty
+                      ? null
+                      : notesController.text.trim(),
+                ),
+              );
+            },
+            child: Text(
+              existing == null ? 'Add' : 'Save',
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (result == null || !mounted) return;
+    final newItems = List<CashAdvanceItem>.from(_advance!.items);
+    if (index != null && index >= 0 && index < newItems.length) {
+      newItems[index] = result;
+    } else {
+      newItems.add(result);
+    }
+    await _updateItems(newItems);
+  }
+
+  Future<void> _removeItem(int index) async {
+    final newItems = List<CashAdvanceItem>.from(_advance!.items);
+    newItems.removeAt(index);
+    await _updateItems(newItems);
+  }
+
+  // ── Workflow actions ──────────────────────────────────────────────────────
+
   Future<void> _submitAdvance() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final user = authProvider.currentUser;
@@ -153,14 +283,14 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
                     Navigator.pop(context, controller.text.trim());
                   }
                 },
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                style:
+                    ElevatedButton.styleFrom(backgroundColor: Colors.green),
                 child: const Text('Approve'),
               ),
             ],
           );
         },
       );
-
       if (actionNo == null) return;
     } else {
       final confirmed = await showDialog<bool>(
@@ -178,13 +308,13 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(context, true),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+              style:
+                  ElevatedButton.styleFrom(backgroundColor: Colors.green),
               child: const Text('Approve'),
             ),
           ],
         ),
       );
-
       if (confirmed != true) return;
     }
 
@@ -317,7 +447,8 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
                   items: const [
                     DropdownMenuItem(value: 'cash', child: Text('Cash')),
                     DropdownMenuItem(
-                        value: 'bankTransfer', child: Text('Bank Transfer')),
+                        value: 'bankTransfer',
+                        child: Text('Bank Transfer')),
                     DropdownMenuItem(value: 'card', child: Text('Card')),
                     DropdownMenuItem(value: 'other', child: Text('Other')),
                   ],
@@ -352,7 +483,8 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
                   });
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+              style:
+                  ElevatedButton.styleFrom(backgroundColor: Colors.green),
               child: const Text('Disburse'),
             ),
           ],
@@ -389,6 +521,54 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
     }
   }
 
+  Future<void> _revertToDraft() async {
+    if (_advance == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Revert to Draft'),
+        content: const Text(
+          'This will revert the request back to draft so you can edit it. '
+          'It will need to be submitted again for approval.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            child: const Text('Revert to Draft'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await _firestoreService.revertCashAdvanceToDraft(_advance!.id);
+      await _loadAdvance();
+      await _refreshProviderCache();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Reverted to draft'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
   Future<void> _deleteAdvance() async {
     if (_advance == null) return;
 
@@ -420,12 +600,6 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
       await _firestoreService.deleteCashAdvance(_advance!.id);
       await _refreshProviderCache();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Cash advance deleted'),
-            backgroundColor: Colors.green,
-          ),
-        );
         context.go('/cash-advances');
       }
     } catch (e) {
@@ -437,10 +611,72 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
     }
   }
 
+  Future<void> _printRequest() async {
+    final advance = _advance;
+    if (advance == null) return;
+    final bytes = await CashAdvancePdfService().buildPdf(advance);
+    await Printing.layoutPdf(onLayout: (_) => bytes);
+  }
+
+  Future<void> _refreshProviderCache() async {
+    if (!mounted) return;
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final cashAdvanceProvider =
+        Provider.of<CashAdvanceProvider>(context, listen: false);
+    final isAdmin = authProvider.canApprove();
+    final user = authProvider.currentUser;
+
+    if (isAdmin) {
+      await cashAdvanceProvider.loadAdvances();
+    } else if (user != null) {
+      await cashAdvanceProvider.loadAdvancesByUser(user.id);
+    }
+  }
+
+  void _handleMenuAction(String action, bool isAdmin) {
+    switch (action) {
+      case 'print':
+        _printRequest();
+        break;
+      case 'edit':
+        context.push('/cash-advances/${_advance!.id}/edit');
+        break;
+      case 'submit':
+        _submitAdvance();
+        break;
+      case 'delete':
+        _deleteAdvance();
+        break;
+      case 'approve':
+        _approveAdvance();
+        break;
+      case 'reject':
+        _rejectAdvance();
+        break;
+      case 'revert_draft':
+        _revertToDraft();
+        break;
+      case 'disburse':
+        _disburseAdvance();
+        break;
+      case 'settle':
+        final advanceId = _advance?.id;
+        if (advanceId == null) break;
+        final prId = _advance?.purchaseRequisitionId;
+        final uri = prId != null
+            ? '/reports/new/advance-settlement?cashAdvanceId=$advanceId&purchaseRequisitionId=$prId'
+            : '/reports/new/advance-settlement?cashAdvanceId=$advanceId';
+        context.push(uri);
+        break;
+    }
+  }
+
+  // ── Build ─────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
-    final isAdmin = authProvider.canManageUsers();
+    final isAdmin = authProvider.canApprove();
     final contentPadding = ResponsiveHelper.getScreenPadding(context);
     final maxWidth = ResponsiveHelper.getMaxContentWidth(context);
 
@@ -469,14 +705,16 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
                                 const SizedBox(height: 16),
                                 _buildStatusCard(),
                                 const SizedBox(height: 16),
+                                _buildItemsCard(
+                                  isDraft: _advance!.status ==
+                                      CashAdvanceStatus.draft.name,
+                                ),
+                                const SizedBox(height: 16),
                                 _buildDetailsCard(),
-                                if (_advance!.items.isNotEmpty) ...[
-                                  const SizedBox(height: 16),
-                                  _buildItemsCard(),
-                                ],
                                 const SizedBox(height: 16),
                                 _buildRequesterCard(),
-                                if (_advance!.status != CashAdvanceStatus.draft.name) ...[
+                                if (_advance!.status !=
+                                    CashAdvanceStatus.draft.name) ...[
                                   const SizedBox(height: 16),
                                   _buildTimelineCard(),
                                 ],
@@ -484,9 +722,14 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
                                   const SizedBox(height: 16),
                                   _buildDisbursementCard(),
                                 ],
-                                if (_advance!.purchaseRequisitionId != null) ...[
+                                if (_advance!.purchaseRequisitionId !=
+                                    null) ...[
                                   const SizedBox(height: 16),
                                   _buildLinkedPRCard(),
+                                ],
+                                if (_advance!.linkedMinutesId != null) ...[
+                                  const SizedBox(height: 16),
+                                  _buildLinkedMinutesCard(),
                                 ],
                                 if (_advance!.settlementId != null) ...[
                                   const SizedBox(height: 16),
@@ -497,8 +740,6 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
                                   const SizedBox(height: 16),
                                   _buildNotesCard(),
                                 ],
-                                const SizedBox(height: 24),
-                                _buildActionButtons(isAdmin),
                                 const SizedBox(height: 80),
                               ],
                             ),
@@ -511,7 +752,10 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
     );
   }
 
+  // ── Header ────────────────────────────────────────────────────────────────
+
   Widget _buildHeaderBanner(bool isAdmin) {
+    final status = _advance!.statusEnum;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -535,58 +779,38 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
       ),
       child: Column(
         children: [
-          // Navigation row
+          // Nav row
           Row(
             children: [
               InkWell(
                 onTap: () => context.go('/cash-advances'),
+                borderRadius: BorderRadius.circular(8),
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                  child: const Icon(Icons.arrow_back,
+                      color: Colors.white, size: 20),
                 ),
               ),
               const Spacer(),
               InkWell(
-                onTap: _advance == null ? null : _printRequest,
+                onTap: _loadAdvance,
+                borderRadius: BorderRadius.circular(8),
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.print, color: Colors.white, size: 20),
+                  child: const Icon(Icons.refresh,
+                      color: Colors.white, size: 20),
                 ),
               ),
               const SizedBox(width: 8),
-              InkWell(
-                onTap: _loadAdvance,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.refresh, color: Colors.white, size: 20),
-                ),
-              ),
-              if (_advance != null && _advance!.status == CashAdvanceStatus.draft.name) ...[
-                const SizedBox(width: 8),
-                InkWell(
-                  onTap: _deleteAdvance,
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.red.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.delete, color: Colors.white, size: 20),
-                  ),
-                ),
-              ],
+              _buildPopupMenu(isAdmin),
             ],
           ),
           const SizedBox(height: 16),
@@ -594,34 +818,37 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
+                padding: const EdgeInsets.all(14),
+                decoration: const BoxDecoration(
+                  color: Colors.white24,
+                  shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.request_quote, color: Colors.white),
+                child: const Icon(Icons.request_quote,
+                    color: Colors.white, size: 28),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _advance?.requestNumber ?? 'Cash Advance Request',
+                      _advance!.requestNumber,
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
-                        fontSize: 18,
+                        fontSize: 22,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Review request details and approval status.',
-                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    const SizedBox(height: 2),
+                    Text(
+                      _advance!.requesterName,
+                      style: const TextStyle(
+                          color: Colors.white70, fontSize: 14),
                     ),
                   ],
                 ),
               ),
+              _buildStatusChip(status),
             ],
           ),
         ],
@@ -629,18 +856,140 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
     );
   }
 
-  Future<void> _printRequest() async {
-    final advance = _advance;
-    if (advance == null) return;
-    final bytes = await CashAdvancePdfService().buildPdf(advance);
-    await Printing.layoutPdf(onLayout: (_) => bytes);
+  Widget _buildStatusChip(CashAdvanceStatus status) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
+      ),
+      child: Text(
+        status.displayName,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
+        ),
+      ),
+    );
   }
 
+  Widget _buildPopupMenu(bool isAdmin) {
+    final status = _advance!.statusEnum;
+    return PopupMenuButton<String>(
+      onSelected: (value) => _handleMenuAction(value, isAdmin),
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Icon(Icons.more_vert, color: Colors.white, size: 20),
+      ),
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: 'print',
+          child: Row(children: [
+            Icon(Icons.print, size: 20),
+            SizedBox(width: 12),
+            Text('Print'),
+          ]),
+        ),
+        if (status == CashAdvanceStatus.draft) ...[
+          const PopupMenuDivider(),
+          const PopupMenuItem(
+            value: 'edit',
+            child: Row(children: [
+              Icon(Icons.edit_outlined, size: 20, color: Colors.blue),
+              SizedBox(width: 12),
+              Text('Edit Details'),
+            ]),
+          ),
+          const PopupMenuItem(
+            value: 'submit',
+            child: Row(children: [
+              Icon(Icons.send, size: 20, color: Colors.indigo),
+              SizedBox(width: 12),
+              Text('Submit for Approval'),
+            ]),
+          ),
+          const PopupMenuDivider(),
+          const PopupMenuItem(
+            value: 'delete',
+            child: Row(children: [
+              Icon(Icons.delete_outline, size: 20, color: Colors.red),
+              SizedBox(width: 12),
+              Text('Delete', style: TextStyle(color: Colors.red)),
+            ]),
+          ),
+        ],
+        if (status == CashAdvanceStatus.submitted ||
+            status == CashAdvanceStatus.approved) ...[
+          const PopupMenuDivider(),
+          const PopupMenuItem(
+            value: 'revert_draft',
+            child: Row(children: [
+              Icon(Icons.undo, size: 20, color: Colors.orange),
+              SizedBox(width: 12),
+              Text('Revert to Draft',
+                  style: TextStyle(color: Colors.orange)),
+            ]),
+          ),
+        ],
+        if (status == CashAdvanceStatus.submitted && isAdmin) ...[
+          const PopupMenuDivider(),
+          const PopupMenuItem(
+            value: 'approve',
+            child: Row(children: [
+              Icon(Icons.check_circle_outline, size: 20, color: Colors.green),
+              SizedBox(width: 12),
+              Text('Approve'),
+            ]),
+          ),
+          const PopupMenuItem(
+            value: 'reject',
+            child: Row(children: [
+              Icon(Icons.cancel_outlined, size: 20, color: Colors.red),
+              SizedBox(width: 12),
+              Text('Reject', style: TextStyle(color: Colors.red)),
+            ]),
+          ),
+        ],
+        if (status == CashAdvanceStatus.approved && isAdmin) ...[
+          const PopupMenuDivider(),
+          const PopupMenuItem(
+            value: 'disburse',
+            child: Row(children: [
+              Icon(Icons.payments_outlined, size: 20, color: Colors.green),
+              SizedBox(width: 12),
+              Text('Disburse Funds'),
+            ]),
+          ),
+        ],
+        if (status == CashAdvanceStatus.disbursed) ...[
+          const PopupMenuDivider(),
+          const PopupMenuItem(
+            value: 'settle',
+            child: Row(children: [
+              Icon(Icons.receipt_long_outlined, size: 20, color: Colors.purple),
+              SizedBox(width: 12),
+              Text('Create Settlement'),
+            ]),
+          ),
+        ],
+      ],
+    );
+  }
+
+  // ── Status card ───────────────────────────────────────────────────────────
 
   Widget _buildStatusCard() {
     final status = _advance!.statusEnum;
 
     return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Row(
@@ -665,17 +1014,14 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
                   Text(
                     status.displayName,
                     style: TextStyle(
-                      fontSize: 24,
+                      fontSize: 22,
                       fontWeight: FontWeight.bold,
                       color: status.color,
                     ),
                   ),
                   Text(
                     _getStatusDescription(status),
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                   ),
                 ],
               ),
@@ -686,16 +1032,42 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
                 Text(
                   _currencyFormat.format(_advance!.requestedAmount),
                   style: TextStyle(
-                    fontSize: 24,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
                     color: Colors.indigo[700],
                   ),
                 ),
-                if (_advance!.requiresActionNo)
+                if (_advance!.actionNo != null)
+                  Container(
+                    margin: const EdgeInsets.only(top: 6),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.indigo.shade50,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.indigo.shade200),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.tag, size: 12, color: Colors.indigo[700]),
+                        const SizedBox(width: 4),
+                        Text(
+                          _advance!.actionNo!,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.indigo[700],
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (_advance!.requiresActionNo)
                   Container(
                     margin: const EdgeInsets.only(top: 4),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
                       color: Colors.amber.shade100,
                       borderRadius: BorderRadius.circular(4),
@@ -739,15 +1111,15 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
   String _getStatusDescription(CashAdvanceStatus status) {
     switch (status) {
       case CashAdvanceStatus.draft:
-        return 'This request is in draft and can be edited';
+        return 'Add items below to tally the total amount';
       case CashAdvanceStatus.submitted:
-        return 'Waiting for manager approval';
+        return 'Waiting for approval';
       case CashAdvanceStatus.approved:
         return 'Approved and ready for disbursement';
       case CashAdvanceStatus.disbursed:
         return 'Funds have been disbursed';
       case CashAdvanceStatus.settled:
-        return 'Settlement has been completed';
+        return 'Settlement completed';
       case CashAdvanceStatus.rejected:
         return 'Request was rejected';
       case CashAdvanceStatus.cancelled:
@@ -755,19 +1127,231 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
     }
   }
 
-  Widget _buildDetailsCard() {
+  // ── Items card ────────────────────────────────────────────────────────────
+
+  Widget _buildItemsCard({required bool isDraft}) {
+    final items = _advance!.items;
+    final total = items.fold<double>(0, (sum, i) => sum + i.total);
+
     return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Request Details',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            // Header row
+            Row(
+              children: [
+                const Icon(Icons.list_alt_outlined,
+                    size: 20, color: Colors.indigo),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Items',
+                    style: TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                if (isDraft)
+                  TextButton.icon(
+                    onPressed: _showAddItemDialog,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Add Item'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.indigo,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                    ),
+                  ),
+              ],
             ),
+            const SizedBox(height: 12),
+
+            // Empty state
+            if (items.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline,
+                        color: Colors.grey[400], size: 20),
+                    const SizedBox(width: 12),
+                    Text(
+                      isDraft
+                          ? 'Tap "Add Item" to build your advance list.'
+                          : 'No items recorded.',
+                      style:
+                          TextStyle(color: Colors.grey[500], fontSize: 13),
+                    ),
+                  ],
+                ),
+              )
+            else
+              Column(
+                children: [
+                  // Item rows
+                  ...items.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final item = entry.value;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          // Item number badge
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: Colors.indigo.shade50,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                '${index + 1}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.indigo.shade600,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.name,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${item.quantity} × ${_currencyFormat.format(item.unitPrice)}',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600]),
+                                ),
+                                if (item.notes != null &&
+                                    item.notes!.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Text(
+                                      item.notes!,
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.grey[500]),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            _currencyFormat.format(item.total),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14),
+                          ),
+                          if (isDraft) ...[
+                            const SizedBox(width: 4),
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined, size: 18),
+                              color: Colors.blue,
+                              constraints: const BoxConstraints(),
+                              padding: const EdgeInsets.all(6),
+                              onPressed: () => _showAddItemDialog(
+                                  existing: item, index: index),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline,
+                                  size: 18),
+                              color: Colors.red,
+                              constraints: const BoxConstraints(),
+                              padding: const EdgeInsets.all(6),
+                              onPressed: () => _removeItem(index),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  }),
+
+                  // Total tally
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.indigo.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.indigo.shade100),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.calculate_outlined,
+                                size: 18, color: Colors.indigo.shade600),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Total Requested',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: Colors.indigo.shade800,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          _currencyFormat.format(total),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: Colors.indigo.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Detail cards ──────────────────────────────────────────────────────────
+
+  Widget _buildDetailsCard() {
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildCardHeader(Icons.receipt_outlined, 'Request Details'),
             const SizedBox(height: 16),
-            _buildDetailRow('Request Number', _advance!.requestNumber),
+            _buildDetailRow('Request No.', _advance!.requestNumber),
             _buildDetailRow('Purpose', _advance!.purpose),
             _buildDetailRow(
               'Request Date',
@@ -790,90 +1374,16 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
     );
   }
 
-  Widget _buildItemsCard() {
-    final items = _advance!.items;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Items',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            ...items.map(
-              (item) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            item.name,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${item.quantity} x ${_currencyFormat.format(item.unitPrice)}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                          if (item.notes != null && item.notes!.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Text(
-                                item.notes!,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    Text(
-                      _currencyFormat.format(item.total),
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const Divider(),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                'Total: ${_currencyFormat.format(items.fold<double>(0, (sum, item) => sum + item.total))}',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildRequesterCard() {
     return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Requester Information',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            _buildCardHeader(Icons.person_outline, 'Requester'),
             const SizedBox(height: 16),
             _buildDetailRow('Name', _advance!.requesterName),
             _buildDetailRow('Department', _advance!.department),
@@ -890,15 +1400,14 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
 
   Widget _buildTimelineCard() {
     return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Timeline',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            _buildCardHeader(Icons.timeline_outlined, 'Timeline'),
             const SizedBox(height: 16),
             _buildTimelineItem(
               'Created',
@@ -913,7 +1422,8 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
                 _dateTimeFormat.format(_advance!.submittedAt!),
                 Icons.send,
                 Colors.orange,
-                _advance!.approvedAt != null || _advance!.status == 'rejected',
+                _advance!.approvedAt != null ||
+                    _advance!.status == 'rejected',
               ),
             if (_advance!.approvedAt != null)
               _buildTimelineItem(
@@ -989,14 +1499,13 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
+                Text(title,
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
                 if (subtitle.isNotEmpty)
                   Text(
                     subtitle,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    style:
+                        TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
                 SizedBox(height: showLine ? 24 : 0),
               ],
@@ -1009,26 +1518,17 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
 
   Widget _buildDisbursementCard() {
     return Card(
+      elevation: 1,
       color: Colors.green.shade50,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(Icons.payments, color: Colors.green[700]),
-                const SizedBox(width: 8),
-                Text(
-                  'Disbursement Details',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green[700],
-                  ),
-                ),
-              ],
-            ),
+            _buildCardHeader(
+                Icons.payments_outlined, 'Disbursement Details',
+                color: Colors.green[700]!),
             const SizedBox(height: 16),
             _buildDetailRow(
               'Amount Disbursed',
@@ -1040,7 +1540,8 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
             ),
             if (_advance!.referenceNumber != null &&
                 _advance!.referenceNumber!.isNotEmpty)
-              _buildDetailRow('Reference No.', _advance!.referenceNumber!),
+              _buildDetailRow(
+                  'Reference No.', _advance!.referenceNumber!),
             if (_advance!.disbursedBy != null)
               _buildDetailRow('Disbursed By', _advance!.disbursedBy!),
           ],
@@ -1051,7 +1552,9 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
 
   Widget _buildLinkedPRCard() {
     return Card(
+      elevation: 1,
       color: Colors.teal.shade50,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         onTap: () => context.push(
           '/purchase-requisitions/${_advance!.purchaseRequisitionId}',
@@ -1095,28 +1598,106 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
     );
   }
 
-  Widget _buildSettlementCard() {
+  Widget _buildLinkedMinutesCard() {
     return Card(
-      color: Colors.purple.shade50,
+      elevation: 1,
+      color: Colors.indigo.shade50,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(Icons.receipt_long, color: Colors.purple[700]),
-                const SizedBox(width: 8),
-                Text(
-                  'Settlement Details',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.purple[700],
-                  ),
-                ),
-              ],
+            _buildCardHeader(
+              Icons.meeting_room_outlined,
+              'Meeting Reference',
+              color: Colors.indigo[700]!,
             ),
+            const SizedBox(height: 16),
+            if (_advance!.linkedMinutesLabel != null)
+              _buildDetailRow('Minutes', _advance!.linkedMinutesLabel),
+            if (_advance!.linkedActionItemNumber != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 140,
+                      child: Text(
+                        'Action Item',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    Wrap(
+                      spacing: 6,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.indigo.shade100,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.indigo.shade200),
+                          ),
+                          child: Text(
+                            _advance!.linkedActionItemNumber!,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.indigo[700],
+                            ),
+                          ),
+                        ),
+                        if (_advance!.linkedActionItemAction != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.teal.shade50,
+                              borderRadius: BorderRadius.circular(6),
+                              border:
+                                  Border.all(color: Colors.teal.shade200),
+                            ),
+                            child: Text(
+                              _advance!.linkedActionItemAction!,
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.teal[700]),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            if (_advance!.linkedActionItemTitle != null)
+              _buildDetailRow('Title', _advance!.linkedActionItemTitle),
+            if (_advance!.linkedActionItemDescription != null &&
+                _advance!.linkedActionItemDescription!.isNotEmpty)
+              _buildDetailRow(
+                  'Description', _advance!.linkedActionItemDescription),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettlementCard() {
+    return Card(
+      elevation: 1,
+      color: Colors.purple.shade50,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildCardHeader(
+                Icons.receipt_long_outlined, 'Settlement Details',
+                color: Colors.purple[700]!),
             const SizedBox(height: 16),
             if (_advance!.settledAmount != null)
               _buildDetailRow(
@@ -1138,15 +1719,14 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
 
   Widget _buildNotesCard() {
     return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Notes',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            _buildCardHeader(Icons.notes_outlined, 'Notes'),
             const SizedBox(height: 12),
             Text(
               _advance!.notes!,
@@ -1158,7 +1738,27 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
+  // ── Shared helpers ────────────────────────────────────────────────────────
+
+  Widget _buildCardHeader(IconData icon, String title,
+      {Color color = Colors.indigo}) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: color),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: color == Colors.indigo ? Colors.black87 : color,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDetailRow(String label, String? value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -1176,128 +1776,12 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
           ),
           Expanded(
             child: Text(
-              value,
+              value ?? '—',
               style: const TextStyle(fontWeight: FontWeight.w500),
             ),
           ),
         ],
       ),
     );
-  }
-
-  Widget _buildActionButtons(bool isAdmin) {
-    final status = _advance!.statusEnum;
-    final List<Widget> buttons = [];
-
-    if (status == CashAdvanceStatus.draft) {
-      buttons.add(
-        ElevatedButton.icon(
-          onPressed: () => context.push('/cash-advances/${_advance!.id}/edit'),
-          icon: const Icon(Icons.edit),
-          label: const Text('Edit'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue,
-            foregroundColor: Colors.white,
-          ),
-        ),
-      );
-      buttons.add(
-        ElevatedButton.icon(
-          onPressed: _submitAdvance,
-          icon: const Icon(Icons.send),
-          label: const Text('Submit'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.indigo,
-            foregroundColor: Colors.white,
-          ),
-        ),
-      );
-    }
-
-    if (status == CashAdvanceStatus.submitted && isAdmin) {
-      buttons.add(
-        ElevatedButton.icon(
-          onPressed: _approveAdvance,
-          icon: const Icon(Icons.check),
-          label: const Text('Approve'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green,
-            foregroundColor: Colors.white,
-          ),
-        ),
-      );
-      buttons.add(
-        ElevatedButton.icon(
-          onPressed: _rejectAdvance,
-          icon: const Icon(Icons.close),
-          label: const Text('Reject'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red,
-            foregroundColor: Colors.white,
-          ),
-        ),
-      );
-    }
-
-    if (status == CashAdvanceStatus.approved && isAdmin) {
-      buttons.add(
-        ElevatedButton.icon(
-          onPressed: _disburseAdvance,
-          icon: const Icon(Icons.payments),
-          label: const Text('Disburse'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green,
-            foregroundColor: Colors.white,
-          ),
-        ),
-      );
-    }
-
-    if (status == CashAdvanceStatus.disbursed) {
-      buttons.add(
-        ElevatedButton.icon(
-          onPressed: () {
-            final advanceId = _advance?.id;
-            if (advanceId == null) return;
-            final prId = _advance?.purchaseRequisitionId;
-            final uri = prId != null
-                ? '/reports/new/advance-settlement?cashAdvanceId=$advanceId&purchaseRequisitionId=$prId'
-                : '/reports/new/advance-settlement?cashAdvanceId=$advanceId';
-            context.push(uri);
-          },
-          icon: const Icon(Icons.receipt_long),
-          label: const Text('Create Settlement'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.purple,
-            foregroundColor: Colors.white,
-          ),
-        ),
-      );
-    }
-
-    if (buttons.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: buttons,
-    );
-  }
-
-  Future<void> _refreshProviderCache() async {
-    if (!mounted) return;
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final cashAdvanceProvider =
-        Provider.of<CashAdvanceProvider>(context, listen: false);
-    final isAdmin = authProvider.canManageUsers();
-    final user = authProvider.currentUser;
-
-    if (isAdmin) {
-      await cashAdvanceProvider.loadAdvances();
-    } else if (user != null) {
-      await cashAdvanceProvider.loadAdvancesByUser(user.id);
-    }
   }
 }

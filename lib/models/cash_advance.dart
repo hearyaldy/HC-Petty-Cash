@@ -49,6 +49,14 @@ class CashAdvance {
   final double? settledAmount;
   final double? returnedAmount;
 
+  // Meeting Minutes Reference
+  final String? linkedMinutesId;        // AdcomMinutes document ID
+  final String? linkedMinutesLabel;     // e.g. "ADCOM – Feb 05, 2025"
+  final String? linkedActionItemNumber; // e.g. "05/02-AD001"
+  final String? linkedActionItemTitle;  // Heading of the action item
+  final String? linkedActionItemDescription; // Description
+  final String? linkedActionItemAction; // ActionType display name (e.g. "Recommended")
+
   // Supporting Documents
   final List<String> supportDocumentUrls;
   final String? notes;
@@ -85,6 +93,12 @@ class CashAdvance {
     this.settledAt,
     this.settledAmount,
     this.returnedAmount,
+    this.linkedMinutesId,
+    this.linkedMinutesLabel,
+    this.linkedActionItemNumber,
+    this.linkedActionItemTitle,
+    this.linkedActionItemDescription,
+    this.linkedActionItemAction,
     List<String>? supportDocumentUrls,
     this.notes,
     this.companyName,
@@ -152,6 +166,12 @@ class CashAdvance {
       'settledAt': settledAt != null ? Timestamp.fromDate(settledAt!) : null,
       'settledAmount': settledAmount,
       'returnedAmount': returnedAmount,
+      'linkedMinutesId': linkedMinutesId,
+      'linkedMinutesLabel': linkedMinutesLabel,
+      'linkedActionItemNumber': linkedActionItemNumber,
+      'linkedActionItemTitle': linkedActionItemTitle,
+      'linkedActionItemDescription': linkedActionItemDescription,
+      'linkedActionItemAction': linkedActionItemAction,
       'supportDocumentUrls': supportDocumentUrls,
       'notes': notes,
       'companyName': companyName,
@@ -209,6 +229,12 @@ class CashAdvance {
       settledAt: parseTimestampOptional(data['settledAt']),
       settledAmount: (data['settledAmount'] as num?)?.toDouble(),
       returnedAmount: (data['returnedAmount'] as num?)?.toDouble(),
+      linkedMinutesId: data['linkedMinutesId'],
+      linkedMinutesLabel: data['linkedMinutesLabel'],
+      linkedActionItemNumber: data['linkedActionItemNumber'],
+      linkedActionItemTitle: data['linkedActionItemTitle'],
+      linkedActionItemDescription: data['linkedActionItemDescription'],
+      linkedActionItemAction: data['linkedActionItemAction'],
       supportDocumentUrls:
           (data['supportDocumentUrls'] as List<dynamic>?)?.cast<String>() ?? [],
       notes: data['notes'],
@@ -283,6 +309,12 @@ class CashAdvance {
           : null,
       settledAmount: (json['settledAmount'] as num?)?.toDouble(),
       returnedAmount: (json['returnedAmount'] as num?)?.toDouble(),
+      linkedMinutesId: json['linkedMinutesId'],
+      linkedMinutesLabel: json['linkedMinutesLabel'],
+      linkedActionItemNumber: json['linkedActionItemNumber'],
+      linkedActionItemTitle: json['linkedActionItemTitle'],
+      linkedActionItemDescription: json['linkedActionItemDescription'],
+      linkedActionItemAction: json['linkedActionItemAction'],
       supportDocumentUrls:
           (json['supportDocumentUrls'] as List<dynamic>?)?.cast<String>() ?? [],
       notes: json['notes'],
@@ -321,6 +353,12 @@ class CashAdvance {
     DateTime? settledAt,
     double? settledAmount,
     double? returnedAmount,
+    String? linkedMinutesId,
+    String? linkedMinutesLabel,
+    String? linkedActionItemNumber,
+    String? linkedActionItemTitle,
+    String? linkedActionItemDescription,
+    String? linkedActionItemAction,
     List<String>? supportDocumentUrls,
     String? notes,
     String? companyName,
@@ -356,6 +394,12 @@ class CashAdvance {
       settledAt: settledAt ?? this.settledAt,
       settledAmount: settledAmount ?? this.settledAmount,
       returnedAmount: returnedAmount ?? this.returnedAmount,
+      linkedMinutesId: linkedMinutesId ?? this.linkedMinutesId,
+      linkedMinutesLabel: linkedMinutesLabel ?? this.linkedMinutesLabel,
+      linkedActionItemNumber: linkedActionItemNumber ?? this.linkedActionItemNumber,
+      linkedActionItemTitle: linkedActionItemTitle ?? this.linkedActionItemTitle,
+      linkedActionItemDescription: linkedActionItemDescription ?? this.linkedActionItemDescription,
+      linkedActionItemAction: linkedActionItemAction ?? this.linkedActionItemAction,
       supportDocumentUrls: supportDocumentUrls ?? this.supportDocumentUrls,
       notes: notes ?? this.notes,
       companyName: companyName ?? this.companyName,

@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:go_router/go_router.dart';
 import '../../models/meeting.dart';
 import '../../services/meeting_service.dart';
@@ -49,10 +51,22 @@ class _EditMinutesScreenState extends State<EditMinutesScreen>
       );
 
       if (mounted) {
+        // Seed attendance from invited members if no existing records
+        List<AttendanceRecord> attendance = minutes?.attendance ?? [];
+        if (attendance.isEmpty && meeting != null && meeting.invitedMembers.isNotEmpty) {
+          attendance = meeting.invitedMembers.map((member) {
+            return AttendanceRecord(
+              oderId: member.oderId,
+              name: member.name,
+              status: 'present',
+            );
+          }).toList();
+        }
+
         setState(() {
           _meeting = meeting;
           _minutes = minutes;
-          _attendance = minutes?.attendance ?? [];
+          _attendance = attendance;
           _itemRecords = minutes?.itemRecords ?? [];
           _customHeadingController.text = meeting?.customHeading ?? '';
           _isLoading = false;
@@ -172,125 +186,38 @@ class _EditMinutesScreenState extends State<EditMinutesScreen>
   }
 
   void _showEditRecordDialog(MinutesItemRecord record, int index) {
-    final discussionController = TextEditingController(
-      text: record.discussion ?? '',
-    );
-    List<String> decisions = List.from(record.decisions);
-    final decisionController = TextEditingController();
-
     showDialog(
       context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: Text(record.agendaItemTitle),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(
-                      controller: discussionController,
-                      decoration: const InputDecoration(
-                        labelText: 'Discussion Notes',
-                        border: OutlineInputBorder(),
-                        hintText: 'Enter discussion points...',
-                      ),
-                      maxLines: 4,
-                      textCapitalization: TextCapitalization.sentences,
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Decisions:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    ...decisions.asMap().entries.map((entry) {
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        dense: true,
-                        leading: const Icon(
-                          Icons.check_circle,
-                          color: Colors.green,
-                          size: 20,
-                        ),
-                        title: Text(
-                          entry.value,
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.close, size: 18),
-                          onPressed: () {
-                            setDialogState(() {
-                              decisions.removeAt(entry.key);
-                            });
-                          },
-                        ),
-                      );
-                    }),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: decisionController,
-                            decoration: const InputDecoration(
-                              labelText: 'Add Decision',
-                              border: OutlineInputBorder(),
-                              isDense: true,
-                            ),
-                            textCapitalization: TextCapitalization.sentences,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.add_circle,
-                            color: Colors.green,
-                          ),
-                          onPressed: () {
-                            if (decisionController.text.trim().isNotEmpty) {
-                              setDialogState(() {
-                                decisions.add(decisionController.text.trim());
-                                decisionController.clear();
-                              });
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      _itemRecords[index] = MinutesItemRecord(
-                        agendaItemId: record.agendaItemId,
-                        agendaItemTitle: record.agendaItemTitle,
-                        discussion: discussionController.text.trim().isNotEmpty
-                            ? discussionController.text.trim()
-                            : null,
-                        decisions: decisions,
-                        motions: record.motions,
-                      );
-                    });
-                    Navigator.pop(dialogContext);
-                  },
-                  child: const Text('Save'),
-                ),
-              ],
+      builder: (context) => _EditRecordDialog(
+        record: record,
+        onSave: (discussion, decisions) {
+          setState(() {
+            _itemRecords[index] = MinutesItemRecord(
+              agendaItemId: record.agendaItemId,
+              agendaItemTitle: record.agendaItemTitle,
+              discussion: discussion,
+              decisions: decisions,
+              motions: record.motions,
             );
-          },
-        );
-      },
+          });
+        },
+      ),
     );
+  }
+
+  String _discussionPreview(String? discussion) {
+    if (discussion == null || discussion.isEmpty) return '';
+    if (discussion.startsWith('[')) {
+      try {
+        final ops = jsonDecode(discussion) as List;
+        return ops
+            .where((op) => op is Map && op['insert'] is String)
+            .map((op) => (op as Map)['insert'] as String)
+            .join()
+            .trim();
+      } catch (_) {}
+    }
+    return discussion;
   }
 
   @override
@@ -788,7 +715,7 @@ class _EditMinutesScreenState extends State<EditMinutesScreen>
                   record.discussion!.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text(
-                  record.discussion!,
+                  _discussionPreview(record.discussion),
                   style: TextStyle(color: Colors.grey[700], fontSize: 13),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -825,6 +752,261 @@ class _EditMinutesScreenState extends State<EditMinutesScreen>
                 ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Rich-text edit dialog for a single meeting record item ──────────────────
+
+class _EditRecordDialog extends StatefulWidget {
+  final MinutesItemRecord record;
+  final void Function(String? discussion, List<String> decisions) onSave;
+
+  const _EditRecordDialog({required this.record, required this.onSave});
+
+  @override
+  State<_EditRecordDialog> createState() => _EditRecordDialogState();
+}
+
+class _EditRecordDialogState extends State<_EditRecordDialog> {
+  late quill.QuillController _discussionController;
+  late List<String> _decisions;
+  final TextEditingController _decisionInputController =
+      TextEditingController();
+  final FocusNode _quillFocusNode = FocusNode();
+  final ScrollController _quillScrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _decisions = List.from(widget.record.decisions);
+    _discussionController =
+        _buildQuillController(widget.record.discussion ?? '');
+  }
+
+  quill.QuillController _buildQuillController(String text) {
+    if (text.isEmpty) return quill.QuillController.basic();
+    if (text.startsWith('[')) {
+      try {
+        final doc =
+            quill.Document.fromJson(jsonDecode(text) as List);
+        return quill.QuillController(
+          document: doc,
+          selection: const TextSelection.collapsed(offset: 0),
+        );
+      } catch (_) {}
+    }
+    final doc = quill.Document()..insert(0, text);
+    return quill.QuillController(
+      document: doc,
+      selection: const TextSelection.collapsed(offset: 0),
+    );
+  }
+
+  @override
+  void dispose() {
+    _discussionController.dispose();
+    _decisionInputController.dispose();
+    _quillFocusNode.dispose();
+    _quillScrollController.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final delta = _discussionController.document.toDelta().toJson();
+    final plainText =
+        _discussionController.document.toPlainText().trim();
+    final discussion =
+        plainText.isEmpty ? null : jsonEncode(delta);
+    Navigator.pop(context);
+    widget.onSave(discussion, _decisions);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.record.agendaItemTitle),
+      content: SizedBox(
+        width: 520,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Discussion rich-text editor ────────────────────────────
+              const Text(
+                'Discussion Notes',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade400),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildUndoRedoBar(_discussionController),
+                    const Divider(height: 1),
+                    quill.QuillSimpleToolbar(
+                      controller: _discussionController,
+                      config: const quill.QuillSimpleToolbarConfig(
+                        showFontFamily: false,
+                        showFontSize: false,
+                        showBackgroundColorButton: false,
+                        showColorButton: false,
+                        showAlignmentButtons: false,
+                        showDirection: false,
+                        showDividers: true,
+                        showHeaderStyle: false,
+                        showIndent: false,
+                        showLink: false,
+                        showSearchButton: false,
+                        showSubscript: false,
+                        showSuperscript: false,
+                        showCodeBlock: false,
+                        showInlineCode: false,
+                        showQuote: false,
+                        showSmallButton: false,
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    SizedBox(
+                      height: 160,
+                      child: quill.QuillEditor(
+                        controller: _discussionController,
+                        focusNode: _quillFocusNode,
+                        scrollController: _quillScrollController,
+                        config: const quill.QuillEditorConfig(
+                          placeholder: 'Enter discussion points...',
+                          padding: EdgeInsets.all(12),
+                          autoFocus: false,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // ── Decisions ──────────────────────────────────────────────
+              const Text(
+                'Decisions:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              ..._decisions.asMap().entries.map((entry) {
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  leading: const Icon(
+                    Icons.check_circle,
+                    color: Colors.green,
+                    size: 20,
+                  ),
+                  title: Text(
+                    entry.value,
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: () {
+                      setState(() => _decisions.removeAt(entry.key));
+                    },
+                  ),
+                );
+              }),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _decisionInputController,
+                      decoration: const InputDecoration(
+                        labelText: 'Add Decision',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      textCapitalization: TextCapitalization.sentences,
+                      onSubmitted: (_) => _addDecision(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.add_circle, color: Colors.green),
+                    onPressed: _addDecision,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _save,
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+
+  void _addDecision() {
+    final text = _decisionInputController.text.trim();
+    if (text.isNotEmpty) {
+      setState(() {
+        _decisions.add(text);
+        _decisionInputController.clear();
+      });
+    }
+  }
+
+  Widget _buildUndoRedoBar(quill.QuillController controller) {
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.format_color_text,
+              size: 13,
+              color: Colors.grey.shade500,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              'Rich text',
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+            ),
+            const Spacer(),
+            IconButton(
+              icon: const Icon(Icons.undo),
+              iconSize: 18,
+              onPressed: () => controller.undo(),
+              tooltip: 'Undo (Ctrl+Z)',
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.all(4),
+            ),
+            IconButton(
+              icon: const Icon(Icons.redo),
+              iconSize: 18,
+              onPressed: () => controller.redo(),
+              tooltip: 'Redo (Ctrl+Y)',
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.all(4),
+            ),
+          ],
         ),
       ),
     );

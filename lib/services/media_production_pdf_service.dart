@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import '../models/media_production.dart';
 import '../utils/constants.dart';
 
@@ -338,24 +339,31 @@ class MediaProductionPdfService {
   }
 
   Future<pw.ThemeData> _buildTheme() async {
+    pw.Font? regular;
+    pw.Font? bold;
     try {
-      final regular = pw.Font.ttf(
+      regular = pw.Font.ttf(
         await rootBundle.load('assets/fonts/NotoSansThai-Regular.ttf'),
       );
-      final bold = pw.Font.ttf(
+      bold = pw.Font.ttf(
         await rootBundle.load('assets/fonts/NotoSansThai-Bold.ttf'),
       );
-      return pw.ThemeData.withFont(
-        base: regular,
-        bold: bold,
-        fontFallback: [pw.Font.helvetica(), pw.Font.helveticaBold()],
-      );
-    } catch (e) {
-      return pw.ThemeData.withFont(
-        base: pw.Font.helvetica(),
-        bold: pw.Font.helveticaBold(),
-      );
-    }
+    } catch (_) {}
+
+    pw.Font? notoFallback;
+    pw.Font? emojiFont;
+    try {
+      notoFallback = await PdfGoogleFonts.notoSansRegular();
+    } catch (_) {}
+    try {
+      emojiFont = await PdfGoogleFonts.notoColorEmojiRegular();
+    } catch (_) {}
+
+    return pw.ThemeData.withFont(
+      base: regular ?? pw.Font.helvetica(),
+      bold: bold ?? pw.Font.helveticaBold(),
+      fontFallback: [?notoFallback, ?emojiFont],
+    );
   }
 
   Future<pw.ImageProvider?> _loadLogo() async {

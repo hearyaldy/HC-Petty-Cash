@@ -81,6 +81,32 @@ class _LoginScreenState extends State<LoginScreen> {
                   const Text(
                     'Enter your email address and we\'ll send you a link to reset your password.',
                   ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
+                      border: Border.all(color: Colors.amber.shade300),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.info_outline,
+                            size: 16, color: Colors.amber.shade800),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'If you don\'t see the email in your inbox, please check your Junk or Spam folder.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.amber.shade900,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: emailController,
@@ -121,9 +147,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           scaffoldMessenger.showSnackBar(
                             const SnackBar(
                               content: Text(
-                                'Password reset email sent. Check your inbox.',
+                                'Password reset email sent. Check your inbox — and your Junk/Spam folder if you don\'t see it.',
                               ),
                               backgroundColor: Colors.green,
+                              duration: Duration(seconds: 6),
                             ),
                           );
                         } catch (e) {

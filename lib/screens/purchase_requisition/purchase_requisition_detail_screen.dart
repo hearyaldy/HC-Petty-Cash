@@ -4,7 +4,9 @@ import 'package:uuid/uuid.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../models/purchase_requisition.dart';
+import '../../models/adcom_minutes.dart';
 import '../../services/firestore_service.dart';
+import '../../services/adcom_minutes_service.dart';
 import '../../services/purchase_requisition_pdf_export_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/edit_purchase_requisition_dialog.dart';
@@ -61,6 +63,12 @@ class _PurchaseRequisitionDetailScreenState
           purchaseReason: result['purchaseReason'] as String?,
           actionNo: result['actionNo'] as String?,
           notes: result['notes'] as String?,
+          linkedMinutesId: result['linkedMinutesId'],
+          linkedMinutesLabel: result['linkedMinutesLabel'],
+          linkedActionItemNumber: result['linkedActionItemNumber'],
+          linkedActionItemTitle: result['linkedActionItemTitle'],
+          linkedActionItemDescription: result['linkedActionItemDescription'],
+          linkedActionItemAction: result['linkedActionItemAction'],
           updatedAt: DateTime.now(),
         );
 
@@ -363,6 +371,130 @@ class _PurchaseRequisitionDetailScreenState
         );
       }
     }
+  }
+
+  final _minutesService = AdcomMinutesService();
+
+  Future<void> _pickMinutesReference(PurchaseRequisition requisition) async {
+    final allMinutes = await _minutesService.getMinutes().first;
+    if (!mounted) return;
+
+    final AdcomMinutes? selectedMinutes = await showDialog<AdcomMinutes>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Select Meeting Minutes'),
+        content: SizedBox(
+          width: 400,
+          height: 400,
+          child: allMinutes.isEmpty
+              ? const Center(child: Text('No minutes available'))
+              : ListView.builder(
+                  itemCount: allMinutes.length,
+                  itemBuilder: (context, index) {
+                    final m = allMinutes[index];
+                    final label =
+                        'ADCOM – ${DateFormat('MMM dd, yyyy').format(m.meetingDate)}';
+                    return ListTile(
+                      title: Text(label),
+                      subtitle: Text(m.organization),
+                      onTap: () => Navigator.pop(context, m),
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+
+    if (selectedMinutes == null || !mounted) return;
+
+    final MinutesItem? selectedItem = await showDialog<MinutesItem>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Select Action Item'),
+        content: SizedBox(
+          width: 400,
+          height: 400,
+          child: selectedMinutes.minutesItems.isEmpty
+              ? const Center(child: Text('No action items'))
+              : ListView.builder(
+                  itemCount: selectedMinutes.minutesItems.length,
+                  itemBuilder: (context, index) {
+                    final item = selectedMinutes.minutesItems[index];
+                    return ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.indigo.shade50,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.indigo.shade200),
+                        ),
+                        child: Text(
+                          item.itemNumber,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.indigo.shade700,
+                          ),
+                        ),
+                      ),
+                      title: Text(item.title,
+                          style: const TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w600)),
+                      subtitle: item.resolution != null
+                          ? Text(item.resolution!,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  fontSize: 11, color: Colors.grey[600]))
+                          : null,
+                      onTap: () => Navigator.pop(context, item),
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Back'),
+          ),
+        ],
+      ),
+    );
+
+    if (selectedItem == null || !mounted) return;
+
+    final dateStr =
+        DateFormat('MMM dd, yyyy').format(selectedMinutes.meetingDate);
+    final updated = requisition.copyWith(
+      linkedMinutesId: selectedMinutes.id,
+      linkedMinutesLabel: 'ADCOM \u2013 $dateStr',
+      linkedActionItemNumber: selectedItem.itemNumber,
+      linkedActionItemTitle: selectedItem.title,
+      linkedActionItemDescription: selectedItem.description,
+      linkedActionItemAction: selectedItem.status.displayName,
+      updatedAt: DateTime.now(),
+    );
+    await _firestoreService.updatePurchaseRequisition(updated);
+  }
+
+  Future<void> _clearMinutesReference(PurchaseRequisition requisition) async {
+    final updated = requisition.copyWith(
+      linkedMinutesId: null,
+      linkedMinutesLabel: null,
+      linkedActionItemNumber: null,
+      linkedActionItemTitle: null,
+      linkedActionItemDescription: null,
+      linkedActionItemAction: null,
+      updatedAt: DateTime.now(),
+    );
+    await _firestoreService.updatePurchaseRequisition(updated);
   }
 
   Future<void> _approveRequisition(PurchaseRequisition requisition) async {
@@ -671,6 +803,8 @@ class _PurchaseRequisitionDetailScreenState
             _buildInfoSection(requisition),
             if (requisition.cashAdvanceId != null)
               _buildLinkedCACard(requisition),
+            if (requisition.linkedMinutesId != null)
+              _buildLinkedMinutesCard(requisition),
             _buildItemsSection(requisition),
             _buildSummarySection(requisition),
             if (requisition.status == 'approved' && requisition.cashAdvanceId == null)
@@ -906,6 +1040,9 @@ class _PurchaseRequisitionDetailScreenState
             case 'print':
               _printRequisition(requisition);
               break;
+            case 'link_meeting':
+              _pickMinutesReference(requisition);
+              break;
             case 'approve':
               _approveRequisition(requisition);
               break;
@@ -945,6 +1082,16 @@ class _PurchaseRequisitionDetailScreenState
                 Icon(Icons.print, size: 20),
                 SizedBox(width: 12),
                 Text('Print'),
+              ],
+            ),
+          ),
+          const PopupMenuItem(
+            value: 'link_meeting',
+            child: Row(
+              children: [
+                Icon(Icons.meeting_room_outlined, size: 20, color: Colors.indigo),
+                SizedBox(width: 12),
+                Text('Link Meeting Minutes'),
               ],
             ),
           ),
@@ -1048,6 +1195,104 @@ class _PurchaseRequisitionDetailScreenState
                 Icon(Icons.chevron_right, color: Colors.teal[400]),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLinkedMinutesCard(PurchaseRequisition requisition) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Card(
+        elevation: 1,
+        color: Colors.indigo.shade50,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.meeting_room_outlined, color: Colors.indigo[700]),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Meeting Reference',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.indigo[800],
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.clear, size: 18),
+                    color: Colors.grey[500],
+                    tooltip: 'Remove meeting reference',
+                    onPressed: () => _clearMinutesReference(requisition),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (requisition.linkedMinutesLabel != null)
+                _buildDetailRow(Icons.event_note, 'Minutes', requisition.linkedMinutesLabel!),
+              if (requisition.linkedActionItemNumber != null) ...[
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.tag, size: 20, color: Colors.grey.shade600),
+                    const SizedBox(width: 12),
+                    Wrap(
+                      spacing: 6,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.indigo.shade100,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.indigo.shade200),
+                          ),
+                          child: Text(
+                            requisition.linkedActionItemNumber!,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.indigo[700],
+                            ),
+                          ),
+                        ),
+                        if (requisition.linkedActionItemAction != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.teal.shade50,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: Colors.teal.shade200),
+                            ),
+                            child: Text(
+                              requisition.linkedActionItemAction!,
+                              style: TextStyle(fontSize: 12, color: Colors.teal[700]),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+              if (requisition.linkedActionItemTitle != null) ...[
+                const SizedBox(height: 8),
+                _buildDetailRow(Icons.title, 'Title', requisition.linkedActionItemTitle!),
+              ],
+              if (requisition.linkedActionItemDescription != null &&
+                  requisition.linkedActionItemDescription!.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                _buildDetailRow(Icons.description_outlined, 'Description',
+                    requisition.linkedActionItemDescription!),
+              ],
+            ],
           ),
         ),
       ),

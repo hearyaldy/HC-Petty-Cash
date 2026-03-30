@@ -491,9 +491,40 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+
+            // Signature section
+            const SizedBox(height: 40),
+            const Divider(),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildSignatureBlock('Chairperson', _meeting?.chairpersonName),
+                _buildSignatureBlock('Secretary', _meeting?.secretaryName),
+              ],
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSignatureBlock(String label, String? name) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+        ),
+        const SizedBox(height: 32),
+        Container(width: 180, height: 0.5, color: Colors.grey.shade700),
+        const SizedBox(height: 4),
+        Text(
+          name != null && name.isNotEmpty ? name : 'Name / Signature',
+          style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
+        ),
+      ],
     );
   }
 
@@ -930,12 +961,43 @@ class _AdcomAgendaViewScreenState extends State<AdcomAgendaViewScreen> {
                   fontWeight: pw.FontWeight.bold,
                 ),
               ),
+
+            // Signature section
+            pw.SizedBox(height: 40),
+            pw.Divider(),
+            pw.SizedBox(height: 20),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                _buildPdfSignatureBlock('Chairperson', _meeting?.chairpersonName),
+                _buildPdfSignatureBlock('Secretary', _meeting?.secretaryName),
+              ],
+            ),
           ];
         },
       ),
     );
 
     await Printing.layoutPdf(onLayout: (format) async => pdf.save());
+  }
+
+  pw.Widget _buildPdfSignatureBlock(String label, String? name) {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text(
+          label,
+          style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9),
+        ),
+        pw.SizedBox(height: 30),
+        pw.Container(width: 160, height: 0.5, color: PdfColors.grey700),
+        pw.SizedBox(height: 4),
+        pw.Text(
+          name != null && name.isNotEmpty ? name : 'Name / Signature',
+          style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
+        ),
+      ],
+    );
   }
 
   pw.Widget _buildPdfAgendaItem(AgendaItem item) {

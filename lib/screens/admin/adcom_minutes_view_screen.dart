@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import '../../models/adcom_agenda.dart';
 import '../../models/adcom_minutes.dart';
 import '../../models/meeting_template.dart';
 import '../../services/adcom_minutes_service.dart';
@@ -481,9 +482,46 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+
+            // Signature section
+            const SizedBox(height: 40),
+            const Divider(),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildSignatureBlock(
+                  'Chairperson',
+                  _minutes!.chairperson ?? _meeting?.chairpersonName,
+                ),
+                _buildSignatureBlock(
+                  'Secretary',
+                  _minutes!.secretary ?? _meeting?.secretaryName,
+                ),
+              ],
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSignatureBlock(String label, String? name) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+        ),
+        const SizedBox(height: 32),
+        Container(width: 180, height: 0.5, color: Colors.grey.shade700),
+        const SizedBox(height: 4),
+        Text(
+          name != null && name.isNotEmpty ? name : 'Name / Signature',
+          style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
+        ),
+      ],
     );
   }
 
@@ -509,7 +547,7 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Left column: Item number and status
+          // Left column: Item number, status and action type
           SizedBox(
             width: 100,
             child: Column(
@@ -542,6 +580,24 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    item.actionType.displayName,
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -565,10 +621,9 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
                   item.description,
                   const TextStyle(fontSize: 11, height: 1.4),
                 ),
-                // Resolution (if voted)
+                // Resolution (if voted and has real content)
                 if (item.status == MinutesItemStatus.voted &&
-                    item.resolution != null &&
-                    item.resolution!.isNotEmpty) ...[
+                    _hasContent(item.resolution)) ...[
                   const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.all(8),
@@ -589,9 +644,9 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        Text(
+                        _buildFormattedText(
                           item.resolution!,
-                          style: TextStyle(
+                          TextStyle(
                             fontSize: 10,
                             fontStyle: FontStyle.italic,
                             color: Colors.green.shade900,
@@ -621,11 +676,20 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
                     ),
                   ),
                 ],
-                // Notes
-                if (item.notes != null && item.notes!.isNotEmpty) ...[
+                // Notes / Discussion Points
+                if (_hasContent(item.notes)) ...[
                   const SizedBox(height: 8),
+                  Text(
+                    'Notes:',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
                   _buildFormattedText(
-                    'Notes: ${item.notes}',
+                    item.notes!,
                     TextStyle(
                       fontSize: 10,
                       fontStyle: FontStyle.italic,
@@ -746,6 +810,23 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
     return result;
   }
 
+  bool _hasContent(String? s) {
+    if (s == null || s.isEmpty) return false;
+    if (s.startsWith('[')) {
+      try {
+        final ops = jsonDecode(s) as List;
+        final plain = ops
+            .whereType<Map>()
+            .map((op) => op['insert'])
+            .whereType<String>()
+            .join()
+            .trim();
+        return plain.isNotEmpty;
+      } catch (_) {}
+    }
+    return s.trim().isNotEmpty;
+  }
+
   Widget _buildFormattedText(String text, TextStyle baseStyle) {
     if (text.startsWith('[')) {
       try {
@@ -783,6 +864,25 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
           ),
         )).toList(),
       ),
+    );
+  }
+
+  pw.Widget _buildPdfSignatureBlock(String label, String? name) {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text(
+          label,
+          style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9),
+        ),
+        pw.SizedBox(height: 30),
+        pw.Container(width: 160, height: 0.5, color: PdfColors.grey700),
+        pw.SizedBox(height: 4),
+        pw.Text(
+          name != null && name.isNotEmpty ? name : 'Name / Signature',
+          style: const pw.TextStyle(fontSize: 8),
+        ),
+      ],
     );
   }
 
@@ -1067,6 +1167,24 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
                   fontWeight: pw.FontWeight.bold,
                 ),
               ),
+
+            // Signature section
+            pw.SizedBox(height: 40),
+            pw.Divider(),
+            pw.SizedBox(height: 20),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                _buildPdfSignatureBlock(
+                  'Chairperson',
+                  _minutes!.chairperson ?? _meeting?.chairpersonName,
+                ),
+                _buildPdfSignatureBlock(
+                  'Secretary',
+                  _minutes!.secretary ?? _meeting?.secretaryName,
+                ),
+              ],
+            ),
           ];
         },
       ),
@@ -1132,6 +1250,23 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
                     ),
                   ),
                 ),
+                pw.SizedBox(height: 4),
+                pw.Container(
+                  padding: const pw.EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 2,
+                  ),
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border.all(color: PdfColors.grey400, width: 0.5),
+                  ),
+                  child: pw.Text(
+                    item.actionType.displayName,
+                    style: const pw.TextStyle(
+                      fontSize: 8,
+                      color: PdfColors.grey700,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -1154,8 +1289,7 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
                   const pw.TextStyle(fontSize: 10),
                 ),
                 if (item.status == MinutesItemStatus.voted &&
-                    item.resolution != null &&
-                    item.resolution!.isNotEmpty) ...[
+                    _hasContent(item.resolution)) ...[
                   pw.SizedBox(height: 6),
                   pw.Container(
                     padding: const pw.EdgeInsets.all(6),
@@ -1175,9 +1309,9 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
                           ),
                         ),
                         pw.SizedBox(height: 2),
-                        pw.Text(
+                        _buildPdfFormattedText(
                           item.resolution!,
-                          style: pw.TextStyle(
+                          pw.TextStyle(
                             fontSize: 9,
                             fontStyle: pw.FontStyle.italic,
                             color: PdfColors.green900,
@@ -1205,10 +1339,19 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
                     ),
                   ),
                 ],
-                if (item.notes != null && item.notes!.isNotEmpty) ...[
+                if (_hasContent(item.notes)) ...[
                   pw.SizedBox(height: 4),
+                  pw.Text(
+                    'Notes:',
+                    style: pw.TextStyle(
+                      fontSize: 9,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.grey700,
+                    ),
+                  ),
+                  pw.SizedBox(height: 2),
                   _buildPdfFormattedText(
-                    'Notes: ${item.notes}',
+                    item.notes!,
                     pw.TextStyle(
                       fontSize: 9,
                       fontStyle: pw.FontStyle.italic,

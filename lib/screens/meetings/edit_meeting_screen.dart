@@ -40,100 +40,8 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
   String? _secretaryName;
 
   final List<MeetingMember> _invitedMembers = [];
-  static final List<MeetingMember> _defaultAdcomMembers = [
-    MeetingMember(
-      oderId: 'external_adcom_chair',
-      name: 'Pr. Heary Healdy Sairin',
-      role: 'Chair',
-      organization: 'HC',
-    ),
-    MeetingMember(
-      oderId: 'external_adcom_secretary',
-      name: 'Pr. Kungwalpai Poodjing',
-      role: 'Secretary',
-      organization: 'HC',
-    ),
-    MeetingMember(
-      oderId: 'external_adcom_treasurer',
-      name: 'Archan Samorn Namkote',
-      role: 'SEUM Treasurer',
-      organization: 'SEUM',
-    ),
-    MeetingMember(
-      oderId: 'external_adcom_member_bruno',
-      name: 'Pr. Bruno Barbosa',
-      role: 'HC Member',
-      organization: 'HC',
-    ),
-    MeetingMember(
-      oderId: 'external_adcom_member_doreen',
-      name: 'Mrs. Doreen Neo',
-      role: 'HC Member',
-      organization: 'HC',
-    ),
-    MeetingMember(
-      oderId: 'external_adcom_member_anniston',
-      name: 'Mr. Anniston Mathews',
-      role: 'HC Member',
-      organization: 'HC',
-    ),
-  ];
-  static final List<MeetingMember> _defaultBoardMembers = [
-    MeetingMember(
-      oderId: 'external_board_abel',
-      name: 'Abel Bana',
-      role: 'MAUM',
-      organization: 'MAUM',
-    ),
-    MeetingMember(
-      oderId: 'external_board_nipitpon',
-      name: 'Nipitpon Pongteekatasana',
-      role: 'SEUM CHAIR',
-      organization: 'SEUM',
-    ),
-    MeetingMember(
-      oderId: 'external_board_nelson',
-      name: 'Nelson Bendah',
-      role: 'MAUM',
-      organization: 'MAUM',
-    ),
-    MeetingMember(
-      oderId: 'external_board_lim',
-      name: 'Lim Pheng',
-      role: 'SEUM',
-      organization: 'SEUM',
-    ),
-    MeetingMember(
-      oderId: 'external_board_samorn',
-      name: 'Samorn Namkote',
-      role: 'SEUM',
-      organization: 'SEUM',
-    ),
-    MeetingMember(
-      oderId: 'external_board_joshua',
-      name: 'Joshua Chee',
-      role: 'MAUM',
-      organization: 'MAUM',
-    ),
-    MeetingMember(
-      oderId: 'external_board_chaiwat',
-      name: 'Chaiwat Konratanasak',
-      role: 'SEUM',
-      organization: 'SEUM',
-    ),
-    MeetingMember(
-      oderId: 'external_board_farrel',
-      name: 'Farrel Gara',
-      role: 'MAUM',
-      organization: 'MAUM',
-    ),
-    MeetingMember(
-      oderId: 'external_board_heary',
-      name: 'Heary Healdy Sairin',
-      role: 'HC Secretary',
-      organization: 'HC',
-    ),
-  ];
+  List<MeetingMember> _committeeAdcomMembers = [];
+  List<MeetingMember> _committeeBoardMembers = [];
   bool _isLoading = true;
   bool _isSaving = false;
 
@@ -143,6 +51,7 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
   void initState() {
     super.initState();
     _loadUsers();
+    _loadCommitteeMembers();
     _loadMeeting();
   }
 
@@ -215,7 +124,6 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
     try {
       final usersQuery = await FirebaseFirestore.instance
           .collection('users')
-          .where('role', whereIn: ['admin', 'manager', 'finance'])
           .get();
 
       setState(() {
@@ -227,12 +135,46 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
             'email': data['email'] ?? '',
             'role': data['role'] ?? '',
           };
-        }).toList();
+        }).toList()
+          ..sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
       });
 
       _normalizeRoleSelections();
     } catch (e) {
       debugPrint('Error loading users: $e');
+    }
+  }
+
+  Future<void> _loadCommitteeMembers() async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('meeting_committee_members')
+          .orderBy('order')
+          .get();
+      final adcom = <MeetingMember>[];
+      final board = <MeetingMember>[];
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final member = MeetingMember(
+          oderId: 'external_committee_${doc.id}',
+          name: data['name'] as String? ?? '',
+          role: data['role'] as String?,
+          organization: data['organization'] as String?,
+        );
+        if (data['type'] == 'board') {
+          board.add(member);
+        } else {
+          adcom.add(member);
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _committeeAdcomMembers = adcom;
+          _committeeBoardMembers = board;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading committee members: $e');
     }
   }
 
@@ -273,13 +215,13 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
   void _ensureDefaultAdcomMembers() {
     if (_meetingType != 'adcom') return;
     if (_invitedMembers.isNotEmpty) return;
-    _invitedMembers.addAll(_defaultAdcomMembers);
+    _invitedMembers.addAll(_committeeAdcomMembers);
   }
 
   void _ensureDefaultBoardMembers() {
     if (_meetingType != 'board') return;
     final existing = _invitedMembers.map((m) => m.name.trim()).toSet();
-    for (final member in _defaultBoardMembers) {
+    for (final member in _committeeBoardMembers) {
       if (!existing.contains(member.name.trim())) {
         _invitedMembers.add(member);
       }
@@ -971,9 +913,9 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
 
   Widget _buildRolesSection() {
     final defaultNames = _meetingType == 'adcom'
-        ? _defaultAdcomMembers.map((m) => m.name).toSet()
+        ? _committeeAdcomMembers.map((m) => m.name).toSet()
         : _meetingType == 'board'
-            ? _defaultBoardMembers.map((m) => m.name).toSet()
+            ? _committeeBoardMembers.map((m) => m.name).toSet()
             : <String>{};
     final filteredMembers = defaultNames.isEmpty
         ? _invitedMembers
@@ -1151,8 +1093,19 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
                   color: Colors.grey[800],
                 ),
               ),
-              Row(
+              Wrap(
+                spacing: 4,
                 children: [
+                  TextButton.icon(
+                    onPressed: _showDefaultMembersPicker,
+                    icon: const Icon(Icons.group, size: 18),
+                    label: Text(_meetingType == 'board' ? 'Board' : 'ADCOM'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: _meetingType == 'board'
+                          ? Colors.purple
+                          : Colors.blue,
+                    ),
+                  ),
                   TextButton.icon(
                     onPressed: _showMemberPicker,
                     icon: const Icon(Icons.people, size: 18),
@@ -1178,29 +1131,22 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
               ),
             )
           else
-            ReorderableListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _invitedMembers.length,
-              onReorder: (oldIndex, newIndex) {
-                setState(() {
-                  if (newIndex > oldIndex) {
-                    newIndex -= 1;
-                  }
-                  final item = _invitedMembers.removeAt(oldIndex);
-                  _invitedMembers.insert(newIndex, item);
-                });
-              },
-              itemBuilder: (context, index) {
-                final member = _invitedMembers[index];
+            Column(
+              children: _invitedMembers.asMap().entries.map((entry) {
+                final member = entry.value;
                 final isExternal = member.oderId.startsWith('external_');
                 return Container(
-                  key: ValueKey(member.oderId),
                   margin: const EdgeInsets.only(bottom: 8),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
+                    color: isExternal
+                        ? Colors.orange.shade50
+                        : Colors.indigo.shade50,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.grey.shade200),
+                    border: Border.all(
+                      color: isExternal
+                          ? Colors.orange.shade200
+                          : Colors.indigo.shade200,
+                    ),
                   ),
                   child: ListTile(
                     leading: CircleAvatar(
@@ -1213,21 +1159,68 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
                         color: isExternal ? Colors.orange : Colors.indigo,
                       ),
                     ),
-                    title: Text(member.name),
-                    subtitle: isExternal && member.organization != null
-                        ? Text(
-                            member.organization!,
+                    title: Text(
+                      member.name,
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (member.role != null && member.role!.isNotEmpty)
+                          Text(
+                            member.role!,
                             style: TextStyle(
                               fontSize: 12,
+                              color: isExternal
+                                  ? Colors.orange.shade700
+                                  : Colors.indigo.shade700,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        if (isExternal && member.organization != null)
+                          Text(
+                            member.organization!,
+                            style: TextStyle(
+                              fontSize: 11,
                               color: Colors.grey[600],
                             ),
-                          )
-                        : null,
+                          ),
+                      ],
+                    ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isExternal
+                                ? Colors.orange.withValues(alpha: 0.1)
+                                : Colors.indigo.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            isExternal ? 'External' : 'Internal',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: isExternal
+                                  ? Colors.orange.shade700
+                                  : Colors.indigo.shade700,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
                         IconButton(
-                          icon: const Icon(Icons.close, size: 18),
+                          icon: Icon(
+                            Icons.remove_circle_outline,
+                            size: 20,
+                            color: Colors.red.shade400,
+                          ),
+                          tooltip: 'Remove member',
                           onPressed: () {
                             setState(() {
                               _invitedMembers.removeWhere(
@@ -1236,18 +1229,11 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
                             });
                           },
                         ),
-                        ReorderableDragStartListener(
-                          index: index,
-                          child: Icon(
-                            Icons.drag_handle,
-                            color: Colors.grey[500],
-                          ),
-                        ),
                       ],
                     ),
                   ),
                 );
-              },
+              }).toList(),
             ),
         ],
       ),
@@ -1336,6 +1322,166 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showDefaultMembersPicker() {
+    final defaultList = _meetingType == 'board'
+        ? _committeeBoardMembers
+        : _committeeAdcomMembers;
+    final label = _meetingType == 'board' ? 'Board Members' : 'ADCOM Members';
+    final color = _meetingType == 'board' ? Colors.purple : Colors.blue;
+
+    if (defaultList.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'No $label configured. Go to Meetings Hub → Committee Members to add them.',
+          ),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+
+    // Start with already-added ones checked
+    final selected = <String>{
+      for (final m in _invitedMembers) m.oderId,
+    };
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            return DraggableScrollableSheet(
+              initialChildSize: 0.6,
+              minChildSize: 0.3,
+              maxChildSize: 0.9,
+              expand: false,
+              builder: (ctx2, scrollController) {
+                return Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.08),
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(20),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.group, color: color),
+                              const SizedBox(width: 8),
+                              Text(
+                                label,
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: color,
+                                ),
+                              ),
+                            ],
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              setState(() {
+                                // Remove any existing default members of this type
+                                final defaultIds =
+                                    defaultList.map((m) => m.oderId).toSet();
+                                _invitedMembers
+                                    .removeWhere((m) => defaultIds.contains(m.oderId));
+                                // Add back only checked ones
+                                for (final m in defaultList) {
+                                  if (selected.contains(m.oderId)) {
+                                    _invitedMembers.add(m);
+                                  }
+                                }
+                              });
+                              Navigator.pop(sheetCtx);
+                            },
+                            child: const Text('Done'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: ListView.builder(
+                        controller: scrollController,
+                        itemCount: defaultList.length,
+                        itemBuilder: (ctx3, index) {
+                          final member = defaultList[index];
+                          final isChecked = selected.contains(member.oderId);
+                          return CheckboxListTile(
+                            value: isChecked,
+                            activeColor: color,
+                            title: Text(member.name),
+                            subtitle: Text(
+                              [
+                                if (member.role != null) member.role!,
+                                if (member.organization != null)
+                                  member.organization!,
+                              ].join(' · '),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                            onChanged: (val) {
+                              setSheetState(() {
+                                if (val == true) {
+                                  selected.add(member.oderId);
+                                } else {
+                                  selected.remove(member.oderId);
+                                }
+                              });
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          TextButton(
+                            onPressed: () {
+                              setSheetState(() {
+                                selected.addAll(
+                                  defaultList.map((m) => m.oderId),
+                                );
+                              });
+                            },
+                            child: const Text('Select All'),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              setSheetState(() {
+                                selected.removeAll(
+                                  defaultList.map((m) => m.oderId),
+                                );
+                              });
+                            },
+                            child: const Text('Clear All'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 

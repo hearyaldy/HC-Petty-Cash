@@ -29,6 +29,15 @@ class StaffRecordPdfService {
     );
     final boldTtf = pw.Font.ttf(boldFontData);
 
+    pw.Font? notoFallback;
+    pw.Font? emojiFont;
+    try {
+      notoFallback = await PdfGoogleFonts.notoSansRegular();
+    } catch (_) {}
+    try {
+      emojiFont = await PdfGoogleFonts.notoColorEmojiRegular();
+    } catch (_) {}
+
     // Load logo
     pw.ImageProvider? logoImage;
     try {
@@ -58,7 +67,7 @@ class StaffRecordPdfService {
         theme: pw.ThemeData.withFont(
           base: ttf,
           bold: boldTtf,
-          fontFallback: [pw.Font.helvetica(), pw.Font.helveticaBold()],
+          fontFallback: [?notoFallback, ?emojiFont],
         ),
         header: (context) => _buildHeader(staff, logoImage, staffPhoto),
         footer: (context) => _buildFooter(context),

@@ -21,6 +21,10 @@
         "function": "financeAiReport"
       },
       {
+        "source": "/reset-password",
+        "destination": "/reset-password.html"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

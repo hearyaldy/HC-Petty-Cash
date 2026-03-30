@@ -72,6 +72,15 @@ class MedicalBillReimbursementExportService {
       AppLogger.warning('Failed to load custom fonts: $e');
     }
 
+    pw.Font? notoFallback;
+    pw.Font? emojiFont;
+    try {
+      notoFallback = await PdfGoogleFonts.notoSansRegular();
+    } catch (_) {}
+    try {
+      emojiFont = await PdfGoogleFonts.notoColorEmojiRegular();
+    } catch (_) {}
+
     // Load logo
     pw.ImageProvider? logoImage;
     try {
@@ -88,7 +97,7 @@ class MedicalBillReimbursementExportService {
         theme: pw.ThemeData.withFont(
           base: ttf ?? pw.Font.helvetica(),
           bold: ttfBold ?? pw.Font.helveticaBold(),
-          fontFallback: [pw.Font.helvetica()],
+          fontFallback: [?notoFallback, ?emojiFont],
         ),
         build: (context) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,

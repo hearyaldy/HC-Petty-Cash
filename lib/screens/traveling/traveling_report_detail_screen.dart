@@ -271,24 +271,6 @@ class _TravelingReportDetailScreenState
       return;
     }
 
-    // Check if there are per diem entries
-    final entries = await _firestoreService.getPerDiemEntriesByReport(
-      report.id,
-    );
-    if (entries.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Please add at least one per diem entry before submitting',
-            ),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-      return;
-    }
-
     if (!mounted) return;
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final user = authProvider.currentUser;

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/responsive_helper.dart';
 
@@ -93,7 +94,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                   const SizedBox(height: 24),
 
                   // Main Section Cards
-                  _buildSectionGrid(context, isAdmin, canApprove),
+                  _buildSectionGrid(context, isAdmin, canApprove, user),
 
                   const SizedBox(height: 24),
 
@@ -264,6 +265,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
     BuildContext context,
     bool isAdmin,
     bool canApprove,
+    User? user,
   ) {
     final screenWidth = MediaQuery.of(context).size.width;
     final crossAxisCount = screenWidth > 900 ? 4 : (screenWidth > 600 ? 2 : 2);
@@ -333,7 +335,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
         badge: _pendingActionItems > 0 ? _pendingActionItems : null,
         badgeColor: Colors.indigo,
         badgeLabel: 'Actions',
-        visible: isAdmin,
+        visible: isAdmin || (user?.sectionPermissions.meetingsView ?? false),
       ),
       _SectionCard(
         title: 'Media Production',

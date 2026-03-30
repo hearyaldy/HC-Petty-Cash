@@ -11,6 +11,8 @@ import '../utils/logger.dart';
 class PurchaseRequisitionPdfExportService {
   pw.Font? _ttf;
   pw.Font? _ttfBold;
+  pw.Font? _notoFallback;
+  pw.Font? _emojiFont;
   pw.ImageProvider? _logoImage;
 
   Future<void> _loadFonts() async {
@@ -28,6 +30,13 @@ class PurchaseRequisitionPdfExportService {
     } catch (e) {
       AppLogger.warning('Failed to load custom fonts: $e');
     }
+
+    try {
+      _notoFallback = await PdfGoogleFonts.notoSansRegular();
+    } catch (_) {}
+    try {
+      _emojiFont = await PdfGoogleFonts.notoColorEmojiRegular();
+    } catch (_) {}
 
     // Load logo
     try {
@@ -56,9 +65,9 @@ class PurchaseRequisitionPdfExportService {
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(40),
         theme: pw.ThemeData.withFont(
-          base: _ttf ?? pw.Font.helvetica(),
-          bold: _ttfBold ?? pw.Font.helveticaBold(),
-          fontFallback: [pw.Font.helvetica()],
+          base: _ttf ?? _notoFallback ?? pw.Font.helvetica(),
+          bold: _ttfBold ?? _notoFallback ?? pw.Font.helveticaBold(),
+          fontFallback: [?_notoFallback, ?_emojiFont],
         ),
         header: (context) => _buildHeader(requisition, dateFormat),
         footer: (context) => _buildFooter(context),
@@ -68,6 +77,10 @@ class PurchaseRequisitionPdfExportService {
           _buildItemsTable(items, currencyFormat),
           pw.SizedBox(height: 16),
           _buildTotalSection(requisition, currencyFormat),
+          if (requisition.linkedMinutesId != null) ...[
+            pw.SizedBox(height: 16),
+            _buildMeetingReferenceSection(requisition),
+          ],
           pw.SizedBox(height: 20),
           _buildNoteSection(),
           pw.SizedBox(height: 30),
@@ -421,6 +434,59 @@ class PurchaseRequisitionPdfExportService {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  pw.Widget _buildMeetingReferenceSection(PurchaseRequisition requisition) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(12),
+      decoration: pw.BoxDecoration(
+        color: PdfColors.indigo50,
+        border: pw.Border.all(color: PdfColors.indigo200),
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            'Meeting Reference',
+            style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: PdfColors.indigo800),
+          ),
+          pw.SizedBox(height: 8),
+          if (requisition.linkedMinutesLabel != null)
+            _buildRefRow('Minutes', requisition.linkedMinutesLabel!),
+          if (requisition.linkedActionItemNumber != null)
+            _buildRefRow('Action Item', requisition.linkedActionItemNumber!),
+          if (requisition.linkedActionItemAction != null)
+            _buildRefRow('Action Type', requisition.linkedActionItemAction!),
+          if (requisition.linkedActionItemTitle != null)
+            _buildRefRow('Title', requisition.linkedActionItemTitle!),
+          if (requisition.linkedActionItemDescription != null &&
+              requisition.linkedActionItemDescription!.isNotEmpty)
+            _buildRefRow('Description', requisition.linkedActionItemDescription!),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildRefRow(String label, String value) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 4),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.SizedBox(
+            width: 90,
+            child: pw.Text(
+              '$label:',
+              style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700),
+            ),
+          ),
+          pw.Expanded(
+            child: pw.Text(value, style: const pw.TextStyle(fontSize: 9)),
+          ),
+        ],
       ),
     );
   }

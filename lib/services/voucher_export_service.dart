@@ -86,6 +86,15 @@ class VoucherExportService {
       AppLogger.warning('Failed to load custom fonts: $e');
     }
 
+    pw.Font? notoFallback;
+    pw.Font? emojiFont;
+    try {
+      notoFallback = await PdfGoogleFonts.notoSansRegular();
+    } catch (_) {}
+    try {
+      emojiFont = await PdfGoogleFonts.notoColorEmojiRegular();
+    } catch (_) {}
+
     // Load logo
     pw.ImageProvider? logoImage;
     try {
@@ -106,6 +115,8 @@ class VoucherExportService {
           ttf,
           ttfBold,
           logoImage,
+          notoFallback: notoFallback,
+          emojiFont: emojiFont,
         ),
       );
     }
@@ -143,6 +154,15 @@ class VoucherExportService {
       AppLogger.warning('Failed to load custom fonts: $e');
     }
 
+    pw.Font? notoFallback;
+    pw.Font? emojiFont;
+    try {
+      notoFallback = await PdfGoogleFonts.notoSansRegular();
+    } catch (_) {}
+    try {
+      emojiFont = await PdfGoogleFonts.notoColorEmojiRegular();
+    } catch (_) {}
+
     // Load logo
     pw.ImageProvider? logoImage;
     try {
@@ -162,6 +182,8 @@ class VoucherExportService {
         ttf,
         ttfBold,
         logoImage,
+        notoFallback: notoFallback,
+        emojiFont: emojiFont,
       ),
     );
 
@@ -175,15 +197,17 @@ class VoucherExportService {
     DateFormat dateFormat,
     pw.Font? ttf,
     pw.Font? ttfBold,
-    pw.ImageProvider? logoImage,
-  ) {
+    pw.ImageProvider? logoImage, {
+    pw.Font? notoFallback,
+    pw.Font? emojiFont,
+  }) {
     return pw.Page(
       pageFormat: PdfPageFormat.a4,
       margin: const pw.EdgeInsets.all(30),
       theme: pw.ThemeData.withFont(
         base: ttf ?? pw.Font.helvetica(),
         bold: ttfBold ?? pw.Font.helveticaBold(),
-        fontFallback: [pw.Font.helvetica()],
+        fontFallback: [?notoFallback, ?emojiFont],
       ),
       build: (context) => pw.Align(
         alignment: pw.Alignment.topCenter,
@@ -848,6 +872,15 @@ class VoucherExportService {
         );
       }
 
+      pw.Font? notoFallback;
+      pw.Font? emojiFont;
+      try {
+        notoFallback = await PdfGoogleFonts.notoSansRegular();
+      } catch (_) {}
+      try {
+        emojiFont = await PdfGoogleFonts.notoColorEmojiRegular();
+      } catch (_) {}
+
       final image = pw.MemoryImage(imageBytes);
 
       // Create PDF with the image using proper layout format
@@ -858,7 +891,7 @@ class VoucherExportService {
           theme: pw.ThemeData.withFont(
             base: ttf ?? pw.Font.helvetica(),
             bold: ttfBold ?? pw.Font.helveticaBold(),
-            fontFallback: [pw.Font.helvetica(), pw.Font.courier()],
+            fontFallback: [?notoFallback, ?emojiFont],
           ),
           margin: const pw.EdgeInsets.all(24),
           build: (context) => pw.Column(
@@ -969,6 +1002,15 @@ class VoucherExportService {
         AppLogger.warning('Failed to load Google font: $e');
       }
 
+      pw.Font? notoFallback;
+      pw.Font? emojiFont;
+      try {
+        notoFallback = await PdfGoogleFonts.notoSansRegular();
+      } catch (_) {}
+      try {
+        emojiFont = await PdfGoogleFonts.notoColorEmojiRegular();
+      } catch (_) {}
+
       // Add a page for each support document
       final storageService = FirebaseStorageService();
       for (int i = 0; i < documentUrls.length; i++) {
@@ -1014,10 +1056,7 @@ class VoucherExportService {
                   theme: pw.ThemeData.withFont(
                     base: ttf,
                     bold: ttfBold,
-                    fontFallback: [
-                      pw.Font.helvetica(),
-                      pw.Font.helveticaBold(),
-                    ],
+                    fontFallback: [?notoFallback, ?emojiFont],
                   ),
                   build: (context) => pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -1145,6 +1184,15 @@ class VoucherExportService {
         AppLogger.warning('Failed to load Google font: $e');
       }
 
+      pw.Font? notoFallback;
+      pw.Font? emojiFont;
+      try {
+        notoFallback = await PdfGoogleFonts.notoSansRegular();
+      } catch (_) {}
+      try {
+        emojiFont = await PdfGoogleFonts.notoColorEmojiRegular();
+      } catch (_) {}
+
       final totalDocs = documentUrls.length;
 
       // Follow the exact same pattern as traveling report export service:
@@ -1186,7 +1234,7 @@ class VoucherExportService {
                   theme: pw.ThemeData.withFont(
                     base: ttf ?? pw.Font.helvetica(),
                     bold: ttfBold ?? pw.Font.helveticaBold(),
-                    fontFallback: [pw.Font.helvetica()],
+                    fontFallback: [?notoFallback, ?emojiFont],
                   ),
                   build: (context) => pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -1915,6 +1963,15 @@ class VoucherExportService {
         AppLogger.warning('Failed to load custom font: $e');
       }
 
+      pw.Font? notoFallback;
+      pw.Font? emojiFont;
+      try {
+        notoFallback = await PdfGoogleFonts.notoSansRegular();
+      } catch (_) {}
+      try {
+        emojiFont = await PdfGoogleFonts.notoColorEmojiRegular();
+      } catch (_) {}
+
       // Add a page for each support document
       for (var transaction in transactionsWithDocs) {
         try {
@@ -1930,7 +1987,10 @@ class VoucherExportService {
             pdf.addPage(
               pw.Page(
                 pageFormat: PdfPageFormat.a4,
-                theme: pw.ThemeData.withFont(base: ttf ?? pw.Font.helvetica()),
+                theme: pw.ThemeData.withFont(
+                  base: ttf ?? pw.Font.helvetica(),
+                  fontFallback: [?notoFallback, ?emojiFont],
+                ),
                 build: (context) => pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
