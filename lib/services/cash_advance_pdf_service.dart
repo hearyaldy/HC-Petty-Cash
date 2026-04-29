@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:intl/intl.dart';
@@ -119,18 +120,18 @@ class CashAdvancePdfService {
                         mutedText),
                   if (advance.linkedActionItemNumber != null)
                     _row('Item No.', advance.linkedActionItemNumber!,
-                        darkText, mutedText),
+                        darkText, mutedText, bold: true),
                   if (advance.linkedActionItemAction != null)
                     _row('Action', advance.linkedActionItemAction!,
-                        darkText, mutedText),
+                        darkText, mutedText, bold: true),
                   if (advance.linkedActionItemTitle != null)
                     _row('Heading', advance.linkedActionItemTitle!,
-                        darkText, mutedText),
+                        darkText, mutedText, bold: true),
                   if (advance.linkedActionItemDescription != null &&
                       advance.linkedActionItemDescription!.isNotEmpty)
                     _row('Description',
-                        advance.linkedActionItemDescription!, darkText,
-                        mutedText),
+                        _stripMarkup(advance.linkedActionItemDescription!),
+                        darkText, mutedText),
                 ],
               ),
             ),
@@ -189,12 +190,28 @@ class CashAdvancePdfService {
     return pdf.save();
   }
 
+  String _stripMarkup(String text) {
+    if (text.startsWith('[')) {
+      try {
+        final ops = jsonDecode(text) as List;
+        return ops
+            .whereType<Map>()
+            .map((op) => op['insert'])
+            .whereType<String>()
+            .join()
+            .trim();
+      } catch (_) {}
+    }
+    return text;
+  }
+
   pw.Widget _row(
     String label,
     String value,
     PdfColor darkText,
-    PdfColor mutedText,
-  ) {
+    PdfColor mutedText, {
+    bool bold = false,
+  }) {
     return pw.Padding(
       padding: const pw.EdgeInsets.only(bottom: 6),
       child: pw.Row(
@@ -212,7 +229,10 @@ class CashAdvancePdfService {
           pw.Expanded(
             child: pw.Text(
               value,
-              style: pw.TextStyle(color: darkText),
+              style: pw.TextStyle(
+                color: darkText,
+                fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+              ),
             ),
           ),
         ],

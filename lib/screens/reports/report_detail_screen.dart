@@ -24,6 +24,8 @@ import '../../widgets/edit_petty_cash_report_dialog.dart';
 import '../../widgets/paid_to_field.dart';
 import '../../widgets/support_document_upload_dialog.dart';
 import '../../services/settings_service.dart';
+import '../../services/ai_text_service.dart';
+import '../../services/currency_conversion_pdf_service.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
 import '../../utils/icon_registry.dart';
@@ -96,9 +98,13 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     _pendingAutoAddTransaction = widget.autoLaunchAddTransaction;
     // Only load data if not already loaded - avoid unnecessary reloads that can cause Firestore errors on web
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      final reportProvider = context.read<ReportProvider>();
       final transactionProvider = context.read<TransactionProvider>();
       final projectReportProvider = context.read<ProjectReportProvider>();
 
+      if (reportProvider.reports.isEmpty) {
+        reportProvider.loadReports();
+      }
       if (transactionProvider.transactions.isEmpty) {
         transactionProvider.loadTransactions();
       }
@@ -133,7 +139,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     if (report == null &&
         (reportProvider.isLoading || reportProvider.reports.isEmpty)) {
       return Scaffold(
-        backgroundColor: Colors.grey[50],
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
         body: ResponsiveContainer(
           child: SingleChildScrollView(
             child: Column(
@@ -161,7 +167,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
     if (report == null) {
       return Scaffold(
-        backgroundColor: Colors.grey[50],
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
         body: ResponsiveContainer(
           child: SingleChildScrollView(
             child: Column(
@@ -465,12 +471,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     return IconButton(
       onPressed: onPressed,
       tooltip: tooltip,
-      icon: Icon(icon, color: Colors.white),
+      icon: Icon(icon, color: Colors.white, size: 20),
       style: IconButton.styleFrom(
-        backgroundColor: Colors.black.withValues(alpha: 0.3),
+        backgroundColor: Colors.white.withValues(alpha: 0.18),
         foregroundColor: Colors.white,
-        minimumSize: const Size(40, 40),
-        shape: const CircleBorder(),
+        minimumSize: const Size(36, 36),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
   }
@@ -482,108 +488,83 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     bool showBackButton = true,
     ReportStatus? status,
   }) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
-      height: 210,
-      margin: const EdgeInsets.only(bottom: 0),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        image: const DecorationImage(
-          image: AssetImage('assets/assets/images/app_icon.png'),
-          fit: BoxFit.cover,
-          alignment: Alignment.centerRight,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [cs.primary.withValues(alpha: 0.85), cs.primary],
         ),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.18),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: Stack(
-          children: [
-            Container(color: Colors.black.withValues(alpha: 0.25)),
-            Positioned.fill(
-              child: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.transparent, Colors.black54],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
-                ),
-              ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              if (showBackButton)
+                _buildHeaderActionButton(
+                  icon: Icons.arrow_back,
+                  tooltip: 'Back',
+                  onPressed: () {
+                    if (context.canPop()) {
+                      context.pop();
+                    } else {
+                      context.go('/reports');
+                    }
+                  },
+                )
+              else
+                const SizedBox(width: 40),
+              const Spacer(),
+              ...actions,
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (status != null) ...[
+            _buildStatusChip(status),
+            const SizedBox(height: 10),
+          ],
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      if (showBackButton)
-                        _buildHeaderActionButton(
-                          icon: Icons.arrow_back,
-                          tooltip: 'Back',
-                          onPressed: () {
-                            if (context.canPop()) {
-                              context.pop();
-                            } else {
-                              context.go('/reports');
-                            }
-                          },
-                        )
-                      else
-                        const SizedBox(width: 40),
-                      const Spacer(),
-                      ...actions,
-                    ],
-                  ),
-                  const Spacer(),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (status != null) _buildStatusChip(status),
-                        if (status != null) const SizedBox(height: 10),
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        if (subtitle != null) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            subtitle,
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.72),
+                fontSize: 12,
               ),
             ),
           ],
-        ),
+        ],
       ),
     );
   }
 
   Widget _buildReportHeader(PettyCashReport report) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.35)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -613,7 +594,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   ],
                 ),
               ),
-              _buildStatusChip(report.statusEnum),
+              _buildStatusChipColored(report.statusEnum),
             ],
           ),
           const Divider(height: 32),
@@ -664,50 +645,74 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   }
 
   Widget _buildStatusChip(ReportStatus status) {
-    Color backgroundColor;
-    Color textColor = Colors.white;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.20),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.40)),
+      ),
+      child: Text(
+        status.displayName.toUpperCase(),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusChipColored(ReportStatus status) {
+    final cs = Theme.of(context).colorScheme;
+    Color chipColor;
 
     switch (status) {
       case ReportStatus.draft:
-        backgroundColor = Colors.grey.shade600;
+        chipColor = Colors.grey.shade600;
         break;
       case ReportStatus.submitted:
-        backgroundColor = Colors.blue.shade600;
+        chipColor = cs.primary;
         break;
       case ReportStatus.underReview:
-        backgroundColor = Colors.orange.shade600;
+        chipColor = Colors.orange.shade600;
         break;
       case ReportStatus.approved:
-        backgroundColor = Colors.green.shade600;
+        chipColor = Colors.green.shade600;
         break;
       case ReportStatus.closed:
-        backgroundColor = Colors.purple.shade600;
+        chipColor = Colors.purple.shade600;
         break;
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       decoration: BoxDecoration(
-        color: backgroundColor,
+        color: chipColor.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: chipColor.withValues(alpha: 0.3)),
       ),
       child: Text(
-        status.displayName,
+        status.displayName.toUpperCase(),
         style: TextStyle(
-          color: textColor,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
+          color: chipColor,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.5,
         ),
       ),
     );
   }
 
   Widget _buildFinancialSummary(PettyCashReport report) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.35)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -730,7 +735,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 child: _buildAmountCard(
                   'Opening Balance',
                   report.openingBalance,
-                  Colors.blue,
+                  Theme.of(context).colorScheme.primary,
                   Icons.account_balance_wallet,
                 ),
               ),
@@ -860,10 +865,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     PettyCashReport report,
     AuthProvider authProvider,
   ) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.35)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -1591,6 +1598,15 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     return _getTransactionIcon(transaction.categoryEnum);
   }
 
+  String _foreignCurrencySymbol(String code) {
+    switch (code) {
+      case 'MYR': return 'RM';
+      case 'USD': return '\$';
+      case 'THB': return '฿';
+      default: return code;
+    }
+  }
+
   IconData _getCategoryIcon(ExpenseCategory category) {
     switch (category) {
       case ExpenseCategory.office:
@@ -1647,6 +1663,15 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     // Medical claim variables
     bool isMedicalClaim = false;
     MedicalClaimType medicalClaimType = MedicalClaimType.outPatient;
+
+    // Currency exchange variables
+    bool hasCurrencyExchange = false;
+    String selectedForeignCurrency = 'MYR';
+    final foreignAmountController = TextEditingController();
+    final exchangeRateController = TextEditingController();
+    DateTime exchangeRateDate = DateTime.now();
+    bool isFetchingRate = false;
+    String? exchangeRateNote;
 
     // Get project reports before showing modal
     final projectReports = context.read<ProjectReportProvider>().projectReports;
@@ -2109,6 +2134,421 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                           ],
 
                           const SizedBox(height: 16),
+
+                          // Currency Exchange Section
+                          Container(
+                            decoration: BoxDecoration(
+                              color: hasCurrencyExchange
+                                  ? Colors.orange.withValues(alpha: 0.05)
+                                  : Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: hasCurrencyExchange
+                                    ? Colors.orange.shade300
+                                    : Colors.grey.shade300,
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                // Toggle header
+                                InkWell(
+                                  borderRadius: BorderRadius.circular(12),
+                                  onTap: () => setState(() {
+                                    hasCurrencyExchange = !hasCurrencyExchange;
+                                  }),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16, vertical: 12),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.currency_exchange,
+                                          size: 20,
+                                          color: hasCurrencyExchange
+                                              ? Colors.orange.shade700
+                                              : Colors.grey,
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                            'Currency Exchange',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              color: hasCurrencyExchange
+                                                  ? Colors.orange.shade700
+                                                  : Colors.grey.shade700,
+                                            ),
+                                          ),
+                                        ),
+                                        Switch(
+                                          value: hasCurrencyExchange,
+                                          onChanged: (v) => setState(
+                                              () => hasCurrencyExchange = v),
+                                          activeThumbColor: Colors.orange.shade700,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+
+                                if (hasCurrencyExchange) ...[
+                                  const Divider(height: 1),
+                                  Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        // Currency selector
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              flex: 2,
+                                              child: DropdownButtonFormField<
+                                                  String>(
+                                                initialValue: selectedForeignCurrency,
+                                                decoration:
+                                                    const InputDecoration(
+                                                  labelText: 'From Currency',
+                                                  border: OutlineInputBorder(),
+                                                  prefixIcon:
+                                                      Icon(Icons.flag),
+                                                  contentPadding:
+                                                      EdgeInsets.symmetric(
+                                                          horizontal: 12,
+                                                          vertical: 14),
+                                                ),
+                                                items: const [
+                                                  DropdownMenuItem(
+                                                      value: 'MYR',
+                                                      child: Text(
+                                                          'MYR (Ringgit)')),
+                                                  DropdownMenuItem(
+                                                      value: 'USD',
+                                                      child: Text(
+                                                          'USD (US Dollar)')),
+                                                  DropdownMenuItem(
+                                                      value: 'THB',
+                                                      child: Text(
+                                                          'THB (Thai Baht)')),
+                                                ],
+                                                onChanged: (v) {
+                                                  if (v != null) {
+                                                    setState(() =>
+                                                        selectedForeignCurrency =
+                                                            v);
+                                                  }
+                                                },
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            const Icon(Icons.arrow_forward,
+                                                color: Colors.grey),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: InputDecorator(
+                                                decoration:
+                                                    const InputDecoration(
+                                                  labelText: 'To',
+                                                  border: OutlineInputBorder(),
+                                                  contentPadding:
+                                                      EdgeInsets.symmetric(
+                                                          horizontal: 12,
+                                                          vertical: 14),
+                                                ),
+                                                child: const Text('THB',
+                                                    style: TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.bold)),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 12),
+
+                                        // Foreign amount
+                                        TextFormField(
+                                          controller: foreignAmountController,
+                                          decoration: InputDecoration(
+                                            labelText:
+                                                'Amount in $selectedForeignCurrency',
+                                            border: const OutlineInputBorder(),
+                                            prefixIcon:
+                                                const Icon(Icons.money),
+                                            prefixText:
+                                                '${_foreignCurrencySymbol(selectedForeignCurrency)} ',
+                                          ),
+                                          keyboardType:
+                                              const TextInputType.numberWithOptions(
+                                                  decimal: true),
+                                          onChanged: (_) => setState(() {}),
+                                          validator: (v) {
+                                            if (hasCurrencyExchange &&
+                                                (v == null || v.isEmpty)) {
+                                              return 'Enter foreign amount';
+                                            }
+                                            if (v != null &&
+                                                v.isNotEmpty &&
+                                                double.tryParse(v) == null) {
+                                              return 'Invalid number';
+                                            }
+                                            return null;
+                                          },
+                                        ),
+                                        const SizedBox(height: 12),
+
+                                        // Exchange rate date + AI fetch
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: InkWell(
+                                                onTap: () async {
+                                                  final d =
+                                                      await showDatePicker(
+                                                    context: context,
+                                                    initialDate:
+                                                        exchangeRateDate,
+                                                    firstDate: DateTime(2020),
+                                                    lastDate: DateTime.now(),
+                                                  );
+                                                  if (d != null) {
+                                                    setState(() =>
+                                                        exchangeRateDate = d);
+                                                  }
+                                                },
+                                                child: InputDecorator(
+                                                  decoration:
+                                                      const InputDecoration(
+                                                    labelText:
+                                                        'Rate Date',
+                                                    border:
+                                                        OutlineInputBorder(),
+                                                    prefixIcon: Icon(
+                                                        Icons.calendar_today),
+                                                  ),
+                                                  child: Text(
+                                                    DateFormat('dd/MM/yyyy')
+                                                        .format(
+                                                            exchangeRateDate),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            SizedBox(
+                                              height: 56,
+                                              child: ElevatedButton.icon(
+                                                style:
+                                                    ElevatedButton.styleFrom(
+                                                  backgroundColor:
+                                                      Colors.indigo,
+                                                  foregroundColor:
+                                                      Colors.white,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
+                                                  ),
+                                                ),
+                                                onPressed: isFetchingRate
+                                                    ? null
+                                                    : () async {
+                                                        setState(() =>
+                                                            isFetchingRate =
+                                                                true);
+                                                        final aiService =
+                                                            AITextService();
+                                                        final result =
+                                                            await aiService
+                                                                .getExchangeRate(
+                                                          fromCurrency:
+                                                              selectedForeignCurrency,
+                                                          date:
+                                                              exchangeRateDate,
+                                                        );
+                                                        setState(() {
+                                                          isFetchingRate =
+                                                              false;
+                                                          if (result.success &&
+                                                              result.rate !=
+                                                                  null) {
+                                                            exchangeRateController
+                                                                    .text =
+                                                                result.rate!
+                                                                    .toStringAsFixed(
+                                                                        4);
+                                                            exchangeRateNote =
+                                                                result.note;
+                                                          } else {
+                                                            ScaffoldMessenger
+                                                                    .of(context)
+                                                                .showSnackBar(
+                                                              SnackBar(
+                                                                content: Text(
+                                                                    result.error ??
+                                                                        'Failed to fetch rate'),
+                                                                backgroundColor:
+                                                                    Colors.red,
+                                                              ),
+                                                            );
+                                                          }
+                                                        });
+                                                      },
+                                                icon: isFetchingRate
+                                                    ? const SizedBox(
+                                                        width: 16,
+                                                        height: 16,
+                                                        child:
+                                                            CircularProgressIndicator(
+                                                          strokeWidth: 2,
+                                                          color: Colors.white,
+                                                        ),
+                                                      )
+                                                    : const Icon(Icons.auto_awesome,
+                                                        size: 18),
+                                                label: const Text('AI Rate'),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 12),
+
+                                        // Exchange rate input
+                                        TextFormField(
+                                          controller: exchangeRateController,
+                                          decoration: InputDecoration(
+                                            labelText:
+                                                '1 $selectedForeignCurrency = ? THB',
+                                            border: const OutlineInputBorder(),
+                                            prefixIcon:
+                                                const Icon(Icons.swap_horiz),
+                                            helperText: exchangeRateNote,
+                                          ),
+                                          keyboardType:
+                                              const TextInputType.numberWithOptions(
+                                                  decimal: true),
+                                          onChanged: (_) => setState(() {}),
+                                          validator: (v) {
+                                            if (hasCurrencyExchange &&
+                                                (v == null || v.isEmpty)) {
+                                              return 'Enter exchange rate';
+                                            }
+                                            if (v != null &&
+                                                v.isNotEmpty &&
+                                                double.tryParse(v) == null) {
+                                              return 'Invalid number';
+                                            }
+                                            return null;
+                                          },
+                                        ),
+
+                                        // Computed THB amount
+                                        if (foreignAmountController
+                                                .text.isNotEmpty &&
+                                            exchangeRateController
+                                                .text.isNotEmpty) ...[
+                                          const SizedBox(height: 12),
+                                          Builder(builder: (ctx) {
+                                            final foreign = double.tryParse(
+                                                    foreignAmountController
+                                                        .text) ??
+                                                0;
+                                            final rate = double.tryParse(
+                                                    exchangeRateController
+                                                        .text) ??
+                                                0;
+                                            final thb = foreign * rate;
+                                            return Container(
+                                              padding: const EdgeInsets.all(12),
+                                              decoration: BoxDecoration(
+                                                color: Colors.orange.shade50,
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                border: Border.all(
+                                                    color:
+                                                        Colors.orange.shade200),
+                                              ),
+                                              child: Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceBetween,
+                                                children: [
+                                                  Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Text(
+                                                        'Converted Amount (THB)',
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          color:
+                                                              Colors.grey[700],
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 4),
+                                                      Text(
+                                                        '฿ ${thb.toStringAsFixed(2)}',
+                                                        style: const TextStyle(
+                                                          fontSize: 18,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color: Colors.orange,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  OutlinedButton.icon(
+                                                    style: OutlinedButton
+                                                        .styleFrom(
+                                                      foregroundColor:
+                                                          Colors.orange
+                                                              .shade700,
+                                                      side: BorderSide(
+                                                          color: Colors.orange
+                                                              .shade300),
+                                                    ),
+                                                    onPressed: () async {
+                                                      final convPdfService =
+                                                          CurrencyConversionPdfService();
+                                                      await convPdfService
+                                                          .printConversionPage(
+                                                        foreignCurrency:
+                                                            selectedForeignCurrency,
+                                                        foreignAmount: foreign,
+                                                        exchangeRate: rate,
+                                                        exchangeRateDate:
+                                                            exchangeRateDate,
+                                                        thbAmount: thb,
+                                                        receiptNo:
+                                                            receiptNoController
+                                                                .text,
+                                                        description:
+                                                            descriptionController
+                                                                .text,
+                                                        transactionDate:
+                                                            selectedDate,
+                                                      );
+                                                    },
+                                                    icon: const Icon(
+                                                        Icons.print, size: 16),
+                                                    label: const Text(
+                                                        'Print Support Doc'),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          }),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
                           // Project selection dropdown
                           DropdownButtonFormField<String?>(
                             initialValue: selectedProjectId,
@@ -2330,6 +2770,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                       paymentMethod: selectedPaymentMethod,
                                       requestorId: authProvider.currentUser!.id,
                                       paidTo: paidToController.text,
+                                      foreignCurrency: hasCurrencyExchange ? selectedForeignCurrency : null,
+                                      foreignAmount: hasCurrencyExchange ? double.tryParse(foreignAmountController.text) : null,
+                                      exchangeRate: hasCurrencyExchange ? double.tryParse(exchangeRateController.text) : null,
+                                      exchangeRateDate: hasCurrencyExchange ? exchangeRateDate : null,
                                     );
 
                                     if (!context.mounted) return;

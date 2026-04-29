@@ -250,11 +250,35 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
     context.go('/admin/adcom-minutes/${widget.minutesId}$meetingQuery');
   }
 
+  /// Returns the effective attendance list for display and PDF.
+  /// When [_meeting] is loaded (opened from meeting detail), uses the meeting's
+  /// invitedMembers as the authoritative list while preserving any attendance
+  /// status already recorded in the minutes (present / absent-with-apology).
+  List<AttendanceMember> _getEffectiveAttendance() {
+    if (_meeting != null && _meeting!.invitedMembers.isNotEmpty) {
+      final minutesMap = {
+        for (final m in _minutes!.attendanceMembers)
+          m.name.trim().toLowerCase(): m,
+      };
+      return _meeting!.invitedMembers.map((member) {
+        final minutesMember = minutesMap[member.name.trim().toLowerCase()];
+        return AttendanceMember(
+          name: member.name,
+          affiliation: member.organization ?? 'HC',
+          isPresent: minutesMember?.isPresent ?? true,
+          isAbsentWithApology: minutesMember?.isAbsentWithApology ?? false,
+        );
+      }).toList();
+    }
+    return _minutes!.attendanceMembers;
+  }
+
   Widget _buildDocumentView() {
-    final presentMembers = _minutes!.attendanceMembers
+    final effectiveAttendance = _getEffectiveAttendance();
+    final presentMembers = effectiveAttendance
         .where((m) => m.isPresent)
         .toList();
-    final absentMembers = _minutes!.attendanceMembers
+    final absentMembers = effectiveAttendance
         .where((m) => m.isAbsentWithApology)
         .toList();
     final minutesHeaderText = _buildMinutesHeaderText();
@@ -377,7 +401,7 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
             const SizedBox(height: 24),
 
             // Attendance Section
-            if (_minutes!.attendanceMembers.isNotEmpty) ...[
+            if (effectiveAttendance.isNotEmpty) ...[
               const Text(
                 'ATTENDANCE',
                 style: TextStyle(
@@ -577,24 +601,6 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
                       fontSize: 9,
                       fontWeight: FontWeight.bold,
                       color: statusColor,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    item.actionType.displayName,
-                    style: TextStyle(
-                      fontSize: 9,
-                      color: Colors.grey.shade700,
                     ),
                   ),
                 ),
@@ -951,10 +957,11 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
       logoImage = null;
     }
 
-    final presentMembers = _minutes!.attendanceMembers
+    final effectiveAttendance = _getEffectiveAttendance();
+    final presentMembers = effectiveAttendance
         .where((m) => m.isPresent)
         .toList();
-    final absentMembers = _minutes!.attendanceMembers
+    final absentMembers = effectiveAttendance
         .where((m) => m.isAbsentWithApology)
         .toList();
     final minutesHeaderText = _buildMinutesHeaderText();
@@ -1066,7 +1073,7 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
             pw.SizedBox(height: 20),
 
             // Attendance
-            if (_minutes!.attendanceMembers.isNotEmpty) ...[
+            if (effectiveAttendance.isNotEmpty) ...[
               pw.Text(
                 'ATTENDANCE',
                 style: pw.TextStyle(
@@ -1250,23 +1257,6 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
                     ),
                   ),
                 ),
-                pw.SizedBox(height: 4),
-                pw.Container(
-                  padding: const pw.EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 2,
-                  ),
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border.all(color: PdfColors.grey400, width: 0.5),
-                  ),
-                  child: pw.Text(
-                    item.actionType.displayName,
-                    style: const pw.TextStyle(
-                      fontSize: 8,
-                      color: PdfColors.grey700,
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
@@ -1366,4 +1356,5 @@ class _AdcomMinutesViewScreenState extends State<AdcomMinutesViewScreen> {
       ),
     );
   }
+
 }

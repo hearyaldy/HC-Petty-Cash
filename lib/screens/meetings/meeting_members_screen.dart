@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../models/meeting.dart';
 import '../../utils/responsive_helper.dart';
 
 class MeetingMembersScreen extends StatefulWidget {
@@ -33,9 +34,9 @@ class _MeetingMembersScreenState extends State<MeetingMembersScreen>
       body: SafeArea(
         child: SingleChildScrollView(
           child: ResponsiveContainer(
-            padding: ResponsiveHelper.getScreenPadding(context).copyWith(
-              top: 16,
-            ),
+            padding: ResponsiveHelper.getScreenPadding(
+              context,
+            ).copyWith(top: 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -77,7 +78,11 @@ class _MeetingMembersScreenState extends State<MeetingMembersScreen>
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                  child: const Icon(
+                    Icons.arrow_back,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
               ),
               const Spacer(),
@@ -90,7 +95,11 @@ class _MeetingMembersScreenState extends State<MeetingMembersScreen>
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.home_outlined, color: Colors.white, size: 20),
+                  child: const Icon(
+                    Icons.home_outlined,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
               ),
             ],
@@ -104,7 +113,11 @@ class _MeetingMembersScreenState extends State<MeetingMembersScreen>
                   color: Colors.white.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.people_alt, size: 36, color: Colors.white),
+                child: const Icon(
+                  Icons.people_alt,
+                  size: 36,
+                  color: Colors.white,
+                ),
               ),
               const SizedBox(width: 16),
               const Expanded(
@@ -192,7 +205,7 @@ class _MeetingMembersScreenState extends State<MeetingMembersScreen>
   }
 }
 
-class _MemberListSection extends StatelessWidget {
+class _MemberListSection extends StatefulWidget {
   final String type;
   final Color color;
   final String label;
@@ -202,6 +215,37 @@ class _MemberListSection extends StatelessWidget {
     required this.color,
     required this.label,
   });
+
+  @override
+  State<_MemberListSection> createState() => _MemberListSectionState();
+}
+
+class _MemberListSectionState extends State<_MemberListSection> {
+  final Set<String> _syncingDocIds = <String>{};
+
+  void _syncKnownEmails(List<QueryDocumentSnapshot> docs) {
+    for (final doc in docs) {
+      if (_syncingDocIds.contains(doc.id)) continue;
+
+      final data = doc.data() as Map<String, dynamic>;
+      final existingEmail = (data['email'] as String?)?.trim();
+      if (existingEmail != null && existingEmail.isNotEmpty) continue;
+
+      final knownEmail = MeetingMember.knownEmailForName(
+        data['name'] as String?,
+      );
+      if (knownEmail == null || knownEmail.isEmpty) continue;
+
+      _syncingDocIds.add(doc.id);
+      FirebaseFirestore.instance
+          .collection('meeting_committee_members')
+          .doc(doc.id)
+          .update({'email': knownEmail})
+          .whenComplete(() {
+            _syncingDocIds.remove(doc.id);
+          });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -222,18 +266,29 @@ class _MemberListSection extends StatelessWidget {
         if (snapshot.hasError) {
           return Padding(
             padding: const EdgeInsets.all(16),
-            child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red)),
+            child: Text(
+              'Error: ${snapshot.error}',
+              style: const TextStyle(color: Colors.red),
+            ),
           );
         }
 
-        final docs = (snapshot.data?.docs ?? [])
-            .where((d) => (d.data() as Map<String, dynamic>)['type'] == type)
-            .toList()
-          ..sort((a, b) {
-            final aOrder = ((a.data() as Map<String, dynamic>)['order'] as int?) ?? 0;
-            final bOrder = ((b.data() as Map<String, dynamic>)['order'] as int?) ?? 0;
-            return aOrder.compareTo(bOrder);
-          });
+        final docs =
+            (snapshot.data?.docs ?? [])
+                .where(
+                  (d) =>
+                      (d.data() as Map<String, dynamic>)['type'] == widget.type,
+                )
+                .toList()
+              ..sort((a, b) {
+                final aOrder =
+                    ((a.data() as Map<String, dynamic>)['order'] as int?) ?? 0;
+                final bOrder =
+                    ((b.data() as Map<String, dynamic>)['order'] as int?) ?? 0;
+                return aOrder.compareTo(bOrder);
+              });
+
+        _syncKnownEmails(docs);
 
         return Column(
           children: [
@@ -241,11 +296,15 @@ class _MemberListSection extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: () => _showAddEditDialog(context, null, type, docs.length),
-                icon: Icon(Icons.person_add, color: color),
-                label: Text('Add $label', style: TextStyle(color: color)),
+                onPressed: () =>
+                    _showAddEditDialog(context, null, widget.type, docs.length),
+                icon: Icon(Icons.person_add, color: widget.color),
+                label: Text(
+                  'Add ${widget.label}',
+                  style: TextStyle(color: widget.color),
+                ),
                 style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: color),
+                  side: BorderSide(color: widget.color),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
@@ -264,10 +323,14 @@ class _MemberListSection extends StatelessWidget {
                 child: Center(
                   child: Column(
                     children: [
-                      Icon(Icons.people_outline, size: 48, color: Colors.grey[400]),
+                      Icon(
+                        Icons.people_outline,
+                        size: 48,
+                        color: Colors.grey[400],
+                      ),
                       const SizedBox(height: 12),
                       Text(
-                        'No $label added yet',
+                        'No ${widget.label} added yet',
                         style: TextStyle(color: Colors.grey[600]),
                       ),
                     ],
@@ -298,8 +361,8 @@ class _MemberListSection extends StatelessWidget {
                       doc.id,
                       data,
                       isLast,
-                      color,
-                      type,
+                      widget.color,
+                      widget.type,
                       docs.length,
                     );
                   }).toList(),
@@ -340,10 +403,13 @@ class _MemberListSection extends StatelessWidget {
         ),
         subtitle: Text(
           [
-            if ((data['role'] as String?)?.isNotEmpty == true) data['role'],
-            if ((data['organization'] as String?)?.isNotEmpty == true)
-              data['organization'],
-          ].join(' · '),
+            [
+              if ((data['role'] as String?)?.isNotEmpty == true) data['role'],
+              if ((data['organization'] as String?)?.isNotEmpty == true)
+                data['organization'],
+            ].join(' · '),
+            if ((data['email'] as String?)?.isNotEmpty == true) data['email'],
+          ].whereType<String>().where((value) => value.isNotEmpty).join('\n'),
           style: TextStyle(fontSize: 12, color: Colors.grey[600]),
         ),
         trailing: Row(
@@ -352,12 +418,22 @@ class _MemberListSection extends StatelessWidget {
             IconButton(
               icon: Icon(Icons.edit_outlined, size: 18, color: color),
               tooltip: 'Edit',
-              onPressed: () => _showAddEditDialog(context, MapEntry(docId, data), type, totalCount),
+              onPressed: () => _showAddEditDialog(
+                context,
+                MapEntry(docId, data),
+                type,
+                totalCount,
+              ),
             ),
             IconButton(
-              icon: Icon(Icons.delete_outline, size: 18, color: Colors.red.shade400),
+              icon: Icon(
+                Icons.delete_outline,
+                size: 18,
+                color: Colors.red.shade400,
+              ),
               tooltip: 'Delete',
-              onPressed: () => _confirmDelete(context, docId, data['name'] ?? ''),
+              onPressed: () =>
+                  _confirmDelete(context, docId, data['name'] ?? ''),
             ),
           ],
         ),
@@ -376,7 +452,9 @@ class _MemberListSection extends StatelessWidget {
       builder: (_) => _AddEditMemberDialog(
         existing: existing,
         type: type,
-        nextOrder: existing == null ? currentCount : (existing.value['order'] as int? ?? 0),
+        nextOrder: existing == null
+            ? currentCount
+            : (existing.value['order'] as int? ?? 0),
       ),
     );
   }
@@ -426,6 +504,7 @@ class _AddEditMemberDialog extends StatefulWidget {
 
 class _AddEditMemberDialogState extends State<_AddEditMemberDialog> {
   late final TextEditingController _nameController;
+  late final TextEditingController _emailController;
   late final TextEditingController _roleController;
   late final TextEditingController _orgController;
   bool _saving = false;
@@ -434,14 +513,24 @@ class _AddEditMemberDialogState extends State<_AddEditMemberDialog> {
   void initState() {
     super.initState();
     final data = widget.existing?.value ?? {};
-    _nameController = TextEditingController(text: data['name'] as String? ?? '');
-    _roleController = TextEditingController(text: data['role'] as String? ?? '');
-    _orgController = TextEditingController(text: data['organization'] as String? ?? '');
+    _nameController = TextEditingController(
+      text: data['name'] as String? ?? '',
+    );
+    _emailController = TextEditingController(
+      text: data['email'] as String? ?? '',
+    );
+    _roleController = TextEditingController(
+      text: data['role'] as String? ?? '',
+    );
+    _orgController = TextEditingController(
+      text: data['organization'] as String? ?? '',
+    );
   }
 
   @override
   void dispose() {
     _nameController.dispose();
+    _emailController.dispose();
     _roleController.dispose();
     _orgController.dispose();
     super.dispose();
@@ -451,7 +540,10 @@ class _AddEditMemberDialogState extends State<_AddEditMemberDialog> {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Name is required'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('Name is required'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -459,6 +551,7 @@ class _AddEditMemberDialogState extends State<_AddEditMemberDialog> {
     try {
       final payload = {
         'name': name,
+        'email': _emailController.text.trim(),
         'role': _roleController.text.trim(),
         'organization': _orgController.text.trim(),
         'type': widget.type,
@@ -512,6 +605,17 @@ class _AddEditMemberDialogState extends State<_AddEditMemberDialog> {
             ),
             const SizedBox(height: 12),
             TextField(
+              controller: _emailController,
+              decoration: const InputDecoration(
+                labelText: 'Email Address',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.email_outlined),
+                hintText: 'name@example.com',
+              ),
+              keyboardType: TextInputType.emailAddress,
+            ),
+            const SizedBox(height: 12),
+            TextField(
               controller: _roleController,
               decoration: const InputDecoration(
                 labelText: 'Role / Position',
@@ -547,7 +651,10 @@ class _AddEditMemberDialogState extends State<_AddEditMemberDialog> {
               ? const SizedBox(
                   width: 18,
                   height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
                 )
               : Text(
                   isEdit ? 'Save' : 'Add',

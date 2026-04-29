@@ -6,6 +6,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/report_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../models/cash_advance.dart';
+import '../../models/purchase_requisition.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
 
@@ -14,10 +15,12 @@ class NewReportScreen extends StatefulWidget {
     super.key,
     this.reportType = 'petty_cash',
     this.cashAdvanceId,
+    this.purchaseRequisitionId,
   });
 
   final String reportType; // 'petty_cash', 'advance_settlement'
   final String? cashAdvanceId;
+  final String? purchaseRequisitionId;
 
   @override
   State<NewReportScreen> createState() => _NewReportScreenState();
@@ -36,6 +39,7 @@ class _NewReportScreenState extends State<NewReportScreen> {
   DateTime _periodStart = DateTime.now();
   DateTime _periodEnd = DateTime.now().add(const Duration(days: 7));
   CashAdvance? _linkedAdvance;
+  PurchaseRequisition? _linkedPR;
   bool _isPrefilling = false;
 
   @override
@@ -47,6 +51,9 @@ class _NewReportScreenState extends State<NewReportScreen> {
     if (widget.cashAdvanceId != null) {
       _reportType = 'advance_settlement';
       _loadLinkedAdvance(widget.cashAdvanceId!);
+    } else if (widget.purchaseRequisitionId != null) {
+      _reportType = 'advance_settlement';
+      _loadLinkedPurchaseRequisition(widget.purchaseRequisitionId!);
     }
     if (_reportType == 'advance_settlement') {
       _advanceTakenDate = DateTime.now();
@@ -538,6 +545,7 @@ class _NewReportScreenState extends State<NewReportScreen> {
             : _companyNameController.text,
         notes: _notesController.text.isEmpty ? null : _notesController.text,
         cashAdvanceId: widget.cashAdvanceId,
+        purchaseRequisitionId: widget.purchaseRequisitionId,
       );
 
       if (mounted) {
@@ -558,6 +566,33 @@ class _NewReportScreenState extends State<NewReportScreen> {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _loadLinkedPurchaseRequisition(String prId) async {
+    setState(() => _isPrefilling = true);
+    try {
+      final pr = await FirestoreService().getPurchaseRequisition(prId);
+      if (pr != null && mounted) {
+        setState(() {
+          _linkedPR = pr;
+          _reportNameController.text = pr.chargeToDepartment;
+          _purposeController.text = pr.purchaseReason ?? pr.requisitionNumber;
+          _openingBalanceController.text = pr.totalAmount.toString();
+          _advanceTakenDate = DateTime.now();
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to load linked purchase requisition'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isPrefilling = false);
     }
   }
 

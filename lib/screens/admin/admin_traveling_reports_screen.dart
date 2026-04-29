@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../models/traveling_report.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/responsive_helper.dart';
+import '../../widgets/app_drawer.dart';
 
 class AdminTravelingReportsScreen extends StatefulWidget {
   const AdminTravelingReportsScreen({super.key});
@@ -46,17 +47,17 @@ class _AdminTravelingReportsScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
-      body: SafeArea(
-        child: ResponsiveContainer(
-          padding: EdgeInsets.zero,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: _buildWelcomeHeader(),
-              ),
-              _buildFilterBar(),
+      appBar: _buildTopBar(context),
+      drawer: const AppDrawer(),
+      body: ResponsiveContainer(
+        padding: EdgeInsets.zero,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: _buildWelcomeHeader(),
+            ),
+            _buildFilterBar(),
               Expanded(
                 child: StreamBuilder<List<TravelingReport>>(
                   stream: _firestoreService.travelingReportsStream(),
@@ -97,114 +98,177 @@ class _AdminTravelingReportsScreenState
             ],
           ),
         ),
+    );
+  }
+
+  // ─── Top bar ───────────────────────────────────────────────────────────────
+
+  PreferredSizeWidget _buildTopBar(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final maxWidth = ResponsiveHelper.getMaxContentWidth(context);
+    final hPad = ResponsiveHelper.getScreenPadding(context).horizontal / 2;
+
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(kToolbarHeight),
+      child: Container(
+        decoration: BoxDecoration(
+          color: cs.primary,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: SizedBox(
+            height: kToolbarHeight,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxWidth),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: hPad),
+                  child: Row(
+                    children: [
+                      Builder(
+                        builder: (ctx) => IconButton(
+                          icon: const Icon(Icons.menu, color: Colors.white),
+                          tooltip: 'Menu',
+                          onPressed: () => Scaffold.of(ctx).openDrawer(),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            'HC',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'Travel Reports',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Text(
+                            'Admin · Traveling expenses',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.65),
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.person_outline, color: Colors.white, size: 20),
+                        tooltip: 'My Traveling Reports',
+                        onPressed: () => context.push('/traveling-reports'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildWelcomeHeader() {
-    final isMobile = ResponsiveHelper.isMobile(context);
+    final cs = Theme.of(context).colorScheme;
 
     return Container(
-      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.indigo.shade600, Colors.indigo.shade400],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
+          colors: [cs.primary.withValues(alpha: 0.85), cs.primary],
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.indigo.withValues(alpha: 0.3),
-            blurRadius: 8,
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 20,
             offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Column(
-        children: [
-          // Top action bar
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isCompact = constraints.maxWidth < 760;
+
+          if (isCompact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Travel Reports',
+                  style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Review and manage all traveling reports',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.72), fontSize: 12),
+                ),
+              ],
+            );
+          }
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Back/Home button
-              _buildHeaderActionButton(
-                icon: Icons.arrow_back,
-                tooltip: 'Back to Dashboard',
-                onPressed: () => context.go('/admin-hub'),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.flight_takeoff, color: Colors.white, size: 22),
               ),
-              // My Reports button
-              _buildHeaderActionButton(
-                icon: Icons.person,
-                tooltip: 'My Traveling Reports',
-                onPressed: () => context.push('/traveling-reports'),
-              ),
-            ],
-          ),
-          SizedBox(height: isMobile ? 16 : 20),
-          // Content row
-          Row(
-            children: [
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Traveling Reports Management',
-                      style: TextStyle(
-                        fontSize: isMobile ? 24 : 28,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
+                    const Text(
+                      'Travel Reports',
+                      style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     Text(
                       'Review and manage all traveling reports',
-                      style: TextStyle(
-                        fontSize: isMobile ? 12 : 14,
-                        color: Colors.white.withValues(alpha: 0.8),
-                      ),
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.72), fontSize: 12),
                     ),
                   ],
                 ),
               ),
-              Container(
-                padding: EdgeInsets.all(isMobile ? 12 : 16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.flight_takeoff,
-                  size: isMobile ? 36 : 48,
-                  color: Colors.white,
-                ),
-              ),
             ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeaderActionButton({
-    required IconData icon,
-    required String tooltip,
-    required VoidCallback onPressed,
-  }) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: Colors.white, size: 20),
-        ),
+          );
+        },
       ),
     );
   }

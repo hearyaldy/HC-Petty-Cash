@@ -592,11 +592,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Welcome Header
+            if (authProvider.canApprove() &&
+                (pendingApprovals.isNotEmpty || pendingTravelingReports.isNotEmpty))
+              _buildAlertRibbon(
+                context,
+                pendingApprovals.length + pendingTravelingReports.length,
+                () => context.go(AppRoutes.approvals),
+              ),
+
             _buildWelcomeHeader(context, authProvider.currentUser?.name ?? ''),
             SizedBox(height: spacing),
 
-            // Key Metrics
             _buildStatCards(
               context,
               totalReportsCount,
@@ -816,11 +822,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Welcome Header
+            if (authProvider.canApprove() &&
+                (pendingApprovals.isNotEmpty || pendingTravelingReports.isNotEmpty))
+              _buildAlertRibbon(
+                context,
+                pendingApprovals.length + pendingTravelingReports.length,
+                () => context.go(AppRoutes.approvals),
+              ),
+
             _buildWelcomeHeader(context, authProvider.currentUser?.name ?? ''),
             SizedBox(height: spacing),
 
-            // Stats Cards (full width)
             _buildStatCards(
               context,
               totalReportsCount,
@@ -870,89 +882,62 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             SizedBox(height: spacing),
 
-            // Critical Items (Approvals)
-            if (authProvider.canApprove() &&
-                (pendingApprovals.isNotEmpty ||
-                    pendingTravelingReports.isNotEmpty)) ...[
-              DashboardSection(
-                title: 'Pending Approvals',
-                icon: Icons.pending_actions,
-                iconColor: Colors.red,
-                showBadge: true,
-                badgeCount:
-                    pendingApprovals.length + pendingTravelingReports.length,
-                initiallyExpanded: true,
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (pendingApprovals.isNotEmpty)
-                        Expanded(
-                          child: _buildPendingApprovals(
-                            context,
-                            pendingApprovals,
-                          ),
-                        ),
-                      if (pendingApprovals.isNotEmpty &&
-                          pendingTravelingReports.isNotEmpty)
-                        const SizedBox(width: 16),
-                      if (pendingTravelingReports.isNotEmpty)
-                        Expanded(
-                          child: _buildPendingTravelingReports(
-                            context,
-                            pendingTravelingReports,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              SizedBox(height: spacing),
-            ],
-
-            // Recent Reports + My Data in 2 columns
+            // My Reports – 3 column row
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: DashboardSection(
-                    title: 'My Recent Reports',
+                    title: 'Petty Cash Reports',
                     icon: Icons.receipt_long,
                     iconColor: Colors.blue,
                     initiallyExpanded: true,
                     child: Padding(
                       padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildPettyCashReports(context, myPettyCashReports),
-                          const SizedBox(height: 16),
-                          _buildAdvanceSettlementReports(
-                            context,
-                            myAdvanceSettlementReports,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildProjectReports(context),
-                        ],
-                      ),
+                      child: _buildPettyCashReports(context, myPettyCashReports),
                     ),
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: DashboardSection(
-                    title: 'My Data',
-                    icon: Icons.badge,
-                    iconColor: Colors.cyan,
+                    title: 'Advance Settlement',
+                    icon: Icons.request_page,
+                    iconColor: Colors.orange,
                     initiallyExpanded: true,
                     child: Padding(
                       padding: const EdgeInsets.all(20),
-                      child: _buildMyDataSection(context),
+                      child: _buildAdvanceSettlementReports(context, myAdvanceSettlementReports),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: DashboardSection(
+                    title: 'Project Reports',
+                    icon: Icons.work,
+                    iconColor: Colors.indigo,
+                    initiallyExpanded: true,
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: _buildProjectReports(context),
                     ),
                   ),
                 ),
               ],
+            ),
+            SizedBox(height: spacing),
+
+            // My Data
+            DashboardSection(
+              title: 'My Data',
+              icon: Icons.badge,
+              iconColor: Colors.cyan,
+              initiallyExpanded: true,
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: _buildMyDataSection(context),
+              ),
             ),
             SizedBox(height: spacing),
 
@@ -1074,11 +1059,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Welcome Header
+            if (authProvider.canApprove() &&
+                (pendingApprovals.isNotEmpty || pendingTravelingReports.isNotEmpty))
+              _buildAlertRibbon(
+                context,
+                pendingApprovals.length + pendingTravelingReports.length,
+                () => context.go(AppRoutes.approvals),
+              ),
+
             _buildWelcomeHeader(context, authProvider.currentUser?.name ?? ''),
             SizedBox(height: spacing),
 
-            // Stats Cards (full width)
             _buildStatCards(
               context,
               totalReportsCount,
@@ -1127,86 +1118,49 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             SizedBox(height: spacing),
 
-            // Critical Items Row (Pending Approvals)
-            if (authProvider.canApprove() &&
-                (pendingApprovals.isNotEmpty ||
-                    pendingTravelingReports.isNotEmpty)) ...[
-              DashboardSection(
-                title: 'Pending Approvals',
-                icon: Icons.pending_actions,
-                iconColor: Colors.red,
-                showBadge: true,
-                badgeCount:
-                    pendingApprovals.length + pendingTravelingReports.length,
-                initiallyExpanded: true,
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (pendingApprovals.isNotEmpty)
-                        Expanded(
-                          child: _buildPendingApprovals(
-                            context,
-                            pendingApprovals,
-                          ),
-                        ),
-                      if (pendingApprovals.isNotEmpty &&
-                          pendingTravelingReports.isNotEmpty)
-                        const SizedBox(width: 24),
-                      if (pendingTravelingReports.isNotEmpty)
-                        Expanded(
-                          child: _buildPendingTravelingReports(
-                            context,
-                            pendingTravelingReports,
-                          ),
-                        ),
-                    ],
+            // My Reports – 3 column row
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: DashboardSection(
+                    title: 'Petty Cash Reports',
+                    icon: Icons.receipt_long,
+                    iconColor: Colors.blue,
+                    initiallyExpanded: true,
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: _buildPettyCashReports(context, myPettyCashReports),
+                    ),
                   ),
                 ),
-              ),
-              SizedBox(height: spacing),
-            ],
-
-            // Petty Cash Reports (full width)
-            DashboardSection(
-              title: 'Petty Cash Reports',
-              icon: Icons.receipt_long,
-              iconColor: Colors.blue,
-              initiallyExpanded: true,
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: _buildPettyCashReports(context, myPettyCashReports),
-              ),
-            ),
-            SizedBox(height: spacing),
-
-            // Advance Settlement Reports (full width)
-            DashboardSection(
-              title: 'Advance Settlement Reports',
-              icon: Icons.request_page,
-              iconColor: Colors.orange,
-              initiallyExpanded: true,
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: _buildAdvanceSettlementReports(
-                  context,
-                  myAdvanceSettlementReports,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: DashboardSection(
+                    title: 'Advance Settlement',
+                    icon: Icons.request_page,
+                    iconColor: Colors.orange,
+                    initiallyExpanded: true,
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: _buildAdvanceSettlementReports(context, myAdvanceSettlementReports),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            SizedBox(height: spacing),
-
-            // Project Reports (full width)
-            DashboardSection(
-              title: 'Project Reports',
-              icon: Icons.work,
-              iconColor: Colors.indigo,
-              initiallyExpanded: true,
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: _buildProjectReports(context),
-              ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: DashboardSection(
+                    title: 'Project Reports',
+                    icon: Icons.work,
+                    iconColor: Colors.indigo,
+                    initiallyExpanded: true,
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: _buildProjectReports(context),
+                    ),
+                  ),
+                ),
+              ],
             ),
             SizedBox(height: spacing),
 
@@ -1313,19 +1267,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildWelcomeHeader(BuildContext context, String userName) {
+    final primary = Theme.of(context).colorScheme.primary;
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.blue.shade600, Colors.blue.shade400],
+          colors: [
+            primary.withValues(alpha: 0.85),
+            primary,
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withValues(alpha: 0.3),
-            blurRadius: 8,
+            color: primary.withValues(alpha: 0.25),
+            blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
@@ -1339,37 +1297,112 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Text(
                   'Welcome back,',
                   style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 14,
+                    color: Colors.white.withValues(alpha: 0.8),
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   userName,
                   style: const TextStyle(
-                    fontSize: 28,
+                    fontSize: 26,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Text(
                   'Here\'s your financial overview',
                   style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white.withValues(alpha: 0.8),
+                    fontSize: 13,
+                    color: Colors.white.withValues(alpha: 0.75),
                   ),
                 ),
               ],
             ),
           ),
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
+              color: Colors.white.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.dashboard, size: 48, color: Colors.white),
+            child: const Icon(Icons.dashboard_rounded, size: 40, color: Colors.white),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAlertRibbon(
+    BuildContext context,
+    int pendingCount,
+    VoidCallback onReview,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final errorColor = colorScheme.error;
+    final errorContainer = colorScheme.errorContainer;
+    final onErrorContainer = colorScheme.onErrorContainer;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: errorContainer.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: errorColor.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 32, height: 32,
+            decoration: BoxDecoration(
+              color: errorContainer,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(Icons.pending_actions, size: 16, color: errorColor),
+          ),
+          const SizedBox(width: 10),
+          SizedBox.square(
+            dimension: 8,
+            child: DecoratedBox(
+              decoration: BoxDecoration(color: errorColor, shape: BoxShape.circle),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$pendingCount item${pendingCount > 1 ? 's' : ''} waiting for your approval',
+                  style: TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w600,
+                    color: onErrorContainer,
+                  ),
+                ),
+                Text(
+                  'Review pending reports and travel claims',
+                  style: TextStyle(fontSize: 11, color: onErrorContainer.withValues(alpha: 0.7)),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: onReview,
+            style: TextButton.styleFrom(
+              backgroundColor: errorContainer,
+              foregroundColor: errorColor,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Review', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                SizedBox(width: 4),
+                Icon(Icons.arrow_forward, size: 12),
+              ],
+            ),
           ),
         ],
       ),
@@ -1483,13 +1516,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildModernStatCard(BuildContext context, _StatData stat) {
+    final cardColor = stat.gradient[1];
     final borderRadius = ResponsiveHelper.getBorderRadius(context);
     final elevation = ResponsiveHelper.getCardElevation(context);
-
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(borderRadius),
+        border: Border(top: BorderSide(color: cardColor, width: 3)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -1498,68 +1532,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-      child: Stack(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Positioned(
-            right: ResponsiveHelper.isMobile(context) ? -15 : -20,
-            top: ResponsiveHelper.isMobile(context) ? -15 : -20,
-            child: Container(
-              width: ResponsiveHelper.isMobile(context) ? 80 : 100,
-              height: 100,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: stat.gradient
-                      .map((c) => c.withValues(alpha: 0.1))
-                      .toList(),
-                ),
-                shape: BoxShape.circle,
-              ),
+          Container(
+            width: 38, height: 38,
+            decoration: BoxDecoration(
+              color: stat.lightColor,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(stat.icon, color: cardColor, size: 18),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            stat.value,
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              color: cardColor,
+              letterSpacing: -1,
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: stat.gradient,
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(stat.icon, color: Colors.white, size: 28),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        stat.value,
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: stat.gradient[1],
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        stat.title,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+          const SizedBox(height: 4),
+          Text(
+            stat.title,
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -2097,65 +2095,64 @@ class _DashboardScreenState extends State<DashboardScreen> {
             desktop: 16,
           ),
         ),
-        ResponsiveWrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: actions
-              .map(
-                (action) => ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minWidth: ResponsiveHelper.isMobile(context) ? 150 : 180,
-                    maxWidth: ResponsiveHelper.isMobile(context) ? 200 : 250,
+        Builder(builder: (context) {
+          final isMobile = ResponsiveHelper.isMobile(context);
+          return ResponsiveWrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: actions
+                .map(
+                  (action) => ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minWidth: isMobile ? 150 : 180,
+                      maxWidth: isMobile ? 200 : 250,
+                    ),
+                    child: _buildActionCard(context, action),
                   ),
-                  child: _buildActionCard(context, action),
-                ),
-              )
-              .toList(),
-        ),
+                )
+                .toList(),
+          );
+        }),
+
       ],
     );
   }
 
   Widget _buildActionCard(BuildContext context, _ActionData action) {
-    final borderRadius = ResponsiveHelper.getBorderRadius(context);
-
+    final iconColor = action.gradient[1];
+    final bgColor = action.gradient[0].withValues(alpha: 0.10);
     return InkWell(
       onTap: action.onPressed,
-      borderRadius: BorderRadius.circular(borderRadius),
+      borderRadius: BorderRadius.circular(10),
       child: Container(
-        padding: EdgeInsets.all(ResponsiveHelper.isMobile(context) ? 12 : 16),
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: action.gradient,
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(borderRadius),
-          boxShadow: [
-            BoxShadow(
-              color: action.gradient[1].withValues(alpha: 0.3),
-              blurRadius: ResponsiveHelper.getCardElevation(context) * 2,
-              offset: Offset(0, ResponsiveHelper.getCardElevation(context)),
-            ),
-          ],
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.grey.shade200),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              action.icon,
-              color: Colors.white,
-              size: ResponsiveHelper.isMobile(context) ? 28 : 32,
+            Container(
+              width: 40, height: 40,
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(action.icon, color: iconColor, size: 18),
             ),
-            SizedBox(height: ResponsiveHelper.isMobile(context) ? 6 : 8),
+            const SizedBox(height: 7),
             Text(
               action.label,
               style: TextStyle(
-                color: Colors.white,
-                fontSize: ResponsiveHelper.isMobile(context) ? 12 : 13,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
+                color: Colors.grey.shade700,
               ),
               textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

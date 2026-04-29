@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
@@ -1677,8 +1678,30 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
               _buildDetailRow('Title', _advance!.linkedActionItemTitle),
             if (_advance!.linkedActionItemDescription != null &&
                 _advance!.linkedActionItemDescription!.isNotEmpty)
-              _buildDetailRow(
-                  'Description', _advance!.linkedActionItemDescription),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 140,
+                      child: Text(
+                        'Description',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildFormattedText(
+                        _advance!.linkedActionItemDescription!,
+                        const TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),
@@ -1756,6 +1779,33 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
         ),
       ],
     );
+  }
+
+  Widget _buildFormattedText(String text, TextStyle baseStyle) {
+    if (text.startsWith('[')) {
+      try {
+        final List<dynamic> ops = jsonDecode(text) as List;
+        final spans = <TextSpan>[];
+        for (final op in ops) {
+          if (op is! Map) continue;
+          final insert = op['insert'];
+          if (insert is! String) continue;
+          final attrs = (op['attributes'] as Map?) ?? {};
+          spans.add(TextSpan(
+            text: insert,
+            style: TextStyle(
+              fontWeight: attrs['bold'] == true ? FontWeight.bold : FontWeight.normal,
+              fontStyle: attrs['italic'] == true ? FontStyle.italic : FontStyle.normal,
+              decoration: attrs['underline'] == true ? TextDecoration.underline : TextDecoration.none,
+            ),
+          ));
+        }
+        if (spans.isNotEmpty) {
+          return Text.rich(TextSpan(style: baseStyle, children: spans));
+        }
+      } catch (_) {}
+    }
+    return Text(text, style: baseStyle);
   }
 
   Widget _buildDetailRow(String label, String? value) {

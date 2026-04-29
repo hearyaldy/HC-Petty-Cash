@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -17,6 +16,7 @@ import '../../models/enums.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
 import '../../utils/logger.dart';
+import '../../widgets/app_drawer.dart';
 
 enum TransactionSortField { date, amount, category, status }
 
@@ -180,157 +180,222 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
     final statusSummary = _getStatusSummary(filteredTransactions);
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
-      body: SafeArea(
-        child: transactionProvider.isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
-                child: ResponsiveContainer(
-                  padding: EdgeInsets.zero,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+      appBar: _buildTopBar(context, filteredTransactions.length, totalAmount),
+      drawer: const AppDrawer(),
+      body: transactionProvider.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              child: ResponsiveContainer(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 14),
+                    // Summary banner
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _buildSummaryBanner(
+                        context,
+                        filteredTransactions.length,
+                        totalAmount,
+                        statusSummary,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    // Summary Cards
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _buildSectionLabel('Overview'),
+                    ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _buildSummaryCards(
+                        filteredTransactions.length,
+                        totalAmount,
+                        categorySummary,
+                        paymentMethodSummary,
+                        statusSummary,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    // Filters
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _buildSectionLabel('Filter Transactions'),
+                    ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _buildFilters(allTransactions),
+                    ),
+                    const SizedBox(height: 14),
+                    // Transactions Table
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _buildSectionLabel('Transactions'),
+                    ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _buildTransactionsTable(
+                        filteredTransactions,
+                        reportProvider,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              ),
+            ),
+    );
+  }
+
+  // ─── Top bar ───────────────────────────────────────────────────────────────
+
+  PreferredSizeWidget _buildTopBar(BuildContext context, int count, double total) {
+    final cs = Theme.of(context).colorScheme;
+    final maxWidth = ResponsiveHelper.getMaxContentWidth(context);
+    final hPad = ResponsiveHelper.getScreenPadding(context).horizontal / 2;
+    final fmt = NumberFormat.compactCurrency(symbol: '${AppConstants.currencySymbol} ', decimalDigits: 0);
+
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(kToolbarHeight),
+      child: Container(
+        decoration: BoxDecoration(
+          color: cs.primary,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: SizedBox(
+            height: kToolbarHeight,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxWidth),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: hPad),
+                  child: Row(
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: _buildWelcomeHeader(
-                          filteredTransactions.length,
-                          totalAmount,
+                      Builder(
+                        builder: (ctx) => IconButton(
+                          icon: const Icon(Icons.menu, color: Colors.white),
+                          tooltip: 'Menu',
+                          onPressed: () => Scaffold.of(ctx).openDrawer(),
                         ),
                       ),
-                      // Summary Cards
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: _buildSummaryCards(
-                          filteredTransactions.length,
-                          totalAmount,
-                          categorySummary,
-                          paymentMethodSummary,
-                          statusSummary,
+                      const SizedBox(width: 4),
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Center(
+                          child: Text('HC', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 10)),
                         ),
                       ),
-                      const SizedBox(height: 24),
-
-                      // Filters
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: _buildFilters(allTransactions),
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('Transactions', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+                          Text(
+                            '$count records · ${fmt.format(total)}',
+                            style: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 10),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 24),
-
-                      // Transactions Table
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: _buildTransactionsTable(
-                          filteredTransactions,
-                          reportProvider,
-                        ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.refresh, color: Colors.white, size: 20),
+                        tooltip: 'Refresh',
+                        onPressed: () => context.read<TransactionProvider>().loadTransactions(),
                       ),
-                      const SizedBox(height: 24),
                     ],
                   ),
                 ),
               ),
+            ),
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildWelcomeHeader(int transactionCount, double totalAmount) {
-    final isMobile = ResponsiveHelper.isMobile(context);
-    final currencyFormat = NumberFormat.currency(
-      symbol: '${AppConstants.currencySymbol} ',
+  // ─── Section label ─────────────────────────────────────────────────────────
+
+  Widget _buildSectionLabel(String label) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Container(
+          width: 3,
+          height: 14,
+          decoration: BoxDecoration(color: cs.primary, borderRadius: BorderRadius.circular(2)),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          label.toUpperCase(),
+          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.6, color: cs.onSurfaceVariant),
+        ),
+      ],
     );
+  }
+
+  // ─── Summary banner ────────────────────────────────────────────────────────
+
+  Widget _buildSummaryBanner(BuildContext context, int count, double total, Map<String, int> statusSummary) {
+    final cs = Theme.of(context).colorScheme;
+    final fmt = NumberFormat.compactCurrency(symbol: '${AppConstants.currencySymbol} ', decimalDigits: 0);
+    final pending = statusSummary['Submitted'] ?? 0;
+    final approved = statusSummary['Approved'] ?? 0;
 
     return Container(
-      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.blue.shade600, Colors.blue.shade400],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
+          colors: [cs.primary.withValues(alpha: 0.85), cs.primary],
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
-          BoxShadow(
-            color: Colors.blue.withValues(alpha: 0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 20, offset: const Offset(0, 4)),
         ],
       ),
-      child: Column(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Top action bar
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Back/Home button
-              _buildHeaderActionButton(
-                icon: Icons.arrow_back,
-                tooltip: 'Back to Dashboard',
-                onPressed: () => context.go('/admin-hub'),
-              ),
-              // Action buttons
-              Row(
-                children: [
-                  _buildHeaderActionButton(
-                    icon: Icons.refresh,
-                    tooltip: 'Refresh',
-                    onPressed: () {
-                      context.read<TransactionProvider>().loadTransactions();
-                    },
-                  ),
-                ],
-              ),
-            ],
-          ),
-          SizedBox(height: isMobile ? 16 : 20),
-          // Content row
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Transactions Summary',
-                      style: TextStyle(
-                        fontSize: isMobile ? 24 : 28,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '$transactionCount transactions • ${currencyFormat.format(totalAmount)}',
-                      style: TextStyle(
-                        fontSize: isMobile ? 12 : 14,
-                        color: Colors.white.withValues(alpha: 0.9),
-                      ),
-                    ),
-                  ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Transactions Summary', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 4),
+                Text(
+                  'All petty cash transactions · ${fmt.format(total)} total',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.72), fontSize: 12),
                 ),
-              ),
-              // Logo
-              Image.asset(
-                AppConstants.companyLogo,
-                width: isMobile ? 40 : 50,
-                height: isMobile ? 40 : 50,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    padding: EdgeInsets.all(isMobile ? 10 : 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.receipt_long,
-                      size: isMobile ? 28 : 36,
-                      color: Colors.white,
-                    ),
-                  );
-                },
-              ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 20),
+          Row(
+            children: [
+              _buildBannerStat('Total', count),
+              const SizedBox(width: 20),
+              _buildBannerStat('Pending', pending),
+              const SizedBox(width: 20),
+              _buildBannerStat('Approved', approved),
             ],
           ),
         ],
@@ -338,25 +403,14 @@ class _TransactionsSummaryScreenState extends State<TransactionsSummaryScreen> {
     );
   }
 
-  Widget _buildHeaderActionButton({
-    required IconData icon,
-    required String tooltip,
-    required VoidCallback onPressed,
-  }) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: Colors.white, size: 20),
-        ),
-      ),
+  Widget _buildBannerStat(String label, int value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text('$value', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 2),
+        Text(label, textAlign: TextAlign.center, style: TextStyle(color: Colors.white.withValues(alpha: 0.70), fontSize: 10)),
+      ],
     );
   }
 

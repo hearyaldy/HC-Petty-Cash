@@ -120,6 +120,39 @@ class _StudentMonthlyReportDetailScreenState
     );
   }
 
+  Widget _buildAddEntryButton() {
+    return Tooltip(
+      message: 'Add Time Entry',
+      child: InkWell(
+        onTap: _showAddTimesheetDialog,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.25),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.add, color: Colors.white, size: 18),
+              SizedBox(width: 4),
+              Text(
+                'Add Entry',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _showEditReportDialog() async {
     if (_reportData == null) return;
     if ((_reportData?['isFinalized'] ?? false) == true) return;
@@ -628,6 +661,11 @@ class _StudentMonthlyReportDetailScreenState
                   ),
                   Row(
                     children: [
+                      if ((_reportData?['status'] ?? 'draft') == 'draft' &&
+                          (_reportData?['isFinalized'] ?? false) == false) ...[
+                        _buildAddEntryButton(),
+                        const SizedBox(width: 8),
+                      ],
                       _buildHeaderActionButton(
                         icon: Icons.print,
                         tooltip: 'Print Report',
@@ -1397,16 +1435,6 @@ class _StudentMonthlyReportDetailScreenState
               ),
             )
           : _buildContent(),
-      floatingActionButton:
-          (_reportData?['status'] ?? 'draft') == 'draft' &&
-              (_reportData?['isFinalized'] ?? false) == false
-          ? FloatingActionButton.extended(
-              onPressed: _showAddTimesheetDialog,
-              backgroundColor: Colors.orange.shade600,
-              icon: const Icon(Icons.add),
-              label: const Text('Add Time Entry'),
-            )
-          : null,
     );
   }
 

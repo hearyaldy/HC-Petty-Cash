@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
@@ -809,6 +810,8 @@ class _PurchaseRequisitionDetailScreenState
             _buildSummarySection(requisition),
             if (requisition.status == 'approved' && requisition.cashAdvanceId == null)
               _buildCreateCAButton(requisition),
+            if (requisition.status != 'draft' && requisition.status != 'rejected')
+              _buildCreateSettlementButton(requisition),
             _buildNoteSection(),
             _buildSignatureSection(requisition),
             _buildSupportDocumentsSection(requisition),
@@ -1025,6 +1028,7 @@ class _PurchaseRequisitionDetailScreenState
       child: PopupMenuButton<String>(
         icon: const Icon(Icons.more_vert, color: Colors.white),
         onSelected: (value) async {
+          final router = GoRouter.of(context);
           final requisition = await _firestoreService.getPurchaseRequisition(
             widget.requisitionId,
           );
@@ -1051,6 +1055,12 @@ class _PurchaseRequisitionDetailScreenState
               break;
             case 'revert':
               _revertToDraft(requisition);
+              break;
+            case 'create_settlement':
+              final uri = requisition.cashAdvanceId != null
+                  ? '/reports/new/advance-settlement?purchaseRequisitionId=${requisition.id}&cashAdvanceId=${requisition.cashAdvanceId}'
+                  : '/reports/new/advance-settlement?purchaseRequisitionId=${requisition.id}';
+              if (mounted) router.push(uri);
               break;
           }
         },
@@ -1129,6 +1139,29 @@ class _PurchaseRequisitionDetailScreenState
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildCreateSettlementButton(PurchaseRequisition requisition) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: () {
+          final uri = requisition.cashAdvanceId != null
+              ? '/reports/new/advance-settlement?purchaseRequisitionId=${requisition.id}&cashAdvanceId=${requisition.cashAdvanceId}'
+              : '/reports/new/advance-settlement?purchaseRequisitionId=${requisition.id}';
+          context.push(uri);
+        },
+        icon: const Icon(Icons.receipt_long_outlined),
+        label: const Text('Create Advance Settlement Report'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.indigo,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
       ),
     );
   }
@@ -1289,8 +1322,33 @@ class _PurchaseRequisitionDetailScreenState
               if (requisition.linkedActionItemDescription != null &&
                   requisition.linkedActionItemDescription!.isNotEmpty) ...[
                 const SizedBox(height: 8),
-                _buildDetailRow(Icons.description_outlined, 'Description',
-                    requisition.linkedActionItemDescription!),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.description_outlined, size: 20, color: Colors.grey.shade600),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Description',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          _buildFormattedText(
+                            requisition.linkedActionItemDescription!,
+                            const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ],
           ),
@@ -1435,6 +1493,34 @@ class _PurchaseRequisitionDetailScreenState
         ),
       ],
     );
+  }
+
+  Widget _buildFormattedText(String text, TextStyle baseStyle) {
+    if (text.startsWith('[')) {
+      try {
+        final List<dynamic> ops = jsonDecode(text) as List;
+        final spans = <TextSpan>[];
+        for (final op in ops) {
+          if (op is! Map) continue;
+          final insert = op['insert'];
+          if (insert is! String) continue;
+          final attrs = (op['attributes'] as Map?) ?? {};
+          spans.add(TextSpan(
+            text: insert,
+            style: TextStyle(
+              fontWeight: attrs['bold'] == true ? FontWeight.bold : FontWeight.normal,
+              fontStyle: attrs['italic'] == true ? FontStyle.italic : FontStyle.normal,
+              decoration: attrs['underline'] == true ? TextDecoration.underline : TextDecoration.none,
+            ),
+          ));
+        }
+        if (spans.isNotEmpty) {
+          return Text.rich(TextSpan(style: baseStyle, children: spans));
+        }
+      } catch (_) {}
+    }
+    // Fall back to plain text
+    return Text(text, style: baseStyle);
   }
 
   Widget _buildItemsSection(PurchaseRequisition requisition) {
@@ -2200,13 +2286,14 @@ class _PurchaseRequisitionDetailScreenState
         transactionId: item.id,
         existingDocumentUrls: item.supportDocumentUrls,
         onDocumentsUploaded: (urls) async {
+          final messenger = ScaffoldMessenger.of(this.context);
           try {
             final updatedItem = item.copyWith(
               supportDocumentUrls: urls,
             );
             await _firestoreService.updatePurchaseRequisitionItem(updatedItem);
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
+              messenger.showSnackBar(
                 const SnackBar(
                   content: Text('Item documents updated successfully'),
                   backgroundColor: Colors.green,
@@ -2215,7 +2302,7 @@ class _PurchaseRequisitionDetailScreenState
             }
           } catch (e) {
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
+              messenger.showSnackBar(
                 SnackBar(
                   content: Text('Error updating item documents: $e'),
                   backgroundColor: Colors.red,
@@ -2260,6 +2347,7 @@ class _PurchaseRequisitionDetailScreenState
         transactionId: requisition.id,
         existingDocumentUrls: requisition.supportDocumentUrls,
         onDocumentsUploaded: (urls) async {
+          final messenger = ScaffoldMessenger.of(this.context);
           try {
             final updatedRequisition = requisition.copyWith(
               supportDocumentUrls: urls,
@@ -2267,7 +2355,7 @@ class _PurchaseRequisitionDetailScreenState
             );
             await _firestoreService.updatePurchaseRequisition(updatedRequisition);
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
+              messenger.showSnackBar(
                 const SnackBar(
                   content: Text('Support documents updated successfully'),
                   backgroundColor: Colors.green,
@@ -2276,7 +2364,7 @@ class _PurchaseRequisitionDetailScreenState
             }
           } catch (e) {
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
+              messenger.showSnackBar(
                 SnackBar(
                   content: Text('Error updating support documents: $e'),
                   backgroundColor: Colors.red,

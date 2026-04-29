@@ -349,10 +349,12 @@ class FirestoreService {
         );
   }
 
-  // Stream for pending transactions (status = submitted)
+  // Stream for pending transactions awaiting approval.
+  // Some older records may still use `submitted`, while current flow uses
+  // `pendingApproval`, so we include both to keep the approvals queue accurate.
   Stream<List<app.Transaction>> pendingTransactionsStream() {
     return _transactionsCollection
-        .where('status', isEqualTo: 'submitted')
+        .where('status', whereIn: ['submitted', 'pendingApproval'])
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map(
@@ -654,6 +656,12 @@ class FirestoreService {
       AppLogger.severe('Error getting traveling report: $e');
       rethrow;
     }
+  }
+
+  Stream<TravelingReport?> travelingReportStream(String reportId) {
+    return _travelingReportsCollection.doc(reportId).snapshots().map(
+          (doc) => doc.exists ? TravelingReport.fromFirestore(doc) : null,
+        );
   }
 
   Future<List<TravelingReport>> getAllTravelingReports() async {

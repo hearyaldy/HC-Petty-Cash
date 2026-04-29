@@ -77,6 +77,10 @@ class TransactionProvider extends ChangeNotifier {
     required String requestorId,
     String? paidTo,
     List<File>? attachmentFiles,
+    String? foreignCurrency,
+    double? foreignAmount,
+    double? exchangeRate,
+    DateTime? exchangeRateDate,
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -113,6 +117,10 @@ class TransactionProvider extends ChangeNotifier {
       attachmentUrls: attachmentUrls,
       createdAt: DateTime.now(),
       paidTo: paidTo,
+      foreignCurrency: foreignCurrency,
+      foreignAmount: foreignAmount,
+      exchangeRate: exchangeRate,
+      exchangeRateDate: exchangeRateDate,
     );
 
     try {

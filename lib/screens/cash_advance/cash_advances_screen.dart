@@ -13,6 +13,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/cash_advance_provider.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
+import '../../widgets/app_drawer.dart';
 
 class _StatData {
   final String title;
@@ -196,7 +197,8 @@ class _CashAdvancesScreenState extends State<CashAdvancesScreen> {
     final maxWidth = ResponsiveHelper.getMaxContentWidth(context);
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      appBar: _buildTopBar(context),
+      drawer: const AppDrawer(),
       body: Consumer2<AuthProvider, CashAdvanceProvider>(
         builder: (context, authProvider, cashAdvanceProvider, child) {
           final isAdmin = authProvider.canManageUsers();
@@ -212,7 +214,7 @@ class _CashAdvancesScreenState extends State<CashAdvancesScreen> {
                       padding: EdgeInsets.only(
                         left: contentPadding.left,
                         right: contentPadding.right,
-                        top: MediaQuery.of(context).padding.top + 16,
+                        top: 16,
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -299,135 +301,232 @@ class _CashAdvancesScreenState extends State<CashAdvancesScreen> {
     );
   }
 
-  Widget _buildHeaderBanner(CashAdvanceProvider provider) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.indigo.shade400,
-            Colors.indigo.shade600,
-            Colors.indigo.shade800,
+  // ─── Top bar ───────────────────────────────────────────────────────────────
+
+  PreferredSizeWidget _buildTopBar(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final maxWidth = ResponsiveHelper.getMaxContentWidth(context);
+    final hPad = ResponsiveHelper.getScreenPadding(context).horizontal / 2;
+
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(kToolbarHeight),
+      child: Container(
+        decoration: BoxDecoration(
+          color: cs.primary,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
           ],
         ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.indigo.shade200,
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              InkWell(
-                onTap: () => context.go('/finance-dashboard'),
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
-                ),
-              ),
-              const Spacer(),
-              InkWell(
-                onTap: () => _printAdvances(provider.advances),
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.print, color: Colors.white, size: 20),
-                ),
-              ),
-              const SizedBox(width: 8),
-              InkWell(
-                onTap: _loadAdvances,
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.refresh, color: Colors.white, size: 20),
-                ),
-              ),
-              const SizedBox(width: 8),
-              InkWell(
-                onTap: () => context.push('/cash-advances/new'),
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+        child: SafeArea(
+          bottom: false,
+          child: SizedBox(
+            height: kToolbarHeight,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxWidth),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: hPad),
                   child: Row(
-                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.add, color: Colors.indigo.shade700, size: 18),
-                      const SizedBox(width: 4),
-                      Text(
-                        'New Request',
-                        style: TextStyle(
-                          color: Colors.indigo.shade700,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
+                      Builder(
+                        builder: (ctx) => IconButton(
+                          icon: const Icon(Icons.menu, color: Colors.white),
+                          tooltip: 'Menu',
+                          onPressed: () => Scaffold.of(ctx).openDrawer(),
                         ),
+                      ),
+                      const SizedBox(width: 4),
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            'HC',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'Cash Advances',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Text(
+                            'Request & track cash advances',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.65),
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      Consumer<CashAdvanceProvider>(
+                        builder: (context, provider, _) => IconButton(
+                          icon: const Icon(Icons.print, color: Colors.white, size: 20),
+                          tooltip: 'Print',
+                          onPressed: () => _printAdvances(provider.advances),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.refresh, color: Colors.white, size: 20),
+                        tooltip: 'Refresh',
+                        onPressed: _loadAdvances,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.add_circle_outline, color: Colors.white, size: 20),
+                        tooltip: 'New Request',
+                        onPressed: () => context.push('/cash-advances/new'),
                       ),
                     ],
                   ),
                 ),
               ),
-            ],
+            ),
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeaderBanner(CashAdvanceProvider provider) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [cs.primary.withValues(alpha: 0.85), cs.primary],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isCompact = constraints.maxWidth < 760;
+          final stats = [
+            ('Total', '${provider.advances.length}'),
+            ('Pending', '${provider.pendingApprovalCount}'),
+            ('Settling', '${provider.pendingSettlementCount}'),
+          ];
+
+          if (isCompact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Cash Advances',
+                  style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800),
                 ),
-                child: const Icon(Icons.request_quote, color: Colors.white),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
+                const SizedBox(height: 4),
+                Text(
+                  'Track, approve, and settle cash advance requests',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.72), fontSize: 12),
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: stats.map((s) => _buildBannerStat(s.$1, s.$2, compact: true)).toList(),
+                ),
+              ],
+            );
+          }
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'Cash Advances',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
+                      style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      'Track, approve, and settle cash advance requests.',
-                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                      'Track, approve, and settle cash advance requests',
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.72), fontSize: 12),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 20),
+              Row(
+                children: [
+                  for (var i = 0; i < stats.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 20),
+                    _buildBannerStat(stats[i].$1, stats[i].$2),
+                  ],
+                ],
+              ),
             ],
-          ),
-        ],
+          );
+        },
       ),
+    );
+  }
+
+  Widget _buildBannerStat(String label, String value, {bool compact = false}) {
+    final child = Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: compact ? 20 : 22,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.70), fontSize: 10),
+        ),
+      ],
+    );
+
+    if (!compact) return child;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: child,
     );
   }
 

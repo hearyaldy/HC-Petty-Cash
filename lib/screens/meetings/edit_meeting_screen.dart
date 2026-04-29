@@ -1,9 +1,13 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/meeting.dart';
 import '../../services/adcom_agenda_service.dart';
+import '../../services/ai_text_service.dart';
 import '../../services/meeting_service.dart';
 import '../../utils/responsive_helper.dart';
 
@@ -20,6 +24,7 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
   static const String _externalMemberValue = '__external__';
   final MeetingService _meetingService = MeetingService();
   final AdcomAgendaService _adcomAgendaService = AdcomAgendaService();
+  final AITextService _aiTextService = AITextService();
   final _formKey = GlobalKey<FormState>();
 
   Meeting? _meeting;
@@ -28,11 +33,14 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
   final _titleController = TextEditingController();
   final _locationController = TextEditingController();
   final _virtualLinkController = TextEditingController();
-  final _notesController = TextEditingController();
   final _customHeadingController = TextEditingController();
+  late quill.QuillController _notesEditorController;
+  final FocusNode _notesFocusNode = FocusNode();
+  final ScrollController _notesScrollController = ScrollController();
 
   DateTime _selectedDate = DateTime.now();
   TimeOfDay _selectedTime = const TimeOfDay(hour: 9, minute: 0);
+  DateTime? _voteDeadline;
 
   String? _chairpersonId;
   String? _chairpersonName;
@@ -44,12 +52,14 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
   List<MeetingMember> _committeeBoardMembers = [];
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _isAiWorking = false;
 
   List<Map<String, dynamic>> _availableUsers = [];
 
   @override
   void initState() {
     super.initState();
+    _notesEditorController = quill.QuillController.basic();
     _loadUsers();
     _loadCommitteeMembers();
     _loadMeeting();
@@ -60,8 +70,10 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
     _titleController.dispose();
     _locationController.dispose();
     _virtualLinkController.dispose();
-    _notesController.dispose();
     _customHeadingController.dispose();
+    _notesEditorController.dispose();
+    _notesFocusNode.dispose();
+    _notesScrollController.dispose();
     super.dispose();
   }
 
@@ -71,15 +83,16 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
       final meeting = await _meetingService.getMeeting(widget.meetingId);
       if (meeting == null) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Meeting not found')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Meeting not found')));
         }
         setState(() => _isLoading = false);
         return;
       }
 
       final meetingDateTime = meeting.dateTime;
+      final notesController = _buildQuillController(meeting.notes ?? '');
       setState(() {
         _meeting = meeting;
         _meetingType = meeting.type;
@@ -87,7 +100,8 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
         _titleController.text = meeting.title;
         _locationController.text = meeting.location ?? '';
         _virtualLinkController.text = meeting.virtualLink ?? '';
-        _notesController.text = meeting.notes ?? '';
+        _notesEditorController.dispose();
+        _notesEditorController = notesController;
         _customHeadingController.text = meeting.customHeading ?? '';
         _selectedDate = DateTime(
           meetingDateTime.year,
@@ -98,6 +112,7 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
           hour: meetingDateTime.hour,
           minute: meetingDateTime.minute,
         );
+        _voteDeadline = meeting.voteDeadline;
         _chairpersonId = meeting.chairpersonId;
         _chairpersonName = meeting.chairpersonName;
         _secretaryId = meeting.secretaryId;
@@ -113,11 +128,299 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading meeting: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading meeting: $e')));
       }
     }
+  }
+
+  quill.QuillController _buildQuillController(String text) {
+    if (text.isEmpty) return quill.QuillController.basic();
+    if (text.startsWith('[')) {
+      try {
+        final doc = quill.Document.fromJson(jsonDecode(text) as List);
+        return quill.QuillController(
+          document: doc,
+          selection: const TextSelection.collapsed(offset: 0),
+        );
+      } catch (_) {}
+    }
+    final doc = quill.Document()..insert(0, text);
+    return quill.QuillController(
+      document: doc,
+      selection: const TextSelection.collapsed(offset: 0),
+    );
+  }
+
+  String _notesPlainText() {
+    return _notesEditorController.document.toPlainText().trim();
+  }
+
+  String? _serializeNotes() {
+    final plainText = _notesPlainText();
+    if (plainText.isEmpty) return null;
+    return jsonEncode(_notesEditorController.document.toDelta().toJson());
+  }
+
+  void _replaceNotesWithText(String text) {
+    final trimmed = text.trim();
+    final doc = quill.Document();
+    if (trimmed.isNotEmpty) {
+      doc.insert(0, trimmed);
+    }
+    final previousController = _notesEditorController;
+    setState(() {
+      _notesEditorController = quill.QuillController(
+        document: doc,
+        selection: const TextSelection.collapsed(offset: 0),
+      );
+    });
+    previousController.dispose();
+  }
+
+  Future<void> _selectVoteDeadlineDate() async {
+    final initialDate = _voteDeadline ?? _selectedDate;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+    );
+    if (picked == null) return;
+
+    setState(() {
+      final current = _voteDeadline ?? DateTime.now();
+      _voteDeadline = DateTime(
+        picked.year,
+        picked.month,
+        picked.day,
+        current.hour,
+        current.minute,
+      );
+    });
+  }
+
+  Future<void> _selectVoteDeadlineTime() async {
+    final current = _voteDeadline ?? DateTime.now();
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: current.hour, minute: current.minute),
+    );
+    if (picked == null) return;
+
+    setState(() {
+      final date = _voteDeadline ?? _selectedDate;
+      _voteDeadline = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        picked.hour,
+        picked.minute,
+      );
+    });
+  }
+
+  Future<void> _runAiTextAction({
+    required Future<AIResult> Function() action,
+    required String dialogTitle,
+  }) async {
+    if (_isAiWorking) return;
+    setState(() => _isAiWorking = true);
+
+    try {
+      final result = await action();
+      if (!mounted) return;
+
+      if (!result.success ||
+          result.text == null ||
+          result.text!.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.error ?? 'AI could not generate text.'),
+          ),
+        );
+        return;
+      }
+
+      final shouldApply =
+          await showDialog<bool>(
+            context: context,
+            builder: (dialogContext) => AlertDialog(
+              title: Text(dialogTitle),
+              content: SizedBox(
+                width: 560,
+                child: SingleChildScrollView(
+                  child: SelectableText(
+                    result.text!.trim(),
+                    style: const TextStyle(height: 1.6),
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: const Text('Apply'),
+                ),
+              ],
+            ),
+          ) ??
+          false;
+
+      if (!shouldApply) return;
+      _replaceNotesWithText(result.text!);
+    } finally {
+      if (mounted) {
+        setState(() => _isAiWorking = false);
+      }
+    }
+  }
+
+  Future<void> _checkPurposeSpelling() async {
+    final text = _notesPlainText();
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter purpose text before spell check.')),
+      );
+      return;
+    }
+
+    if (_isAiWorking) return;
+    setState(() => _isAiWorking = true);
+    try {
+      final result = await _aiTextService.checkSpelling(text);
+      if (!mounted) return;
+
+      if (!result.success || result.correctedText == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result.error ?? 'AI spell check failed.')),
+        );
+        return;
+      }
+
+      final correctedText = result.correctedText!;
+      final issues = result.issues;
+      final shouldApply =
+          await showDialog<bool>(
+            context: context,
+            builder: (dialogContext) => AlertDialog(
+              title: const Text('AI Spell Check'),
+              content: SizedBox(
+                width: 560,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        issues.isEmpty
+                            ? 'No spelling or grammar issues were found.'
+                            : '${issues.length} suggested correction${issues.length == 1 ? '' : 's'} found.',
+                      ),
+                      const SizedBox(height: 12),
+                      SelectableText(
+                        correctedText,
+                        style: const TextStyle(height: 1.6),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Close'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: const Text('Apply'),
+                ),
+              ],
+            ),
+          ) ??
+          false;
+
+      if (!shouldApply) return;
+      _replaceNotesWithText(correctedText);
+    } finally {
+      if (mounted) {
+        setState(() => _isAiWorking = false);
+      }
+    }
+  }
+
+  Future<void> _enhancePurposeText() async {
+    final text = _notesPlainText();
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Enter purpose text before using AI enhance.'),
+        ),
+      );
+      return;
+    }
+
+    await _runAiTextAction(
+      action: () => _aiTextService.enhanceText(
+        text,
+        context: 'an e-vote purpose / explanation for board members',
+      ),
+      dialogTitle: 'AI Enhanced Purpose',
+    );
+  }
+
+  Future<void> _generatePurposeFromAgenda() async {
+    final meeting = _meeting;
+    if (meeting == null ||
+        meeting.agendaId == null ||
+        meeting.agendaId!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Create or attach an agenda before generating purpose text.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final agenda = await _adcomAgendaService.getAgendaById(meeting.agendaId!);
+    final agendaItems = agenda?.agendaItems ?? const [];
+    if (agendaItems.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Add agenda items first so AI has something to summarize.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final summaryLines = agendaItems.map((item) {
+      final itemNumber = item.itemNumber.trim().isEmpty
+          ? ''
+          : '${item.itemNumber.trim()} ';
+      final description = item.description.trim();
+      if (description.isEmpty) {
+        return '$itemNumber${item.title.trim()}';
+      }
+      return '$itemNumber${item.title.trim()}: $description';
+    }).toList();
+
+    await _runAiTextAction(
+      action: () => _aiTextService.generateMeetingVotePurpose(
+        meetingTitle: _titleController.text.trim(),
+        agendaItems: summaryLines,
+        currentPurpose: _notesPlainText(),
+      ),
+      dialogTitle: 'AI Drafted Purpose / Explanation',
+    );
   }
 
   Future<void> _loadUsers() async {
@@ -127,16 +430,18 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
           .get();
 
       setState(() {
-        _availableUsers = usersQuery.docs.map((doc) {
-          final data = doc.data();
-          return {
-            'id': doc.id,
-            'name': data['name'] ?? 'Unknown',
-            'email': data['email'] ?? '',
-            'role': data['role'] ?? '',
-          };
-        }).toList()
-          ..sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
+        _availableUsers =
+            usersQuery.docs.map((doc) {
+              final data = doc.data();
+              return {
+                'id': doc.id,
+                'name': data['name'] ?? 'Unknown',
+                'email': data['email'] ?? '',
+                'role': data['role'] ?? '',
+              };
+            }).toList()..sort(
+              (a, b) => (a['name'] as String).compareTo(b['name'] as String),
+            );
       });
 
       _normalizeRoleSelections();
@@ -158,6 +463,9 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
         final member = MeetingMember(
           oderId: 'external_committee_${doc.id}',
           name: data['name'] as String? ?? '',
+          email: (data['email'] as String?)?.trim().isNotEmpty == true
+              ? (data['email'] as String).trim()
+              : null,
           role: data['role'] as String?,
           organization: data['organization'] as String?,
         );
@@ -284,27 +592,34 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
             ? null
             : _chairpersonId,
         chairpersonName: _chairpersonName,
-        secretaryId: _secretaryId == _externalMemberValue
-            ? null
-            : _secretaryId,
+        secretaryId: _secretaryId == _externalMemberValue ? null : _secretaryId,
         secretaryName: _secretaryName,
         invitedMembers: List<MeetingMember>.from(_invitedMembers),
-        notes: _notesController.text.trim().isNotEmpty
-            ? _notesController.text.trim()
-            : null,
+        notes: _serializeNotes(),
         customHeading: _customHeadingController.text.trim().isNotEmpty
             ? _customHeadingController.text.trim()
             : null,
+        voteDeadline: _meetingMode == MeetingMode.evote ? _voteDeadline : null,
         updatedAt: DateTime.now(),
         createdBy: _meeting!.createdBy,
       );
 
       await _meetingService.updateMeeting(updatedMeeting);
+      if (updatedMeeting.meetingMode == MeetingMode.evote) {
+        final effectiveDeadline =
+            updatedMeeting.voteDeadline ??
+            _meetingService.getDefaultVoteDeadline(updatedMeeting);
+        await _meetingService.updateActiveVoteTokenExpiry(
+          updatedMeeting.id,
+          effectiveDeadline,
+        );
+      }
 
       if (updatedMeeting.agendaId != null &&
           updatedMeeting.agendaId!.isNotEmpty) {
-        final agenda =
-            await _adcomAgendaService.getAgendaById(updatedMeeting.agendaId!);
+        final agenda = await _adcomAgendaService.getAgendaById(
+          updatedMeeting.agendaId!,
+        );
         if (agenda != null) {
           final meetingTime = DateFormat('h:mm a').format(dateTime);
           final updatedAgenda = agenda.copyWith(
@@ -367,7 +682,11 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                  child: const Icon(
+                    Icons.arrow_back,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
               ),
               const Spacer(),
@@ -402,7 +721,11 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.home_outlined, color: Colors.white, size: 20),
+                  child: const Icon(
+                    Icons.home_outlined,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
               ),
             ],
@@ -417,7 +740,11 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
                   color: Colors.white.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.edit_calendar, size: 40, color: Colors.white),
+                child: const Icon(
+                  Icons.edit_calendar,
+                  size: 40,
+                  color: Colors.white,
+                ),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -457,9 +784,9 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
         backgroundColor: Colors.grey[100],
         body: SingleChildScrollView(
           child: ResponsiveContainer(
-            padding: ResponsiveHelper.getScreenPadding(context).copyWith(
-              top: MediaQuery.of(context).padding.top + 16,
-            ),
+            padding: ResponsiveHelper.getScreenPadding(
+              context,
+            ).copyWith(top: MediaQuery.of(context).padding.top + 16),
             child: Column(
               children: [
                 _buildHeaderCard(),
@@ -477,9 +804,9 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
         backgroundColor: Colors.grey[100],
         body: SingleChildScrollView(
           child: ResponsiveContainer(
-            padding: ResponsiveHelper.getScreenPadding(context).copyWith(
-              top: MediaQuery.of(context).padding.top + 16,
-            ),
+            padding: ResponsiveHelper.getScreenPadding(
+              context,
+            ).copyWith(top: MediaQuery.of(context).padding.top + 16),
             child: Column(
               children: [
                 _buildHeaderCard(),
@@ -496,9 +823,9 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
       backgroundColor: Colors.grey[100],
       body: SingleChildScrollView(
         child: ResponsiveContainer(
-          padding: ResponsiveHelper.getScreenPadding(context).copyWith(
-            top: MediaQuery.of(context).padding.top + 16,
-          ),
+          padding: ResponsiveHelper.getScreenPadding(
+            context,
+          ).copyWith(top: MediaQuery.of(context).padding.top + 16),
           child: Form(
             key: _formKey,
             child: Column(
@@ -530,9 +857,7 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
                     label: const Text('Save Changes'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue,
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 14,
-                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                   ),
                 ),
@@ -733,7 +1058,9 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.calendar_today),
                     ),
-                    child: Text(DateFormat('MMM dd, yyyy').format(_selectedDate)),
+                    child: Text(
+                      DateFormat('MMM dd, yyyy').format(_selectedDate),
+                    ),
                   ),
                 ),
               ),
@@ -752,6 +1079,93 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
                 ),
               ),
             ],
+          ),
+          if (_meetingMode == MeetingMode.evote) ...[
+            const SizedBox(height: 16),
+            _buildVoteDeadlineSection(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVoteDeadlineSection() {
+    final deadline = _voteDeadline;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.orange.withValues(alpha: 0.22)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Voting Deadline',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: Colors.orange.shade800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'This deadline will be used for invitation emails and active vote links.',
+            style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: _selectVoteDeadlineDate,
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Deadline Date',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.event_available),
+                    ),
+                    child: Text(
+                      deadline == null
+                          ? 'Select date'
+                          : DateFormat('MMM dd, yyyy').format(deadline),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: InkWell(
+                  onTap: _selectVoteDeadlineTime,
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Deadline Time',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.timer_outlined),
+                    ),
+                    child: Text(
+                      deadline == null
+                          ? 'Select time'
+                          : TimeOfDay(
+                              hour: deadline.hour,
+                              minute: deadline.minute,
+                            ).format(context),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: deadline == null
+                  ? null
+                  : () => setState(() => _voteDeadline = null),
+              icon: const Icon(Icons.clear, size: 18),
+              label: const Text('Clear deadline'),
+            ),
           ),
         ],
       ),
@@ -877,6 +1291,25 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
         onTap: () {
           setState(() {
             _meetingMode = mode;
+            if (mode == MeetingMode.evote && _voteDeadline == null) {
+              _voteDeadline = _meetingService.getDefaultVoteDeadline(
+                Meeting(
+                  id: _meeting?.id ?? '',
+                  type: _meetingType,
+                  title: _titleController.text.trim(),
+                  dateTime: DateTime(
+                    _selectedDate.year,
+                    _selectedDate.month,
+                    _selectedDate.day,
+                    _selectedTime.hour,
+                    _selectedTime.minute,
+                  ),
+                  meetingModeValue: mode.value,
+                  createdBy: _meeting?.createdBy ?? '',
+                  createdAt: _meeting?.createdAt ?? DateTime.now(),
+                ),
+              );
+            }
           });
         },
         borderRadius: BorderRadius.circular(10),
@@ -915,22 +1348,20 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
     final defaultNames = _meetingType == 'adcom'
         ? _committeeAdcomMembers.map((m) => m.name).toSet()
         : _meetingType == 'board'
-            ? _committeeBoardMembers.map((m) => m.name).toSet()
-            : <String>{};
+        ? _committeeBoardMembers.map((m) => m.name).toSet()
+        : <String>{};
     final filteredMembers = defaultNames.isEmpty
         ? _invitedMembers
-        : _invitedMembers
-            .where((m) => defaultNames.contains(m.name))
-            .toList();
+        : _invitedMembers.where((m) => defaultNames.contains(m.name)).toList();
     final memberOptions = filteredMembers.isEmpty
         ? _invitedMembers
         : filteredMembers
-        .fold<Map<String, MeetingMember>>({}, (acc, member) {
-          acc[member.oderId] = member;
-          return acc;
-        })
-        .values
-        .toList();
+              .fold<Map<String, MeetingMember>>({}, (acc, member) {
+                acc[member.oderId] = member;
+                return acc;
+              })
+              .values
+              .toList();
     final chairValue = memberOptions.any((m) => m.oderId == _chairpersonId)
         ? _chairpersonId
         : (_chairpersonId == _externalMemberValue ? _chairpersonId : null);
@@ -1241,6 +1672,16 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
   }
 
   Widget _buildNotesSection() {
+    final sectionTitle = _meetingMode == MeetingMode.evote
+        ? 'E-Vote Purpose'
+        : 'Notes';
+    final sectionLabel = _meetingMode == MeetingMode.evote
+        ? 'Purpose / Explanation for Board Members'
+        : 'Additional Notes';
+    final placeholder = _meetingMode == MeetingMode.evote
+        ? 'Explain what is being voted on, why the vote is needed, and what members should understand before voting.'
+        : 'Add any notes for this meeting.';
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1258,7 +1699,7 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Notes',
+            sectionTitle,
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -1266,15 +1707,118 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          TextFormField(
-            controller: _notesController,
-            maxLines: 4,
-            decoration: const InputDecoration(
-              labelText: 'Additional Notes (optional)',
-              border: OutlineInputBorder(),
-              alignLabelWithHint: true,
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '$sectionLabel (optional)',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[700],
+                  ),
+                ),
+              ),
+              if (_meetingMode == MeetingMode.evote)
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _isAiWorking ? null : _checkPurposeSpelling,
+                      icon: const Icon(Icons.spellcheck, size: 18),
+                      label: const Text('AI Spell Check'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: _isAiWorking ? null : _enhancePurposeText,
+                      icon: const Icon(Icons.auto_fix_high, size: 18),
+                      label: const Text('AI Enhance'),
+                    ),
+                    FilledButton.icon(
+                      onPressed: _isAiWorking
+                          ? null
+                          : _generatePurposeFromAgenda,
+                      icon: const Icon(Icons.psychology_alt_outlined, size: 18),
+                      label: Text(
+                        _isAiWorking ? 'AI Working...' : 'Draft From Agenda',
+                      ),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_meetingMode == MeetingMode.evote)
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.blue.withValues(alpha: 0.18)),
+              ),
+              child: Text(
+                'AI can clean up your writing, suggest clearer wording, or draft a purpose from the current agenda so the invitation explains what vote is being requested.',
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.45,
+                  color: Colors.blue.shade800,
+                ),
+              ),
+            ),
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                quill.QuillSimpleToolbar(
+                  controller: _notesEditorController,
+                  config: const quill.QuillSimpleToolbarConfig(
+                    showFontFamily: false,
+                    showFontSize: false,
+                    showBackgroundColorButton: false,
+                    showColorButton: false,
+                    showAlignmentButtons: false,
+                    showDirection: false,
+                    showDividers: true,
+                    showHeaderStyle: false,
+                    showIndent: false,
+                    showLink: false,
+                    showSearchButton: false,
+                    showSubscript: false,
+                    showSuperscript: false,
+                    showCodeBlock: false,
+                    showInlineCode: false,
+                    showQuote: false,
+                    showSmallButton: false,
+                  ),
+                ),
+                const Divider(height: 1),
+                SizedBox(
+                  height: 220,
+                  child: quill.QuillEditor(
+                    controller: _notesEditorController,
+                    focusNode: _notesFocusNode,
+                    scrollController: _notesScrollController,
+                    config: quill.QuillEditorConfig(
+                      placeholder: placeholder,
+                      padding: const EdgeInsets.all(12),
+                      autoFocus: false,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
+          if (_meetingMode == MeetingMode.evote) ...[
+            const SizedBox(height: 10),
+            Text(
+              'The formatting you save here will also be used in the invitation email preview and styled email.',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+          ],
         ],
       ),
     );
@@ -1345,9 +1889,7 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
     }
 
     // Start with already-added ones checked
-    final selected = <String>{
-      for (final m in _invitedMembers) m.oderId,
-    };
+    final selected = <String>{for (final m in _invitedMembers) m.oderId};
 
     showModalBottomSheet(
       context: context,
@@ -1395,10 +1937,12 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
                             onPressed: () {
                               setState(() {
                                 // Remove any existing default members of this type
-                                final defaultIds =
-                                    defaultList.map((m) => m.oderId).toSet();
-                                _invitedMembers
-                                    .removeWhere((m) => defaultIds.contains(m.oderId));
+                                final defaultIds = defaultList
+                                    .map((m) => m.oderId)
+                                    .toSet();
+                                _invitedMembers.removeWhere(
+                                  (m) => defaultIds.contains(m.oderId),
+                                );
                                 // Add back only checked ones
                                 for (final m in defaultList) {
                                   if (selected.contains(m.oderId)) {
@@ -1678,8 +2222,8 @@ class _EditMeetingScreenState extends State<EditMeetingScreen> {
                           : 'Guest',
                       organization:
                           organizationController.text.trim().isNotEmpty
-                              ? organizationController.text.trim()
-                              : null,
+                          ? organizationController.text.trim()
+                          : null,
                     ),
                   );
                 });

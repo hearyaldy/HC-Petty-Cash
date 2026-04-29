@@ -41,6 +41,8 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
   String? _secretaryName;
 
   final List<MeetingMember> _invitedMembers = [];
+  List<MeetingMember> _committeeAdcomMembers = [];
+  List<MeetingMember> _committeeBoardMembers = [];
   bool _isLoading = false;
   bool _useTemplate = false;
 
@@ -160,6 +162,7 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
       _meetingType = widget.preselectedType!;
     }
     _loadUsers();
+    _loadCommitteeMembers();
     _setDefaultTitle();
     _ensureDefaultAdcomMembers();
     _ensureDefaultBoardMembers();
@@ -184,53 +187,83 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
   void _ensureDefaultAdcomMembers() {
     if (_meetingType != 'adcom') return;
     if (_invitedMembers.isNotEmpty) return;
-    _invitedMembers.addAll([
-      MeetingMember(
-        oderId: 'external_adcom_chair',
-        name: 'Pr. Heary Healdy Sairin',
-        role: 'Chair',
-        organization: 'HC',
-      ),
-      MeetingMember(
-        oderId: 'external_adcom_secretary',
-        name: 'Pr. Kungwalpai Poodjing',
-        role: 'Secretary',
-        organization: 'HC',
-      ),
-      MeetingMember(
-        oderId: 'external_adcom_treasurer',
-        name: 'Archan Samorn Namkote',
-        role: 'SEUM Treasurer',
-        organization: 'SEUM',
-      ),
-      MeetingMember(
-        oderId: 'external_adcom_member_bruno',
-        name: 'Pr. Bruno Barbosa',
-        role: 'HC Member',
-        organization: 'HC',
-      ),
-      MeetingMember(
-        oderId: 'external_adcom_member_doreen',
-        name: 'Mrs. Doreen Neo',
-        role: 'HC Member',
-        organization: 'HC',
-      ),
-      MeetingMember(
-        oderId: 'external_adcom_member_anniston',
-        name: 'Mr. Anniston Mathews',
-        role: 'HC Member',
-        organization: 'HC',
-      ),
-    ]);
+    _invitedMembers.addAll(
+      _committeeAdcomMembers.isNotEmpty
+          ? _committeeAdcomMembers
+          : _defaultAdcomMembers,
+    );
   }
 
   void _ensureDefaultBoardMembers() {
     if (_meetingType != 'board') return;
     final existing = _invitedMembers.map((m) => m.name.trim()).toSet();
-    for (final member in _defaultBoardMembers) {
+    final source = _committeeBoardMembers.isNotEmpty
+        ? _committeeBoardMembers
+        : _defaultBoardMembers;
+    for (final member in source) {
       if (!existing.contains(member.name.trim())) {
         _invitedMembers.add(member);
       }
+    }
+  }
+
+  Future<void> _loadCommitteeMembers() async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('meeting_committee_members')
+          .orderBy('order')
+          .get();
+
+      final adcom = <MeetingMember>[];
+      final board = <MeetingMember>[];
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final member = MeetingMember(
+          oderId: 'external_committee_${doc.id}',
+          name: data['name'] as String? ?? '',
+          email: (data['email'] as String?)?.trim().isNotEmpty == true
+              ? (data['email'] as String).trim()
+              : null,
+          role: data['role'] as String?,
+          organization: data['organization'] as String?,
+        );
+        if (data['type'] == 'board') {
+          board.add(member);
+        } else {
+          adcom.add(member);
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _committeeAdcomMembers = adcom;
+        _committeeBoardMembers = board;
+
+        final defaultNames = _meetingType == 'board'
+            ? _defaultBoardMembers.map((member) => member.name.trim()).toSet()
+            : _defaultAdcomMembers.map((member) => member.name.trim()).toSet();
+        final isUsingFallbackDefaults =
+            _invitedMembers.isNotEmpty &&
+            _invitedMembers.every(
+              (member) => defaultNames.contains(member.name.trim()),
+            );
+
+        if (isUsingFallbackDefaults) {
+          _invitedMembers
+            ..clear()
+            ..addAll(
+              _meetingType == 'board'
+                  ? (_committeeBoardMembers.isNotEmpty
+                        ? _committeeBoardMembers
+                        : _defaultBoardMembers)
+                  : (_committeeAdcomMembers.isNotEmpty
+                        ? _committeeAdcomMembers
+                        : _defaultAdcomMembers),
+            );
+        }
+      });
+    } catch (e) {
+      debugPrint('Error loading committee members: $e');
     }
   }
 
@@ -808,12 +841,17 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
           const SizedBox(height: 16),
           TextFormField(
             controller: _notesController,
-            decoration: const InputDecoration(
-              labelText: 'Notes (optional)',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.notes),
+            decoration: InputDecoration(
+              labelText: _meetingMode == MeetingMode.evote
+                  ? 'E-Vote Purpose / Explanation (optional)'
+                  : 'Notes (optional)',
+              hintText: _meetingMode == MeetingMode.evote
+                  ? 'Explain what the board is being asked to approve or why this e-vote is needed'
+                  : null,
+              border: const OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.notes),
             ),
-            maxLines: 3,
+            maxLines: _meetingMode == MeetingMode.evote ? 4 : 3,
           ),
         ],
       ),
@@ -1049,24 +1087,30 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
 
   Widget _buildRolesSection() {
     final defaultNames = _meetingType == 'adcom'
-        ? _defaultAdcomMembers.map((m) => m.name).toSet()
+        ? (_committeeAdcomMembers.isNotEmpty
+                  ? _committeeAdcomMembers
+                  : _defaultAdcomMembers)
+              .map((m) => m.name)
+              .toSet()
         : _meetingType == 'board'
-            ? _defaultBoardMembers.map((m) => m.name).toSet()
-            : <String>{};
+        ? (_committeeBoardMembers.isNotEmpty
+                  ? _committeeBoardMembers
+                  : _defaultBoardMembers)
+              .map((m) => m.name)
+              .toSet()
+        : <String>{};
     final filteredMembers = defaultNames.isEmpty
         ? _invitedMembers
-        : _invitedMembers
-            .where((m) => defaultNames.contains(m.name))
-            .toList();
+        : _invitedMembers.where((m) => defaultNames.contains(m.name)).toList();
     final memberOptions = filteredMembers.isEmpty
         ? _invitedMembers
         : filteredMembers
-        .fold<Map<String, MeetingMember>>({}, (acc, member) {
-          acc[member.oderId] = member;
-          return acc;
-        })
-        .values
-        .toList();
+              .fold<Map<String, MeetingMember>>({}, (acc, member) {
+                acc[member.oderId] = member;
+                return acc;
+              })
+              .values
+              .toList();
     final chairValue = memberOptions.any((m) => m.oderId == _chairpersonId)
         ? _chairpersonId
         : (_chairpersonId == _externalMemberValue ? _chairpersonId : null);

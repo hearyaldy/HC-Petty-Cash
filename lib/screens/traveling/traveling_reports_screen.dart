@@ -8,6 +8,7 @@ import '../../services/firestore_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/edit_traveling_report_dialog.dart';
 import '../../utils/responsive_helper.dart';
+import '../../widgets/app_drawer.dart';
 
 class TravelingReportsScreen extends StatefulWidget {
   const TravelingReportsScreen({super.key});
@@ -250,19 +251,20 @@ class _TravelingReportsScreenState extends State<TravelingReportsScreen> {
     }
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
-      body: SafeArea(
-        child: ResponsiveContainer(
-          padding: EdgeInsets.zero,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: _buildWelcomeHeader(user.name),
-              ),
-              _buildFilterBar(),
-              Expanded(
-                child: StreamBuilder<List<TravelingReport>>(
+      appBar: _buildTopBar(context, user.name),
+      drawer: const AppDrawer(),
+      body: ResponsiveContainer(
+        padding: EdgeInsets.zero,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+              child: _buildSummaryBanner(context, user.name),
+            ),
+            const SizedBox(height: 8),
+            _buildFilterBar(),
+            Expanded(
+              child: StreamBuilder<List<TravelingReport>>(
                   stream: _firestoreService.travelingReportsByReporterStream(
                     user.id,
                   ),
@@ -308,148 +310,147 @@ class _TravelingReportsScreenState extends State<TravelingReportsScreen> {
             ],
           ),
         ),
+    );
+  }
+
+  // ─── Top bar ───────────────────────────────────────────────────────────────
+
+  PreferredSizeWidget _buildTopBar(BuildContext context, String userName) {
+    final cs = Theme.of(context).colorScheme;
+    final maxWidth = ResponsiveHelper.getMaxContentWidth(context);
+    final hPad = ResponsiveHelper.getScreenPadding(context).horizontal / 2;
+
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(kToolbarHeight),
+      child: Container(
+        decoration: BoxDecoration(
+          color: cs.primary,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: SizedBox(
+            height: kToolbarHeight,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxWidth),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: hPad),
+                  child: Row(
+                    children: [
+                      Builder(
+                        builder: (ctx) => IconButton(
+                          icon: const Icon(Icons.menu, color: Colors.white),
+                          tooltip: 'Menu',
+                          onPressed: () => Scaffold.of(ctx).openDrawer(),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Center(
+                          child: Text('HC', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 10)),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('Traveling Reports', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+                          Text(
+                            userName,
+                            style: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 10),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.groups, color: Colors.white, size: 20),
+                        tooltip: 'All Traveling Reports',
+                        onPressed: () => context.push('/admin/traveling-reports'),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.add_circle_outline, color: Colors.white, size: 20),
+                        tooltip: 'New Report',
+                        onPressed: _createNewReport,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildWelcomeHeader(String userName) {
-    final isMobile = ResponsiveHelper.isMobile(context);
+  // ─── Summary banner ────────────────────────────────────────────────────────
 
+  Widget _buildSummaryBanner(BuildContext context, String userName) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
-      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.orange.shade600, Colors.orange.shade400],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
+          colors: [cs.primary.withValues(alpha: 0.85), cs.primary],
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
-          BoxShadow(
-            color: Colors.orange.withValues(alpha: 0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 20, offset: const Offset(0, 4)),
         ],
       ),
-      child: Column(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Top action bar
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Back/Home button
-              _buildHeaderActionButton(
-                icon: Icons.arrow_back,
-                tooltip: 'Back to Dashboard',
-                onPressed: () => context.go('/admin-hub'),
-              ),
-              // Action buttons
-              Row(
-                children: [
-                  _buildHeaderActionButton(
-                    icon: Icons.groups,
-                    tooltip: 'All Traveling Reports',
-                    onPressed: () => context.push('/admin/traveling-reports'),
-                  ),
-                  const SizedBox(width: 8),
-                  _buildHeaderActionButton(
-                    icon: Icons.add_circle_outline,
-                    tooltip: 'New Report',
-                    onPressed: _createNewReport,
-                  ),
-                ],
-              ),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Traveling Reports', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 4),
+                Text(
+                  'Trip expenses · $userName',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.72), fontSize: 12),
+                ),
+              ],
+            ),
           ),
-          SizedBox(height: isMobile ? 16 : 20),
-          // Content row
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Traveling Reports',
-                      style: TextStyle(
-                        fontSize: isMobile ? 14 : 16,
-                        color: Colors.white.withValues(alpha: 0.9),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'My Trip Expenses',
-                      style: TextStyle(
-                        fontSize: isMobile ? 24 : 28,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Submitted by $userName',
-                      style: TextStyle(
-                        fontSize: isMobile ? 12 : 14,
-                        color: Colors.white.withValues(alpha: 0.8),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: EdgeInsets.all(isMobile ? 12 : 16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.flight_takeoff,
-                  size: isMobile ? 36 : 48,
-                  color: Colors.white,
-                ),
-              ),
-            ],
+          const SizedBox(width: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.flight_takeoff, color: Colors.white, size: 28),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildHeaderActionButton({
-    required IconData icon,
-    required String tooltip,
-    required VoidCallback onPressed,
-  }) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: Colors.white, size: 20),
-        ),
       ),
     );
   }
 
   Widget _buildFilterBar() {
+    final cs = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: cs.surface,
+        border: Border(bottom: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.3))),
       ),
       child: Center(
         child: Container(
@@ -531,14 +532,16 @@ class _TravelingReportsScreenState extends State<TravelingReportsScreen> {
         statusIcon = Icons.edit_document;
     }
 
+    final cs = Theme.of(context).colorScheme;
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cs.surface,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.35)),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -560,21 +563,10 @@ class _TravelingReportsScreenState extends State<TravelingReportsScreen> {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Colors.orange.shade400,
-                          Colors.orange.shade600,
-                        ],
-                      ),
+                      color: cs.primary.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(
-                      Icons.flight_takeoff,
-                      color: Colors.white,
-                      size: 24,
-                    ),
+                    child: Icon(Icons.flight_takeoff, color: cs.primary, size: 24),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -632,11 +624,7 @@ class _TravelingReportsScreenState extends State<TravelingReportsScreen> {
               const Divider(height: 24),
               Row(
                 children: [
-                  Icon(
-                    Icons.location_on,
-                    size: 18,
-                    color: Colors.orange.shade600,
-                  ),
+                  Icon(Icons.location_on, size: 18, color: cs.primary),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -689,8 +677,9 @@ class _TravelingReportsScreenState extends State<TravelingReportsScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
+                  color: cs.primary.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: cs.primary.withValues(alpha: 0.12)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -699,27 +688,22 @@ class _TravelingReportsScreenState extends State<TravelingReportsScreen> {
                       'Mileage',
                       '฿${currencyFormat.format(report.mileageAmount)}',
                       Icons.directions_car,
+                      color: cs.primary,
                     ),
-                    Container(
-                      width: 1,
-                      height: 40,
-                      color: Colors.orange.shade200,
-                    ),
+                    Container(width: 1, height: 40, color: cs.outlineVariant.withValues(alpha: 0.4)),
                     _buildAmountColumn(
                       'Per Diem',
                       '฿${currencyFormat.format(report.perDiemTotal)}',
                       Icons.restaurant,
+                      color: cs.primary,
                     ),
-                    Container(
-                      width: 1,
-                      height: 40,
-                      color: Colors.orange.shade200,
-                    ),
+                    Container(width: 1, height: 40, color: cs.outlineVariant.withValues(alpha: 0.4)),
                     _buildAmountColumn(
                       'Total',
                       '฿${currencyFormat.format(report.grandTotal)}',
                       Icons.account_balance_wallet,
                       isTotal: true,
+                      color: cs.primary,
                     ),
                   ],
                 ),
@@ -734,7 +718,7 @@ class _TravelingReportsScreenState extends State<TravelingReportsScreen> {
                     icon: const Icon(Icons.visibility, size: 16),
                     label: const Text('View'),
                     style: TextButton.styleFrom(
-                      foregroundColor: Colors.blue.shade700,
+                      foregroundColor: Theme.of(context).colorScheme.primary,
                     ),
                   ),
                   if (report.status == 'draft') ...[
@@ -773,22 +757,16 @@ class _TravelingReportsScreenState extends State<TravelingReportsScreen> {
     String amount,
     IconData icon, {
     bool isTotal = false,
+    Color? color,
   }) {
+    final c = color ?? Theme.of(context).colorScheme.primary;
     return Column(
       children: [
-        Icon(
-          icon,
-          size: 18,
-          color: isTotal ? Colors.orange.shade700 : Colors.grey.shade600,
-        ),
+        Icon(icon, size: 18, color: isTotal ? c : c.withValues(alpha: 0.6)),
         const SizedBox(height: 4),
         Text(
           label,
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.grey.shade600,
-            fontWeight: FontWeight.w500,
-          ),
+          style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: 2),
         Text(
@@ -796,7 +774,7 @@ class _TravelingReportsScreenState extends State<TravelingReportsScreen> {
           style: TextStyle(
             fontSize: isTotal ? 16 : 14,
             fontWeight: FontWeight.bold,
-            color: isTotal ? Colors.orange.shade700 : Colors.grey.shade800,
+            color: isTotal ? c : Theme.of(context).colorScheme.onSurface,
           ),
         ),
       ],

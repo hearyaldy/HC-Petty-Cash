@@ -81,12 +81,6 @@ class _MeetingsDashboardScreenState extends State<MeetingsDashboardScreen> {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/meetings/new'),
-        icon: const Icon(Icons.add),
-        label: const Text('New Meeting'),
-        backgroundColor: Colors.indigo,
-      ),
     );
   }
 
@@ -155,6 +149,12 @@ class _MeetingsDashboardScreenState extends State<MeetingsDashboardScreen> {
                     ),
                     Row(
                       children: [
+                        _buildHeaderActionButton(
+                          icon: Icons.add,
+                          tooltip: 'New Meeting',
+                          onPressed: () => context.push('/meetings/new'),
+                        ),
+                        const SizedBox(width: 8),
                         _buildHeaderActionButton(
                           icon: Icons.refresh,
                           tooltip: 'Refresh',

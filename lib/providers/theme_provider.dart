@@ -62,51 +62,39 @@ class ThemeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Exact palette colors from dashboard mockup
+  static const _palettes = {
+    'blue':   (p500: Color(0xFF3B82F6), p600: Color(0xFF2563EB), p700: Color(0xFF1D4ED8)),
+    'purple': (p500: Color(0xFF8B5CF6), p600: Color(0xFF7C3AED), p700: Color(0xFF6D28D9)),
+    'green':  (p500: Color(0xFF10B981), p600: Color(0xFF059669), p700: Color(0xFF047857)),
+    'red':    (p500: Color(0xFFF43F5E), p600: Color(0xFFE11D48), p700: Color(0xFFBE123C)),
+    'slate':  (p500: Color(0xFF475569), p600: Color(0xFF334155), p700: Color(0xFF1E293B)),
+  };
+
   // Get primary color based on color theme
   Color getPrimaryColor() {
-    switch (colorTheme) {
-      case 'purple':
-        return Colors.purple;
-      case 'green':
-        return Colors.green;
-      case 'orange':
-        return Colors.orange;
-      case 'red':
-        return Colors.red;
-      case 'teal':
-        return Colors.teal;
-      case 'blue':
-      default:
-        return Colors.blue;
-    }
+    return _palettes[colorTheme]?.p600 ?? _palettes['blue']!.p600;
   }
 
   // Get gradient colors based on color theme
   List<Color> getGradientColors() {
-    switch (colorTheme) {
-      case 'purple':
-        return [Colors.purple.shade400, Colors.purple.shade600];
-      case 'green':
-        return [Colors.green.shade400, Colors.green.shade600];
-      case 'orange':
-        return [Colors.orange.shade400, Colors.orange.shade600];
-      case 'red':
-        return [Colors.red.shade400, Colors.red.shade600];
-      case 'teal':
-        return [Colors.teal.shade400, Colors.teal.shade600];
-      case 'blue':
-      default:
-        return [Colors.blue.shade400, Colors.blue.shade600];
-    }
+    final p = _palettes[colorTheme] ?? _palettes['blue']!;
+    return [p.p500, p.p700];
+  }
+
+  // Get seed color (p500) for ColorScheme generation
+  Color getSeedColor() {
+    return _palettes[colorTheme]?.p500 ?? _palettes['blue']!.p500;
   }
 
   // Light theme
   ThemeData get lightTheme {
     final primaryColor = getPrimaryColor();
+    final seedColor = getSeedColor();
 
     return ThemeData(
       colorScheme: ColorScheme.fromSeed(
-        seedColor: primaryColor,
+        seedColor: seedColor,
         brightness: Brightness.light,
       ),
       useMaterial3: true,

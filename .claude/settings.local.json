@@ -30,7 +30,19 @@
       "Bash(for f in lib/models/adcom_agenda.dart lib/models/adcom_minutes.dart lib/models/meeting.dart lib/services/adcom_agenda_service.dart lib/services/adcom_minutes_service.dart lib/services/ai_text_service.dart lib/services/meeting_service.dart)",
       "Bash(do grep -l -E \"\\(api[_-]?key|secret|password\\)\\\\s*[:=]\\\\s*[''''][^'''']+['''']\" $f)",
       "Bash(firebase functions:config:get:*)",
-      "Bash(firebase functions:config:set:*)"
+      "Bash(firebase functions:config:set:*)",
+      "Edit(~/.claude/skills/new-provider/**)",
+      "Edit(~/.claude/skills/thai-text/**)",
+      "Edit(~/.claude/skills/review/**)",
+      "WebFetch(domain:help.figma.com)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:developers.figma.com)",
+      "WebFetch(domain:forum.figma.com)",
+      "Skill(frontend)",
+      "Skill(frontend:*)",
+      "Bash(open /Users/hearyhealdysairin/Documents/Flutter/hc_financial/hc_finannce_report/dashboard_mockup.html)",
+      "Bash(dart analyze:*)",
+      "Bash(git -C /Users/hearyhealdysairin/Documents/Flutter/hc_financial/hc_finannce_report log --oneline -5)"
     ]
   }
 }

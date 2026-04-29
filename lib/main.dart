@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -44,6 +45,8 @@ import 'screens/student/student_onboarding_screen.dart';
 import 'screens/student/student_report_screen.dart';
 import 'screens/student/student_registration_screen.dart';
 import 'screens/student/student_dashboard_screen.dart';
+import 'screens/student/student_profile_screen.dart';
+import 'screens/student/student_reports_list_screen.dart';
 import 'screens/student/student_monthly_report_detail_screen.dart';
 import 'screens/student/new_student_report_screen.dart';
 import 'screens/traveling/traveling_reports_screen.dart';
@@ -80,6 +83,7 @@ import 'screens/meetings/action_items_screen.dart';
 import 'screens/meetings/edit_agenda_screen.dart';
 import 'screens/meetings/edit_minutes_screen.dart';
 import 'screens/meetings/meeting_members_screen.dart';
+import 'screens/meetings/meeting_vote_screen.dart';
 import 'screens/hub/admin_hub_screen.dart';
 import 'screens/hub/finance_dashboard_screen.dart';
 import 'screens/hub/finance_ai_report_screen.dart';
@@ -105,6 +109,9 @@ import 'screens/payment_voucher/edit_payment_voucher_screen.dart';
 import 'screens/medical_reimbursement/medical_reimbursement_list_screen.dart';
 import 'screens/medical_reimbursement/medical_reimbursement_detail_screen.dart';
 import 'screens/hub/media_dashboard_screen.dart';
+import 'screens/budget/budget_list_screen.dart';
+import 'screens/budget/budget_year_detail_screen.dart';
+import 'providers/budget_provider.dart';
 import 'screens/media/media_productions_screen.dart';
 import 'screens/media/add_edit_production_screen.dart';
 import 'screens/media/media_production_detail_screen.dart';
@@ -120,6 +127,9 @@ import 'utils/responsive_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (kIsWeb) {
+    usePathUrlStrategy();
+  }
   try {
     await dotenv.load(fileName: '.env');
   } catch (e) {
@@ -216,15 +226,19 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => IncomeReportProvider()),
         ChangeNotifierProvider(create: (_) => MediaProductionProvider()),
         ChangeNotifierProvider(create: (_) => CashAdvanceProvider()),
-        ChangeNotifierProvider(create: (_) => MedicalBillReimbursementProvider()),
+        ChangeNotifierProvider(
+          create: (_) => MedicalBillReimbursementProvider(),
+        ),
         ChangeNotifierProvider(create: (_) => PaymentVoucherProvider()),
+        ChangeNotifierProvider(create: (_) => BudgetProvider()),
       ],
       child: Consumer2<AuthProvider, ThemeProvider>(
         builder: (context, authProvider, themeProvider, _) {
+          final seed = themeProvider.getSeedColor();
           return MaterialApp.router(
             title: AppConstants.appName,
-            theme: ResponsiveTheme.getTheme(context),
-            darkTheme: ResponsiveTheme.getTheme(context),
+            theme: ResponsiveTheme.getTheme(context, seedColor: seed),
+            darkTheme: ResponsiveTheme.getTheme(context, seedColor: seed),
             themeMode: themeProvider.themeMode,
             routerConfig: _createRouter(authProvider),
             debugShowCheckedModeBanner: false,
@@ -243,23 +257,43 @@ class MyApp extends StatelessWidget {
   }
 
   GoRouter _createRouter(AuthProvider authProvider) {
+    final initialRoute = kIsWeb
+        ? () {
+            final path = Uri.base.path.isEmpty ? '/' : Uri.base.path;
+            final query = Uri.base.hasQuery ? '?${Uri.base.query}' : '';
+            return '$path$query';
+          }()
+        : '/';
+
     return GoRouter(
+      initialLocation: initialRoute,
       refreshListenable: authProvider,
       redirect: (context, state) async {
-        final isLoggingIn = state.matchedLocation == '/';
-        final isRegistering = state.matchedLocation == '/student-register';
-        final isOnboarding = state.matchedLocation.startsWith(
-          '/student-onboarding',
-        );
-        final isGoingToStudentDashboard =
-            state.matchedLocation == '/student-dashboard';
+        final currentPath = state.uri.path;
+        final currentFragment = state.uri.fragment;
+        final fullLocation = state.uri.toString();
+        final isLoggingIn = currentPath == '/';
+        final isRegistering = currentPath == '/student-register';
+        final isOnboarding = currentPath.startsWith('/student-onboarding');
+        final isPublicMeetingVote =
+            currentPath.startsWith('/meeting-vote/') ||
+            currentFragment.startsWith('/meeting-vote/') ||
+            fullLocation.contains('/meeting-vote/');
         final user = authProvider.currentUser;
 
-        // Allow unauthenticated access to login, register, and onboarding
+        // Wait for auth bootstrap before deciding redirects, especially for
+        // direct-entry public web routes like meeting vote links.
+        if (!authProvider.isInitialized) {
+          return null;
+        }
+
+        // Allow unauthenticated access to login, register, onboarding, and
+        // tokenized meeting vote pages.
         if (!authProvider.isAuthenticated &&
             !isLoggingIn &&
             !isRegistering &&
-            !isOnboarding) {
+            !isOnboarding &&
+            !isPublicMeetingVote) {
           return '/';
         }
 
@@ -282,7 +316,7 @@ class MyApp extends StatelessWidget {
         }
 
         // If student is going to dashboard, let them through (no redirect)
-        if (user?.role == 'studentWorker' && isGoingToStudentDashboard) {
+        if (user?.role == 'studentWorker' && currentPath == '/student-dashboard') {
           return null;
         }
 
@@ -290,15 +324,15 @@ class MyApp extends StatelessWidget {
         if (user?.role == 'studentWorker') {
           final studentRoutes = [
             '/student-dashboard',
+            '/student-reports',
             '/student-report',
             '/student-report/new',
             '/student-monthly-report-detail',
             '/student-onboarding',
+            '/student-profile',
             '/settings',
           ];
-          if (!studentRoutes.any(
-            (route) => state.matchedLocation.startsWith(route),
-          )) {
+          if (!studentRoutes.any((route) => currentPath.startsWith(route))) {
             return '/student-dashboard';
           }
         }
@@ -335,9 +369,12 @@ class MyApp extends StatelessWidget {
           path: '/reports/new/advance-settlement',
           builder: (context, state) {
             final cashAdvanceId = state.uri.queryParameters['cashAdvanceId'];
+            final purchaseRequisitionId =
+                state.uri.queryParameters['purchaseRequisitionId'];
             return NewReportScreen(
               reportType: 'advance_settlement',
               cashAdvanceId: cashAdvanceId,
+              purchaseRequisitionId: purchaseRequisitionId,
             );
           },
         ),
@@ -568,6 +605,10 @@ class MyApp extends StatelessWidget {
           builder: (context, state) => const StudentDashboardScreen(),
         ),
         GoRoute(
+          path: '/student-profile',
+          builder: (context, state) => const StudentProfileScreen(),
+        ),
+        GoRoute(
           path: '/student-onboarding',
           builder: (context, state) {
             // Try to get data from query parameters first (from registration)
@@ -596,6 +637,10 @@ class MyApp extends StatelessWidget {
               userEmail: userEmail,
             );
           },
+        ),
+        GoRoute(
+          path: '/student-reports',
+          builder: (context, state) => const StudentReportsListScreen(),
         ),
         GoRoute(
           path: '/student-report',
@@ -633,6 +678,17 @@ class MyApp extends StatelessWidget {
           builder: (context, state) {
             final reportId = state.pathParameters['reportId']!;
             return TravelingReportDetailScreen(reportId: reportId);
+          },
+        ),
+        GoRoute(
+          path: '/admin/budget',
+          builder: (context, state) => const BudgetListScreen(),
+        ),
+        GoRoute(
+          path: '/admin/budget/:yearId',
+          builder: (context, state) {
+            final yearId = state.pathParameters['yearId']!;
+            return BudgetYearDetailScreen(budgetYearId: yearId);
           },
         ),
         GoRoute(
@@ -708,8 +764,9 @@ class MyApp extends StatelessWidget {
           path: '/cash-advances',
           builder: (context, state) {
             final view = state.uri.queryParameters['view'];
-            final initialViewMode =
-                view == 'table' ? CashAdvancesViewMode.table : null;
+            final initialViewMode = view == 'table'
+                ? CashAdvancesViewMode.table
+                : null;
             return CashAdvancesScreen(initialViewMode: initialViewMode);
           },
         ),
@@ -723,7 +780,9 @@ class MyApp extends StatelessWidget {
             return NewCashAdvanceScreen(
               purchaseRequisitionId: prId,
               initialPurpose: purpose,
-              initialAmount: amountStr != null ? double.tryParse(amountStr) : null,
+              initialAmount: amountStr != null
+                  ? double.tryParse(amountStr)
+                  : null,
               initialDepartment: department,
             );
           },
@@ -751,7 +810,9 @@ class MyApp extends StatelessWidget {
           path: '/medical-reimbursement/:reimbursementId',
           builder: (context, state) {
             final reimbursementId = state.pathParameters['reimbursementId']!;
-            return MedicalReimbursementDetailScreen(reimbursementId: reimbursementId);
+            return MedicalReimbursementDetailScreen(
+              reimbursementId: reimbursementId,
+            );
           },
         ),
         // Payment Voucher Routes
@@ -808,6 +869,14 @@ class MyApp extends StatelessWidget {
         GoRoute(
           path: '/meetings-dashboard',
           builder: (context, state) => const MeetingsDashboardScreen(),
+        ),
+        GoRoute(
+          path: '/meeting-vote/:token',
+          builder: (context, state) {
+            final token = state.pathParameters['token']!;
+            final pin = state.uri.queryParameters['pin'];
+            return MeetingVoteScreen(token: token, adminPin: pin);
+          },
         ),
         GoRoute(
           path: '/meetings/list',

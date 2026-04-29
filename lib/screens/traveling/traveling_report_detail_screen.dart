@@ -625,8 +625,8 @@ class _TravelingReportDetailScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      body: FutureBuilder<TravelingReport?>(
-        future: _firestoreService.getTravelingReport(widget.reportId),
+      body: StreamBuilder<TravelingReport?>(
+        stream: _firestoreService.travelingReportStream(widget.reportId),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return SingleChildScrollView(
@@ -975,6 +975,19 @@ class _TravelingReportDetailScreenState
             dateTimeFormat.format(report.destinationTime),
           ),
           const SizedBox(height: 12),
+          Builder(builder: (context) {
+            final dep = DateTime(report.departureTime.year, report.departureTime.month, report.departureTime.day);
+            final dst = DateTime(report.destinationTime.year, report.destinationTime.month, report.destinationTime.day);
+            final days = dst.difference(dep).inDays + 1;
+            final d = DateFormat('MMM dd');
+            final df = DateFormat('MMM dd, yyyy');
+            return _buildDetailRow(
+              Icons.date_range,
+              'Travel Period',
+              '${d.format(report.departureTime)} – ${df.format(report.destinationTime)} ($days day${days == 1 ? '' : 's'})',
+            );
+          }),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -1194,6 +1207,44 @@ class _TravelingReportDetailScreenState
             ],
           ),
           const Divider(height: 24),
+          Builder(builder: (context) {
+            final dep = DateTime(report.departureTime.year, report.departureTime.month, report.departureTime.day);
+            final dst = DateTime(report.destinationTime.year, report.destinationTime.month, report.destinationTime.day);
+            final days = dst.difference(dep).inDays + 1;
+            final df = DateFormat('MMM dd, yyyy');
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.date_range, size: 16, color: Colors.green.shade700),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Travel period: ${df.format(dep)} – ${df.format(dst)}',
+                      style: TextStyle(fontSize: 13, color: Colors.green.shade800),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade700,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '$days day${days == 1 ? '' : 's'}',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
           StreamBuilder<List<TravelingPerDiemEntry>>(
             stream: _firestoreService.perDiemEntriesByReportStream(report.id),
             builder: (context, snapshot) {

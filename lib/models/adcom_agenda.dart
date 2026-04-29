@@ -40,6 +40,7 @@ class AgendaItem {
   final AgendaActionType actionType;
   final String description;
   final int order;
+  final List<String> attachments; // Support document URLs
 
   AgendaItem({
     required this.id,
@@ -48,11 +49,12 @@ class AgendaItem {
     required this.actionType,
     required this.description,
     required this.order,
+    this.attachments = const [],
   });
 
   factory AgendaItem.fromMap(Map<String, dynamic> map, String id) {
     return AgendaItem(
-      id: id,
+      id: map['id'] ?? id,
       itemNumber: map['itemNumber'] ?? '',
       title: map['title'] ?? '',
       actionType: AgendaActionTypeExtension.fromString(
@@ -60,16 +62,19 @@ class AgendaItem {
       ),
       description: map['description'] ?? '',
       order: map['order'] ?? 0,
+      attachments: List<String>.from(map['attachments'] ?? []),
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
+      'id': id,
       'itemNumber': itemNumber,
       'title': title,
       'actionType': actionType.displayName.toLowerCase().replaceAll(' ', ''),
       'description': description,
       'order': order,
+      'attachments': attachments,
     };
   }
 
@@ -80,6 +85,7 @@ class AgendaItem {
     AgendaActionType? actionType,
     String? description,
     int? order,
+    List<String>? attachments,
   }) {
     return AgendaItem(
       id: id ?? this.id,
@@ -88,6 +94,7 @@ class AgendaItem {
       actionType: actionType ?? this.actionType,
       description: description ?? this.description,
       order: order ?? this.order,
+      attachments: attachments ?? this.attachments,
     );
   }
 }

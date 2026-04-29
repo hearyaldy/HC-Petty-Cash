@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
 class ResponsiveTheme {
-  static ThemeData getTheme(BuildContext context) {
+  static ThemeData getTheme(BuildContext context, {Color seedColor = Colors.blue}) {
     final brightness = Theme.of(context).brightness;
     final colorScheme = ColorScheme.fromSeed(
-      seedColor: Colors.blue,
+      seedColor: seedColor,
       brightness: brightness,
     );
 

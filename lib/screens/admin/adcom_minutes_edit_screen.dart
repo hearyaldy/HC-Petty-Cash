@@ -112,12 +112,21 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
         (minutes.openingPrayer ?? '') != (agenda.openingPrayer ?? '') ||
         (minutes.closingPrayer ?? '') != (agenda.closingPrayer ?? '') ||
         (minutes.meetingAdjournedAt ?? '') != (agenda.meetingAdjournedAt ?? '');
+    final syncedMinutesItems = _syncMinutesItemsFromAgenda(
+      agendaItems: agenda.agendaItems,
+      existingMinutesItems: minutes.minutesItems,
+    );
+    final itemsChanged = !_minutesItemsEqual(
+      minutes.minutesItems,
+      syncedMinutesItems,
+    );
 
-    if (!attendanceChanged && !notesChanged) return;
+    if (!attendanceChanged && !notesChanged && !itemsChanged) return;
 
     final updatedMinutes = minutes.copyWith(
       attendanceMembers:
           attendanceChanged ? agenda.attendanceMembers : minutes.attendanceMembers,
+      minutesItems: syncedMinutesItems,
       startTime: agenda.startTime ?? '',
       openingPrayer: agenda.openingPrayer ?? '',
       closingPrayer: agenda.closingPrayer ?? '',
@@ -131,6 +140,106 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
     });
 
     await _service.updateMinutes(updatedMinutes);
+  }
+
+  List<MinutesItem> _syncMinutesItemsFromAgenda({
+    required List<AgendaItem> agendaItems,
+    required List<MinutesItem> existingMinutesItems,
+  }) {
+    final syncedItems = <MinutesItem>[];
+    final remainingExisting = List<MinutesItem>.from(existingMinutesItems);
+
+    for (int i = 0; i < agendaItems.length; i++) {
+      final agendaItem = agendaItems[i];
+      final matchIndex = _findMatchingMinutesItemIndex(
+        agendaItem: agendaItem,
+        agendaOrder: i,
+        existingItems: remainingExisting,
+      );
+
+      final existingMatch = matchIndex >= 0
+          ? remainingExisting.removeAt(matchIndex)
+          : null;
+
+      syncedItems.add(
+        MinutesItem.fromAgendaItem(agendaItem).copyWith(
+          id: existingMatch?.id ?? agendaItem.id,
+          status: existingMatch?.status ?? MinutesItemStatus.pending,
+          resolution: existingMatch?.resolution,
+          notes: existingMatch?.notes,
+          order: i,
+          isNewItem: false,
+        ),
+      );
+    }
+
+    final manualItems = remainingExisting
+        .where((item) => item.isNewItem)
+        .toList()
+      ..sort((a, b) => a.order.compareTo(b.order));
+
+    for (final item in manualItems) {
+      syncedItems.add(item.copyWith(order: syncedItems.length));
+    }
+
+    return syncedItems;
+  }
+
+  int _findMatchingMinutesItemIndex({
+    required AgendaItem agendaItem,
+    required int agendaOrder,
+    required List<MinutesItem> existingItems,
+  }) {
+    for (int i = 0; i < existingItems.length; i++) {
+      final candidate = existingItems[i];
+      if (candidate.isNewItem) continue;
+      if (candidate.id.isNotEmpty && candidate.id == agendaItem.id) return i;
+    }
+
+    for (int i = 0; i < existingItems.length; i++) {
+      final candidate = existingItems[i];
+      if (candidate.isNewItem) continue;
+      if (candidate.title == agendaItem.title &&
+          candidate.description == agendaItem.description &&
+          candidate.actionType == agendaItem.actionType) {
+        return i;
+      }
+    }
+
+    for (int i = 0; i < existingItems.length; i++) {
+      final candidate = existingItems[i];
+      if (candidate.isNewItem) continue;
+      if (candidate.itemNumber == agendaItem.itemNumber) return i;
+    }
+
+    for (int i = 0; i < existingItems.length; i++) {
+      final candidate = existingItems[i];
+      if (candidate.isNewItem) continue;
+      if (candidate.order == agendaOrder) return i;
+    }
+
+    return -1;
+  }
+
+  bool _minutesItemsEqual(List<MinutesItem> a, List<MinutesItem> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      final left = a[i];
+      final right = b[i];
+      if (left.id != right.id ||
+          left.itemNumber != right.itemNumber ||
+          left.title != right.title ||
+          left.actionType != right.actionType ||
+          left.description != right.description ||
+          left.status != right.status ||
+          left.resolution != right.resolution ||
+          left.notes != right.notes ||
+          left.order != right.order ||
+          left.isNewItem != right.isNewItem) {
+        return false;
+      }
+    }
+    return true;
   }
 
   @override
@@ -703,21 +812,6 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Action type
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    item.actionType.displayName,
-                    style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
-                  ),
-                ),
                 const Spacer(),
                 // Status badge
                 Container(
@@ -945,11 +1039,20 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
 
   List<AgendaItem> _availableAgendaItems() {
     if (_agenda == null || _minutes == null) return [];
-    final existingNumbers = _minutes!.minutesItems
-        .map((item) => item.itemNumber)
+    final existingAgendaIds = _minutes!.minutesItems
+        .where((item) => !item.isNewItem)
+        .map((item) => item.id)
         .toSet();
     final available = _agenda!.agendaItems
-        .where((item) => !existingNumbers.contains(item.itemNumber))
+        .where(
+          (item) =>
+              !existingAgendaIds.contains(item.id) &&
+              !_minutes!.minutesItems.any(
+                (minutesItem) =>
+                    !minutesItem.isNewItem &&
+                    minutesItem.itemNumber == item.itemNumber,
+              ),
+        )
         .toList();
     available.sort((a, b) => a.order.compareTo(b.order));
     return available;

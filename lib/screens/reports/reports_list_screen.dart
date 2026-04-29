@@ -12,6 +12,7 @@ import '../../models/transaction.dart';
 import '../../models/petty_cash_report.dart';
 import '../../models/project_report.dart';
 import '../../utils/responsive_helper.dart';
+import '../../widgets/app_drawer.dart';
 
 class ReportsListScreen extends StatefulWidget {
   const ReportsListScreen({
@@ -149,129 +150,244 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
     reports.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
-      body: SafeArea(
-        child: ResponsiveContainer(
-          padding: EdgeInsets.zero,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: _buildPageHeader(context),
-              ),
-              Padding(
+      appBar: _buildTopBar(context, reports.length),
+      drawer: const AppDrawer(),
+      body: ResponsiveContainer(
+        padding: EdgeInsets.zero,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 14),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _buildSummaryBanner(context, reports.length),
+            ),
+            const SizedBox(height: 14),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _buildSectionLabel('Filter Reports'),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _buildFilters(),
+            ),
+            const SizedBox(height: 14),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _buildSectionLabel('Reports'),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _buildFilters(),
+                child: reports.isEmpty
+                    ? _buildEmptyState()
+                    : _buildReportsContent(
+                        reports,
+                        transactionProvider.transactions,
+                      ),
               ),
-              const SizedBox(height: 16),
-              Expanded(
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── Top bar ───────────────────────────────────────────────────────────────
+
+  PreferredSizeWidget _buildTopBar(BuildContext context, int totalReports) {
+    final cs = Theme.of(context).colorScheme;
+    final maxWidth = ResponsiveHelper.getMaxContentWidth(context);
+    final hPad = ResponsiveHelper.getScreenPadding(context).horizontal / 2;
+
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(kToolbarHeight),
+      child: Container(
+        decoration: BoxDecoration(
+          color: cs.primary,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: SizedBox(
+            height: kToolbarHeight,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxWidth),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: reports.isEmpty
-                      ? _buildEmptyState()
-                      : _buildReportsContent(
-                          reports,
-                          transactionProvider.transactions,
+                  padding: EdgeInsets.symmetric(horizontal: hPad),
+                  child: Row(
+                    children: [
+                      Builder(
+                        builder: (ctx) => IconButton(
+                          icon: const Icon(Icons.menu, color: Colors.white),
+                          tooltip: 'Menu',
+                          onPressed: () => Scaffold.of(ctx).openDrawer(),
                         ),
+                      ),
+                      const SizedBox(width: 4),
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            'HC',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'Petty Cash Reports',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Text(
+                            '$totalReports reports',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.65),
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      _buildViewModeButton(),
+                      IconButton(
+                        icon: const Icon(Icons.add_circle_outline, color: Colors.white, size: 20),
+                        tooltip: 'New Report',
+                        onPressed: () => context.go('/reports/new'),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildPageHeader(BuildContext context) {
-    final isMobile = ResponsiveHelper.isMobile(context);
+  // ─── Section label ─────────────────────────────────────────────────────────
+
+  Widget _buildSectionLabel(String label) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Container(
+          width: 3,
+          height: 14,
+          decoration: BoxDecoration(
+            color: cs.primary,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          label.toUpperCase(),
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.6,
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ─── Summary banner ────────────────────────────────────────────────────────
+
+  Widget _buildSummaryBanner(BuildContext context, int totalReports) {
+    final cs = Theme.of(context).colorScheme;
+    final reportProvider = context.read<ReportProvider>();
+    final submittedCount = reportProvider.reports
+        .where((r) => r.statusEnum == ReportStatus.submitted)
+        .length;
+    final approvedCount = reportProvider.reports
+        .where((r) => r.statusEnum == ReportStatus.approved)
+        .length;
+    final draftCount = reportProvider.reports
+        .where((r) => r.statusEnum == ReportStatus.draft)
+        .length;
 
     return Container(
-      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.blue.shade600, Colors.blue.shade400],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
+          colors: [cs.primary.withValues(alpha: 0.85), cs.primary],
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withValues(alpha: 0.3),
-            blurRadius: 8,
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 20,
             offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Column(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Top action bar
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Back/Home button
-              _buildHeaderActionButton(
-                icon: Icons.arrow_back,
-                tooltip: 'Back to Dashboard',
-                onPressed: () => context.go('/admin-hub'),
-              ),
-              // Action buttons
-              Row(
-                children: [
-                  // View mode selector
-                  _buildViewModeButton(),
-                  const SizedBox(width: 8),
-                  _buildHeaderActionButton(
-                    icon: Icons.add_circle_outline,
-                    tooltip: 'Create New Report',
-                    onPressed: () => context.go('/reports/new'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          SizedBox(height: isMobile ? 16 : 20),
-          // Content row
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Reports Overview',
-                      style: TextStyle(
-                        fontSize: isMobile ? 24 : 28,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      isMobile
-                          ? 'Manage your reports'
-                          : 'Manage and track all your reports',
-                      style: TextStyle(
-                        fontSize: isMobile ? 12 : 14,
-                        color: Colors.white.withValues(alpha: 0.8),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (!isMobile)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.description,
-                    size: 48,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Petty Cash Reports',
+                  style: TextStyle(
                     color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
+                const SizedBox(height: 4),
+                Text(
+                  'Financial reports & advance settlements',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.72),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 20),
+          Row(
+            children: [
+              _buildBannerStat('Total', totalReports),
+              const SizedBox(width: 20),
+              _buildBannerStat('Submitted', submittedCount),
+              const SizedBox(width: 20),
+              _buildBannerStat('Approved', approvedCount),
+              const SizedBox(width: 20),
+              _buildBannerStat('Draft', draftCount),
             ],
           ),
         ],
@@ -279,29 +395,33 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
     );
   }
 
-  Widget _buildHeaderActionButton({
-    required IconData icon,
-    required String tooltip,
-    required VoidCallback onPressed,
-  }) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(8),
+  Widget _buildBannerStat(String label, int value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          '$value',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
           ),
-          child: Icon(icon, color: Colors.white, size: 20),
         ),
-      ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.70),
+            fontSize: 10,
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildViewModeButton() {
+    final cs = Theme.of(context).colorScheme;
     return PopupMenuButton<ReportsViewMode>(
       tooltip: 'Change View',
       onSelected: (ReportsViewMode mode) {
@@ -323,23 +443,14 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
           value: ReportsViewMode.card,
           child: Row(
             children: [
-              Icon(
-                Icons.grid_view,
-                size: 20,
-                color: _viewMode == ReportsViewMode.card
-                    ? Colors.blue
-                    : Colors.grey[600],
-              ),
+              Icon(Icons.grid_view, size: 20,
+                  color: _viewMode == ReportsViewMode.card ? cs.primary : Colors.grey[600]),
               const SizedBox(width: 12),
-              Text(
-                'Card View',
-                style: TextStyle(
-                  fontWeight: _viewMode == ReportsViewMode.card
-                      ? FontWeight.bold
-                      : FontWeight.normal,
-                  color: _viewMode == ReportsViewMode.card ? Colors.blue : null,
-                ),
-              ),
+              Text('Card View',
+                  style: TextStyle(
+                    fontWeight: _viewMode == ReportsViewMode.card ? FontWeight.bold : FontWeight.normal,
+                    color: _viewMode == ReportsViewMode.card ? cs.primary : null,
+                  )),
             ],
           ),
         ),
@@ -347,25 +458,14 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
           value: ReportsViewMode.tableRow,
           child: Row(
             children: [
-              Icon(
-                Icons.table_rows_outlined,
-                size: 20,
-                color: _viewMode == ReportsViewMode.tableRow
-                    ? Colors.blue
-                    : Colors.grey[600],
-              ),
+              Icon(Icons.table_rows_outlined, size: 20,
+                  color: _viewMode == ReportsViewMode.tableRow ? cs.primary : Colors.grey[600]),
               const SizedBox(width: 12),
-              Text(
-                'Table View (Row)',
-                style: TextStyle(
-                  fontWeight: _viewMode == ReportsViewMode.tableRow
-                      ? FontWeight.bold
-                      : FontWeight.normal,
-                  color: _viewMode == ReportsViewMode.tableRow
-                      ? Colors.blue
-                      : null,
-                ),
-              ),
+              Text('Table View (Row)',
+                  style: TextStyle(
+                    fontWeight: _viewMode == ReportsViewMode.tableRow ? FontWeight.bold : FontWeight.normal,
+                    color: _viewMode == ReportsViewMode.tableRow ? cs.primary : null,
+                  )),
             ],
           ),
         ),
@@ -373,25 +473,14 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
           value: ReportsViewMode.tableCategory,
           child: Row(
             children: [
-              Icon(
-                Icons.category_outlined,
-                size: 20,
-                color: _viewMode == ReportsViewMode.tableCategory
-                    ? Colors.blue
-                    : Colors.grey[600],
-              ),
+              Icon(Icons.category_outlined, size: 20,
+                  color: _viewMode == ReportsViewMode.tableCategory ? cs.primary : Colors.grey[600]),
               const SizedBox(width: 12),
-              Text(
-                'Table View (Category)',
-                style: TextStyle(
-                  fontWeight: _viewMode == ReportsViewMode.tableCategory
-                      ? FontWeight.bold
-                      : FontWeight.normal,
-                  color: _viewMode == ReportsViewMode.tableCategory
-                      ? Colors.blue
-                      : null,
-                ),
-              ),
+              Text('Table View (Category)',
+                  style: TextStyle(
+                    fontWeight: _viewMode == ReportsViewMode.tableCategory ? FontWeight.bold : FontWeight.normal,
+                    color: _viewMode == ReportsViewMode.tableCategory ? cs.primary : null,
+                  )),
             ],
           ),
         ),
@@ -401,16 +490,18 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
 
   Widget _buildFilters() {
     final isMobile = ResponsiveHelper.isMobile(context);
+    final cs = Theme.of(context).colorScheme;
 
     return Container(
       padding: EdgeInsets.all(isMobile ? 12 : 20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.35)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
+            color: cs.primary.withValues(alpha: 0.06),
+            blurRadius: 16,
             offset: const Offset(0, 4),
           ),
         ],
@@ -418,6 +509,34 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: cs.primary.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.tune, size: 16, color: cs.primary),
+              ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Filter Reports',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                  ),
+                  Text(
+                    'Search, status, and report type',
+                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
           TextField(
             decoration: InputDecoration(
               hintText: isMobile
@@ -426,9 +545,18 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
               prefixIcon: const Icon(Icons.search),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: cs.primary, width: 1.2),
               ),
               filled: true,
-              fillColor: Colors.grey.shade50,
+              fillColor: cs.surfaceContainerLowest,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: 16,
                 vertical: isMobile ? 12 : 16,
@@ -540,6 +668,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
   }
 
   Widget _buildFilterChip(String label, ReportStatus? status) {
+    final cs = Theme.of(context).colorScheme;
     final isSelected = _filterStatus == status;
     return FilterChip(
       label: Text(label),
@@ -549,15 +678,19 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
           _filterStatus = selected ? status : null;
         });
       },
-      selectedColor: Colors.blue.shade600,
+      backgroundColor: cs.surfaceContainerLowest,
+      side: BorderSide(color: isSelected ? cs.primary : cs.outlineVariant),
+      selectedColor: cs.primary,
       checkmarkColor: Colors.white,
       labelStyle: TextStyle(
-        color: isSelected ? Colors.white : Colors.grey[700],
+        color: isSelected ? Colors.white : cs.onSurfaceVariant,
+        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
       ),
     );
   }
 
   Widget _buildTypeFilterChip(String label, String type) {
+    final cs = Theme.of(context).colorScheme;
     final isSelected = _reportType == type;
     return FilterChip(
       label: Text(label),
@@ -567,25 +700,30 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
           _reportType = type;
         });
       },
-      selectedColor: Colors.blue.shade600,
+      backgroundColor: cs.surfaceContainerLowest,
+      side: BorderSide(color: isSelected ? cs.primary : cs.outlineVariant),
+      selectedColor: cs.primary,
       checkmarkColor: Colors.white,
       labelStyle: TextStyle(
-        color: isSelected ? Colors.white : Colors.grey[700],
+        color: isSelected ? Colors.white : cs.onSurfaceVariant,
+        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
       ),
     );
   }
 
   Widget _buildEmptyState() {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.only(top: 32),
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 32),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.35)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
+            color: cs.primary.withValues(alpha: 0.06),
+            blurRadius: 16,
             offset: const Offset(0, 4),
           ),
         ],
@@ -628,12 +766,8 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                     icon: const Icon(Icons.add),
                     label: const Text('Create Report'),
                     style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
-                      ),
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                 ],

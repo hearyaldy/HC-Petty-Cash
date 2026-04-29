@@ -970,6 +970,29 @@ class _AdcomAgendaEditScreenState extends State<AdcomAgendaEditScreen> {
                   TextStyle(fontSize: 13, color: Colors.grey.shade700),
                 ),
               ),
+            // Attachment count badge
+            if (item.attachments.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(left: 48, top: 6),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.attach_file,
+                      size: 13,
+                      color: Colors.blue.shade600,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${item.attachments.length} support document${item.attachments.length == 1 ? '' : 's'}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.blue.shade700,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),
@@ -1837,8 +1860,10 @@ class _EditAgendaItemDialog extends StatefulWidget {
 
 class _EditAgendaItemDialogState extends State<_EditAgendaItemDialog> {
   late TextEditingController _titleController;
+  late TextEditingController _attachmentUrlController;
   late quill.QuillController _quillController;
   late AgendaActionType _actionType;
+  late List<String> _attachments;
   final AITextService _aiService = AITextService();
   bool _isProcessingAI = false;
 
@@ -1850,7 +1875,9 @@ class _EditAgendaItemDialogState extends State<_EditAgendaItemDialog> {
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.item?.title ?? '');
+    _attachmentUrlController = TextEditingController();
     _actionType = widget.item?.actionType ?? AgendaActionType.recommended;
+    _attachments = List<String>.from(widget.item?.attachments ?? []);
 
     final desc = widget.item?.description ?? '';
     if (desc.isEmpty) {
@@ -1881,11 +1908,42 @@ class _EditAgendaItemDialogState extends State<_EditAgendaItemDialog> {
   @override
   void dispose() {
     _titleController.dispose();
+    _attachmentUrlController.dispose();
     _quillController.dispose();
     _titleUndoController.dispose();
     _quillFocusNode.dispose();
     _quillScrollController.dispose();
     super.dispose();
+  }
+
+  void _addAttachmentUrl() {
+    final url = _attachmentUrlController.text.trim();
+    if (url.isEmpty) return;
+    final uri = Uri.tryParse(url);
+    if (uri == null || !uri.hasScheme) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid URL (starting with https://)')),
+      );
+      return;
+    }
+    setState(() {
+      _attachments.add(url);
+      _attachmentUrlController.clear();
+    });
+  }
+
+  String _attachmentLabel(String url, int index) {
+    try {
+      final uri = Uri.parse(url);
+      final last = Uri.decodeComponent(uri.pathSegments.lastWhere(
+        (s) => s.isNotEmpty,
+        orElse: () => '',
+      ));
+      if (last.isNotEmpty) {
+        return last.length > 40 ? '${last.substring(0, 37)}…' : last;
+      }
+    } catch (_) {}
+    return 'Document ${index + 1}';
   }
 
   Future<void> _enhanceDescription() async {
@@ -2508,6 +2566,115 @@ class _EditAgendaItemDialogState extends State<_EditAgendaItemDialog> {
                       ),
                     ),
                   const SizedBox(height: 24),
+
+                  // ── Support Documents ──────────────────────────────────
+                  const Text(
+                    'Support Documents',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Paste shareable URLs (Google Drive, Dropbox, Firebase Storage, etc.)',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                  const SizedBox(height: 10),
+                  // Existing attachments
+                  if (_attachments.isNotEmpty)
+                    Column(
+                      children: _attachments.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final url = entry.value;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.blue.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.attach_file,
+                                size: 16,
+                                color: Colors.blue.shade700,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _attachmentLabel(url, idx),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.blue.shade800,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              IconButton(
+                                icon: Icon(
+                                  Icons.close,
+                                  size: 16,
+                                  color: Colors.red.shade400,
+                                ),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(
+                                  minWidth: 28,
+                                  minHeight: 28,
+                                ),
+                                tooltip: 'Remove',
+                                onPressed: () {
+                                  setState(() => _attachments.removeAt(idx));
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  // Add URL row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _attachmentUrlController,
+                          keyboardType: TextInputType.url,
+                          textInputAction: TextInputAction.done,
+                          onSubmitted: (_) => _addAttachmentUrl(),
+                          decoration: InputDecoration(
+                            hintText: 'https://drive.google.com/...',
+                            prefixIcon: const Icon(Icons.link, size: 18),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        onPressed: _addAttachmentUrl,
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text('Add'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
                 ],
               ),
             ),
@@ -2546,6 +2713,7 @@ class _EditAgendaItemDialogState extends State<_EditAgendaItemDialog> {
                             _quillController.document.toDelta().toJson(),
                           ),
                           order: widget.order,
+                          attachments: List<String>.from(_attachments),
                         ),
                       );
                     },

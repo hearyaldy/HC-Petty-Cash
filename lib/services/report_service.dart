@@ -42,6 +42,7 @@ class ReportService {
     String? companyName,
     String? notes,
     String? cashAdvanceId,
+    String? purchaseRequisitionId,
   }) async {
     final reportNumber = await generateReportNumber(reportType: reportType);
 
@@ -62,6 +63,7 @@ class ReportService {
       companyName: companyName,
       notes: notes,
       cashAdvanceId: cashAdvanceId,
+      purchaseRequisitionId: purchaseRequisitionId,
     );
 
     await _firestoreService.saveReport(report);

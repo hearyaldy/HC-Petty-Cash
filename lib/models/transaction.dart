@@ -25,6 +25,12 @@ class Transaction {
   final DateTime createdAt;
   final DateTime? updatedAt;
 
+  // Currency exchange fields
+  final String? foreignCurrency; // e.g., 'MYR', 'USD'
+  final double? foreignAmount;
+  final double? exchangeRate; // rate: 1 foreignCurrency = exchangeRate THB
+  final DateTime? exchangeRateDate;
+
   Transaction({
     required this.id,
     required this.reportId,
@@ -46,6 +52,10 @@ class Transaction {
     List<Map<String, dynamic>>? approvalHistory,
     required this.createdAt,
     this.updatedAt,
+    this.foreignCurrency,
+    this.foreignAmount,
+    this.exchangeRate,
+    this.exchangeRateDate,
   }) : attachmentUrls = attachmentUrls ?? [],
        supportDocumentUrls = supportDocumentUrls ?? (supportDocumentUrl != null ? [supportDocumentUrl] : []),
        approvalHistory = approvalHistory ?? [];
@@ -117,6 +127,12 @@ class Transaction {
       'updatedAt': updatedAt != null
           ? firestore.Timestamp.fromDate(updatedAt!)
           : null,
+      'foreignCurrency': foreignCurrency,
+      'foreignAmount': foreignAmount,
+      'exchangeRate': exchangeRate,
+      'exchangeRateDate': exchangeRateDate != null
+          ? firestore.Timestamp.fromDate(exchangeRateDate!)
+          : null,
     };
   }
 
@@ -161,6 +177,12 @@ class Transaction {
       createdAt: (data['createdAt'] as firestore.Timestamp).toDate(),
       updatedAt: data['updatedAt'] != null
           ? (data['updatedAt'] as firestore.Timestamp).toDate()
+          : null,
+      foreignCurrency: data['foreignCurrency'] as String?,
+      foreignAmount: (data['foreignAmount'] as num?)?.toDouble(),
+      exchangeRate: (data['exchangeRate'] as num?)?.toDouble(),
+      exchangeRateDate: data['exchangeRateDate'] != null
+          ? (data['exchangeRateDate'] as firestore.Timestamp).toDate()
           : null,
     );
   }
@@ -238,6 +260,10 @@ class Transaction {
     List<String>? supportDocumentUrls,
     List<Map<String, dynamic>>? approvalHistory,
     DateTime? updatedAt,
+    String? foreignCurrency,
+    double? foreignAmount,
+    double? exchangeRate,
+    DateTime? exchangeRateDate,
   }) {
     return Transaction(
       id: id,
@@ -260,6 +286,10 @@ class Transaction {
       approvalHistory: approvalHistory ?? this.approvalHistory,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      foreignCurrency: foreignCurrency ?? this.foreignCurrency,
+      foreignAmount: foreignAmount ?? this.foreignAmount,
+      exchangeRate: exchangeRate ?? this.exchangeRate,
+      exchangeRateDate: exchangeRateDate ?? this.exchangeRateDate,
     );
   }
 }

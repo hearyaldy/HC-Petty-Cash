@@ -14,419 +14,298 @@ class AppDrawer extends StatelessWidget {
     final isAdmin = authProvider.canManageUsers();
     final canApprove = authProvider.canApprove();
     final isStudentWorker = user?.roleEnum == UserRole.studentWorker;
+    final hasMeetingsAccess = isAdmin || (user?.sectionPermissions.meetingsView ?? false);
 
     return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
+      child: Column(
         children: [
           _buildDrawerHeader(context, user),
-
-          // MAIN NAVIGATION
-          _buildSectionHeader('Main'),
-          _buildDrawerItem(
-            context,
-            icon: Icons.dashboard,
-            title: 'Admin Hub',
-            route: '/admin-hub',
-            iconColor: Colors.blue,
-          ),
-
-          if (!isStudentWorker) ...[
-            // FINANCIAL REPORTS
-            _buildSectionHeader('Financial Reports'),
-            _buildDrawerItem(
-              context,
-              icon: Icons.receipt_long,
-              title: 'Petty Cash Reports',
-              route: '/reports',
-              iconColor: Colors.green,
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.flight_takeoff,
-              title: 'Traveling Reports',
-              route: '/traveling-reports',
-              iconColor: Colors.orange,
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.account_balance_wallet,
-              title: 'Income Reports',
-              route: '/income',
-              iconColor: Colors.teal,
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.shopping_cart,
-              title: 'Purchase Requisitions',
-              route: '/purchase-requisitions',
-              iconColor: Colors.purple,
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.request_quote,
-              title: 'Cash Advances',
-              route: '/cash-advances',
-              iconColor: Colors.indigo,
-            ),
-
-            // INVENTORY MANAGEMENT
-            _buildSectionHeader('Studio'),
-            _buildDrawerItem(
-              context,
-              icon: Icons.inventory_2,
-              title: 'Equipment Inventory',
-              route: '/inventory',
-              iconColor: Colors.blueGrey,
-            ),
-
-            // MEDIA PRODUCTION
-            _buildSectionHeader('Media Production'),
-            _buildDrawerItem(
-              context,
-              icon: Icons.video_library,
-              title: 'Media Dashboard',
-              route: '/media-dashboard',
-              iconColor: Colors.pink,
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.movie_creation,
-              title: 'Productions',
-              route: '/media/productions',
-              iconColor: Colors.deepPurple,
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.analytics,
-              title: 'Engagement Data',
-              route: '/media/engagement',
-              iconColor: Colors.blue,
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.assessment,
-              title: 'Annual Report',
-              route: '/media/reports/annual',
-              iconColor: Colors.orange,
-            ),
-
-            // TRANSACTIONS & APPROVALS
-            if (canApprove) ...[
-              _buildSectionHeader('Management'),
-              _buildDrawerItem(
-                context,
-                icon: Icons.pending_actions,
-                title: 'Pending Approvals',
-                route: '/approvals',
-                iconColor: Colors.amber,
-                badge: true,
-              ),
-              _buildDrawerItem(
-                context,
-                icon: Icons.list_alt,
-                title: 'All Transactions',
-                route: '/transactions',
-                iconColor: Colors.indigo,
-              ),
-            ],
-          ],
-
-          // STUDENT WORKER SECTION
-          if (isStudentWorker) ...[
-            _buildSectionHeader('Student'),
-            _buildDrawerItem(
-              context,
-              icon: Icons.dashboard,
-              title: 'Student Dashboard',
-              route: '/student-dashboard',
-              iconColor: Colors.cyan,
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.schedule,
-              title: 'My Timesheets',
-              route: '/student-report',
-              iconColor: Colors.lightBlue,
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.person,
-              title: 'My Profile',
-              route: '/student-profile',
-              iconColor: Colors.blueGrey,
-            ),
-          ] else ...[
-            // REGULAR USER SECTION
-            _buildDrawerItem(
-              context,
-              icon: Icons.person,
-              title: 'My Profile',
-              route: '/user-profile',
-              iconColor: Colors.blueGrey,
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.badge,
-              title: 'My Data',
-              route: '/hr/my-data',
-              iconColor: Colors.cyan,
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.work,
-              title: 'HR Data Submission',
-              route: '/hr/data-submission',
-              iconColor: Colors.orange,
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.event_available,
-              title: 'Annual Leave Request',
-              route: '/hr/leave-request',
-              iconColor: Colors.teal,
-            ),
-          ],
-
-          // ADMIN SECTION
-          if (isAdmin) ...[
-            const Divider(thickness: 2),
-            _buildSectionHeader('Administration'),
-
-            // HR Management
-            ExpansionTile(
-              leading: Icon(Icons.people, color: Colors.deepPurple),
-              title: const Text(
-                'HR Management',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.only(top: 8, bottom: 16),
               children: [
-                _buildSubMenuItem(
-                  context,
-                  icon: Icons.person_add,
-                  title: 'Employee Onboarding',
-                  route: '/hr/employee-onboarding',
-                ),
-                _buildSubMenuItem(
-                  context,
-                  icon: Icons.people,
-                  title: 'HR Dashboard',
-                  route: '/hr',
-                ),
-                _buildSubMenuItem(
-                  context,
-                  icon: Icons.event_available,
-                  title: 'Leave Requests',
-                  route: '/hr/leave-requests',
-                ),
-                _buildSubMenuItem(
-                  context,
-                  icon: Icons.badge,
-                  title: 'Staff Records',
-                  route: '/admin/staff',
-                ),
-                _buildSubMenuItem(
-                  context,
-                  icon: Icons.monetization_on,
-                  title: 'Salary & Benefits',
-                  route: '/admin/salary-benefits',
-                ),
-                _buildSubMenuItem(
-                  context,
-                  icon: Icons.document_scanner,
-                  title: 'Employment Letters',
-                  route: '/admin/employment-letter-template',
-                ),
-                _buildSubMenuItem(
-                  context,
-                  icon: Icons.manage_accounts,
-                  title: 'System Users',
-                  route: '/admin/users',
-                ),
-              ],
-            ),
+                // ── Dashboard ───────────────────────────────────────────
+                if (!isStudentWorker)
+                  _buildNavItem(
+                    context,
+                    icon: Icons.dashboard_rounded,
+                    title: 'Admin Hub',
+                    route: '/admin-hub',
+                    color: const Color(0xFF2563EB),
+                  ),
 
-            // Student Management
-            ExpansionTile(
-              leading: Icon(Icons.school, color: Colors.lightBlue),
-              title: const Text(
-                'Student Management',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-              children: [
-                _buildSubMenuItem(
-                  context,
-                  icon: Icons.assignment,
-                  title: 'Student Reports',
-                  route: '/admin/student-reports',
-                ),
-                _buildSubMenuItem(
-                  context,
-                  icon: Icons.attach_money,
-                  title: 'Payment Rates',
-                  route: '/admin/payment-rates',
-                ),
-              ],
-            ),
+                if (!isStudentWorker) ...[
+                  const SizedBox(height: 4),
 
-            // Financial Management
-            ExpansionTile(
-              leading: Icon(Icons.account_balance, color: Colors.green),
-              title: const Text(
-                'Financial Management',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-              children: [
-                _buildSubMenuItem(
-                  context,
-                  icon: Icons.trending_up,
-                  title: 'Income Reports',
-                  route: '/admin/income',
-                ),
-                _buildSubMenuItem(
-                  context,
-                  icon: Icons.flight,
-                  title: 'Traveling Reports',
-                  route: '/admin/traveling-reports',
-                ),
-              ],
-            ),
-          ],
-
-          // SETTINGS & PROFILE
-          const Divider(),
-          _buildSectionHeader('Account'),
-          _buildDrawerItem(
-            context,
-            icon: Icons.settings,
-            title: 'Settings',
-            route: '/settings',
-            iconColor: Colors.grey,
-          ),
-
-          // LOGOUT
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: ListTile(
-              leading: Icon(Icons.logout, color: Colors.red[700]),
-              title: Text(
-                'Logout',
-                style: TextStyle(
-                  fontWeight: FontWeight.w500,
-                  color: Colors.red[700],
-                ),
-              ),
-              onTap: () async {
-                final confirmed = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Logout'),
-                    content: const Text('Are you sure you want to logout?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: const Text('Cancel'),
-                      ),
-                      ElevatedButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                          foregroundColor: Colors.white,
-                        ),
-                        child: const Text('Logout'),
-                      ),
+                  // ── Finance ─────────────────────────────────────────
+                  _buildSection(
+                    context,
+                    icon: Icons.account_balance_wallet,
+                    title: 'Finance',
+                    color: const Color(0xFF2563EB),
+                    items: [
+                      _NavItem(Icons.dashboard_outlined, 'Finance Hub', '/finance-dashboard'),
+                      _NavItem(Icons.receipt_long, 'Petty Cash Reports', '/reports'),
+                      _NavItem(Icons.flight_takeoff, 'Traveling Reports', '/traveling-reports'),
+                      _NavItem(Icons.trending_up, 'Income Reports', '/income'),
+                      _NavItem(Icons.shopping_cart_outlined, 'Purchase Requisitions', '/purchase-requisitions'),
+                      _NavItem(Icons.account_balance_wallet_outlined, 'Cash Advances', '/cash-advances'),
+                      if (canApprove)
+                        _NavItem(Icons.pending_actions, 'Pending Approvals', '/approvals', badge: true),
+                      if (canApprove)
+                        _NavItem(Icons.list_alt, 'All Transactions', '/transactions'),
                     ],
                   ),
-                );
 
-                if (confirmed == true && context.mounted) {
-                  await context.read<AuthProvider>().logout();
-                  if (context.mounted) {
-                    context.go('/');
-                  }
-                }
-              },
+                  // ── Meetings ────────────────────────────────────────
+                  if (hasMeetingsAccess)
+                    _buildSection(
+                      context,
+                      icon: Icons.groups,
+                      title: 'Meetings',
+                      color: const Color(0xFF4F46E5),
+                      items: [
+                        _NavItem(Icons.dashboard_outlined, 'Meetings Dashboard', '/meetings-dashboard'),
+                        _NavItem(Icons.list, 'All Meetings', '/meetings'),
+                        _NavItem(Icons.checklist, 'Action Items', '/meetings/action-items'),
+                      ],
+                    ),
+
+                  // ── Media Production ────────────────────────────────
+                  _buildSection(
+                    context,
+                    icon: Icons.video_library,
+                    title: 'Media Production',
+                    color: const Color(0xFFEC4899),
+                    items: [
+                      _NavItem(Icons.dashboard_outlined, 'Media Dashboard', '/media-dashboard'),
+                      _NavItem(Icons.movie_creation, 'Productions', '/media/productions'),
+                      _NavItem(Icons.analytics, 'Engagement Data', '/media/engagement'),
+                      _NavItem(Icons.assessment, 'Annual Report', '/media/reports/annual'),
+                    ],
+                  ),
+
+                  // ── Inventory ───────────────────────────────────────
+                  _buildSection(
+                    context,
+                    icon: Icons.inventory_2,
+                    title: 'Inventory',
+                    color: const Color(0xFF7C3AED),
+                    items: [
+                      _NavItem(Icons.inventory_2_outlined, 'Equipment Inventory', '/inventory'),
+                    ],
+                  ),
+
+                  // ── Admin-only sections ─────────────────────────────
+                  if (isAdmin) ...[
+                    // Student Labor
+                    _buildSection(
+                      context,
+                      icon: Icons.school,
+                      title: 'Student Labor',
+                      color: const Color(0xFFD97706),
+                      items: [
+                        _NavItem(Icons.dashboard_outlined, 'Student Dashboard', '/student-labor-dashboard'),
+                        _NavItem(Icons.assignment, 'Student Reports', '/admin/student-reports'),
+                        _NavItem(Icons.attach_money, 'Payment Rates', '/admin/payment-rates'),
+                      ],
+                    ),
+
+                    // HR Management
+                    _buildSection(
+                      context,
+                      icon: Icons.people,
+                      title: 'HR Management',
+                      color: const Color(0xFF059669),
+                      items: [
+                        _NavItem(Icons.dashboard_outlined, 'HR Dashboard', '/hr'),
+                        _NavItem(Icons.person_add, 'Employee Onboarding', '/hr/employee-onboarding'),
+                        _NavItem(Icons.event_available, 'Leave Requests', '/hr/leave-requests'),
+                        _NavItem(Icons.badge, 'Staff Records', '/admin/staff'),
+                        _NavItem(Icons.monetization_on, 'Salary & Benefits', '/admin/salary-benefits'),
+                        _NavItem(Icons.document_scanner, 'Employment Letters', '/admin/employment-letter-template'),
+                        _NavItem(Icons.manage_accounts, 'System Users', '/admin/users'),
+                      ],
+                    ),
+
+                    // Financial Admin
+                    _buildSection(
+                      context,
+                      icon: Icons.account_balance,
+                      title: 'Admin Finance',
+                      color: const Color(0xFF0D9488),
+                      items: [
+                        _NavItem(Icons.trending_up, 'Income Reports', '/admin/income'),
+                        _NavItem(Icons.flight, 'Traveling Reports', '/admin/traveling-reports'),
+                      ],
+                    ),
+
+                    // Meetings Admin
+                    _buildSection(
+                      context,
+                      icon: Icons.meeting_room,
+                      title: 'Admin Meetings',
+                      color: const Color(0xFF6366F1),
+                      items: [
+                        _NavItem(Icons.article, 'AdCom Agendas', '/admin/adcom-agendas'),
+                      ],
+                    ),
+                  ],
+
+                  // ── Personal (non-admin staff) ───────────────────────
+                  _buildSection(
+                    context,
+                    icon: Icons.badge,
+                    title: 'My Data',
+                    color: const Color(0xFF0D9488),
+                    items: [
+                      _NavItem(Icons.person, 'My Profile', '/user-profile'),
+                      _NavItem(Icons.badge_outlined, 'My HR Data', '/hr/my-data'),
+                      _NavItem(Icons.work_outline, 'HR Data Submission', '/hr/data-submission'),
+                      _NavItem(Icons.event_available, 'Annual Leave Request', '/hr/leave-request'),
+                    ],
+                  ),
+                ],
+
+                // ── Student Worker ───────────────────────────────────
+                if (isStudentWorker)
+                  _buildSection(
+                    context,
+                    icon: Icons.school,
+                    title: 'Student',
+                    color: const Color(0xFF0891B2),
+                    items: [
+                      _NavItem(Icons.dashboard_outlined, 'Student Dashboard', '/student-dashboard'),
+                      _NavItem(Icons.schedule, 'My Timesheets', '/student-reports'),
+                      _NavItem(Icons.person, 'My Profile', '/student-profile'),
+                    ],
+                  ),
+
+                const Divider(height: 24),
+
+                // ── Account ─────────────────────────────────────────
+                _buildNavItem(
+                  context,
+                  icon: Icons.settings_outlined,
+                  title: 'Settings',
+                  route: '/settings',
+                  color: Colors.grey,
+                ),
+                _buildLogoutItem(context, authProvider),
+              ],
             ),
           ),
-
-          const SizedBox(height: 16),
         ],
       ),
     );
   }
 
-  Widget _buildDrawerHeader(BuildContext context, dynamic user) {
-    return UserAccountsDrawerHeader(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Theme.of(context).primaryColor,
-            Theme.of(context).primaryColor.withValues(alpha: 0.7),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      currentAccountPicture: CircleAvatar(
-        backgroundColor: Colors.white,
-        child: Text(
-          user?.name != null && user.name.isNotEmpty
-              ? user.name[0].toUpperCase()
-              : '?',
-          style: TextStyle(
-            fontSize: 32,
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).primaryColor,
-          ),
-        ),
-      ),
-      accountName: Text(
-        user?.name ?? 'User',
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-      ),
-      accountEmail: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(user?.email ?? ''),
-          const SizedBox(height: 4),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              user?.role?.toUpperCase() ?? 'GUEST',
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // ── Section tile (collapsible) ────────────────────────────────────────────
 
-  Widget _buildSectionHeader(String title) {
+  Widget _buildSection(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required Color color,
+    required List<_NavItem> items,
+  }) {
+    final currentRoute = GoRouterState.of(context).uri.path;
+    final isAnyChildActive = items.any((i) => currentRoute == i.route);
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Text(
-        title.toUpperCase(),
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          color: Colors.grey[600],
-          letterSpacing: 1.2,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            initiallyExpanded: isAnyChildActive,
+            tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+            childrenPadding: const EdgeInsets.only(bottom: 4),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            collapsedShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            backgroundColor: isAnyChildActive ? color.withValues(alpha: 0.05) : null,
+            collapsedBackgroundColor: Colors.transparent,
+            leading: Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, size: 17, color: color),
+            ),
+            title: Text(
+              title,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isAnyChildActive ? FontWeight.w700 : FontWeight.w600,
+                color: isAnyChildActive ? color : null,
+              ),
+            ),
+            children: items.map((item) => _buildSubItem(context, item, color)).toList(),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildDrawerItem(
+  Widget _buildSubItem(BuildContext context, _NavItem item, Color sectionColor) {
+    final currentRoute = GoRouterState.of(context).uri.path;
+    final isSelected = currentRoute == item.route;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+      child: ListTile(
+        dense: true,
+        selected: isSelected,
+        selectedTileColor: sectionColor.withValues(alpha: 0.08),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+        leading: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Icon(
+              item.icon,
+              size: 18,
+              color: isSelected ? sectionColor : Colors.grey[500],
+            ),
+            if (item.badge == true)
+              Positioned(
+                right: -3,
+                top: -3,
+                child: Container(
+                  width: 7,
+                  height: 7,
+                  decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                ),
+              ),
+          ],
+        ),
+        title: Text(
+          item.title,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+            color: isSelected ? sectionColor : null,
+          ),
+        ),
+        onTap: () {
+          Navigator.pop(context);
+          context.push(item.route);
+        },
+      ),
+    );
+  }
+
+  // ── Top-level nav item (non-collapsible) ─────────────────────────────────
+
+  Widget _buildNavItem(
     BuildContext context, {
     required IconData icon,
     required String title,
     required String route,
-    required Color iconColor,
-    bool badge = false,
+    required Color color,
   }) {
     final currentRoute = GoRouterState.of(context).uri.path;
     final isSelected = currentRoute == route;
@@ -435,31 +314,23 @@ class AppDrawer extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       child: ListTile(
         selected: isSelected,
-        selectedTileColor: iconColor.withValues(alpha: 0.1),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        leading: Stack(
-          children: [
-            Icon(icon, color: isSelected ? iconColor : Colors.grey[700]),
-            if (badge)
-              Positioned(
-                right: 0,
-                top: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
-                  ),
-                  constraints: const BoxConstraints(minWidth: 8, minHeight: 8),
-                ),
-              ),
-          ],
+        selectedTileColor: color.withValues(alpha: 0.1),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        leading: Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: isSelected ? color.withValues(alpha: 0.15) : color.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 17, color: color),
         ),
         title: Text(
           title,
           style: TextStyle(
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-            color: isSelected ? iconColor : null,
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+            color: isSelected ? color : null,
           ),
         ),
         onTap: () {
@@ -470,33 +341,137 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  Widget _buildSubMenuItem(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required String route,
-  }) {
-    final currentRoute = GoRouterState.of(context).uri.path;
-    final isSelected = currentRoute == route;
+  // ── Logout ───────────────────────────────────────────────────────────────
 
-    return ListTile(
-      dense: true,
-      contentPadding: const EdgeInsets.only(left: 72, right: 16),
-      leading: Icon(icon, size: 20, color: Colors.grey[600]),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-          color: isSelected ? Theme.of(context).primaryColor : null,
+  Widget _buildLogoutItem(BuildContext context, AuthProvider authProvider) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      child: ListTile(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        leading: Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: Colors.red.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(Icons.logout, size: 17, color: Colors.red),
         ),
+        title: const Text(
+          'Logout',
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.red),
+        ),
+        onTap: () async {
+          final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Logout'),
+              content: const Text('Are you sure you want to logout?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Logout'),
+                ),
+              ],
+            ),
+          );
+          if (confirmed == true && context.mounted) {
+            await authProvider.logout();
+            if (context.mounted) context.go('/');
+          }
+        },
       ),
-      selected: isSelected,
-      selectedTileColor: Theme.of(context).primaryColor.withValues(alpha: 0.05),
-      onTap: () {
-        Navigator.pop(context);
-        context.push(route);
-      },
     );
   }
+
+  // ── Drawer header ─────────────────────────────────────────────────────────
+
+  Widget _buildDrawerHeader(BuildContext context, dynamic user) {
+    final cs = Theme.of(context).colorScheme;
+    final initials = user?.name != null && (user.name as String).isNotEmpty
+        ? (user.name as String).trim().split(' ').take(2).map((w) => w[0].toUpperCase()).join()
+        : '?';
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 48, 16, 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [cs.primary, cs.primary.withValues(alpha: 0.8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 2),
+            ),
+            child: Center(
+              child: Text(
+                initials,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  user?.name ?? 'User',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  user?.email ?? '',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 11),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    user?.role?.toUpperCase() ?? 'GUEST',
+                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Data class ────────────────────────────────────────────────────────────────
+
+class _NavItem {
+  final IconData icon;
+  final String title;
+  final String route;
+  final bool badge;
+
+  const _NavItem(this.icon, this.title, this.route, {this.badge = false});
 }

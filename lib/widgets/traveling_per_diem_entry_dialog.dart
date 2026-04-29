@@ -196,6 +196,17 @@ class _TravelingPerDiemEntryDialogState
                         'Total Members: ${widget.report.totalMembers}',
                         style: const TextStyle(fontSize: 13),
                       ),
+                      const SizedBox(height: 4),
+                      Builder(builder: (context) {
+                        final dep = DateTime(widget.report.departureTime.year, widget.report.departureTime.month, widget.report.departureTime.day);
+                        final dst = DateTime(widget.report.destinationTime.year, widget.report.destinationTime.month, widget.report.destinationTime.day);
+                        final days = dst.difference(dep).inDays + 1;
+                        final df = DateFormat('MMM dd, yyyy');
+                        return Text(
+                          'Period: ${df.format(dep)} – ${df.format(dst)} ($days day${days == 1 ? '' : 's'})',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.orange.shade900),
+                        );
+                      }),
                     ],
                   ),
                 ),

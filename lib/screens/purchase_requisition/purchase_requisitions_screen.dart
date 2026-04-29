@@ -8,6 +8,7 @@ import '../../services/firestore_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/edit_purchase_requisition_dialog.dart';
 import '../../utils/responsive_helper.dart';
+import '../../widgets/app_drawer.dart';
 
 class _StatData {
   final String title;
@@ -427,17 +428,118 @@ class _PurchaseRequisitionsScreenState
     }
 
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-      body: SafeArea(
-        child: ResponsiveBuilder(
-          mobile: SingleChildScrollView(
-            child: _buildMobileLayout(context, isAdmin),
-          ),
-          tablet: SingleChildScrollView(
-            child: _buildTabletLayout(context, isAdmin),
-          ),
-          desktop: SingleChildScrollView(
-            child: _buildDesktopLayout(context, isAdmin),
+      appBar: _buildTopBar(context, isAdmin),
+      drawer: const AppDrawer(),
+      body: ResponsiveBuilder(
+        mobile: SingleChildScrollView(
+          child: _buildMobileLayout(context, isAdmin),
+        ),
+        tablet: SingleChildScrollView(
+          child: _buildTabletLayout(context, isAdmin),
+        ),
+        desktop: SingleChildScrollView(
+          child: _buildDesktopLayout(context, isAdmin),
+        ),
+      ),
+    );
+  }
+
+  // ─── Top bar ───────────────────────────────────────────────────────────────
+
+  PreferredSizeWidget _buildTopBar(BuildContext context, bool isAdmin) {
+    final cs = Theme.of(context).colorScheme;
+    final maxWidth = ResponsiveHelper.getMaxContentWidth(context);
+    final hPad = ResponsiveHelper.getScreenPadding(context).horizontal / 2;
+
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(kToolbarHeight),
+      child: Container(
+        decoration: BoxDecoration(
+          color: cs.primary,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: SizedBox(
+            height: kToolbarHeight,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxWidth),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: hPad),
+                  child: Row(
+                    children: [
+                      Builder(
+                        builder: (ctx) => IconButton(
+                          icon: const Icon(Icons.menu, color: Colors.white),
+                          tooltip: 'Menu',
+                          onPressed: () => Scaffold.of(ctx).openDrawer(),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            'HC',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'Purchase Requisitions',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Text(
+                            'PR management',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.65),
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      if (isAdmin)
+                        IconButton(
+                          icon: const Icon(Icons.admin_panel_settings, color: Colors.white, size: 20),
+                          tooltip: 'Admin',
+                          onPressed: () => context.go('/admin'),
+                        ),
+                      IconButton(
+                        icon: const Icon(Icons.add_circle_outline, color: Colors.white, size: 20),
+                        tooltip: 'New Requisition',
+                        onPressed: _createNewRequisition,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -562,290 +664,135 @@ class _PurchaseRequisitionsScreenState
     );
   }
 
-  Widget _buildWelcomeHeader(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final isAdmin = authProvider.canManageUsers();
+  Widget _buildWelcomeHeader(BuildContext context) => _buildBannerWidget(context);
 
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.blue.shade400,
-            Colors.blue.shade600,
-            Colors.blue.shade800,
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.blue.shade300,
-            blurRadius: 15,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            right: -30,
-            top: -30,
-            child: Container(
-              width: 140,
-              height: 140,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.1),
-              ),
+  Widget _buildWelcomeHeaderMobile(BuildContext context) => _buildBannerWidget(context);
+
+  Widget _buildBannerWidget(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return StreamBuilder<List<PurchaseRequisition>>(
+      stream: _getRequisitionsStream(Provider.of<AuthProvider>(context, listen: false)),
+      builder: (context, snapshot) {
+        final requisitions = snapshot.data ?? [];
+        final pending = requisitions.where((r) => r.status == 'submitted').length;
+        final stats = [
+          ('Total', '${requisitions.length}'),
+          ('Pending', '$pending'),
+        ];
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [cs.primary.withValues(alpha: 0.85), cs.primary],
             ),
-          ),
-          Positioned(
-            right: 50,
-            bottom: -40,
-            child: Container(
-              width: 110,
-              height: 110,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 20,
+                offset: const Offset(0, 4),
               ),
-            ),
+            ],
           ),
-          Column(
-            children: [
-              // Top action bar
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Back/Home button
-                  _buildHeaderActionButton(
-                    icon: Icons.arrow_back,
-                    tooltip: 'Back to Dashboard',
-                    onPressed: () => context.go('/admin-hub'),
-                  ),
-                  // Action buttons
-                  Row(
-                    children: [
-                      if (isAdmin)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: _buildHeaderActionButton(
-                            icon: Icons.admin_panel_settings,
-                            tooltip: 'Admin',
-                            onPressed: () => context.go('/admin'),
-                          ),
-                        ),
-                      _buildHeaderActionButton(
-                        icon: Icons.add_circle_outline,
-                        tooltip: 'New Requisition',
-                        onPressed: _createNewRequisition,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              // Content row
-              Row(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isCompact = constraints.maxWidth < 760;
+
+              if (isCompact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Purchase Requisitions',
+                      style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Manage your purchase requests',
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.72), fontSize: 12),
+                    ),
+                    const SizedBox(height: 16),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: stats.map((s) => _buildBannerStat(s.$1, s.$2, compact: true)).toList(),
+                    ),
+                  ],
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const Text(
                           'Purchase Requisitions',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.white.withValues(alpha: 0.9),
-                          ),
+                          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
-                          'Manage your purchase requests',
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
                         Text(
-                          'Track, approve, and manage purchase requisitions',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.white.withValues(alpha: 0.8),
-                          ),
+                          'Manage your purchase requests',
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.72), fontSize: 12),
                         ),
                       ],
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.shopping_cart,
-                      size: 48,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeaderActionButton({
-    required IconData icon,
-    required String tooltip,
-    required VoidCallback onPressed,
-  }) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: Colors.white, size: 20),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildWelcomeHeaderMobile(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final isAdmin = authProvider.canManageUsers();
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.blue.shade400,
-            Colors.blue.shade600,
-            Colors.blue.shade800,
-          ],
-        ),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            right: -24,
-            top: -24,
-            child: Container(
-              width: 90,
-              height: 90,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.1),
-              ),
-            ),
-          ),
-          Positioned(
-            right: 40,
-            bottom: -30,
-            child: Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.08),
-              ),
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Top action bar
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Back/Home button
-                  _buildHeaderActionButton(
-                    icon: Icons.arrow_back,
-                    tooltip: 'Back to Dashboard',
-                    onPressed: () => context.go('/admin-hub'),
-                  ),
-                  // Action buttons
+                  const SizedBox(width: 20),
                   Row(
                     children: [
-                      if (isAdmin)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: _buildHeaderActionButton(
-                            icon: Icons.admin_panel_settings,
-                            tooltip: 'Admin',
-                            onPressed: () => context.go('/admin'),
-                          ),
-                        ),
-                      _buildHeaderActionButton(
-                        icon: Icons.add_circle_outline,
-                        tooltip: 'New Requisition',
-                        onPressed: _createNewRequisition,
-                      ),
+                      for (var i = 0; i < stats.length; i++) ...[
+                        if (i > 0) const SizedBox(width: 20),
+                        _buildBannerStat(stats[i].$1, stats[i].$2),
+                      ],
                     ],
                   ),
                 ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.shopping_cart,
-                      size: 28,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Purchase Requisitions',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        Text(
-                          'Manage your purchase requests',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.white.withValues(alpha: 0.8),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ],
+              );
+            },
           ),
-        ],
+        );
+      },
+    );
+  }
+
+  Widget _buildBannerStat(String label, String value, {bool compact = false}) {
+    final child = Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: compact ? 20 : 22,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.70), fontSize: 10),
+        ),
+      ],
+    );
+
+    if (!compact) return child;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
       ),
+      child: child,
     );
   }
 

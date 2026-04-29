@@ -15,7 +15,6 @@ import '../../models/enums.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
 import '../../widgets/edit_project_report_dialog.dart';
-import '../../widgets/page_image_header.dart';
 
 class ProjectReportDetailScreen extends StatefulWidget {
   final String reportId;
@@ -68,48 +67,25 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
 
     // Only show loading if data is empty AND still loading
     if (report == null && (projectReportProvider.isLoading || projectReportProvider.projectReports.isEmpty)) {
-      return Scaffold(
-        backgroundColor: Colors.grey[50],
-        body: SafeArea(
-          child: Column(
-            children: [
-              const PageImageHeader(title: 'Loading...'),
-              const Expanded(
-                child: Center(child: CircularProgressIndicator()),
-              ),
-            ],
-          ),
-        ),
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
       );
     }
 
     if (report == null) {
       return Scaffold(
-        backgroundColor: Colors.grey[50],
-        body: SafeArea(
+        body: Center(
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const PageImageHeader(title: 'Project Report'),
-              Expanded(
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Project report not found',
-                        style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-                      ),
-                      const SizedBox(height: 24),
-                      ElevatedButton.icon(
-                        onPressed: () => context.go('/admin-hub'),
-                        icon: const Icon(Icons.home),
-                        label: const Text('Go to Dashboard'),
-                      ),
-                    ],
-                  ),
-                ),
+              Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
+              const SizedBox(height: 16),
+              Text('Project report not found', style: TextStyle(fontSize: 18, color: Colors.grey[600])),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () => context.go('/admin-hub'),
+                icon: const Icon(Icons.home),
+                label: const Text('Go to Dashboard'),
               ),
             ],
           ),
@@ -144,110 +120,80 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
 
     final remainingBudget = report.budget - actualExpenses;
 
+    final pageHeaderActions = <Widget>[
+      _buildHeaderActionButton(
+        icon: Icons.home_outlined,
+        tooltip: 'Home',
+        onPressed: () => context.go('/admin-hub'),
+      ),
+      if (report.statusEnum != ReportStatus.closed)
+        _buildHeaderActionButton(
+          icon: Icons.add,
+          tooltip: 'Add Transaction',
+          onPressed: () => _showAddTransactionDialog(report),
+        ),
+      PopupMenuButton<String>(
+        icon: const Icon(Icons.more_vert, color: Colors.white),
+        tooltip: 'Actions',
+        color: Colors.white,
+        onSelected: (value) async {
+          if (value == 'edit') {
+            await _showEditReportDialog(report, projectReportProvider);
+          } else if (value == 'submit') {
+            await _submitReport(report, projectReportProvider);
+          } else if (value == 'approve') {
+            await _approveReport(report, projectReportProvider);
+          } else if (value == 'close') {
+            await _closeReport(report, projectReportProvider);
+          }
+        },
+        itemBuilder: (context) => [
+          if (report.statusEnum == ReportStatus.draft || authProvider.canApprove())
+            const PopupMenuItem(
+              value: 'edit',
+              child: Row(children: [Icon(Icons.edit), SizedBox(width: 8), Text('Edit Report')]),
+            ),
+          if (report.statusEnum == ReportStatus.draft)
+            const PopupMenuItem(
+              value: 'submit',
+              child: Row(children: [Icon(Icons.send), SizedBox(width: 8), Text('Submit Report')]),
+            ),
+          if (authProvider.canApprove() &&
+              (report.statusEnum == ReportStatus.submitted || report.statusEnum == ReportStatus.underReview))
+            const PopupMenuItem(
+              value: 'approve',
+              child: Row(children: [Icon(Icons.check_circle, color: Colors.green), SizedBox(width: 8), Text('Approve Report')]),
+            ),
+          if (authProvider.canApprove() && report.statusEnum == ReportStatus.approved)
+            const PopupMenuItem(
+              value: 'close',
+              child: Row(children: [Icon(Icons.lock, color: Colors.purple), SizedBox(width: 8), Text('Close Report')]),
+            ),
+        ],
+      ),
+    ];
+
     return Scaffold(
-      backgroundColor: Colors.grey[50],
-      body: SafeArea(
-        child: Column(
-          children: [
-            PageImageHeader(
-              title: report.reportNumber,
-              actions: [
-                PageImageHeader.actionButton(
-                  icon: Icons.home_outlined,
-                  tooltip: 'Home',
-                  onPressed: () => context.go('/admin-hub'),
-                ),
-                if (report.statusEnum != ReportStatus.closed)
-                  PageImageHeader.actionButton(
-                    icon: Icons.add,
-                    tooltip: 'Add Transaction',
-                    onPressed: () => _showAddTransactionDialog(report),
-                  ),
-                PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert, color: Colors.white),
-                  tooltip: 'Actions',
-                  onSelected: (value) async {
-                    if (value == 'edit') {
-                      await _showEditReportDialog(report, projectReportProvider);
-                    } else if (value == 'submit') {
-                      await _submitReport(report, projectReportProvider);
-                    } else if (value == 'approve') {
-                      await _approveReport(report, projectReportProvider);
-                    } else if (value == 'close') {
-                      await _closeReport(report, projectReportProvider);
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    if (report.statusEnum == ReportStatus.draft ||
-                        authProvider.canApprove())
-                      const PopupMenuItem(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            Icon(Icons.edit),
-                            SizedBox(width: 8),
-                            Text('Edit Report'),
-                          ],
-                        ),
-                      ),
-                    if (report.statusEnum == ReportStatus.draft)
-                      const PopupMenuItem(
-                        value: 'submit',
-                        child: Row(
-                          children: [
-                            Icon(Icons.send),
-                            SizedBox(width: 8),
-                            Text('Submit Report'),
-                          ],
-                        ),
-                      ),
-                    if (authProvider.canApprove() &&
-                        (report.statusEnum == ReportStatus.submitted ||
-                            report.statusEnum ==
-                                ReportStatus.underReview))
-                      const PopupMenuItem(
-                        value: 'approve',
-                        child: Row(
-                          children: [
-                            Icon(Icons.check_circle, color: Colors.green),
-                            SizedBox(width: 8),
-                            Text('Approve Report'),
-                          ],
-                        ),
-                      ),
-                    if (authProvider.canApprove() &&
-                        report.statusEnum == ReportStatus.approved)
-                      const PopupMenuItem(
-                        value: 'close',
-                        child: Row(
-                          children: [
-                            Icon(Icons.lock, color: Colors.purple),
-                            SizedBox(width: 8),
-                            Text('Close Report'),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-            Expanded(
-              child: ResponsiveContainer(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildHeader(report),
-                      const SizedBox(height: 24),
-                      _buildFinancialSummary(report, actualExpenses, remainingBudget),
-                      const SizedBox(height: 24),
-                      _buildTransactionsList(transactions, authProvider),
-                    ],
-                  ),
-                ),
+      body: ResponsiveContainer(
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildPageHeader(
+                title: report.projectName,
+                subtitle: '${report.reportNumber} · ${report.custodianName}',
+                status: report.statusEnum,
+                actions: pageHeaderActions,
               ),
-            ),
-          ],
+              const SizedBox(height: 16),
+              _buildHeader(report),
+              const SizedBox(height: 16),
+              _buildFinancialSummary(report, actualExpenses, remainingBudget),
+              const SizedBox(height: 16),
+              _buildTransactionsList(transactions, authProvider),
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
       ),
     );
@@ -424,6 +370,89 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildPageHeader({
+    required String title,
+    String? subtitle,
+    List<Widget> actions = const [],
+    ReportStatus? status,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [cs.primary.withValues(alpha: 0.85), cs.primary],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _buildHeaderActionButton(
+                icon: Icons.arrow_back,
+                tooltip: 'Back',
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/admin-hub');
+                  }
+                },
+              ),
+              const Spacer(),
+              ...actions,
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (status != null) ...[
+            _buildStatusChip(status),
+            const SizedBox(height: 10),
+          ],
+          Text(
+            title,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white),
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.72), fontSize: 12),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return IconButton(
+      onPressed: onPressed,
+      tooltip: tooltip,
+      icon: Icon(icon, color: Colors.white),
+      style: IconButton.styleFrom(
+        backgroundColor: Colors.white.withValues(alpha: 0.18),
+        foregroundColor: Colors.white,
+        minimumSize: const Size(36, 36),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
     );
   }
 
@@ -1089,7 +1118,7 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
         .fold<double>(0.0, (sum, t) => sum + t.amount);
     final remainingBudget = report.budget - actualExpenses;
 
-    // Add pages for each chunk of transactions
+    // ── Transaction pages ───────────────────────────────────────────────────────
     for (int pageIndex = 0; pageIndex < transactionChunks.length; pageIndex++) {
       final chunk = transactionChunks[pageIndex];
       final isLastPage = pageIndex == transactionChunks.length - 1;
@@ -1109,12 +1138,10 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
               children: [
                 // Header (only on first page)
                 if (isFirstPage) ...[
-                  // Organization Header
                   pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.start,
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      // Add logo
                       if (logoImage != null)
                         pw.Container(
                           width: 40,
@@ -1146,7 +1173,6 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
                           ),
                         ),
                       pw.SizedBox(width: 10),
-                      // Organization name and address
                       pw.Expanded(
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -1174,7 +1200,7 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
                   ),
                   pw.SizedBox(height: 16),
                   pw.Text(
-                    '${report.reportNumber} - ${report.projectName}', // Using report name instead of generic "Project Transactions Report"
+                    '${report.reportNumber} - ${report.projectName}',
                     style: pw.TextStyle(font: boldTtf, fontSize: 20),
                   ),
                   pw.SizedBox(height: 8),
@@ -1372,89 +1398,94 @@ class _ProjectReportDetailScreenState extends State<ProjectReportDetailScreen> {
                   ],
                 ),
 
-                // Only add balance summary and signature section on the last page
+                // Financial summary + signature section on the last page
                 if (isLastPage) ...[
-                  pw.SizedBox(height: 20),
+                  pw.SizedBox(height: 14),
 
-                  // Balance Summary
+                  // Financial Summary row
                   pw.Container(
-                    padding: const pw.EdgeInsets.all(12),
+                    padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: pw.BoxDecoration(
                       color: PdfColors.grey100,
                       border: pw.Border.all(color: PdfColors.grey400),
-                      borderRadius: const pw.BorderRadius.all(
-                        pw.Radius.circular(4),
-                      ),
+                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
                     ),
-                    child: pw.Column(
+                    child: pw.Row(
                       children: [
-                        pw.Row(
-                          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                          children: [
-                            pw.Text(
-                              'Total Budget:',
-                              style: pw.TextStyle(font: ttf, fontSize: 10),
-                            ),
-                            pw.Text(
-                              currencyFormat.format(report.budget),
-                              style: pw.TextStyle(font: ttf, fontSize: 10),
-                            ),
-                          ],
+                        pw.Expanded(
+                          child: pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              pw.Text('Total Budget', style: pw.TextStyle(font: ttf, fontSize: 8, color: PdfColors.grey600)),
+                              pw.SizedBox(height: 2),
+                              pw.Text(currencyFormat.format(report.budget), style: pw.TextStyle(font: boldTtf, fontSize: 10)),
+                            ],
+                          ),
                         ),
-                        pw.SizedBox(height: 6),
-                        pw.Row(
-                          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                          children: [
-                            pw.Text(
-                              'Total Expenses:',
-                              style: pw.TextStyle(font: ttf, fontSize: 10),
-                            ),
-                            pw.Text(
-                              currencyFormat.format(actualExpenses),
-                              style: pw.TextStyle(font: ttf, fontSize: 10),
-                            ),
-                          ],
+                        pw.Container(width: 1, height: 30, color: PdfColors.grey400),
+                        pw.SizedBox(width: 10),
+                        pw.Expanded(
+                          child: pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              pw.Text('Total Expenses', style: pw.TextStyle(font: ttf, fontSize: 8, color: PdfColors.grey600)),
+                              pw.SizedBox(height: 2),
+                              pw.Text(currencyFormat.format(actualExpenses), style: pw.TextStyle(font: boldTtf, fontSize: 10)),
+                            ],
+                          ),
                         ),
-                        pw.Divider(thickness: 1, color: PdfColors.grey400),
-                        pw.Column(
-                          crossAxisAlignment: pw.CrossAxisAlignment.start,
-                          children: [
-                            pw.Row(
-                              mainAxisAlignment:
-                                  pw.MainAxisAlignment.spaceBetween,
-                              children: [
-                                pw.Text(
-                                  'Remaining Budget:',
-                                  style: pw.TextStyle(
-                                    font: boldTtf,
-                                    fontSize: 11,
-                                  ),
-                                ),
-                                pw.Text(
-                                  currencyFormat.format(remainingBudget),
-                                  style: pw.TextStyle(
-                                    font: boldTtf,
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            pw.SizedBox(height: 4),
-                            pw.Text(
-                              '(${_convertToWords(remainingBudget)})',
-                              style: pw.TextStyle(
-                                font: ttf,
-                                fontSize: 9,
-                                fontStyle: pw.FontStyle.italic,
-                                color: PdfColors.grey700,
+                        pw.Container(width: 1, height: 30, color: PdfColors.grey400),
+                        pw.SizedBox(width: 10),
+                        pw.Expanded(
+                          child: pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              pw.Text('Remaining Budget', style: pw.TextStyle(font: ttf, fontSize: 8, color: PdfColors.grey600)),
+                              pw.SizedBox(height: 2),
+                              pw.Text(
+                                currencyFormat.format(remainingBudget),
+                                style: pw.TextStyle(font: boldTtf, fontSize: 10, color: remainingBudget >= 0 ? PdfColors.green800 : PdfColors.red700),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
+                        ),
+                        pw.Container(width: 1, height: 30, color: PdfColors.grey400),
+                        pw.SizedBox(width: 10),
+                        pw.Expanded(
+                          child: pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              pw.Text('Budget Used', style: pw.TextStyle(font: ttf, fontSize: 8, color: PdfColors.grey600)),
+                              pw.SizedBox(height: 2),
+                              pw.Text(
+                                report.budget > 0
+                                    ? '${(actualExpenses / report.budget * 100).clamp(0, 100).toStringAsFixed(1)}%'
+                                    : '0.0%',
+                                style: pw.TextStyle(font: boldTtf, fontSize: 10),
+                              ),
+                            ],
+                          ),
+                        ),
+                        pw.Container(width: 1, height: 30, color: PdfColors.grey400),
+                        pw.SizedBox(width: 10),
+                        pw.Expanded(
+                          flex: 2,
+                          child: pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              pw.Text('Remaining (in words)', style: pw.TextStyle(font: ttf, fontSize: 8, color: PdfColors.grey600)),
+                              pw.SizedBox(height: 2),
+                              pw.Text(
+                                _convertToWords(remainingBudget),
+                                style: pw.TextStyle(font: ttf, fontSize: 8, fontStyle: pw.FontStyle.italic),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  pw.SizedBox(height: 20),
+                  pw.SizedBox(height: 16),
 
                   // Signature Section
                   pw.Row(

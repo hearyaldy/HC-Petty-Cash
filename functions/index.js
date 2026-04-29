@@ -7,6 +7,8 @@ admin.initializeApp();
 
 const GEMINI_BASE_URL =
   'https://generativelanguage.googleapis.com/v1beta/models';
+const GRAPH_TOKEN_URL_BASE = 'https://login.microsoftonline.com';
+const GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0';
 
 exports.financeAiReport = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
@@ -74,6 +76,169 @@ exports.financeAiReport = functions.https.onRequest(async (req, res) => {
     res.status(500).json({ error: error?.message || String(error) });
   }
 });
+
+exports.sendStyledMeetingInvitation = functions.https.onRequest(
+  async (req, res) => {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+
+    if (req.method === 'OPTIONS') {
+      res.status(204).send('');
+      return;
+    }
+
+    if (req.method !== 'POST') {
+      res.status(405).json({ error: 'Method not allowed' });
+      return;
+    }
+
+    try {
+      const authHeader = req.headers.authorization || '';
+      if (!authHeader.startsWith('Bearer ')) {
+        res.status(401).json({ error: 'Missing Firebase auth token' });
+        return;
+      }
+
+      const firebaseToken = authHeader.substring('Bearer '.length);
+      const decodedToken = await admin.auth().verifyIdToken(firebaseToken);
+      const userDoc = await admin
+        .firestore()
+        .collection('users')
+        .doc(decodedToken.uid)
+        .get();
+
+      if (!userDoc.exists) {
+        res.status(403).json({ error: 'User profile not found' });
+        return;
+      }
+
+      const userData = userDoc.data() || {};
+      const isAdmin = userData.role === 'admin';
+      const canEditMeetings =
+        isAdmin ||
+        userData.sectionPermissions?.meetingsEdit === true;
+
+      if (!canEditMeetings) {
+        res.status(403).json({ error: 'You do not have permission to send meeting invitations' });
+        return;
+      }
+
+      const payload =
+        typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
+      const recipientEmail = String(payload.recipientEmail || '').trim();
+      const recipientName = String(payload.recipientName || '').trim();
+      const subject = String(payload.subject || '').trim();
+      const htmlBody = String(payload.htmlBody || '').trim();
+
+      if (!recipientEmail || !subject || !htmlBody) {
+        res.status(400).json({
+          error: 'recipientEmail, subject, and htmlBody are required',
+        });
+        return;
+      }
+
+      const graphAccessToken = await getMicrosoftGraphAccessToken();
+      const senderUserId = getMicrosoftEmailConfig().senderUserId;
+      const sendMailResponse = await fetch(
+        `${GRAPH_API_BASE}/users/${encodeURIComponent(senderUserId)}/sendMail`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${graphAccessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: {
+              subject,
+              body: {
+                contentType: 'HTML',
+                content: htmlBody,
+              },
+              toRecipients: [
+                {
+                  emailAddress: {
+                    address: recipientEmail,
+                    ...(recipientName ? { name: recipientName } : {}),
+                  },
+                },
+              ],
+            },
+            saveToSentItems: true,
+          }),
+        },
+      );
+
+      if (!sendMailResponse.ok) {
+        const errorText = await sendMailResponse.text();
+        res.status(500).json({
+          error: `Microsoft Graph sendMail failed: ${sendMailResponse.status} ${errorText}`,
+        });
+        return;
+      }
+
+      res.status(200).json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: error?.message || String(error) });
+    }
+  },
+);
+
+function getMicrosoftEmailConfig() {
+  const tenantId =
+    process.env.MICROSOFT_TENANT_ID ||
+    functions.config?.()?.microsoft?.tenant_id;
+  const clientId =
+    process.env.MICROSOFT_CLIENT_ID ||
+    functions.config?.()?.microsoft?.client_id;
+  const clientSecret =
+    process.env.MICROSOFT_CLIENT_SECRET ||
+    functions.config?.()?.microsoft?.client_secret;
+  const senderUserId =
+    process.env.MICROSOFT_SENDER_USER_ID ||
+    functions.config?.()?.microsoft?.sender_user_id;
+
+  if (!tenantId || !clientId || !clientSecret || !senderUserId) {
+    throw new Error(
+      'Microsoft 365 email config is incomplete. Set MICROSOFT_TENANT_ID, MICROSOFT_CLIENT_ID, MICROSOFT_CLIENT_SECRET, and MICROSOFT_SENDER_USER_ID.',
+    );
+  }
+
+  return { tenantId, clientId, clientSecret, senderUserId };
+}
+
+async function getMicrosoftGraphAccessToken() {
+  const { tenantId, clientId, clientSecret } = getMicrosoftEmailConfig();
+  const tokenResponse = await fetch(
+    `${GRAPH_TOKEN_URL_BASE}/${encodeURIComponent(tenantId)}/oauth2/v2.0/token`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        scope: 'https://graph.microsoft.com/.default',
+        grant_type: 'client_credentials',
+      }),
+    },
+  );
+
+  if (!tokenResponse.ok) {
+    const errorText = await tokenResponse.text();
+    throw new Error(
+      `Microsoft token request failed: ${tokenResponse.status} ${errorText}`,
+    );
+  }
+
+  const tokenData = await tokenResponse.json();
+  if (!tokenData.access_token) {
+    throw new Error('Microsoft token response did not include access_token');
+  }
+
+  return tokenData.access_token;
+}
 
 function buildPrompt(payload) {
   const range = payload.range || {};

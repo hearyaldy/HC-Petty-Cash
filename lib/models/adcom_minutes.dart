@@ -60,7 +60,7 @@ class MinutesItem {
 
   factory MinutesItem.fromMap(Map<String, dynamic> map, String id) {
     return MinutesItem(
-      id: id,
+      id: map['id'] ?? id,
       itemNumber: map['itemNumber'] ?? '',
       title: map['title'] ?? '',
       actionType: AgendaActionTypeExtension.fromString(
@@ -90,6 +90,7 @@ class MinutesItem {
 
   Map<String, dynamic> toMap() {
     return {
+      'id': id,
       'itemNumber': itemNumber,
       'title': title,
       'actionType': actionType.displayName.toLowerCase().replaceAll(' ', ''),

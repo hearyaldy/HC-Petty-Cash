@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../../models/meeting.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/meeting_service.dart';
 import '../../utils/responsive_helper.dart';
 
@@ -18,6 +20,7 @@ class MeetingsListScreen extends StatefulWidget {
 class _MeetingsListScreenState extends State<MeetingsListScreen>
     with SingleTickerProviderStateMixin {
   final MeetingService _meetingService = MeetingService();
+  final Map<String, Future<String>> _creatorNameFutures = {};
   late TabController _tabController;
   String? _selectedType;
   String? _selectedStatus;
@@ -234,6 +237,36 @@ class _MeetingsListScreenState extends State<MeetingsListScreen>
     return 'All Meetings';
   }
 
+  Future<String> _getCreatorName(String userId) {
+    if (userId.isEmpty) return Future.value('Unknown');
+
+    return _creatorNameFutures.putIfAbsent(userId, () async {
+      final user = await context.read<AuthProvider>().getUserById(userId);
+      final name = user?.name.trim();
+      if (name != null && name.isNotEmpty) {
+        return name;
+      }
+      return userId;
+    });
+  }
+
+  Future<void> _updateMeetingStatus(Meeting meeting, String status) async {
+    await _meetingService.updateMeetingStatus(meeting.id, status);
+    if (!mounted) return;
+
+    final label = switch (status) {
+      'inProgress' => 'Meeting marked in progress',
+      'completed' => 'Meeting marked completed',
+      'cancelled' => 'Meeting cancelled',
+      _ => 'Meeting status updated',
+    };
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(label)),
+    );
+    setState(() {});
+  }
+
   Widget _buildMeetingsList(String status) {
     return StreamBuilder<List<Meeting>>(
       stream: _meetingService.getMeetings(type: _selectedType, status: status),
@@ -426,6 +459,40 @@ class _MeetingsListScreenState extends State<MeetingsListScreen>
                         ),
                       ],
                     ),
+                    const SizedBox(height: 8),
+                    FutureBuilder<String>(
+                      future: _getCreatorName(meeting.createdBy),
+                      builder: (context, snapshot) {
+                        final creatorName =
+                            snapshot.data?.trim().isNotEmpty == true
+                                ? snapshot.data!.trim()
+                                : meeting.createdBy.isNotEmpty
+                                ? meeting.createdBy
+                                : 'Unknown';
+
+                        return Row(
+                          children: [
+                            Icon(
+                              Icons.person_outline,
+                              size: 16,
+                              color: Colors.grey[500],
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Created by: $creatorName',
+                                style: TextStyle(
+                                  color: Colors.grey[700],
+                                  fontSize: 14,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
                     if (meeting.location != null) ...[
                       const SizedBox(height: 8),
                       Row(
@@ -488,6 +555,40 @@ class _MeetingsListScreenState extends State<MeetingsListScreen>
                         ),
                       ],
                     ),
+                    if (meeting.status == 'scheduled' ||
+                        meeting.status == 'inProgress') ...[
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          if (meeting.status == 'scheduled')
+                            FilledButton.icon(
+                              onPressed: () => _updateMeetingStatus(
+                                meeting,
+                                'inProgress',
+                              ),
+                              icon: const Icon(Icons.play_circle, size: 18),
+                              label: const Text('Start Meeting'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Colors.indigo,
+                              ),
+                            ),
+                          if (meeting.status == 'inProgress')
+                            FilledButton.icon(
+                              onPressed: () => _updateMeetingStatus(
+                                meeting,
+                                'completed',
+                              ),
+                              icon: const Icon(Icons.check_circle, size: 18),
+                              label: const Text('Mark Complete'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Colors.green,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),

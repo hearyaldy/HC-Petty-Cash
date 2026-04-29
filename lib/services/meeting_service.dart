@@ -1,8 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:math';
+import 'package:uuid/uuid.dart';
 import '../models/meeting.dart';
 
 class MeetingService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final Uuid _uuid = const Uuid();
+  final Random _random = Random.secure();
 
   // Collection references
   CollectionReference<Map<String, dynamic>> get _meetingsCollection =>
@@ -13,6 +17,10 @@ class MeetingService {
       _firestore.collection('meeting_minutes');
   CollectionReference<Map<String, dynamic>> get _actionItemsCollection =>
       _firestore.collection('meeting_action_items');
+  CollectionReference<Map<String, dynamic>> get _voteTokensCollection =>
+      _firestore.collection('meeting_vote_tokens');
+  CollectionReference<Map<String, dynamic>> get _votesCollection =>
+      _firestore.collection('meeting_votes');
 
   // ========== MEETINGS ==========
 
@@ -55,6 +63,20 @@ class MeetingService {
       await doc.reference.delete();
     }
 
+    final voteTokensQuery = await _voteTokensCollection
+        .where('meetingId', isEqualTo: meetingId)
+        .get();
+    for (var doc in voteTokensQuery.docs) {
+      await doc.reference.delete();
+    }
+
+    final votesQuery = await _votesCollection
+        .where('meetingId', isEqualTo: meetingId)
+        .get();
+    for (var doc in votesQuery.docs) {
+      await doc.reference.delete();
+    }
+
     // Delete the meeting
     await _meetingsCollection.doc(meetingId).delete();
   }
@@ -77,7 +99,10 @@ class MeetingService {
       query = query.where('status', isEqualTo: status);
     }
 
-    return query.orderBy('dateTime', descending: true).snapshots().map(
+    return query
+        .orderBy('dateTime', descending: true)
+        .snapshots()
+        .map(
           (snapshot) =>
               snapshot.docs.map((doc) => Meeting.fromFirestore(doc)).toList(),
         );
@@ -93,7 +118,10 @@ class MeetingService {
       query = query.where('type', isEqualTo: type);
     }
 
-    return query.orderBy('dateTime').snapshots().map(
+    return query
+        .orderBy('dateTime')
+        .snapshots()
+        .map(
           (snapshot) =>
               snapshot.docs.map((doc) => Meeting.fromFirestore(doc)).toList(),
         );
@@ -101,8 +129,10 @@ class MeetingService {
 
   // Get past meetings
   Stream<List<Meeting>> getPastMeetings({String? type, int limit = 20}) {
-    Query<Map<String, dynamic>> query = _meetingsCollection
-        .where('status', isEqualTo: 'completed');
+    Query<Map<String, dynamic>> query = _meetingsCollection.where(
+      'status',
+      isEqualTo: 'completed',
+    );
 
     if (type != null) {
       query = query.where('type', isEqualTo: type);
@@ -123,6 +153,304 @@ class MeetingService {
     await _meetingsCollection.doc(meetingId).update({
       'status': status,
       'updatedAt': Timestamp.now(),
+    });
+  }
+
+  // ========== E-VOTE ==========
+
+  DateTime getDefaultVoteDeadline(Meeting meeting, {DateTime? now}) {
+    final currentTime = now ?? DateTime.now();
+    return meeting.voteDeadline ??
+        (meeting.dateTime.isAfter(currentTime)
+            ? meeting.dateTime.add(const Duration(days: 14))
+            : currentTime.add(const Duration(days: 14)));
+  }
+
+  String _generateVotePin() {
+    final value = 100000 + _random.nextInt(900000);
+    return value.toString();
+  }
+
+  Future<List<MeetingVoteToken>> ensureVoteTokensForMeeting(
+    Meeting meeting, {
+    DateTime? customExpiry,
+  }) async {
+    final existingSnapshot = await _voteTokensCollection
+        .where('meetingId', isEqualTo: meeting.id)
+        .get();
+    final existingTokens = existingSnapshot.docs
+        .map((doc) => MeetingVoteToken.fromFirestore(doc))
+        .toList();
+    final invitedMembers = <MeetingMember>[];
+    final invitedMemberIds = <String>{};
+
+    for (final member in meeting.invitedMembers) {
+      final memberId = member.oderId.trim().isNotEmpty
+          ? member.oderId.trim()
+          : member.name.trim();
+      if (memberId.isEmpty || member.name.trim().isEmpty) continue;
+      if (invitedMemberIds.add(memberId)) {
+        invitedMembers.add(member);
+      }
+    }
+
+    final now = DateTime.now();
+    final defaultExpiry =
+        customExpiry ?? getDefaultVoteDeadline(meeting, now: now);
+    final nowTimestamp = Timestamp.fromDate(now);
+    final batch = _firestore.batch();
+    final existingByMember = <String, MeetingVoteToken>{};
+
+    for (final token in existingTokens) {
+      final isCurrentInvitee = invitedMemberIds.contains(token.memberId);
+      if (!isCurrentInvitee) {
+        if (!token.revoked) {
+          batch.update(tokenDocRef(token.id), {
+            'revoked': true,
+            'updatedAt': nowTimestamp,
+          });
+        }
+        continue;
+      }
+
+      final previous = existingByMember[token.memberId];
+      if (previous == null) {
+        existingByMember[token.memberId] = token;
+        continue;
+      }
+
+      final shouldReplace = previous.revoked && !token.revoked;
+      if (shouldReplace) {
+        existingByMember[token.memberId] = token;
+      }
+
+      final tokenToRevoke = shouldReplace ? previous : token;
+      if (!tokenToRevoke.revoked) {
+        batch.update(tokenDocRef(tokenToRevoke.id), {
+          'revoked': true,
+          'updatedAt': nowTimestamp,
+        });
+      }
+    }
+
+    await batch.commit();
+
+    for (final member in invitedMembers) {
+      final memberId = member.oderId.trim().isNotEmpty
+          ? member.oderId.trim()
+          : member.name.trim();
+
+      final existing = existingByMember[memberId];
+      if (existing != null && !existing.revoked) {
+        if (existing.pin.trim().isEmpty) {
+          final refreshed = existing.copyWith(pin: _generateVotePin());
+          await _voteTokensCollection.doc(existing.id).update({
+            'pin': refreshed.pin,
+          });
+          existingByMember[memberId] = refreshed;
+        }
+        continue;
+      }
+
+      final tokenValue = _uuid.v4();
+      final docRef = _voteTokensCollection.doc(tokenValue);
+      final tokenRecord = MeetingVoteToken(
+        id: docRef.id,
+        token: tokenValue,
+        meetingId: meeting.id,
+        memberId: memberId,
+        memberName: member.name.trim(),
+        memberEmail: member.invitationEmail,
+        pin: _generateVotePin(),
+        createdAt: now,
+        expiresAt: defaultExpiry,
+      );
+      await docRef.set(tokenRecord.toFirestore());
+      existingByMember[memberId] = tokenRecord;
+    }
+
+    return existingByMember.values
+        .where(
+          (token) =>
+              invitedMemberIds.contains(token.memberId) && !token.revoked,
+        )
+        .toList()
+      ..sort((a, b) => a.memberName.compareTo(b.memberName));
+  }
+
+  Future<void> updateActiveVoteTokenExpiry(
+    String meetingId,
+    DateTime expiresAt,
+  ) async {
+    final snapshot = await _voteTokensCollection
+        .where('meetingId', isEqualTo: meetingId)
+        .where('revoked', isEqualTo: false)
+        .get();
+    if (snapshot.docs.isEmpty) return;
+
+    final batch = _firestore.batch();
+    final expiresAtTimestamp = Timestamp.fromDate(expiresAt);
+    final updatedAtTimestamp = Timestamp.fromDate(DateTime.now());
+    for (final doc in snapshot.docs) {
+      batch.update(doc.reference, {
+        'expiresAt': expiresAtTimestamp,
+        'updatedAt': updatedAtTimestamp,
+      });
+    }
+    await batch.commit();
+  }
+
+  DocumentReference<Map<String, dynamic>> tokenDocRef(String tokenId) =>
+      _voteTokensCollection.doc(tokenId);
+
+  Future<List<MeetingVoteToken>> resetVoteTokensForMeeting(
+    Meeting meeting, {
+    DateTime? customExpiry,
+  }) async {
+    final existingSnapshot = await _voteTokensCollection
+        .where('meetingId', isEqualTo: meeting.id)
+        .get();
+    final now = Timestamp.now();
+    final batch = _firestore.batch();
+
+    for (final doc in existingSnapshot.docs) {
+      batch.update(doc.reference, {'revoked': true, 'updatedAt': now});
+    }
+
+    await batch.commit();
+    return ensureVoteTokensForMeeting(meeting, customExpiry: customExpiry);
+  }
+
+  Stream<List<MeetingVoteToken>> streamVoteTokensForMeeting(String meetingId) {
+    return _voteTokensCollection
+        .where('meetingId', isEqualTo: meetingId)
+        .snapshots()
+        .map((snapshot) {
+          final items = snapshot.docs
+              .map((doc) => MeetingVoteToken.fromFirestore(doc))
+              .toList();
+          items.sort((a, b) => a.memberName.compareTo(b.memberName));
+          return items;
+        });
+  }
+
+  Stream<List<MeetingVote>> streamVotesForMeeting(String meetingId) {
+    return _votesCollection
+        .where('meetingId', isEqualTo: meetingId)
+        .snapshots()
+        .map((snapshot) {
+          final items = snapshot.docs
+              .map((doc) => MeetingVote.fromFirestore(doc))
+              .toList();
+          items.sort((a, b) => a.memberName.compareTo(b.memberName));
+          return items;
+        });
+  }
+
+  Future<MeetingVoteSession?> getVoteSessionByToken(String token) async {
+    final tokenDoc = await _voteTokensCollection.doc(token).get();
+    if (!tokenDoc.exists) return null;
+
+    final tokenRecord = MeetingVoteToken.fromFirestore(tokenDoc);
+    if (tokenRecord.revoked || tokenRecord.isExpired) {
+      return null;
+    }
+
+    final meeting = await getMeeting(tokenRecord.meetingId);
+    if (meeting == null) return null;
+
+    final voteDoc = await _votesCollection.doc(tokenRecord.id).get();
+    final existingVote = voteDoc.exists
+        ? MeetingVote.fromFirestore(voteDoc)
+        : null;
+
+    await _voteTokensCollection.doc(tokenRecord.id).update({
+      'lastOpenedAt': Timestamp.now(),
+    });
+
+    final refreshedToken = tokenRecord.copyWith(lastOpenedAt: DateTime.now());
+    return MeetingVoteSession(
+      meeting: meeting,
+      tokenRecord: refreshedToken,
+      existingVote: existingVote,
+    );
+  }
+
+  /// Delete a single member's vote and clear their votedAt timestamp.
+  Future<void> resetVoteForToken(String tokenId) async {
+    await _votesCollection.doc(tokenId).delete();
+    await _voteTokensCollection.doc(tokenId).update({'votedAt': null});
+  }
+
+  /// Delete ALL votes for a meeting and clear all votedAt timestamps.
+  Future<void> resetAllVotesForMeeting(String meetingId) async {
+    final votesSnap = await _votesCollection
+        .where('meetingId', isEqualTo: meetingId)
+        .get();
+    final tokensSnap = await _voteTokensCollection
+        .where('meetingId', isEqualTo: meetingId)
+        .get();
+
+    final batch = _firestore.batch();
+    for (final doc in votesSnap.docs) {
+      batch.delete(doc.reference);
+    }
+    for (final doc in tokensSnap.docs) {
+      batch.update(doc.reference, {'votedAt': null});
+    }
+    await batch.commit();
+  }
+
+  Future<MeetingVoteToken?> getVoteToken(String token) async {
+    final tokenDoc = await _voteTokensCollection.doc(token).get();
+    if (!tokenDoc.exists) return null;
+
+    final tokenRecord = MeetingVoteToken.fromFirestore(tokenDoc);
+    if (tokenRecord.revoked || tokenRecord.isExpired) {
+      return null;
+    }
+
+    return tokenRecord;
+  }
+
+  Future<void> submitVote({
+    required MeetingVoteToken tokenRecord,
+    required MeetingVoteChoice choice,
+    String? comment,
+    Map<String, String>? itemVotes,
+  }) async {
+    final now = DateTime.now();
+
+    // Derive the overall choice from itemVotes if provided
+    String overallChoice;
+    if (itemVotes != null && itemVotes.isNotEmpty) {
+      final values = itemVotes.values.toSet();
+      overallChoice = values.length == 1
+          ? values.first
+          : MeetingVoteChoice.abstain.value;
+    } else {
+      overallChoice = choice.value;
+    }
+
+    final vote = MeetingVote(
+      id: tokenRecord.id,
+      tokenId: tokenRecord.id,
+      meetingId: tokenRecord.meetingId,
+      memberId: tokenRecord.memberId,
+      memberName: tokenRecord.memberName,
+      memberEmail: tokenRecord.memberEmail,
+      choice: overallChoice,
+      comment: comment != null && comment.trim().isNotEmpty
+          ? comment.trim()
+          : null,
+      submittedAt: now,
+      itemVotes: itemVotes != null && itemVotes.isNotEmpty ? itemVotes : null,
+    );
+
+    await _votesCollection.doc(tokenRecord.id).set(vote.toFirestore());
+    await _voteTokensCollection.doc(tokenRecord.id).update({
+      'votedAt': Timestamp.fromDate(now),
+      'lastOpenedAt': Timestamp.fromDate(now),
     });
   }
 
@@ -172,9 +500,9 @@ class MeetingService {
         .limit(1)
         .snapshots()
         .map((snapshot) {
-      if (snapshot.docs.isEmpty) return null;
-      return MeetingAgenda.fromFirestore(snapshot.docs.first);
-    });
+          if (snapshot.docs.isEmpty) return null;
+          return MeetingAgenda.fromFirestore(snapshot.docs.first);
+        });
   }
 
   // Update agenda status
@@ -248,9 +576,9 @@ class MeetingService {
         .limit(1)
         .snapshots()
         .map((snapshot) {
-      if (snapshot.docs.isEmpty) return null;
-      return MeetingMinutes.fromFirestore(snapshot.docs.first);
-    });
+          if (snapshot.docs.isEmpty) return null;
+          return MeetingMinutes.fromFirestore(snapshot.docs.first);
+        });
   }
 
   // Update minutes status
@@ -284,7 +612,9 @@ class MeetingService {
 
   // Update action item
   Future<void> updateActionItem(MeetingActionItem actionItem) async {
-    await _actionItemsCollection.doc(actionItem.id).update(actionItem.toFirestore());
+    await _actionItemsCollection
+        .doc(actionItem.id)
+        .update(actionItem.toFirestore());
   }
 
   // Delete action item
@@ -326,17 +656,17 @@ class MeetingService {
     }
 
     return query.snapshots().map((snapshot) {
-          final items = snapshot.docs
-              .map((doc) => MeetingActionItem.fromFirestore(doc))
-              .toList();
-          items.sort((a, b) {
-            if (a.dueDate == null && b.dueDate == null) return 0;
-            if (a.dueDate == null) return 1;
-            if (b.dueDate == null) return -1;
-            return a.dueDate!.compareTo(b.dueDate!);
-          });
-          return items;
-        });
+      final items = snapshot.docs
+          .map((doc) => MeetingActionItem.fromFirestore(doc))
+          .toList();
+      items.sort((a, b) {
+        if (a.dueDate == null && b.dueDate == null) return 0;
+        if (a.dueDate == null) return 1;
+        if (b.dueDate == null) return -1;
+        return a.dueDate!.compareTo(b.dueDate!);
+      });
+      return items;
+    });
   }
 
   // Get pending action items
@@ -377,9 +707,7 @@ class MeetingService {
     String status, {
     String? completedNotes,
   }) async {
-    final updates = <String, dynamic>{
-      'status': status,
-    };
+    final updates = <String, dynamic>{'status': status};
 
     if (status == 'completed') {
       updates['completedAt'] = Timestamp.now();

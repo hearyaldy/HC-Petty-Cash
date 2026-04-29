@@ -34,6 +34,20 @@ service cloud.firestore {
       );
     }
 
+    function isValidVoteChoice(choice) {
+      return choice in ['approve', 'reject', 'abstain'];
+    }
+
+    function isActiveVoteToken(tokenId) {
+      return exists(/databases/$(database)/documents/meeting_vote_tokens/$(tokenId)) &&
+        !get(/databases/$(database)/documents/meeting_vote_tokens/$(tokenId)).data.revoked &&
+        get(/databases/$(database)/documents/meeting_vote_tokens/$(tokenId)).data.expiresAt > request.time;
+    }
+
+    function voteTokenData(tokenId) {
+      return get(/databases/$(database)/documents/meeting_vote_tokens/$(tokenId)).data;
+    }
+
     function canReadMedia() {
       return isAuthenticated();
     }
@@ -614,7 +628,8 @@ service cloud.firestore {
 
     // Meetings collection (ADCOM & Board meetings)
     match /meetings/{meetingId} {
-      allow read: if isAuthenticated();
+      allow get: if isAuthenticated() || resource.data.meetingMode == 'evote';
+      allow list: if isAuthenticated();
       allow create, update: if canEditMeetings();
       allow delete: if isAdmin();
     }
@@ -646,9 +661,61 @@ service cloud.firestore {
 
     // ADCOM Agendas collection
     match /adcom_agendas/{agendaId} {
-      allow read: if isAuthenticated();
+      allow get: if true;
+      allow list: if isAuthenticated();
       allow create, update: if canEditMeetings();
       allow delete: if isAdmin();
+    }
+
+    // E-Vote private token records
+    match /meeting_vote_tokens/{tokenId} {
+      allow get: if canEditMeetings() || isActiveVoteToken(tokenId);
+      allow list: if canEditMeetings();
+      allow create: if canEditMeetings();
+      allow update: if canEditMeetings() || (
+        isActiveVoteToken(tokenId) &&
+        request.resource.data.id == resource.data.id &&
+        request.resource.data.token == resource.data.token &&
+        request.resource.data.meetingId == resource.data.meetingId &&
+        request.resource.data.memberId == resource.data.memberId &&
+        request.resource.data.memberName == resource.data.memberName &&
+        request.resource.data.memberEmail == resource.data.memberEmail &&
+        request.resource.data.pin == resource.data.pin &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.expiresAt == resource.data.expiresAt &&
+        request.resource.data.revoked == resource.data.revoked &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastOpenedAt', 'votedAt'])
+      );
+      allow delete: if isAdmin();
+    }
+
+    // E-Vote responses
+    match /meeting_votes/{voteId} {
+      allow get: if canEditMeetings() || isActiveVoteToken(voteId);
+      allow list: if canEditMeetings();
+      allow create: if canEditMeetings() || (
+        isActiveVoteToken(voteId) &&
+        request.resource.data.id == voteId &&
+        request.resource.data.tokenId == voteId &&
+        request.resource.data.meetingId == voteTokenData(voteId).meetingId &&
+        request.resource.data.memberId == voteTokenData(voteId).memberId &&
+        request.resource.data.memberName == voteTokenData(voteId).memberName &&
+        request.resource.data.memberEmail == voteTokenData(voteId).memberEmail &&
+        isValidVoteChoice(request.resource.data.choice) &&
+        (!('itemVotes' in request.resource.data) || request.resource.data.itemVotes is map)
+      );
+      allow update: if canEditMeetings() || (
+        isActiveVoteToken(voteId) &&
+        request.resource.data.id == resource.data.id &&
+        request.resource.data.tokenId == resource.data.tokenId &&
+        request.resource.data.meetingId == resource.data.meetingId &&
+        request.resource.data.memberId == resource.data.memberId &&
+        request.resource.data.memberName == resource.data.memberName &&
+        request.resource.data.memberEmail == resource.data.memberEmail &&
+        isValidVoteChoice(request.resource.data.choice) &&
+        (!('itemVotes' in request.resource.data) || request.resource.data.itemVotes is map)
+      );
+      allow delete: if canEditMeetings();
     }
 
     // ADCOM Minutes collection
@@ -719,6 +786,18 @@ service cloud.firestore {
         (resource.data.createdById == request.auth.uid && resource.data.status == 'draft') ||
         isAdmin()
       );
+    }
+
+    // Budget Years collection — admin only
+    match /budgetYears/{yearId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Budget Line Items collection — admin only
+    match /budgetLineItems/{itemId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if isAdmin();
     }
 
     // Medical Bill Reimbursements collection

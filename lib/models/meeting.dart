@@ -1,10 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 // Meeting type enum
-enum MeetingType {
-  adcom,
-  board,
-}
+enum MeetingType { adcom, board }
 
 extension MeetingTypeExtension on MeetingType {
   String get displayName {
@@ -28,11 +25,7 @@ extension MeetingTypeExtension on MeetingType {
 }
 
 // Meeting mode enum
-enum MeetingMode {
-  faceToFace,
-  virtual,
-  evote,
-}
+enum MeetingMode { faceToFace, virtual, evote }
 
 extension MeetingModeExtension on MeetingMode {
   String get displayName {
@@ -72,12 +65,7 @@ extension MeetingModeExtension on MeetingMode {
 }
 
 // Meeting status enum
-enum MeetingStatus {
-  scheduled,
-  inProgress,
-  completed,
-  cancelled,
-}
+enum MeetingStatus { scheduled, inProgress, completed, cancelled }
 
 extension MeetingStatusExtension on MeetingStatus {
   String get displayName {
@@ -105,12 +93,7 @@ extension MeetingStatusExtension on MeetingStatus {
 }
 
 // Agenda status enum
-enum AgendaStatus {
-  draft,
-  review,
-  approved,
-  published,
-}
+enum AgendaStatus { draft, review, approved, published }
 
 extension AgendaStatusExtension on AgendaStatus {
   String get displayName {
@@ -138,11 +121,7 @@ extension AgendaStatusExtension on AgendaStatus {
 }
 
 // Minutes status enum
-enum MinutesStatus {
-  draft,
-  review,
-  approved,
-}
+enum MinutesStatus { draft, review, approved }
 
 extension MinutesStatusExtension on MinutesStatus {
   String get displayName {
@@ -213,12 +192,7 @@ extension AgendaItemTypeExtension on AgendaItemType {
 }
 
 // Attendance status enum
-enum AttendanceStatus {
-  present,
-  absent,
-  excused,
-  late,
-}
+enum AttendanceStatus { present, absent, excused, late }
 
 extension AttendanceStatusExtension on AttendanceStatus {
   String get displayName {
@@ -246,12 +220,7 @@ extension AttendanceStatusExtension on AttendanceStatus {
 }
 
 // Action item status enum
-enum ActionItemStatus {
-  pending,
-  inProgress,
-  completed,
-  cancelled,
-}
+enum ActionItemStatus { pending, inProgress, completed, cancelled }
 
 extension ActionItemStatusExtension on ActionItemStatus {
   String get displayName {
@@ -280,11 +249,25 @@ extension ActionItemStatusExtension on ActionItemStatus {
 
 // Meeting Member model
 class MeetingMember {
+  static const Map<String, String> _knownInvitationEmails = {
+    'heary healdy sairin': 'heary@hopetv.asia',
+    'nipitpon pongteekatasana': 'nipitponp@seumsda.org',
+    'samorn namkote': 'snamkote@seumsda.org',
+    'lim pheng': 'limpheng@seumsda.org',
+    'abel bana': 'abelbana@maum.my',
+    'nelson bendah': 'nelsonbendah@maum.my',
+    'joshua chee': 'joshuachee@maum.my',
+    'farell gara': 'farrelgara@maum.my',
+    'farrel gara': 'farrelgara@maum.my',
+    'chaiwat konratanasak': 'chaiwat@seumsda.org',
+  };
+
   final String oderId;
   final String name;
   final String? email;
   final String? role; // e.g., 'Chairperson', 'Secretary', 'Member', 'Guest'
-  final String? organization; // For external members (e.g., 'GC', 'Union', etc.)
+  final String?
+  organization; // For external members (e.g., 'GC', 'Union', etc.)
 
   MeetingMember({
     required this.oderId,
@@ -296,11 +279,37 @@ class MeetingMember {
 
   bool get isExternal => oderId.startsWith('external_');
 
+  static String _normalizeInvitationName(String? name) {
+    if (name == null) return '';
+    var normalized = name.trim().toLowerCase();
+    normalized = normalized.replaceAll(RegExp(r'[.,]'), ' ');
+    normalized = normalized.replaceAll(
+      RegExp(r'\b(pr|mr|mrs|ms|dr|archan)\b'),
+      ' ',
+    );
+    normalized = normalized.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return normalized;
+  }
+
+  static String? knownEmailForName(String? name) {
+    final normalized = _normalizeInvitationName(name);
+    if (normalized.isEmpty) return null;
+    return _knownInvitationEmails[normalized];
+  }
+
+  String? get invitationEmail {
+    final trimmed = email?.trim();
+    if (trimmed != null && trimmed.isNotEmpty) {
+      return trimmed;
+    }
+    return knownEmailForName(name);
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'userId': oderId,
       'name': name,
-      'email': email,
+      'email': invitationEmail,
       'role': role,
       'organization': organization,
       'isExternal': isExternal,
@@ -337,6 +346,7 @@ class Meeting {
   final String? minutesId;
   final String? notes;
   final String? customHeading;
+  final DateTime? voteDeadline;
   final String createdBy;
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -359,6 +369,7 @@ class Meeting {
     this.minutesId,
     this.notes,
     this.customHeading,
+    this.voteDeadline,
     required this.createdBy,
     required this.createdAt,
     this.updatedAt,
@@ -366,10 +377,12 @@ class Meeting {
 
   MeetingType get meetingType => MeetingTypeExtension.fromString(type);
   MeetingStatus get meetingStatus => MeetingStatusExtension.fromString(status);
-  MeetingMode get meetingMode => MeetingModeExtension.fromString(meetingModeValue);
+  MeetingMode get meetingMode =>
+      MeetingModeExtension.fromString(meetingModeValue);
 
   /// Returns the location description for display/PDF based on meeting mode
-  String get locationDescription => meetingMode.getLocationDescription(location, virtualLink);
+  String get locationDescription =>
+      meetingMode.getLocationDescription(location, virtualLink);
 
   Map<String, dynamic> toFirestore() {
     return {
@@ -390,6 +403,9 @@ class Meeting {
       'minutesId': minutesId,
       'notes': notes,
       'customHeading': customHeading,
+      'voteDeadline': voteDeadline != null
+          ? Timestamp.fromDate(voteDeadline!)
+          : null,
       'createdBy': createdBy,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
@@ -435,6 +451,9 @@ class Meeting {
       minutesId: data['minutesId'],
       notes: data['notes'],
       customHeading: data['customHeading'],
+      voteDeadline: data['voteDeadline'] != null
+          ? parseTimestamp(data['voteDeadline'], now)
+          : null,
       createdBy: data['createdBy'] ?? '',
       createdAt: parseTimestamp(data['createdAt'], now),
       updatedAt: data['updatedAt'] != null
@@ -461,6 +480,7 @@ class Meeting {
     String? minutesId,
     String? notes,
     String? customHeading,
+    DateTime? voteDeadline,
     String? createdBy,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -483,11 +503,261 @@ class Meeting {
       minutesId: minutesId ?? this.minutesId,
       notes: notes ?? this.notes,
       customHeading: customHeading ?? this.customHeading,
+      voteDeadline: voteDeadline ?? this.voteDeadline,
       createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
+}
+
+enum MeetingVoteChoice { approve, reject, abstain }
+
+extension MeetingVoteChoiceExtension on MeetingVoteChoice {
+  String get displayName {
+    switch (this) {
+      case MeetingVoteChoice.approve:
+        return 'Approve';
+      case MeetingVoteChoice.reject:
+        return 'Reject';
+      case MeetingVoteChoice.abstain:
+        return 'Abstain';
+    }
+  }
+
+  String get value => name;
+
+  static MeetingVoteChoice fromString(String? value) {
+    if (value == null) return MeetingVoteChoice.approve;
+    return MeetingVoteChoice.values.firstWhere(
+      (choice) => choice.name == value,
+      orElse: () => MeetingVoteChoice.approve,
+    );
+  }
+}
+
+class MeetingVoteToken {
+  final String id;
+  final String token;
+  final String meetingId;
+  final String memberId;
+  final String memberName;
+  final String? memberEmail;
+  final String pin;
+  final DateTime createdAt;
+  final DateTime expiresAt;
+  final DateTime? votedAt;
+  final DateTime? lastOpenedAt;
+  final bool revoked;
+
+  const MeetingVoteToken({
+    required this.id,
+    required this.token,
+    required this.meetingId,
+    required this.memberId,
+    required this.memberName,
+    this.memberEmail,
+    required this.pin,
+    required this.createdAt,
+    required this.expiresAt,
+    this.votedAt,
+    this.lastOpenedAt,
+    this.revoked = false,
+  });
+
+  bool get hasVoted => votedAt != null;
+  bool get isExpired => DateTime.now().isAfter(expiresAt);
+  bool get isActive => !revoked && !isExpired;
+
+  Map<String, dynamic> toFirestore() {
+    return {
+      'id': id,
+      'token': token,
+      'meetingId': meetingId,
+      'memberId': memberId,
+      'memberName': memberName,
+      'memberEmail': memberEmail,
+      'pin': pin,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'expiresAt': Timestamp.fromDate(expiresAt),
+      'votedAt': votedAt != null ? Timestamp.fromDate(votedAt!) : null,
+      'lastOpenedAt': lastOpenedAt != null
+          ? Timestamp.fromDate(lastOpenedAt!)
+          : null,
+      'revoked': revoked,
+    };
+  }
+
+  factory MeetingVoteToken.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+
+    DateTime? parseTimestamp(dynamic value) {
+      if (value is Timestamp) return value.toDate();
+      return null;
+    }
+
+    final createdAt = parseTimestamp(data['createdAt']) ?? DateTime.now();
+    final expiresAt =
+        parseTimestamp(data['expiresAt']) ??
+        createdAt.add(const Duration(days: 14));
+
+    return MeetingVoteToken(
+      id: data['id'] ?? doc.id,
+      token: data['token'] ?? '',
+      meetingId: data['meetingId'] ?? '',
+      memberId: data['memberId'] ?? '',
+      memberName: data['memberName'] ?? '',
+      memberEmail: data['memberEmail'],
+      pin: (data['pin'] ?? '').toString(),
+      createdAt: createdAt,
+      expiresAt: expiresAt,
+      votedAt: parseTimestamp(data['votedAt']),
+      lastOpenedAt: parseTimestamp(data['lastOpenedAt']),
+      revoked: data['revoked'] as bool? ?? false,
+    );
+  }
+
+  MeetingVoteToken copyWith({
+    String? id,
+    String? token,
+    String? meetingId,
+    String? memberId,
+    String? memberName,
+    String? memberEmail,
+    String? pin,
+    DateTime? createdAt,
+    DateTime? expiresAt,
+    DateTime? votedAt,
+    DateTime? lastOpenedAt,
+    bool? revoked,
+  }) {
+    return MeetingVoteToken(
+      id: id ?? this.id,
+      token: token ?? this.token,
+      meetingId: meetingId ?? this.meetingId,
+      memberId: memberId ?? this.memberId,
+      memberName: memberName ?? this.memberName,
+      memberEmail: memberEmail ?? this.memberEmail,
+      pin: pin ?? this.pin,
+      createdAt: createdAt ?? this.createdAt,
+      expiresAt: expiresAt ?? this.expiresAt,
+      votedAt: votedAt ?? this.votedAt,
+      lastOpenedAt: lastOpenedAt ?? this.lastOpenedAt,
+      revoked: revoked ?? this.revoked,
+    );
+  }
+}
+
+class MeetingVote {
+  final String id;
+  final String tokenId;
+  final String meetingId;
+  final String memberId;
+  final String memberName;
+  final String? memberEmail;
+  final String choice;
+  final String? comment;
+  final DateTime submittedAt;
+  // Per-agenda-item votes: agendaItemId -> choice value ('approve'|'reject'|'abstain')
+  // Null means a single overall vote (legacy). Non-null means per-item voting.
+  final Map<String, String>? itemVotes;
+
+  const MeetingVote({
+    required this.id,
+    required this.tokenId,
+    required this.meetingId,
+    required this.memberId,
+    required this.memberName,
+    this.memberEmail,
+    required this.choice,
+    this.comment,
+    required this.submittedAt,
+    this.itemVotes,
+  });
+
+  MeetingVoteChoice get voteChoice =>
+      MeetingVoteChoiceExtension.fromString(choice);
+
+  Map<String, dynamic> toFirestore() {
+    return {
+      'id': id,
+      'tokenId': tokenId,
+      'meetingId': meetingId,
+      'memberId': memberId,
+      'memberName': memberName,
+      'memberEmail': memberEmail,
+      'choice': choice,
+      'comment': comment,
+      'submittedAt': Timestamp.fromDate(submittedAt),
+      if (itemVotes != null) 'itemVotes': itemVotes,
+    };
+  }
+
+  factory MeetingVote.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    final submittedAt =
+        (data['submittedAt'] as Timestamp?)?.toDate() ?? DateTime.now();
+
+    Map<String, String>? itemVotes;
+    if (data['itemVotes'] is Map) {
+      itemVotes = Map<String, String>.from(
+        (data['itemVotes'] as Map).map(
+          (k, v) => MapEntry(k.toString(), v.toString()),
+        ),
+      );
+    }
+
+    return MeetingVote(
+      id: data['id'] ?? doc.id,
+      tokenId: data['tokenId'] ?? '',
+      meetingId: data['meetingId'] ?? '',
+      memberId: data['memberId'] ?? '',
+      memberName: data['memberName'] ?? '',
+      memberEmail: data['memberEmail'],
+      choice: data['choice'] ?? MeetingVoteChoice.approve.value,
+      comment: data['comment'],
+      submittedAt: submittedAt,
+      itemVotes: itemVotes,
+    );
+  }
+
+  MeetingVote copyWith({
+    String? id,
+    String? tokenId,
+    String? meetingId,
+    String? memberId,
+    String? memberName,
+    String? memberEmail,
+    String? choice,
+    String? comment,
+    DateTime? submittedAt,
+    Map<String, String>? itemVotes,
+  }) {
+    return MeetingVote(
+      id: id ?? this.id,
+      tokenId: tokenId ?? this.tokenId,
+      meetingId: meetingId ?? this.meetingId,
+      memberId: memberId ?? this.memberId,
+      memberName: memberName ?? this.memberName,
+      memberEmail: memberEmail ?? this.memberEmail,
+      choice: choice ?? this.choice,
+      comment: comment ?? this.comment,
+      submittedAt: submittedAt ?? this.submittedAt,
+      itemVotes: itemVotes ?? this.itemVotes,
+    );
+  }
+}
+
+class MeetingVoteSession {
+  final Meeting meeting;
+  final MeetingVoteToken tokenRecord;
+  final MeetingVote? existingVote;
+
+  const MeetingVoteSession({
+    required this.meeting,
+    required this.tokenRecord,
+    this.existingVote,
+  });
 }
 
 // Agenda Item model
@@ -599,7 +869,8 @@ class MeetingAgenda {
 
   AgendaStatus get agendaStatus => AgendaStatusExtension.fromString(status);
 
-  int get totalDuration => items.fold(0, (total, item) => total + item.timeAllocation);
+  int get totalDuration =>
+      items.fold(0, (total, item) => total + item.timeAllocation);
 
   Map<String, dynamic> toFirestore() {
     return {
@@ -610,7 +881,9 @@ class MeetingAgenda {
       'approvedBy': approvedBy,
       'approvedAt': approvedAt != null ? Timestamp.fromDate(approvedAt!) : null,
       'publishedBy': publishedBy,
-      'publishedAt': publishedAt != null ? Timestamp.fromDate(publishedAt!) : null,
+      'publishedAt': publishedAt != null
+          ? Timestamp.fromDate(publishedAt!)
+          : null,
       'createdBy': createdBy,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
@@ -704,7 +977,8 @@ class AttendanceRecord {
     this.notes,
   });
 
-  AttendanceStatus get attendanceStatus => AttendanceStatusExtension.fromString(status);
+  AttendanceStatus get attendanceStatus =>
+      AttendanceStatusExtension.fromString(status);
 
   Map<String, dynamic> toMap() {
     return {
@@ -832,7 +1106,8 @@ class MeetingActionItem {
     required this.createdAt,
   });
 
-  ActionItemStatus get actionStatus => ActionItemStatusExtension.fromString(status);
+  ActionItemStatus get actionStatus =>
+      ActionItemStatusExtension.fromString(status);
 
   bool get isOverdue {
     if (dueDate == null) return false;
@@ -851,7 +1126,9 @@ class MeetingActionItem {
       'dueDate': dueDate != null ? Timestamp.fromDate(dueDate!) : null,
       'status': status,
       'completedNotes': completedNotes,
-      'completedAt': completedAt != null ? Timestamp.fromDate(completedAt!) : null,
+      'completedAt': completedAt != null
+          ? Timestamp.fromDate(completedAt!)
+          : null,
       'createdBy': createdBy,
       'createdAt': Timestamp.fromDate(createdAt),
     };
@@ -954,7 +1231,8 @@ class MinutesItemRecord {
       agendaItemTitle: map['agendaItemTitle'] ?? '',
       discussion: map['discussion'],
       decisions: List<String>.from(map['decisions'] ?? []),
-      motions: (map['motions'] as List<dynamic>?)
+      motions:
+          (map['motions'] as List<dynamic>?)
               ?.map((m) => MotionRecord.fromMap(m as Map<String, dynamic>))
               .toList() ??
           [],
@@ -1017,7 +1295,9 @@ class MeetingMinutes {
 
   MinutesStatus get minutesStatus => MinutesStatusExtension.fromString(status);
 
-  int get presentCount => attendance.where((a) => a.status == 'present' || a.status == 'late').length;
+  int get presentCount => attendance
+      .where((a) => a.status == 'present' || a.status == 'late')
+      .length;
   int get absentCount => attendance.where((a) => a.status == 'absent').length;
   int get excusedCount => attendance.where((a) => a.status == 'excused').length;
 
@@ -1028,9 +1308,15 @@ class MeetingMinutes {
       'status': status,
       'attendance': attendance.map((a) => a.toMap()).toList(),
       'itemRecords': itemRecords.map((r) => r.toMap()).toList(),
-      'callToOrderTime': callToOrderTime != null ? Timestamp.fromDate(callToOrderTime!) : null,
-      'adjournmentTime': adjournmentTime != null ? Timestamp.fromDate(adjournmentTime!) : null,
-      'nextMeetingDate': nextMeetingDate != null ? Timestamp.fromDate(nextMeetingDate!) : null,
+      'callToOrderTime': callToOrderTime != null
+          ? Timestamp.fromDate(callToOrderTime!)
+          : null,
+      'adjournmentTime': adjournmentTime != null
+          ? Timestamp.fromDate(adjournmentTime!)
+          : null,
+      'nextMeetingDate': nextMeetingDate != null
+          ? Timestamp.fromDate(nextMeetingDate!)
+          : null,
       'generalNotes': generalNotes,
       'approvedBy': approvedBy,
       'approvedAt': approvedAt != null ? Timestamp.fromDate(approvedAt!) : null,

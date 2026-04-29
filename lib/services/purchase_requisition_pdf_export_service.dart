@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:pdf/pdf.dart';
@@ -457,20 +458,35 @@ class PurchaseRequisitionPdfExportService {
           if (requisition.linkedMinutesLabel != null)
             _buildRefRow('Minutes', requisition.linkedMinutesLabel!),
           if (requisition.linkedActionItemNumber != null)
-            _buildRefRow('Action Item', requisition.linkedActionItemNumber!),
+            _buildRefRow('Action Item', requisition.linkedActionItemNumber!, bold: true),
           if (requisition.linkedActionItemAction != null)
-            _buildRefRow('Action Type', requisition.linkedActionItemAction!),
+            _buildRefRow('Action Type', requisition.linkedActionItemAction!, bold: true),
           if (requisition.linkedActionItemTitle != null)
-            _buildRefRow('Title', requisition.linkedActionItemTitle!),
+            _buildRefRow('Title', requisition.linkedActionItemTitle!, bold: true),
           if (requisition.linkedActionItemDescription != null &&
               requisition.linkedActionItemDescription!.isNotEmpty)
-            _buildRefRow('Description', requisition.linkedActionItemDescription!),
+            _buildRefRow('Description', _stripMarkup(requisition.linkedActionItemDescription!)),
         ],
       ),
     );
   }
 
-  pw.Widget _buildRefRow(String label, String value) {
+  String _stripMarkup(String text) {
+    if (text.startsWith('[')) {
+      try {
+        final ops = jsonDecode(text) as List;
+        return ops
+            .whereType<Map>()
+            .map((op) => op['insert'])
+            .whereType<String>()
+            .join()
+            .trim();
+      } catch (_) {}
+    }
+    return text;
+  }
+
+  pw.Widget _buildRefRow(String label, String value, {bool bold = false}) {
     return pw.Padding(
       padding: const pw.EdgeInsets.only(bottom: 4),
       child: pw.Row(
@@ -484,7 +500,10 @@ class PurchaseRequisitionPdfExportService {
             ),
           ),
           pw.Expanded(
-            child: pw.Text(value, style: const pw.TextStyle(fontSize: 9)),
+            child: pw.Text(
+              value,
+              style: pw.TextStyle(fontSize: 9, fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal),
+            ),
           ),
         ],
       ),
