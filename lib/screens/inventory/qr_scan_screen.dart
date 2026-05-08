@@ -431,7 +431,7 @@ class _QrScanScreenState extends State<QrScanScreen> {
             if (rawValue == null) return;
             _handleScan(rawValue);
           },
-          errorBuilder: (context, error, child) {
+          errorBuilder: (context, error) {
             return Container(
               color: Colors.black,
               alignment: Alignment.center,

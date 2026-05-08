@@ -223,7 +223,9 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
     final isFinance = user?.role == 'finance';
     final maxWidth = ResponsiveHelper.getMaxContentWidth(context);
     final hPad = ResponsiveHelper.getScreenPadding(context).horizontal / 2;
-    final isCompact = MediaQuery.of(context).size.width < 760;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isCompact = screenWidth < 760;
+    final isPhone = screenWidth < 430;
 
     return PreferredSize(
       preferredSize: const Size.fromHeight(kToolbarHeight),
@@ -277,38 +279,53 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
                         ),
                       ),
                       const SizedBox(width: 10),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text(
-                            'Finance Hub',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              'Finance Hub',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
-                          ),
-                          Text(
-                            'Financial Reports & Management',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.65),
-                              fontSize: 10,
+                            Text(
+                              isPhone
+                                  ? 'Reports & Management'
+                                  : 'Financial Reports & Management',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.65),
+                                fontSize: 10,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                      const Spacer(),
                       if (!isCompact)
                         Container(
-                          margin: const EdgeInsets.symmetric(vertical: 14, horizontal: 2),
-                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 2),
+                          margin: const EdgeInsets.symmetric(
+                            vertical: 14,
+                            horizontal: 2,
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 9,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
-                            isFinance ? 'FINANCE' : (user?.role.toUpperCase() ?? 'STAFF'),
+                            isFinance
+                                ? 'FINANCE'
+                                : (user?.role.toUpperCase() ?? 'STAFF'),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 9,
@@ -321,7 +338,10 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
                         Container(
                           width: 1,
                           height: 20,
-                          margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 20),
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 20,
+                          ),
                           color: Colors.white.withValues(alpha: 0.22),
                         ),
                       Stack(
@@ -346,7 +366,10 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
                                 decoration: BoxDecoration(
                                   color: cs.error,
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: cs.primary, width: 1.5),
+                                  border: Border.all(
+                                    color: cs.primary,
+                                    width: 1.5,
+                                  ),
                                 ),
                                 child: Center(
                                   child: Text(
@@ -359,40 +382,45 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
                                   ),
                                 ),
                               ),
-                          ),
+                            ),
                         ],
                       ),
                       IconButton(
-                        icon: const Icon(Icons.refresh, color: Colors.white, size: 20),
+                        icon: const Icon(
+                          Icons.refresh,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                         tooltip: 'Refresh',
                         onPressed: _loadCounts,
                       ),
-                      GestureDetector(
-                        onTap: () => context.push('/user-profile'),
-                        child: Container(
-                          width: 30,
-                          height: 30,
-                          margin: const EdgeInsets.only(left: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.4),
-                              width: 1.5,
+                      if (!isPhone)
+                        GestureDetector(
+                          onTap: () => context.push('/user-profile'),
+                          child: Container(
+                            width: 30,
+                            height: 30,
+                            margin: const EdgeInsets.only(left: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.4),
+                                width: 1.5,
+                              ),
                             ),
-                          ),
-                          child: Center(
-                            child: Text(
-                              _initials(user?.name ?? ''),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 11,
+                            child: Center(
+                              child: Text(
+                                _initials(user?.name ?? ''),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 11,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
                     ],
                   ),
                 ),
@@ -496,7 +524,11 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
                           width: constraints.maxWidth < 420
                               ? constraints.maxWidth
                               : (constraints.maxWidth - 12) / 2,
-                          child: _buildWelcomeStat(metric.$1, metric.$2, compact: true),
+                          child: _buildWelcomeStat(
+                            metric.$1,
+                            metric.$2,
+                            compact: true,
+                          ),
                         ),
                       )
                       .toList(),
@@ -600,7 +632,9 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
         ),
         boxShadow: [
           BoxShadow(
-            color: (needsAttention ? Colors.red : Colors.green).withValues(alpha: 0.08),
+            color: (needsAttention ? Colors.red : Colors.green).withValues(
+              alpha: 0.08,
+            ),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -608,83 +642,97 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final summary = Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: needsAttention ? Colors.red.shade100 : Colors.green.shade100,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    needsAttention ? Icons.priority_high_rounded : Icons.check_circle_outline_rounded,
-                    size: 18,
-                    color: needsAttention ? Colors.red.shade700 : Colors.green.shade700,
-                  ),
+          final summary = Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: needsAttention
+                      ? Colors.red.shade100
+                      : Colors.green.shade100,
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        needsAttention
-                            ? '$totalPending approvals need attention'
-                            : 'Everything looks up to date',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: needsAttention ? Colors.red.shade800 : Colors.green.shade800,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        needsAttention
-                            ? 'Transactions $_pendingTransactions, travel reports $_pendingTravelReports'
-                            : 'No pending approvals are waiting right now.',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: needsAttention ? Colors.red.shade700 : Colors.green.shade700,
-                        ),
-                      ),
-                    ],
-                  ),
+                child: Icon(
+                  needsAttention
+                      ? Icons.priority_high_rounded
+                      : Icons.check_circle_outline_rounded,
+                  size: 18,
+                  color: needsAttention
+                      ? Colors.red.shade700
+                      : Colors.green.shade700,
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      needsAttention
+                          ? '$totalPending approvals need attention'
+                          : 'Everything looks up to date',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: needsAttention
+                            ? Colors.red.shade800
+                            : Colors.green.shade800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      needsAttention
+                          ? 'Transactions $_pendingTransactions, travel reports $_pendingTravelReports'
+                          : 'No pending approvals are waiting right now.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: needsAttention
+                            ? Colors.red.shade700
+                            : Colors.green.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           );
 
           final action = FilledButton.tonalIcon(
-            onPressed: totalPending > 0 ? () => context.push(AppRoutes.approvals) : null,
+            onPressed: totalPending > 0
+                ? () => context.push(AppRoutes.approvals)
+                : null,
             icon: const Icon(Icons.arrow_forward_rounded, size: 16),
             label: Text(totalPending > 0 ? 'Open approvals' : 'All clear'),
             style: FilledButton.styleFrom(
-              backgroundColor: needsAttention ? Colors.red.shade100 : Colors.green.shade100,
-              foregroundColor: needsAttention ? Colors.red.shade800 : Colors.green.shade800,
+              backgroundColor: needsAttention
+                  ? Colors.red.shade100
+                  : Colors.green.shade100,
+              foregroundColor: needsAttention
+                  ? Colors.red.shade800
+                  : Colors.green.shade800,
               disabledBackgroundColor: Colors.green.shade100,
               disabledForegroundColor: Colors.green.shade800,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+              textStyle: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           );
 
           if (constraints.maxWidth < 640) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                summary,
-                const SizedBox(height: 12),
-                action,
-              ],
+              children: [summary, const SizedBox(height: 12), action],
             );
           }
 
           return Row(
             children: [
-              summary,
+              Expanded(child: summary),
               const SizedBox(width: 12),
               action,
             ],
@@ -742,17 +790,21 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
         if (constraints.maxWidth < 600) {
           return Column(
             children: [
-              Row(children: [
-                Expanded(child: _buildKpiCard(kpis[0])),
-                const SizedBox(width: 10),
-                Expanded(child: _buildKpiCard(kpis[1])),
-              ]),
+              Row(
+                children: [
+                  Expanded(child: _buildKpiCard(kpis[0])),
+                  const SizedBox(width: 10),
+                  Expanded(child: _buildKpiCard(kpis[1])),
+                ],
+              ),
               const SizedBox(height: 10),
-              Row(children: [
-                Expanded(child: _buildKpiCard(kpis[2])),
-                const SizedBox(width: 10),
-                Expanded(child: _buildKpiCard(kpis[3])),
-              ]),
+              Row(
+                children: [
+                  Expanded(child: _buildKpiCard(kpis[2])),
+                  const SizedBox(width: 10),
+                  Expanded(child: _buildKpiCard(kpis[3])),
+                ],
+              ),
             ],
           );
         }
@@ -832,7 +884,10 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
                       child: Icon(kpi.icon, color: kpi.color, size: 18),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: kpi.isAlert ? Colors.red.shade50 : kpi.bg,
                         borderRadius: BorderRadius.circular(999),
@@ -890,8 +945,12 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
 
     final pettyCashBalance = _totalPettyCashReceived - _totalPettyCashUsed;
     final advanceBalance = _totalAdvanceReceived - _totalAdvanceUsed;
-    final pettyCashTotal = _totalPettyCashReceived == 0 ? 1.0 : _totalPettyCashReceived;
-    final advanceTotal = _totalAdvanceReceived == 0 ? 1.0 : _totalAdvanceReceived;
+    final pettyCashTotal = _totalPettyCashReceived == 0
+        ? 1.0
+        : _totalPettyCashReceived;
+    final advanceTotal = _totalAdvanceReceived == 0
+        ? 1.0
+        : _totalAdvanceReceived;
     final incomeTotal = _totalIncomeAmount + _totalMileageAmount == 0
         ? 1.0
         : _totalIncomeAmount + _totalMileageAmount;
@@ -907,12 +966,17 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
             context,
             color: const Color(0xFF059669),
             label: 'Petty Cash',
-            receivedLabel: '${AppConstants.currencySymbol} ${fmt.format(_totalPettyCashReceived)}',
-            usedLabel: '${AppConstants.currencySymbol} ${fmt.format(_totalPettyCashUsed)}',
-            balanceLabel: '${AppConstants.currencySymbol} ${fmt.format(pettyCashBalance)}',
+            receivedLabel:
+                '${AppConstants.currencySymbol} ${fmt.format(_totalPettyCashReceived)}',
+            usedLabel:
+                '${AppConstants.currencySymbol} ${fmt.format(_totalPettyCashUsed)}',
+            balanceLabel:
+                '${AppConstants.currencySymbol} ${fmt.format(pettyCashBalance)}',
             progress: (_totalPettyCashUsed / pettyCashTotal).clamp(0.0, 1.0),
-            metaLeft: 'Received: ${AppConstants.currencySymbol} ${fmt.format(_totalPettyCashReceived)}',
-            metaRight: 'Used: ${((_totalPettyCashUsed / pettyCashTotal) * 100).toInt()}%',
+            metaLeft:
+                'Received: ${AppConstants.currencySymbol} ${fmt.format(_totalPettyCashReceived)}',
+            metaRight:
+                'Used: ${((_totalPettyCashUsed / pettyCashTotal) * 100).toInt()}%',
           ),
           const SizedBox(height: 8),
           // Advance Settlement
@@ -920,12 +984,17 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
             context,
             color: Colors.amber.shade700,
             label: 'Advance Settlement',
-            receivedLabel: '${AppConstants.currencySymbol} ${fmt.format(_totalAdvanceReceived)}',
-            usedLabel: '${AppConstants.currencySymbol} ${fmt.format(_totalAdvanceUsed)}',
-            balanceLabel: '${AppConstants.currencySymbol} ${fmt.format(advanceBalance)}',
+            receivedLabel:
+                '${AppConstants.currencySymbol} ${fmt.format(_totalAdvanceReceived)}',
+            usedLabel:
+                '${AppConstants.currencySymbol} ${fmt.format(_totalAdvanceUsed)}',
+            balanceLabel:
+                '${AppConstants.currencySymbol} ${fmt.format(advanceBalance)}',
             progress: (_totalAdvanceUsed / advanceTotal).clamp(0.0, 1.0),
-            metaLeft: 'Advanced: ${AppConstants.currencySymbol} ${fmt.format(_totalAdvanceReceived)}',
-            metaRight: 'Used: ${((_totalAdvanceUsed / advanceTotal) * 100).toInt()}%',
+            metaLeft:
+                'Advanced: ${AppConstants.currencySymbol} ${fmt.format(_totalAdvanceReceived)}',
+            metaRight:
+                'Used: ${((_totalAdvanceUsed / advanceTotal) * 100).toInt()}%',
           ),
           const SizedBox(height: 8),
           // Income & Mileage
@@ -933,12 +1002,16 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
             context,
             color: cs.primary,
             label: 'Income & Mileage',
-            receivedLabel: '${AppConstants.currencySymbol} ${fmt.format(_totalIncomeAmount)}',
-            usedLabel: '${AppConstants.currencySymbol} ${fmt.format(_totalMileageAmount)}',
+            receivedLabel:
+                '${AppConstants.currencySymbol} ${fmt.format(_totalIncomeAmount)}',
+            usedLabel:
+                '${AppConstants.currencySymbol} ${fmt.format(_totalMileageAmount)}',
             balanceLabel: '$_totalIncomeReports reports',
             progress: (_totalIncomeAmount / incomeTotal).clamp(0.0, 1.0),
-            metaLeft: 'Income: ${AppConstants.currencySymbol} ${fmt.format(_totalIncomeAmount)}',
-            metaRight: 'Mileage: ${AppConstants.currencySymbol} ${fmt.format(_totalMileageAmount)}',
+            metaLeft:
+                'Income: ${AppConstants.currencySymbol} ${fmt.format(_totalIncomeAmount)}',
+            metaRight:
+                'Mileage: ${AppConstants.currencySymbol} ${fmt.format(_totalMileageAmount)}',
           ),
         ],
       ),
@@ -989,8 +1062,8 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
           final columns = constraints.maxWidth < 520
               ? 1
               : constraints.maxWidth < 900
-                  ? 2
-                  : 4;
+              ? 2
+              : 4;
 
           return GridView.builder(
             itemCount: cards.length,
@@ -1000,7 +1073,7 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
               crossAxisCount: columns,
               crossAxisSpacing: 10,
               mainAxisSpacing: 10,
-              childAspectRatio: columns == 1 ? 3.4 : 1.65,
+              mainAxisExtent: columns == 1 ? 112 : 148,
             ),
             itemBuilder: (context, index) {
               final card = cards[index];
@@ -1008,6 +1081,7 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
               final displayValue = isCurrency
                   ? '${AppConstants.currencySymbol} ${NumberFormat('#,##0', 'en_US').format(card.value)}'
                   : '${card.value}';
+              final compact = columns == 1;
 
               return Container(
                 padding: const EdgeInsets.all(12),
@@ -1016,52 +1090,51 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: card.color.withValues(alpha: 0.14)),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: card.color.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
+                child: compact
+                    ? Row(
+                        children: [
+                          Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: card.color.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(card.icon, size: 19, color: card.color),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _ActivitySnapshotText(
+                              displayValue: displayValue,
+                              label: card.label,
+                              subtitle: card.subtitle,
+                              color: card.color,
+                            ),
+                          ),
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              color: card.color.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(card.icon, size: 18, color: card.color),
+                          ),
+                          const SizedBox(height: 10),
+                          _ActivitySnapshotText(
+                            displayValue: displayValue,
+                            label: card.label,
+                            subtitle: card.subtitle,
+                            color: card.color,
+                          ),
+                        ],
                       ),
-                      child: Icon(card.icon, size: 18, color: card.color),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      displayValue,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: card.color,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      card.label,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: cs.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      card.subtitle,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
               );
             },
           );
@@ -1160,7 +1233,10 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(metaLeft, style: TextStyle(fontSize: 9, color: cs.onSurfaceVariant)),
+              Text(
+                metaLeft,
+                style: TextStyle(fontSize: 9, color: cs.onSurfaceVariant),
+              ),
               Text(
                 metaRight,
                 style: TextStyle(
@@ -1239,7 +1315,9 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
         icon: Icons.flight_takeoff,
         color: Colors.indigo,
         route: isAdmin ? '/admin/traveling-reports' : '/traveling-reports',
-        badge: _pendingTravelReports > 0 && isAdmin ? _pendingTravelReports : null,
+        badge: _pendingTravelReports > 0 && isAdmin
+            ? _pendingTravelReports
+            : null,
       ),
       _MenuItem(
         title: 'Income Reports',
@@ -1247,7 +1325,9 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
         icon: Icons.trending_up,
         color: Colors.teal,
         route: isAdmin ? '/admin/income' : '/income',
-        badge: _pendingIncomeReports > 0 && isAdmin ? _pendingIncomeReports : null,
+        badge: _pendingIncomeReports > 0 && isAdmin
+            ? _pendingIncomeReports
+            : null,
       ),
       _MenuItem(
         title: 'Purchase Requests',
@@ -1286,22 +1366,26 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
       icon: Icons.list_alt_rounded,
       title: 'Finance Management',
       child: Column(
-        children: visibleItems.map((item) => _buildListRow(
-          context,
-          icon: item.icon,
-          color: item.color,
-          title: item.title,
-          subtitle: item.subtitle,
-          badge: item.badge,
-          onTap: () async {
-            if (item.onTap != null) {
-              await item.onTap!(context);
-            } else {
-              context.push(item.route);
-            }
-          },
-          isLast: item == visibleItems.last,
-        )).toList(),
+        children: visibleItems
+            .map(
+              (item) => _buildListRow(
+                context,
+                icon: item.icon,
+                color: item.color,
+                title: item.title,
+                subtitle: item.subtitle,
+                badge: item.badge,
+                onTap: () async {
+                  if (item.onTap != null) {
+                    await item.onTap!(context);
+                  } else {
+                    context.push(item.route);
+                  }
+                },
+                isLast: item == visibleItems.last,
+              ),
+            )
+            .toList(),
       ),
     );
   }
@@ -1355,7 +1439,10 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
                       const SizedBox(height: 1),
                       Text(
                         subtitle,
-                        style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),
@@ -1363,7 +1450,10 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
                 // Badge
                 if (badge != null && badge > 0) ...[
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.red.shade50,
                       borderRadius: BorderRadius.circular(20),
@@ -1381,13 +1471,21 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
                   const SizedBox(width: 6),
                 ],
                 // Arrow
-                Icon(Icons.chevron_right_rounded, size: 18, color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 18,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
               ],
             ),
           ),
         ),
         if (!isLast)
-          Divider(height: 1, thickness: 1, color: cs.outlineVariant.withValues(alpha: 0.25)),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: cs.outlineVariant.withValues(alpha: 0.25),
+          ),
       ],
     );
   }
@@ -1398,11 +1496,27 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
     final cs = Theme.of(context).colorScheme;
     final actions = [
       (icon: Icons.add_chart, label: 'New Report', route: '/reports/new'),
-      (icon: Icons.receipt_long, label: 'View Transactions', route: '/transactions'),
-      (icon: Icons.flight_takeoff, label: 'Travel Report', route: '/traveling-reports'),
+      (
+        icon: Icons.receipt_long,
+        label: 'View Transactions',
+        route: '/transactions',
+      ),
+      (
+        icon: Icons.flight_takeoff,
+        label: 'Travel Report',
+        route: '/traveling-reports',
+      ),
       (icon: Icons.trending_up, label: 'Income Report', route: '/income/new'),
-      (icon: Icons.add_card, label: 'New Voucher', route: '/payment-vouchers/new'),
-      (icon: Icons.shopping_cart_outlined, label: 'Purchase Req.', route: '/purchase-requisitions'),
+      (
+        icon: Icons.add_card,
+        label: 'New Voucher',
+        route: '/payment-vouchers/new',
+      ),
+      (
+        icon: Icons.shopping_cart_outlined,
+        label: 'Purchase Req.',
+        route: '/purchase-requisitions',
+      ),
     ];
 
     return _buildCard(
@@ -1426,10 +1540,15 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
                   decoration: BoxDecoration(
                     color: cs.surfaceContainerLowest,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+                    border: Border.all(
+                      color: cs.outlineVariant.withValues(alpha: 0.5),
+                    ),
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 10,
+                      horizontal: 6,
+                    ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.center,
@@ -1446,7 +1565,11 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
                                 borderRadius: BorderRadius.circular(9),
                               ),
                               child: Center(
-                                child: Icon(a.icon, size: 21, color: cs.primary),
+                                child: Icon(
+                                  a.icon,
+                                  size: 21,
+                                  color: cs.primary,
+                                ),
                               ),
                             ),
                           ),
@@ -1540,7 +1663,10 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
                 ),
                 if (badge != null)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: accent.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
@@ -1576,9 +1702,14 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
             ),
             InkWell(
               onTap: () => context.push(footerRoute),
-              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(14)),
+              borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(14),
+              ),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -2205,6 +2336,60 @@ class _TrendPoint {
   final double value;
 
   _TrendPoint(this.label, this.value);
+}
+
+class _ActivitySnapshotText extends StatelessWidget {
+  final String displayValue;
+  final String label;
+  final String subtitle;
+  final Color color;
+
+  const _ActivitySnapshotText({
+    required this.displayValue,
+    required this.label,
+    required this.subtitle,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          displayValue,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: color,
+            letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: cs.onSurface,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          subtitle,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
+        ),
+      ],
+    );
+  }
 }
 
 class _CashFlowSummary {

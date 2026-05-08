@@ -1,8 +1,7 @@
 import 'dart:convert';
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../models/adcom_agenda.dart' as adcom;
 import '../../models/meeting.dart';
 import '../../services/adcom_agenda_service.dart';
@@ -248,9 +247,12 @@ class _MeetingVoteScreenState extends State<MeetingVoteScreen> {
     } catch (_) {}
   }
 
-  void _openAttachment(String url) {
+  Future<void> _openAttachment(String url) async {
     if (url.trim().isEmpty) return;
-    html.window.open(url, '_blank');
+    await launchUrl(
+      Uri.parse(url),
+      mode: LaunchMode.externalApplication,
+    );
   }
 
   @override

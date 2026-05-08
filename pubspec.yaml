@@ -89,7 +89,7 @@ dependencies:
   qr_flutter: ^4.1.0
   barcode_widget: ^2.0.4
   barcode: ^2.2.4
-  mobile_scanner: ^5.1.1
+  mobile_scanner: ^7.2.0
 
 dev_dependencies:
   flutter_test:

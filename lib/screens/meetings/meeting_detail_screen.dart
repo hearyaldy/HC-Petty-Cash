@@ -1,11 +1,10 @@
 import 'dart:convert';
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../models/adcom_agenda.dart' as adcom;
 import '../../models/adcom_minutes.dart';
 import '../../models/meeting.dart';
@@ -2103,10 +2102,13 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen>
                                   label: const Text('Email Invitation'),
                                 ),
                                 OutlinedButton.icon(
-                                  onPressed: () {
+                                  onPressed: () async {
                                     final url =
                                         '${_buildVoteUrl(tokenRecord.token)}?pin=${tokenRecord.pin}';
-                                    html.window.open(url, '_blank');
+                                    await launchUrl(
+                                      Uri.parse(url),
+                                      mode: LaunchMode.externalApplication,
+                                    );
                                   },
                                   icon: Icon(
                                     Icons.how_to_vote_outlined,

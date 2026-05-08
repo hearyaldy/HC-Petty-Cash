@@ -12,11 +12,11 @@ import '../../widgets/app_drawer.dart';
 
 // Available color themes (matches dashboard mockup palettes)
 const _kColorThemes = [
-  (name: 'blue',   color: Color(0xFF3B82F6), label: 'Ocean'),
+  (name: 'blue', color: Color(0xFF3B82F6), label: 'Ocean'),
   (name: 'purple', color: Color(0xFF8B5CF6), label: 'Violet'),
-  (name: 'green',  color: Color(0xFF10B981), label: 'Emerald'),
-  (name: 'red',    color: Color(0xFFF43F5E), label: 'Rose'),
-  (name: 'slate',  color: Color(0xFF475569), label: 'Slate'),
+  (name: 'green', color: Color(0xFF10B981), label: 'Emerald'),
+  (name: 'red', color: Color(0xFFF43F5E), label: 'Rose'),
+  (name: 'slate', color: Color(0xFF475569), label: 'Slate'),
 ];
 
 class AdminHubScreen extends StatefulWidget {
@@ -30,7 +30,6 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
   // KPI counts (kept from original)
   int _pendingApprovals = 0;
   int _pendingStudentReports = 0;
-
 
   // New KPI counts
   int _totalReports = 0;
@@ -61,19 +60,55 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
       final results = await Future.wait([
         // Counts
         db.collection('reports').where('status', isEqualTo: 'submitted').get(),
-        db.collection('transactions').where('status', isEqualTo: 'submitted').get(),
-        db.collection('student_monthly_reports').where('status', isEqualTo: 'submitted').get(),
+        db
+            .collection('transactions')
+            .where('status', isEqualTo: 'submitted')
+            .get(),
+        db
+            .collection('student_monthly_reports')
+            .where('status', isEqualTo: 'submitted')
+            .get(),
         db.collection('reports').get(),
         db.collection('reports').where('status', isEqualTo: 'draft').get(),
-        db.collection('traveling_reports').where('status', isEqualTo: 'submitted').get(),
-        db.collection('staff').where('employmentStatus', isEqualTo: 'active').get(),
+        db
+            .collection('traveling_reports')
+            .where('status', isEqualTo: 'submitted')
+            .get(),
+        db
+            .collection('staff')
+            .where('employmentStatus', isEqualTo: 'active')
+            .get(),
         // Lists
-        db.collection('reports').orderBy('createdAt', descending: true).limit(12).get(),
-        db.collection('purchase_requisitions').orderBy('createdAt', descending: true).limit(3).get(),
-        db.collection('traveling_reports').orderBy('createdAt', descending: true).limit(4).get(),
-        db.collection('hr_data_submissions').orderBy('createdAt', descending: true).limit(3).get(),
-        db.collection('staff').where('employmentStatus', isEqualTo: 'active').limit(4).get(),
-        db.collection('student_monthly_reports').orderBy('createdAt', descending: true).limit(3).get(),
+        db
+            .collection('reports')
+            .orderBy('createdAt', descending: true)
+            .limit(12)
+            .get(),
+        db
+            .collection('purchase_requisitions')
+            .orderBy('createdAt', descending: true)
+            .limit(3)
+            .get(),
+        db
+            .collection('traveling_reports')
+            .orderBy('createdAt', descending: true)
+            .limit(4)
+            .get(),
+        db
+            .collection('hr_data_submissions')
+            .orderBy('createdAt', descending: true)
+            .limit(3)
+            .get(),
+        db
+            .collection('staff')
+            .where('employmentStatus', isEqualTo: 'active')
+            .limit(4)
+            .get(),
+        db
+            .collection('student_monthly_reports')
+            .orderBy('createdAt', descending: true)
+            .limit(3)
+            .get(),
       ]);
 
       final reportsSubmitted = results[0];
@@ -98,7 +133,9 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
           'id': doc.id,
           'name': d['custodianName'] ?? '',
           'title': d['reportNumber'] ?? 'Report',
-          'type': d['reportType'] == 'advance_settlement' ? 'Advance Settlement' : 'Petty Cash',
+          'type': d['reportType'] == 'advance_settlement'
+              ? 'Advance Settlement'
+              : 'Petty Cash',
           'amount': (d['totalDisbursements'] as num?)?.toDouble() ?? 0.0,
           'route': '/reports/${doc.id}',
           'date': (d['createdAt'] as Timestamp?)?.toDate(),
@@ -113,12 +150,15 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
           'type': 'Travel Report',
           'amount': (d['perDiemTotal'] as num?)?.toDouble() ?? 0.0,
           'route': '/traveling-reports/${doc.id}',
-          'date': (d['submittedAt'] as Timestamp?)?.toDate() ??
+          'date':
+              (d['submittedAt'] as Timestamp?)?.toDate() ??
               (d['createdAt'] as Timestamp?)?.toDate(),
         });
       }
 
-      final allRecent = recentReports.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+      final allRecent = recentReports.docs
+          .map((d) => {'id': d.id, ...d.data()})
+          .toList();
 
       if (mounted) {
         setState(() {
@@ -139,16 +179,21 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
               .where((d) => d['reportType'] == 'advance_settlement')
               .take(3)
               .toList();
-          _recentPurchaseReqs =
-              recentPrs.docs.map((d) => {'id': d.id, ...d.data()}).toList();
-          _recentTravelReports =
-              recentTravel.docs.map((d) => {'id': d.id, ...d.data()}).toList();
-          _recentHrSubmissions =
-              recentHr.docs.map((d) => {'id': d.id, ...d.data()}).toList();
-          _recentStaff =
-              recentStaff.docs.map((d) => {'id': d.id, ...d.data()}).toList();
-          _recentStudents =
-              recentStudents.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+          _recentPurchaseReqs = recentPrs.docs
+              .map((d) => {'id': d.id, ...d.data()})
+              .toList();
+          _recentTravelReports = recentTravel.docs
+              .map((d) => {'id': d.id, ...d.data()})
+              .toList();
+          _recentHrSubmissions = recentHr.docs
+              .map((d) => {'id': d.id, ...d.data()})
+              .toList();
+          _recentStaff = recentStaff.docs
+              .map((d) => {'id': d.id, ...d.data()})
+              .toList();
+          _recentStudents = recentStudents.docs
+              .map((d) => {'id': d.id, ...d.data()})
+              .toList();
         });
       }
     } catch (e) {
@@ -176,62 +221,62 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           child: ResponsiveContainer(
             child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 14),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 14),
 
-                  if (_pendingApprovals > 0) _buildAlertRibbon(context),
+                if (_pendingApprovals > 0) _buildAlertRibbon(context),
 
-                  _buildWelcomeBanner(context, user, authProvider, isAdmin),
-                  const SizedBox(height: 14),
+                _buildWelcomeBanner(context, user, authProvider, isAdmin),
+                const SizedBox(height: 14),
 
-                  _buildSectionLabel('Overview'),
+                _buildSectionLabel('Overview'),
+                const SizedBox(height: 8),
+                _buildKpiRow(context),
+                const SizedBox(height: 14),
+
+                _buildSectionLabel('Actions & Finance'),
+                const SizedBox(height: 8),
+                _buildActionsFinanceRow(context, canApprove, isAdmin),
+                const SizedBox(height: 14),
+
+                if (canApprove && _pendingApprovalItems.isNotEmpty) ...[
+                  _buildSectionLabel('Pending Approvals'),
                   const SizedBox(height: 8),
-                  _buildKpiRow(context),
+                  _buildPendingApprovalsCard(context),
                   const SizedBox(height: 14),
-
-                  _buildSectionLabel('Actions & Finance'),
-                  const SizedBox(height: 8),
-                  _buildActionsFinanceRow(context, canApprove, isAdmin),
-                  const SizedBox(height: 14),
-
-                  if (canApprove && _pendingApprovalItems.isNotEmpty) ...[
-                    _buildSectionLabel('Pending Approvals'),
-                    const SizedBox(height: 8),
-                    _buildPendingApprovalsCard(context),
-                    const SizedBox(height: 14),
-                  ],
-
-                  _buildSectionLabel('Recent Reports'),
-                  const SizedBox(height: 8),
-                  _buildRecentReportsRow(context),
-                  const SizedBox(height: 14),
-
-                  if (isAdmin) ...[
-                    _buildSectionLabel('Administration'),
-                    const SizedBox(height: 8),
-                    _buildAdministrationRow(context),
-                    const SizedBox(height: 14),
-                  ],
-
-                  _buildSectionLabel('Traveling Overview'),
-                  const SizedBox(height: 8),
-                  _buildTravelingOverview(context),
-                  const SizedBox(height: 14),
-
-                  if (isAdmin) ...[
-                    _buildSectionLabel('People Management'),
-                    const SizedBox(height: 8),
-                    _buildPeopleManagement(context),
-                    const SizedBox(height: 14),
-                  ],
-
-                  const SizedBox(height: 8),
                 ],
-              ),
+
+                _buildSectionLabel('Recent Reports'),
+                const SizedBox(height: 8),
+                _buildRecentReportsRow(context),
+                const SizedBox(height: 14),
+
+                if (isAdmin) ...[
+                  _buildSectionLabel('Administration'),
+                  const SizedBox(height: 8),
+                  _buildAdministrationRow(context),
+                  const SizedBox(height: 14),
+                ],
+
+                _buildSectionLabel('Traveling Overview'),
+                const SizedBox(height: 8),
+                _buildTravelingOverview(context),
+                const SizedBox(height: 14),
+
+                if (isAdmin) ...[
+                  _buildSectionLabel('People Management'),
+                  const SizedBox(height: 8),
+                  _buildPeopleManagement(context),
+                  const SizedBox(height: 14),
+                ],
+
+                const SizedBox(height: 8),
+              ],
             ),
           ),
         ),
+      ),
     );
   }
 
@@ -256,7 +301,13 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
       child: Container(
         decoration: BoxDecoration(
           color: topBarColor,
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.18), blurRadius: 16, offset: const Offset(0, 4))],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: SafeArea(
           bottom: false,
@@ -287,7 +338,11 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                         child: const Center(
                           child: Text(
                             'HC',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 10),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 10,
+                            ),
                           ),
                         ),
                       ),
@@ -298,19 +353,32 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                         children: [
                           const Text(
                             'Dashboard',
-                            style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                           Text(
                             'HC Financial Report System',
-                            style: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 10),
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.65),
+                              fontSize: 10,
+                            ),
                           ),
                         ],
                       ),
                       const Spacer(),
                       if (!isCompact)
                         Container(
-                          margin: const EdgeInsets.symmetric(vertical: 14, horizontal: 2),
-                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 2),
+                          margin: const EdgeInsets.symmetric(
+                            vertical: 14,
+                            horizontal: 2,
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 9,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(20),
@@ -329,25 +397,42 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                         Container(
                           width: 1,
                           height: 20,
-                          margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 20),
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 20,
+                          ),
                           color: Colors.white.withValues(alpha: 0.22),
                         ),
                       if (!isCompact)
                         ..._kColorThemes.map(
-                          (t) => _buildColorDot(context, t.name, t.color, t.label, currentTheme, themeProvider),
+                          (t) => _buildColorDot(
+                            context,
+                            t.name,
+                            t.color,
+                            t.label,
+                            currentTheme,
+                            themeProvider,
+                          ),
                         ),
                       if (!isCompact)
                         Container(
                           width: 1,
                           height: 20,
-                          margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 20),
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 20,
+                          ),
                           color: Colors.white.withValues(alpha: 0.22),
                         ),
                       Stack(
                         alignment: Alignment.center,
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.notifications_outlined, color: Colors.white, size: 20),
+                            icon: const Icon(
+                              Icons.notifications_outlined,
+                              color: Colors.white,
+                              size: 20,
+                            ),
                             tooltip: 'Approvals',
                             onPressed: () => context.push(AppRoutes.approvals),
                           ),
@@ -361,20 +446,31 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                                 decoration: BoxDecoration(
                                   color: cs.error,
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: topBarColor, width: 1.5),
+                                  border: Border.all(
+                                    color: topBarColor,
+                                    width: 1.5,
+                                  ),
                                 ),
                                 child: Center(
                                   child: Text(
                                     '$_pendingApprovals',
-                                    style: const TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.w800),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 7,
+                                      fontWeight: FontWeight.w800,
+                                    ),
                                   ),
                                 ),
                               ),
-                          ),
+                            ),
                         ],
                       ),
                       IconButton(
-                        icon: const Icon(Icons.refresh, color: Colors.white, size: 20),
+                        icon: const Icon(
+                          Icons.refresh,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                         tooltip: 'Refresh',
                         onPressed: _loadData,
                       ),
@@ -387,12 +483,19 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.2),
                             shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 1.5),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.4),
+                              width: 1.5,
+                            ),
                           ),
                           child: Center(
                             child: Text(
                               _initials(user?.name ?? ''),
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 11),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 11,
+                              ),
                             ),
                           ),
                         ),
@@ -431,9 +534,17 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
             shape: BoxShape.circle,
             border: isActive
                 ? Border.all(color: Colors.white, width: 2.5)
-                : Border.all(color: Colors.white.withValues(alpha: 0.35), width: 1.5),
+                : Border.all(
+                    color: Colors.white.withValues(alpha: 0.35),
+                    width: 1.5,
+                  ),
             boxShadow: isActive
-                ? [BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 6)]
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.25),
+                      blurRadius: 6,
+                    ),
+                  ]
                 : null,
           ),
         ),
@@ -477,14 +588,21 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [cs.errorContainer.withValues(alpha: 0.5), cs.errorContainer.withValues(alpha: 0.25)],
+          colors: [
+            cs.errorContainer.withValues(alpha: 0.5),
+            cs.errorContainer.withValues(alpha: 0.25),
+          ],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: cs.error.withValues(alpha: 0.3)),
         boxShadow: [
-          BoxShadow(color: cs.error.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, 3)),
+          BoxShadow(
+            color: cs.error.withValues(alpha: 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
         ],
       ),
       child: ClipRRect(
@@ -492,9 +610,19 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
         child: Stack(
           children: [
             // Left accent strip
-            Positioned(left: 0, top: 0, bottom: 0, child: Container(width: 4, color: cs.error)),
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              child: Container(width: 4, color: cs.error),
+            ),
             Padding(
-              padding: const EdgeInsets.only(left: 16, right: 12, top: 11, bottom: 11),
+              padding: const EdgeInsets.only(
+                left: 16,
+                right: 12,
+                top: 11,
+                bottom: 11,
+              ),
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final icon = Container(
@@ -503,9 +631,19 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                     decoration: BoxDecoration(
                       color: cs.error,
                       borderRadius: BorderRadius.circular(9),
-                      boxShadow: [BoxShadow(color: cs.error.withValues(alpha: 0.35), blurRadius: 8, offset: const Offset(0, 3))],
+                      boxShadow: [
+                        BoxShadow(
+                          color: cs.error.withValues(alpha: 0.35),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
                     ),
-                    child: Icon(Icons.pending_actions, size: 16, color: Colors.white),
+                    child: Icon(
+                      Icons.pending_actions,
+                      size: 16,
+                      color: Colors.white,
+                    ),
                   );
 
                   final textBlock = Column(
@@ -513,11 +651,18 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                     children: [
                       Text(
                         '$_pendingApprovals item${_pendingApprovals > 1 ? 's' : ''} waiting for approval',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: cs.onErrorContainer),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: cs.onErrorContainer,
+                        ),
                       ),
                       Text(
                         'Tap to review and take action',
-                        style: TextStyle(fontSize: 10, color: cs.error.withValues(alpha: 0.75)),
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: cs.error.withValues(alpha: 0.75),
+                        ),
                       ),
                     ],
                   );
@@ -527,15 +672,26 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                     style: FilledButton.styleFrom(
                       backgroundColor: cs.error,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(9),
+                      ),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('Review', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                        Text(
+                          'Review',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                         SizedBox(width: 4),
                         Icon(Icons.arrow_forward_ios_rounded, size: 10),
                       ],
@@ -609,7 +765,11 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
         ),
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 20, offset: const Offset(0, 4)),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
         ],
       ),
       child: LayoutBuilder(
@@ -651,7 +811,11 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                           width: constraints.maxWidth < 420
                               ? constraints.maxWidth
                               : (constraints.maxWidth - 12) / 2,
-                          child: _buildWelcomeStat(stat.$1, stat.$2, compact: true),
+                          child: _buildWelcomeStat(
+                            stat.$1,
+                            stat.$2,
+                            compact: true,
+                          ),
                         ),
                       )
                       .toList(),
@@ -798,17 +962,21 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
         if (constraints.maxWidth < 600) {
           return Column(
             children: [
-              Row(children: [
-                Expanded(child: _buildKpiCard(kpis[0])),
-                const SizedBox(width: 10),
-                Expanded(child: _buildKpiCard(kpis[1])),
-              ]),
+              Row(
+                children: [
+                  Expanded(child: _buildKpiCard(kpis[0])),
+                  const SizedBox(width: 10),
+                  Expanded(child: _buildKpiCard(kpis[1])),
+                ],
+              ),
               const SizedBox(height: 10),
-              Row(children: [
-                Expanded(child: _buildKpiCard(kpis[2])),
-                const SizedBox(width: 10),
-                Expanded(child: _buildKpiCard(kpis[3])),
-              ]),
+              Row(
+                children: [
+                  Expanded(child: _buildKpiCard(kpis[2])),
+                  const SizedBox(width: 10),
+                  Expanded(child: _buildKpiCard(kpis[3])),
+                ],
+              ),
               const SizedBox(height: 10),
               _buildKpiCard(kpis[4]),
             ],
@@ -870,75 +1038,86 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
           Padding(
             padding: const EdgeInsets.all(15),
             child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [kpi.bg, kpi.color.withValues(alpha: 0.14)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(10),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [kpi.bg, kpi.color.withValues(alpha: 0.14)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(kpi.icon, color: kpi.color, size: 18),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: kpi.isAlert ? Colors.red.shade50 : kpi.bg,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: kpi.isAlert
+                              ? Colors.red.shade200
+                              : kpi.color.withValues(alpha: 0.2),
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        kpi.badge,
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: kpi.isAlert ? Colors.red.shade700 : kpi.color,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                child: Icon(kpi.icon, color: kpi.color, size: 18),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                decoration: BoxDecoration(
-                  color: kpi.isAlert ? Colors.red.shade50 : kpi.bg,
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(
-                    color: kpi.isAlert
-                        ? Colors.red.shade200
-                        : kpi.color.withValues(alpha: 0.2),
-                    width: 1,
-                  ),
-                ),
-                child: Text(
-                  kpi.badge,
+                const SizedBox(height: 12),
+                Text(
+                  '${kpi.value}',
                   style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    color: kpi.isAlert ? Colors.red.shade700 : kpi.color,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                    color: kpi.color,
+                    letterSpacing: -1.5,
+                    height: 1,
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            '${kpi.value}',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              color: kpi.color,
-              letterSpacing: -1.5,
-              height: 1,
+                const SizedBox(height: 4),
+                Text(
+                  kpi.label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            kpi.label,
-            style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant, fontWeight: FontWeight.w500),
           ),
         ],
       ),
-    ),
-  ],
-    ),
     );
   }
 
   // ─── Actions & Finance row-3 ───────────────────────────────────────────────
 
-  Widget _buildActionsFinanceRow(BuildContext context, bool canApprove, bool isAdmin) {
+  Widget _buildActionsFinanceRow(
+    BuildContext context,
+    bool canApprove,
+    bool isAdmin,
+  ) {
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth < 700) {
@@ -957,7 +1136,10 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(flex: 5, child: _buildQuickActionsCard(context, canApprove, isAdmin)),
+            Expanded(
+              flex: 5,
+              child: _buildQuickActionsCard(context, canApprove, isAdmin),
+            ),
             const SizedBox(width: 14),
             Expanded(
               flex: 3,
@@ -977,18 +1159,50 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
     );
   }
 
-  Widget _buildQuickActionsCard(BuildContext context, bool canApprove, bool isAdmin) {
+  Widget _buildQuickActionsCard(
+    BuildContext context,
+    bool canApprove,
+    bool isAdmin,
+  ) {
     final actions = [
       (icon: Icons.add_chart, label: 'New Report', route: '/reports/new'),
-      (icon: Icons.receipt_long, label: 'New Transaction', route: '/transactions'),
-      (icon: Icons.flight_takeoff, label: 'Travel Report', route: '/traveling-reports'),
-      (icon: Icons.shopping_cart_outlined, label: 'Purchase Req.', route: '/purchase-requisitions'),
-      (icon: Icons.groups_outlined, label: 'Meetings', route: '/meetings-dashboard'),
-      (icon: Icons.account_balance_wallet_outlined, label: 'Cash Advance', route: '/cash-advances'),
+      (
+        icon: Icons.receipt_long,
+        label: 'New Transaction',
+        route: '/transactions',
+      ),
+      (
+        icon: Icons.flight_takeoff,
+        label: 'Travel Report',
+        route: '/traveling-reports',
+      ),
+      (
+        icon: Icons.shopping_cart_outlined,
+        label: 'Purchase Req.',
+        route: '/purchase-requisitions',
+      ),
+      (
+        icon: Icons.groups_outlined,
+        label: 'Meetings',
+        route: '/meetings-dashboard',
+      ),
+      (
+        icon: Icons.account_balance_wallet_outlined,
+        label: 'Cash Advance',
+        route: '/cash-advances',
+      ),
       if (canApprove)
-        (icon: Icons.approval_outlined, label: 'Approvals', route: AppRoutes.approvals),
+        (
+          icon: Icons.approval_outlined,
+          label: 'Approvals',
+          route: AppRoutes.approvals,
+        ),
       if (isAdmin)
-        (icon: Icons.person_add_outlined, label: 'Add Staff', route: '/admin/staff/add'),
+        (
+          icon: Icons.person_add_outlined,
+          label: 'Add Staff',
+          route: '/admin/staff/add',
+        ),
     ];
 
     return _buildCard(
@@ -1023,48 +1237,63 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
     required String route,
   }) {
     final cs = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: () => context.push(route),
-      borderRadius: BorderRadius.circular(10),
-      child: Ink(
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerLowest,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxHeight < 72;
+        final iconBoxSize = isCompact ? 30.0 : 36.0;
+        final iconSize = isCompact ? 15.0 : 17.0;
+        final gap = isCompact ? 3.0 : 5.0;
+        final fontSize = isCompact ? 8.5 : 9.5;
+
+        return InkWell(
+          onTap: () => context.push(route),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(5),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: cs.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(9),
-                ),
-                child: Icon(icon, size: 17, color: cs.primary),
+          child: Ink(
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: cs.outlineVariant.withValues(alpha: 0.5),
               ),
-              const SizedBox(height: 5),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 3),
-                child: Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w600,
-                    color: cs.onSurfaceVariant,
+            ),
+            child: Padding(
+              padding: EdgeInsets.all(isCompact ? 4 : 5),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: iconBoxSize,
+                    height: iconBoxSize,
+                    decoration: BoxDecoration(
+                      color: cs.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: Icon(icon, size: iconSize, color: cs.primary),
                   ),
-                ),
+                  SizedBox(height: gap),
+                  Flexible(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 3),
+                      child: Text(
+                        label,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: fontSize,
+                          height: 1.05,
+                          fontWeight: FontWeight.w600,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -1133,7 +1362,11 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
               const SizedBox(width: 6),
               Text(
                 label,
-                style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w700),
+                style: TextStyle(
+                  fontSize: 10,
+                  color: color,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ],
           ),
@@ -1143,7 +1376,12 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
             children: [
               Text(
                 '$count',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: color, letterSpacing: -0.5),
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: color,
+                  letterSpacing: -0.5,
+                ),
               ),
               Text(
                 '$submitted pending',
@@ -1165,8 +1403,18 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('$submitted submitted', style: TextStyle(fontSize: 9, color: cs.onSurfaceVariant)),
-              Text('${(pct * 100).toInt()}%', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: color)),
+              Text(
+                '$submitted submitted',
+                style: TextStyle(fontSize: 9, color: cs.onSurfaceVariant),
+              ),
+              Text(
+                '${(pct * 100).toInt()}%',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
+              ),
             ],
           ),
         ],
@@ -1181,7 +1429,9 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
       0,
       (acc, d) => acc + ((d['totalDisbursements'] as num?)?.toDouble() ?? 0),
     );
-    final incomePending = allReports.where((d) => d['status'] == 'submitted').length;
+    final incomePending = allReports
+        .where((d) => d['status'] == 'submitted')
+        .length;
     final incomeTotal = allReports.isNotEmpty ? allReports.length : 1;
     final incomePct = (incomePending / incomeTotal).clamp(0.0, 1.0);
 
@@ -1194,7 +1444,9 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
       0,
       (acc, d) => acc + ((d['perDiemTotal'] as num?)?.toDouble() ?? 0),
     );
-    final kmTotal = _recentTravelReports.isNotEmpty ? _recentTravelReports.length : 1;
+    final kmTotal = _recentTravelReports.isNotEmpty
+        ? _recentTravelReports.length
+        : 1;
     final kmPct = (_travelPending / kmTotal).clamp(0.0, 1.0);
 
     return _buildCard(
@@ -1210,7 +1462,9 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
             decoration: BoxDecoration(
               color: Colors.green.shade50.withValues(alpha: 0.8),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.green.shade200.withValues(alpha: 0.6)),
+              border: Border.all(
+                color: Colors.green.shade200.withValues(alpha: 0.6),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1218,11 +1472,22 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                 Row(
                   children: [
                     Container(
-                      width: 6, height: 6,
-                      decoration: const BoxDecoration(color: Color(0xFF059669), shape: BoxShape.circle),
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF059669),
+                        shape: BoxShape.circle,
+                      ),
                     ),
                     const SizedBox(width: 6),
-                    Text('Total Income', style: TextStyle(fontSize: 10, color: Colors.green.shade700, fontWeight: FontWeight.w700)),
+                    Text(
+                      'Total Income',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.green.shade700,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -1231,9 +1496,20 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                   children: [
                     Text(
                       '฿${NumberFormat('#,##0').format(totalIncome)}',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.green.shade700, letterSpacing: -0.5),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.green.shade700,
+                        letterSpacing: -0.5,
+                      ),
                     ),
-                    Text('${allReports.length} reports', style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant)),
+                    Text(
+                      '${allReports.length} reports',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -1243,7 +1519,9 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                     value: incomePct,
                     minHeight: 5,
                     backgroundColor: Colors.green.shade100,
-                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF059669)),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      Color(0xFF059669),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 5),
@@ -1269,11 +1547,22 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                 Row(
                   children: [
                     Container(
-                      width: 6, height: 6,
-                      decoration: BoxDecoration(color: cs.primary, shape: BoxShape.circle),
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: cs.primary,
+                        shape: BoxShape.circle,
+                      ),
                     ),
                     const SizedBox(width: 6),
-                    Text('Mileage', style: TextStyle(fontSize: 10, color: cs.primary, fontWeight: FontWeight.w700)),
+                    Text(
+                      'Mileage',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: cs.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -1282,9 +1571,20 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                   children: [
                     Text(
                       '${totalKm.toStringAsFixed(0)} km',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: cs.primary, letterSpacing: -0.5),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: cs.primary,
+                        letterSpacing: -0.5,
+                      ),
                     ),
-                    Text('total', style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant)),
+                    Text(
+                      'total',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -1313,10 +1613,12 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
   // ─── Pending Approvals (full width) ────────────────────────────────────────
 
   Widget _buildPendingApprovalsCard(BuildContext context) {
-    final reportItems =
-        _pendingApprovalItems.where((d) => d['type'] != 'Travel Report').toList();
-    final travelItems =
-        _pendingApprovalItems.where((d) => d['type'] == 'Travel Report').toList();
+    final reportItems = _pendingApprovalItems
+        .where((d) => d['type'] != 'Travel Report')
+        .toList();
+    final travelItems = _pendingApprovalItems
+        .where((d) => d['type'] == 'Travel Report')
+        .toList();
 
     return _buildCard(
       context,
@@ -1346,7 +1648,9 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                   children: [
                     _buildSubLabel('Petty Cash / Advance'),
                     const SizedBox(height: 8),
-                    ...reportItems.take(2).map((item) => _buildApprovalItem(context, item)),
+                    ...reportItems
+                        .take(2)
+                        .map((item) => _buildApprovalItem(context, item)),
                   ],
                 ),
               ),
@@ -1357,7 +1661,9 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                   children: [
                     _buildSubLabel('Travel Reports'),
                     const SizedBox(height: 8),
-                    ...travelItems.take(2).map((item) => _buildApprovalItem(context, item)),
+                    ...travelItems
+                        .take(2)
+                        .map((item) => _buildApprovalItem(context, item)),
                   ],
                 ),
               ),
@@ -1406,12 +1712,22 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                 decoration: BoxDecoration(
                   color: typeColor,
                   shape: BoxShape.circle,
-                  boxShadow: [BoxShadow(color: typeColor.withValues(alpha: 0.3), blurRadius: 6, offset: const Offset(0, 2))],
+                  boxShadow: [
+                    BoxShadow(
+                      color: typeColor.withValues(alpha: 0.3),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: Center(
                   child: Text(
                     _initials(item['name'] as String? ?? ''),
-                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
@@ -1424,14 +1740,21 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                     children: [
                       Text(
                         item['name'] as String? ?? '',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurface),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: cs.onSurface,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 2),
                       Text(
                         '${item['title']} · $type${date != null ? ' · ${_relativeDate(date)}' : ''}',
-                        style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: cs.onSurfaceVariant,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -1444,7 +1767,11 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                   padding: const EdgeInsets.only(right: 12),
                   child: Text(
                     '฿${NumberFormat('#,##0').format(amount)}',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: cs.error),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: cs.error,
+                    ),
                   ),
                 ),
             ],
@@ -1535,13 +1862,19 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
           ? _buildEmptyState('No recent records')
           : Column(
               children: items
-                  .map((item) => _buildReportListItem(context, item, isPr: isPr))
+                  .map(
+                    (item) => _buildReportListItem(context, item, isPr: isPr),
+                  )
                   .toList(),
             ),
     );
   }
 
-  Widget _buildReportListItem(BuildContext context, Map<String, dynamic> item, {bool isPr = false}) {
+  Widget _buildReportListItem(
+    BuildContext context,
+    Map<String, dynamic> item, {
+    bool isPr = false,
+  }) {
     final cs = Theme.of(context).colorScheme;
     final status = item['status'] as String? ?? 'draft';
     final name = isPr
@@ -1573,14 +1906,23 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                   children: [
                     Text(
                       '$name',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurface),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: cs.onSurface,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      amount != null ? '฿${NumberFormat('#,##0').format(amount)}' : meta.label,
-                      style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
+                      amount != null
+                          ? '฿${NumberFormat('#,##0').format(amount)}'
+                          : meta.label,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: cs.onSurfaceVariant,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1592,10 +1934,17 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
               padding: const EdgeInsets.only(right: 10),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(color: meta.bg, borderRadius: BorderRadius.circular(20)),
+                decoration: BoxDecoration(
+                  color: meta.bg,
+                  borderRadius: BorderRadius.circular(20),
+                ),
                 child: Text(
                   meta.label,
-                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: meta.color),
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    color: meta.color,
+                  ),
                 ),
               ),
             ),
@@ -1631,24 +1980,43 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                 Row(
                   children: [
                     Container(
-                      width: 6, height: 6,
-                      decoration: BoxDecoration(color: cs.primary, shape: BoxShape.circle),
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: cs.primary,
+                        shape: BoxShape.circle,
+                      ),
                     ),
                     const SizedBox(width: 6),
-                    Text('HCSA Budget $currentYear',
-                        style: TextStyle(
-                            fontSize: 10,
-                            color: cs.primary,
-                            fontWeight: FontWeight.w700)),
+                    Text(
+                      'HCSA Budget $currentYear',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: cs.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 10),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildMiniStat(context, value: 'Income', label: 'S-15 to S-17'),
-                    _buildMiniStat(context, value: 'Expenses', label: 'S-18a to S-21'),
-                    _buildMiniStat(context, value: 'Approp.', label: 'S-22 to S-25'),
+                    _buildMiniStat(
+                      context,
+                      value: 'Income',
+                      label: 'S-15 to S-17',
+                    ),
+                    _buildMiniStat(
+                      context,
+                      value: 'Expenses',
+                      label: 'S-18a to S-21',
+                    ),
+                    _buildMiniStat(
+                      context,
+                      value: 'Approp.',
+                      label: 'S-22 to S-25',
+                    ),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -1657,10 +2025,14 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                   child: OutlinedButton.icon(
                     onPressed: () => context.push('/admin/budget'),
                     icon: Icon(Icons.open_in_new, size: 14, color: cs.primary),
-                    label: Text('Open Budget',
-                        style: TextStyle(fontSize: 12, color: cs.primary)),
+                    label: Text(
+                      'Open Budget',
+                      style: TextStyle(fontSize: 12, color: cs.primary),
+                    ),
                     style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: cs.primary.withValues(alpha: 0.4)),
+                      side: BorderSide(
+                        color: cs.primary.withValues(alpha: 0.4),
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 8),
                     ),
                   ),
@@ -1679,7 +2051,9 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
       context,
       icon: Icons.flight_takeoff,
       title: 'Travel Reports',
-      badge: _recentTravelReports.isNotEmpty ? '${_recentTravelReports.length}' : null,
+      badge: _recentTravelReports.isNotEmpty
+          ? '${_recentTravelReports.length}'
+          : null,
       badgeColor: Colors.cyan.shade700,
       footerRoute: '/traveling-reports',
       footerLabel: 'View all travel reports',
@@ -1700,7 +2074,9 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                   decoration: BoxDecoration(
                     color: cs.surfaceContainerLowest,
                     borderRadius: BorderRadius.circular(9),
-                    border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.35)),
+                    border: Border.all(
+                      color: cs.outlineVariant.withValues(alpha: 0.35),
+                    ),
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: IntrinsicHeight(
@@ -1716,14 +2092,21 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                               children: [
                                 Text(
                                   '$name – $place',
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurface),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: cs.onSurface,
+                                  ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   '${km.toStringAsFixed(0)} km',
-                                  style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: cs.onSurfaceVariant,
+                                  ),
                                 ),
                               ],
                             ),
@@ -1732,9 +2115,22 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                         Padding(
                           padding: const EdgeInsets.only(right: 10),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(color: meta.bg, borderRadius: BorderRadius.circular(20)),
-                            child: Text(meta.label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: meta.color)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: meta.bg,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              meta.label,
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: meta.color,
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -1795,18 +2191,21 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
       context,
       icon: Icons.person_add_outlined,
       title: 'HR Data Submissions',
-      badge: _recentHrSubmissions.isNotEmpty ? '${_recentHrSubmissions.length} new' : null,
+      badge: _recentHrSubmissions.isNotEmpty
+          ? '${_recentHrSubmissions.length} new'
+          : null,
       badgeColor: Colors.orange,
       footerRoute: '/hr/data-submissions',
       footerLabel: 'View all submissions',
       child: _recentHrSubmissions.isEmpty
           ? _buildEmptyState('No recent submissions')
           : Column(
-              children: _recentHrSubmissions.map((item) => _buildPersonItem(context, item)).toList(),
+              children: _recentHrSubmissions
+                  .map((item) => _buildPersonItem(context, item))
+                  .toList(),
             ),
     );
   }
-
 
   // ─── Traveling Overview (full width) ──────────────────────────────────────
 
@@ -1837,10 +2236,26 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
             crossAxisSpacing: 8,
             mainAxisSpacing: 8,
             children: [
-              _buildTravelStatTile(context, value: '${totalKm.toStringAsFixed(0)} km', label: 'Total KM'),
-              _buildTravelStatTile(context, value: '฿${NumberFormat('#,##0').format(totalPerDiem)}', label: 'Per Diem'),
-              _buildTravelStatTile(context, value: '${_recentTravelReports.length}', label: 'Recent Trips'),
-              _buildTravelStatTile(context, value: '$_travelPending', label: 'Pending'),
+              _buildTravelStatTile(
+                context,
+                value: '${totalKm.toStringAsFixed(0)} km',
+                label: 'Total KM',
+              ),
+              _buildTravelStatTile(
+                context,
+                value: '฿${NumberFormat('#,##0').format(totalPerDiem)}',
+                label: 'Per Diem',
+              ),
+              _buildTravelStatTile(
+                context,
+                value: '${_recentTravelReports.length}',
+                label: 'Recent Trips',
+              ),
+              _buildTravelStatTile(
+                context,
+                value: '$_travelPending',
+                label: 'Pending',
+              ),
             ],
           );
           final tripList = Column(
@@ -1851,7 +2266,9 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
           );
 
           if (constraints.maxWidth < 600) {
-            return Column(children: [statsGrid, const SizedBox(height: 14), tripList]);
+            return Column(
+              children: [statsGrid, const SizedBox(height: 14), tripList],
+            );
           }
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1866,12 +2283,19 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
     );
   }
 
-  Widget _buildTravelStatTile(BuildContext context, {required String value, required String label}) {
+  Widget _buildTravelStatTile(
+    BuildContext context, {
+    required String value,
+    required String label,
+  }) {
     final cs = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [cs.primary.withValues(alpha: 0.07), cs.primary.withValues(alpha: 0.03)],
+          colors: [
+            cs.primary.withValues(alpha: 0.07),
+            cs.primary.withValues(alpha: 0.03),
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -1883,12 +2307,22 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
         children: [
           Text(
             value,
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: cs.primary, letterSpacing: -0.5),
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: cs.primary,
+              letterSpacing: -0.5,
+            ),
           ),
           const SizedBox(height: 2),
           Text(
             label,
-            style: TextStyle(fontSize: 9, color: cs.onSurfaceVariant, fontWeight: FontWeight.w600, letterSpacing: 0.3),
+            style: TextStyle(
+              fontSize: 9,
+              color: cs.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.3,
+            ),
           ),
         ],
       ),
@@ -1927,14 +2361,21 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                   children: [
                     Text(
                       '$name – $place',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurface),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: cs.onSurface,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Text(
                       '${km.toStringAsFixed(0)} km · ฿${NumberFormat('#,##0').format(perDiem)}',
-                      style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: cs.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -1944,8 +2385,18 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
               padding: const EdgeInsets.only(right: 10),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(color: meta.bg, borderRadius: BorderRadius.circular(20)),
-                child: Text(meta.label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: meta.color)),
+                decoration: BoxDecoration(
+                  color: meta.bg,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  meta.label,
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    color: meta.color,
+                  ),
+                ),
               ),
             ),
           ],
@@ -1993,14 +2444,27 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
         children: [
           Row(
             children: [
-              Expanded(child: _buildMiniStat(context, value: '${_recentStudents.length}', label: 'Active')),
-              const SizedBox(width: 8),
-              Expanded(child: _buildMiniStat(context, value: '$_pendingStudentReports', label: 'Reports Due')),
+              Expanded(
+                child: _buildMiniStat(
+                  context,
+                  value: '${_recentStudents.length}',
+                  label: 'Active',
+                ),
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: _buildMiniStat(
                   context,
-                  value: '${_recentStudents.where((d) => d['status'] == 'submitted').length}',
+                  value: '$_pendingStudentReports',
+                  label: 'Reports Due',
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildMiniStat(
+                  context,
+                  value:
+                      '${_recentStudents.where((d) => d['status'] == 'submitted').length}',
                   label: 'Submitted',
                 ),
               ),
@@ -2031,7 +2495,9 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
       child: _recentStaff.isEmpty
           ? _buildEmptyState('No staff records')
           : Column(
-              children: _recentStaff.map((item) => _buildStaffItem(context, item)).toList(),
+              children: _recentStaff
+                  .map((item) => _buildStaffItem(context, item))
+                  .toList(),
             ),
     );
   }
@@ -2042,8 +2508,15 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
     final position = item['position'] as String? ?? '';
     final role = item['role'] as String? ?? 'staff';
     final initials = _initials(name);
-    final avatarColors = [cs.primary, Colors.green.shade600, Colors.purple.shade600, Colors.cyan.shade700];
-    final colorIdx = name.isNotEmpty ? name.codeUnitAt(0) % avatarColors.length : 0;
+    final avatarColors = [
+      cs.primary,
+      Colors.green.shade600,
+      Colors.purple.shade600,
+      Colors.cyan.shade700,
+    ];
+    final colorIdx = name.isNotEmpty
+        ? name.codeUnitAt(0) % avatarColors.length
+        : 0;
 
     String roleLabel;
     Color roleBg;
@@ -2087,10 +2560,23 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                 end: Alignment.bottomRight,
               ),
               shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: avatarColor.withValues(alpha: 0.25), blurRadius: 6, offset: const Offset(0, 2))],
+              boxShadow: [
+                BoxShadow(
+                  color: avatarColor.withValues(alpha: 0.25),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: Center(
-              child: Text(initials, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+              child: Text(
+                initials,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 10),
@@ -2098,8 +2584,20 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurface), maxLines: 1, overflow: TextOverflow.ellipsis),
-                Text(position, style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant)),
+                Text(
+                  name,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: cs.onSurface,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  position,
+                  style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
+                ),
               ],
             ),
           ),
@@ -2110,7 +2608,14 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: roleColor.withValues(alpha: 0.2)),
             ),
-            child: Text(roleLabel, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: roleColor)),
+            child: Text(
+              roleLabel,
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                color: roleColor,
+              ),
+            ),
           ),
         ],
       ),
@@ -2182,7 +2687,10 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                 ),
                 if (badge != null)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: accent.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
@@ -2199,17 +2707,33 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
               ],
             ),
           ),
-          Divider(height: 1, thickness: 1, color: cs.outlineVariant.withValues(alpha: 0.4)),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: cs.outlineVariant.withValues(alpha: 0.4),
+          ),
           // Body
-          Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10), child: child),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            child: child,
+          ),
           // Footer
           if (footerRoute != null) ...[
-            Divider(height: 1, thickness: 1, color: cs.outlineVariant.withValues(alpha: 0.4)),
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: cs.outlineVariant.withValues(alpha: 0.4),
+            ),
             InkWell(
               onTap: () => context.push(footerRoute),
-              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(14)),
+              borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(14),
+              ),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -2222,7 +2746,11 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    Icon(Icons.arrow_forward_ios_rounded, size: 10, color: cs.primary),
+                    Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 10,
+                      color: cs.primary,
+                    ),
                   ],
                 ),
               ),
@@ -2237,11 +2765,22 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
 
   Widget _buildPersonItem(BuildContext context, Map<String, dynamic> item) {
     final cs = Theme.of(context).colorScheme;
-    final name = item['name'] as String? ?? item['submittedByName'] as String? ?? 'Unknown';
-    final role = item['role'] as String? ?? item['submissionType'] as String? ?? 'Staff';
+    final name =
+        item['name'] as String? ??
+        item['submittedByName'] as String? ??
+        'Unknown';
+    final role =
+        item['role'] as String? ?? item['submissionType'] as String? ?? 'Staff';
     final initials = _initials(name);
-    final avatarColors = [cs.primary, Colors.green.shade600, Colors.purple.shade600, Colors.teal.shade600];
-    final colorIdx = name.isNotEmpty ? name.codeUnitAt(0) % avatarColors.length : 0;
+    final avatarColors = [
+      cs.primary,
+      Colors.green.shade600,
+      Colors.purple.shade600,
+      Colors.teal.shade600,
+    ];
+    final colorIdx = name.isNotEmpty
+        ? name.codeUnitAt(0) % avatarColors.length
+        : 0;
     final avatarColor = avatarColors[colorIdx];
 
     return Container(
@@ -2264,10 +2803,23 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                 end: Alignment.bottomRight,
               ),
               shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: avatarColor.withValues(alpha: 0.25), blurRadius: 6, offset: const Offset(0, 2))],
+              boxShadow: [
+                BoxShadow(
+                  color: avatarColor.withValues(alpha: 0.25),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: Center(
-              child: Text(initials, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+              child: Text(
+                initials,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 10),
@@ -2275,8 +2827,20 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurface), maxLines: 1, overflow: TextOverflow.ellipsis),
-                Text(role, style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant)),
+                Text(
+                  name,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: cs.onSurface,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  role,
+                  style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
+                ),
               ],
             ),
           ),
@@ -2287,20 +2851,34 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: cs.primary.withValues(alpha: 0.2)),
             ),
-            child: Text('Staff', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: cs.primary)),
+            child: Text(
+              'Staff',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                color: cs.primary,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildMiniStat(BuildContext context, {required String value, required String label}) {
+  Widget _buildMiniStat(
+    BuildContext context, {
+    required String value,
+    required String label,
+  }) {
     final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 11),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [cs.primary.withValues(alpha: 0.07), cs.primary.withValues(alpha: 0.03)],
+          colors: [
+            cs.primary.withValues(alpha: 0.07),
+            cs.primary.withValues(alpha: 0.03),
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -2312,12 +2890,21 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
         children: [
           Text(
             value,
-            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: cs.primary, letterSpacing: -0.5),
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: cs.primary,
+              letterSpacing: -0.5,
+            ),
           ),
           const SizedBox(height: 2),
           Text(
             label,
-            style: TextStyle(fontSize: 9, color: cs.onSurfaceVariant, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              fontSize: 9,
+              color: cs.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -2327,7 +2914,12 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
   Widget _buildSubLabel(String label) {
     return Text(
       label,
-      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.grey.shade500, letterSpacing: 0.3),
+      style: TextStyle(
+        fontSize: 10,
+        fontWeight: FontWeight.w700,
+        color: Colors.grey.shade500,
+        letterSpacing: 0.3,
+      ),
     );
   }
 
@@ -2335,7 +2927,10 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 14),
       child: Center(
-        child: Text(message, style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
+        child: Text(
+          message,
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+        ),
       ),
     );
   }
@@ -2345,23 +2940,59 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
   static ({String label, Color color, Color bg}) _statusLabel(String status) {
     switch (status) {
       case 'approved':
-        return (label: 'Approved', color: Colors.green.shade700, bg: Colors.green.shade50);
+        return (
+          label: 'Approved',
+          color: Colors.green.shade700,
+          bg: Colors.green.shade50,
+        );
       case 'submitted':
-        return (label: 'Pending', color: Colors.amber.shade800, bg: Colors.amber.shade50);
+        return (
+          label: 'Pending',
+          color: Colors.amber.shade800,
+          bg: Colors.amber.shade50,
+        );
       case 'underReview':
-        return (label: 'Review', color: Colors.purple.shade700, bg: Colors.purple.shade50);
+        return (
+          label: 'Review',
+          color: Colors.purple.shade700,
+          bg: Colors.purple.shade50,
+        );
       case 'closed':
-        return (label: 'Closed', color: Colors.grey.shade700, bg: Colors.grey.shade100);
+        return (
+          label: 'Closed',
+          color: Colors.grey.shade700,
+          bg: Colors.grey.shade100,
+        );
       case 'rejected':
-        return (label: 'Rejected', color: Colors.red.shade700, bg: Colors.red.shade50);
+        return (
+          label: 'Rejected',
+          color: Colors.red.shade700,
+          bg: Colors.red.shade50,
+        );
       case 'disbursed':
-        return (label: 'Disbursed', color: Colors.teal.shade700, bg: Colors.teal.shade50);
+        return (
+          label: 'Disbursed',
+          color: Colors.teal.shade700,
+          bg: Colors.teal.shade50,
+        );
       case 'settled':
-        return (label: 'Settled', color: Colors.green.shade700, bg: Colors.green.shade50);
+        return (
+          label: 'Settled',
+          color: Colors.green.shade700,
+          bg: Colors.green.shade50,
+        );
       case 'cancelled':
-        return (label: 'Cancelled', color: Colors.grey.shade600, bg: Colors.grey.shade100);
+        return (
+          label: 'Cancelled',
+          color: Colors.grey.shade600,
+          bg: Colors.grey.shade100,
+        );
       default:
-        return (label: 'Draft', color: Colors.blue.shade700, bg: Colors.blue.shade50);
+        return (
+          label: 'Draft',
+          color: Colors.blue.shade700,
+          bg: Colors.blue.shade50,
+        );
     }
   }
 
