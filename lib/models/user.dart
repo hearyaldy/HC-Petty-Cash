@@ -301,6 +301,7 @@ class User {
   final String name;
   final String email;
   final String role; // Store as string: 'requester', 'manager', 'finance', 'admin'
+  final String workerType; // For studentWorker role: 'student' | 'volunteer'
   final String department;
   final String? photoUrl;
   final String? organizationId; // Organization ID for inventory access
@@ -316,6 +317,7 @@ class User {
     required this.name,
     required this.email,
     required this.role,
+    this.workerType = 'student',
     required this.department,
     this.photoUrl,
     this.organizationId,
@@ -340,6 +342,7 @@ class User {
       'name': name,
       'email': email,
       'role': role,
+      'workerType': workerType,
       'department': department,
       'photoUrl': photoUrl,
       'organizationId': organizationId,
@@ -381,6 +384,7 @@ class User {
       name: data['name'] as String? ?? 'Unknown',
       email: data['email'] as String? ?? '',
       role: data['role'] as String? ?? 'requester',
+      workerType: data['workerType'] as String? ?? 'student',
       department: data['department'] as String? ?? 'Unknown',
       photoUrl: data['photoUrl'] as String?,
       organizationId: data['organizationId'] as String?,
@@ -406,6 +410,7 @@ class User {
       'name': name,
       'email': email,
       'role': role,
+      'workerType': workerType,
       'department': department,
       'photoUrl': photoUrl,
       'organizationId': organizationId,
@@ -424,6 +429,7 @@ class User {
       name: json['name'] as String,
       email: json['email'] as String,
       role: json['role'] as String,
+      workerType: json['workerType'] as String? ?? 'student',
       department: json['department'] as String,
       photoUrl: json['photoUrl'] as String?,
       organizationId: json['organizationId'] as String?,
@@ -449,6 +455,7 @@ class User {
     String? name,
     String? email,
     String? role,
+    String? workerType,
     String? department,
     String? photoUrl,
     String? organizationId,
@@ -463,6 +470,7 @@ class User {
       name: name ?? this.name,
       email: email ?? this.email,
       role: role ?? this.role,
+      workerType: workerType ?? this.workerType,
       department: department ?? this.department,
       photoUrl: photoUrl ?? this.photoUrl,
       organizationId: organizationId ?? this.organizationId,

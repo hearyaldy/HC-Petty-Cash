@@ -33,13 +33,114 @@ enum ReportsViewMode {
   tableCategory, // Table view - reports grouped by category
 }
 
+// Sort options for the report list
+enum ReportsSortMode {
+  dateNewest,    // newest created first (default)
+  dateOldest,    // oldest created first
+  statusDraft,   // draft reports first
+  statusSubmitted, // submitted reports first
+  statusApproved, // approved reports first
+  statusClosed,  // closed reports first
+}
+
+extension ReportsSortModeExtension on ReportsSortMode {
+  String get label {
+    switch (this) {
+      case ReportsSortMode.dateNewest:    return 'Newest First';
+      case ReportsSortMode.dateOldest:    return 'Oldest First';
+      case ReportsSortMode.statusDraft:   return 'Draft First';
+      case ReportsSortMode.statusSubmitted: return 'Submitted First';
+      case ReportsSortMode.statusApproved: return 'Approved First';
+      case ReportsSortMode.statusClosed:  return 'Closed First';
+    }
+  }
+
+  IconData get icon {
+    switch (this) {
+      case ReportsSortMode.dateNewest:    return Icons.arrow_downward;
+      case ReportsSortMode.dateOldest:    return Icons.arrow_upward;
+      case ReportsSortMode.statusDraft:   return Icons.edit_note;
+      case ReportsSortMode.statusSubmitted: return Icons.pending_actions;
+      case ReportsSortMode.statusApproved: return Icons.check_circle_outline;
+      case ReportsSortMode.statusClosed:  return Icons.lock_outline;
+    }
+  }
+
+  Comparator<dynamic> get comparator {
+    switch (this) {
+      case ReportsSortMode.dateNewest:
+        return (a, b) => b.createdAt.compareTo(a.createdAt);
+      case ReportsSortMode.dateOldest:
+        return (a, b) => a.createdAt.compareTo(b.createdAt);
+      case ReportsSortMode.statusDraft:
+        return (a, b) {
+          const priority = {
+            ReportStatus.draft: 0,
+            ReportStatus.submitted: 1,
+            ReportStatus.underReview: 2,
+            ReportStatus.approved: 3,
+            ReportStatus.closed: 4,
+          };
+          final wa = priority[a.statusEnum] ?? 99;
+          final wb = priority[b.statusEnum] ?? 99;
+          if (wa != wb) return wa.compareTo(wb);
+          return b.createdAt.compareTo(a.createdAt);
+        };
+      case ReportsSortMode.statusSubmitted:
+        return (a, b) {
+          const priority = {
+            ReportStatus.submitted: 0,
+            ReportStatus.underReview: 1,
+            ReportStatus.draft: 2,
+            ReportStatus.approved: 3,
+            ReportStatus.closed: 4,
+          };
+          final wa = priority[a.statusEnum] ?? 99;
+          final wb = priority[b.statusEnum] ?? 99;
+          if (wa != wb) return wa.compareTo(wb);
+          return b.createdAt.compareTo(a.createdAt);
+        };
+      case ReportsSortMode.statusApproved:
+        return (a, b) {
+          const priority = {
+            ReportStatus.approved: 0,
+            ReportStatus.submitted: 1,
+            ReportStatus.underReview: 2,
+            ReportStatus.draft: 3,
+            ReportStatus.closed: 4,
+          };
+          final wa = priority[a.statusEnum] ?? 99;
+          final wb = priority[b.statusEnum] ?? 99;
+          if (wa != wb) return wa.compareTo(wb);
+          return b.createdAt.compareTo(a.createdAt);
+        };
+      case ReportsSortMode.statusClosed:
+        return (a, b) {
+          const priority = {
+            ReportStatus.closed: 0,
+            ReportStatus.approved: 1,
+            ReportStatus.submitted: 2,
+            ReportStatus.underReview: 3,
+            ReportStatus.draft: 4,
+          };
+          final wa = priority[a.statusEnum] ?? 99;
+          final wb = priority[b.statusEnum] ?? 99;
+          if (wa != wb) return wa.compareTo(wb);
+          return b.createdAt.compareTo(a.createdAt);
+        };
+    }
+  }
+}
+
 class _ReportsListScreenState extends State<ReportsListScreen> {
   static const _viewModePrefsKey = 'reports_view_mode';
   ReportStatus? _filterStatus;
   String _searchQuery = '';
   String _reportType = 'all'; // 'all', 'petty_cash', 'advance_settlement', 'project'
   ReportsViewMode _viewMode = ReportsViewMode.card;
+  ReportsSortMode _sortMode = ReportsSortMode.dateNewest;
   final Set<String> _expandedCardIds = {};
+  bool _filtersExpanded = false;
 
   @override
   void initState() {
@@ -146,40 +247,35 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
       }).toList();
     }
 
-    // Sort by date (newest first)
-    reports.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    // Sort according to selected sort mode
+    reports.sort(_sortMode.comparator);
 
     return Scaffold(
       appBar: _buildTopBar(context, reports.length),
       drawer: const AppDrawer(),
       body: ResponsiveContainer(
         padding: EdgeInsets.zero,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 14),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _buildSummaryBanner(context, reports.length),
-            ),
-            const SizedBox(height: 14),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _buildSectionLabel('Filter Reports'),
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _buildFilters(),
-            ),
-            const SizedBox(height: 14),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _buildSectionLabel('Reports'),
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: Padding(
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 14),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _buildSummaryBanner(context, reports.length),
+              ),
+              const SizedBox(height: 14),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _buildFilters(),
+              ),
+              const SizedBox(height: 14),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _buildSectionLabel('Reports'),
+              ),
+              const SizedBox(height: 8),
+              Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: reports.isEmpty
                     ? _buildEmptyState()
@@ -188,8 +284,9 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                         transactionProvider.transactions,
                       ),
               ),
-            ),
-          ],
+              const SizedBox(height: 32),
+            ],
+          ),
         ),
       ),
     );
@@ -258,7 +355,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const Text(
-                            'Petty Cash Reports',
+                            'Report List',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 14,
@@ -275,6 +372,8 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                         ],
                       ),
                       const Spacer(),
+                      _buildSortButton(),
+                      const SizedBox(width: 4),
                       _buildViewModeButton(),
                       IconButton(
                         icon: const Icon(Icons.add_circle_outline, color: Colors.white, size: 20),
@@ -324,6 +423,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
 
   Widget _buildSummaryBanner(BuildContext context, int totalReports) {
     final cs = Theme.of(context).colorScheme;
+    final isMobile = ResponsiveHelper.isMobile(context);
     final reportProvider = context.read<ReportProvider>();
     final submittedCount = reportProvider.reports
         .where((r) => r.statusEnum == ReportStatus.submitted)
@@ -335,8 +435,37 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
         .where((r) => r.statusEnum == ReportStatus.draft)
         .length;
 
+    final titleColumn = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Petty Cash Reports',
+          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Financial reports & advance settlements',
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.72), fontSize: 12),
+        ),
+      ],
+    );
+
+    final statsRow = Row(
+      mainAxisAlignment:
+          isMobile ? MainAxisAlignment.spaceBetween : MainAxisAlignment.end,
+      children: [
+        _buildBannerStat('Total', totalReports),
+        _buildBannerStat('Submitted', submittedCount),
+        _buildBannerStat('Approved', approvedCount),
+        _buildBannerStat('Draft', draftCount),
+      ],
+    );
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 16 : 22,
+        vertical: isMobile ? 16 : 20,
+      ),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -352,46 +481,23 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
           ),
         ],
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: Column(
+      child: isMobile
+          ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Petty Cash Reports',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Financial reports & advance settlements',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.72),
-                    fontSize: 12,
-                  ),
-                ),
+                titleColumn,
+                const SizedBox(height: 14),
+                statsRow,
+              ],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(child: titleColumn),
+                const SizedBox(width: 20),
+                statsRow,
               ],
             ),
-          ),
-          const SizedBox(width: 20),
-          Row(
-            children: [
-              _buildBannerStat('Total', totalReports),
-              const SizedBox(width: 20),
-              _buildBannerStat('Submitted', submittedCount),
-              const SizedBox(width: 20),
-              _buildBannerStat('Approved', approvedCount),
-              const SizedBox(width: 20),
-              _buildBannerStat('Draft', draftCount),
-            ],
-          ),
-        ],
-      ),
     );
   }
 
@@ -417,6 +523,70 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildSortButton() {
+    final cs = Theme.of(context).colorScheme;
+    final isDateSort = _sortMode == ReportsSortMode.dateNewest ||
+        _sortMode == ReportsSortMode.dateOldest;
+    return PopupMenuButton<ReportsSortMode>(
+      tooltip: 'Sort Reports',
+      onSelected: (mode) => setState(() => _sortMode = mode),
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: isDateSort
+              ? Colors.white.withValues(alpha: 0.15)
+              : Colors.white.withValues(alpha: 0.30),
+          borderRadius: BorderRadius.circular(8),
+          border: isDateSort
+              ? null
+              : Border.all(color: Colors.white.withValues(alpha: 0.6)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(_sortMode.icon, color: Colors.white, size: 18),
+            const SizedBox(width: 4),
+            Text(
+              _sortMode.label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+      itemBuilder: (context) => ReportsSortMode.values.map((mode) {
+        final selected = _sortMode == mode;
+        return PopupMenuItem<ReportsSortMode>(
+          value: mode,
+          child: Row(
+            children: [
+              Icon(
+                mode.icon,
+                size: 18,
+                color: selected ? cs.primary : Colors.grey[600],
+              ),
+              const SizedBox(width: 12),
+              Text(
+                mode.label,
+                style: TextStyle(
+                  fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                  color: selected ? cs.primary : null,
+                ),
+              ),
+              if (selected) ...[
+                const Spacer(),
+                Icon(Icons.check, size: 16, color: cs.primary),
+              ],
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -534,8 +704,21 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                   ),
                 ],
               ),
+              if (isMobile) ...[
+                const Spacer(),
+                IconButton(
+                  onPressed: () => setState(() => _filtersExpanded = !_filtersExpanded),
+                  icon: Icon(
+                    _filtersExpanded ? Icons.expand_less : Icons.expand_more,
+                    color: cs.primary,
+                  ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                ),
+              ],
             ],
           ),
+          if (!isMobile || _filtersExpanded) ...[
           const SizedBox(height: 16),
           TextField(
             decoration: InputDecoration(
@@ -662,6 +845,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                 _buildFilterChip('Closed', ReportStatus.closed),
               ],
             ),
+          ], // end if (!isMobile || _filtersExpanded)
         ],
       ),
     );
@@ -820,7 +1004,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
                   2 // 2 cards with 16px gap
             : constraints.maxWidth;
 
-        return SingleChildScrollView(
+        return Padding(
           padding: const EdgeInsets.only(top: 8, bottom: 16),
           child: Wrap(
             spacing: 16,
@@ -881,7 +1065,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
         .toList();
     final projectReports = reports.whereType<ProjectReport>().toList();
 
-    return SingleChildScrollView(
+    return Padding(
       padding: const EdgeInsets.only(top: 8, bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -955,7 +1139,7 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
     final currencyFormat = NumberFormat('#,##0.00', 'en_US');
     final dateFormat = DateFormat('MM/dd/yy');
 
-    return SingleChildScrollView(
+    return Padding(
       padding: const EdgeInsets.only(top: 8, bottom: 16),
       child: Column(
         children: reports.map((report) {

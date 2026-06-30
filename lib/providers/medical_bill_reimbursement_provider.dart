@@ -5,7 +5,8 @@ import '../services/medical_bill_reimbursement_service.dart';
 import '../utils/logger.dart';
 
 class MedicalBillReimbursementProvider extends ChangeNotifier {
-  final MedicalBillReimbursementService _service = MedicalBillReimbursementService();
+  final MedicalBillReimbursementService _service =
+      MedicalBillReimbursementService();
 
   List<MedicalBillReimbursement> _reimbursements = [];
   MedicalBillReimbursement? _selectedReimbursement;
@@ -39,10 +40,16 @@ class MedicalBillReimbursementProvider extends ChangeNotifier {
 
   // Statistics
   double get totalReimbursementAmount =>
-      _reimbursements.fold(0, (sum, r) => sum + r.totalReimbursement);
+      _reimbursements.fold<double>(0.0, (sum, r) => sum + _effectiveReimbursement(r));
 
   double get approvedReimbursementAmount =>
-      approvedReimbursements.fold(0, (sum, r) => sum + r.totalReimbursement);
+      approvedReimbursements.fold<double>(0.0, (sum, r) => sum + _effectiveReimbursement(r));
+
+  // Aggregate from claimItems for accuracy; fall back to stored total for old records
+  static double _effectiveReimbursement(MedicalBillReimbursement r) {
+    if (r.claimItems.isEmpty) return r.totalReimbursement;
+    return r.claimItems.fold<double>(0.0, (sum, item) => sum + item.amountReimburse);
+  }
 
   int get pendingApprovalCount => submittedReimbursements.length;
 
@@ -105,6 +112,8 @@ class MedicalBillReimbursementProvider extends ChangeNotifier {
   /// Create a new reimbursement
   Future<MedicalBillReimbursement?> createReimbursement({
     required User requester,
+    String? requesterName,
+    String? overrideRequesterId,
     required String department,
     required String subject,
     required List<MedicalClaimItem> claimItems,
@@ -112,6 +121,12 @@ class MedicalBillReimbursementProvider extends ChangeNotifier {
     String? notes,
     String? paidTo,
     List<String>? supportDocumentUrls,
+    String? linkedMinutesId,
+    String? linkedMinutesLabel,
+    String? linkedActionItemNumber,
+    String? linkedActionItemTitle,
+    String? linkedActionItemDescription,
+    String? linkedActionItemAction,
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -120,6 +135,8 @@ class MedicalBillReimbursementProvider extends ChangeNotifier {
     try {
       final reimbursement = await _service.createReimbursement(
         requester: requester,
+        requesterName: requesterName,
+        overrideRequesterId: overrideRequesterId,
         department: department,
         subject: subject,
         claimItems: claimItems,
@@ -127,6 +144,12 @@ class MedicalBillReimbursementProvider extends ChangeNotifier {
         notes: notes,
         paidTo: paidTo,
         supportDocumentUrls: supportDocumentUrls,
+        linkedMinutesId: linkedMinutesId,
+        linkedMinutesLabel: linkedMinutesLabel,
+        linkedActionItemNumber: linkedActionItemNumber,
+        linkedActionItemTitle: linkedActionItemTitle,
+        linkedActionItemDescription: linkedActionItemDescription,
+        linkedActionItemAction: linkedActionItemAction,
       );
 
       _reimbursements.insert(0, reimbursement);
@@ -143,7 +166,9 @@ class MedicalBillReimbursementProvider extends ChangeNotifier {
   }
 
   /// Update a reimbursement
-  Future<bool> updateReimbursement(MedicalBillReimbursement reimbursement) async {
+  Future<bool> updateReimbursement(
+    MedicalBillReimbursement reimbursement,
+  ) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -266,8 +291,11 @@ class MedicalBillReimbursementProvider extends ChangeNotifier {
       await loadReimbursements();
       return true;
     } catch (e) {
-      _errorMessage = 'Failed to revert medical bill reimbursement to draft: $e';
-      AppLogger.severe('Error reverting medical bill reimbursement to draft: $e');
+      _errorMessage =
+          'Failed to revert medical bill reimbursement to draft: $e';
+      AppLogger.severe(
+        'Error reverting medical bill reimbursement to draft: $e',
+      );
       notifyListeners();
       return false;
     }

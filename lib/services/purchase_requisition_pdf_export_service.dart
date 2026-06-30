@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import '../models/purchase_requisition.dart';
 import '../utils/constants.dart';
 import '../utils/logger.dart';
+import 'pdf_signature_helper.dart';
 
 class PurchaseRequisitionPdfExportService {
   pw.Font? _ttf;
@@ -46,6 +47,7 @@ class PurchaseRequisitionPdfExportService {
     } catch (e) {
       // Logo loading failed, will use fallback
     }
+    await PdfSignatureHelper.load();
   }
 
   Future<Uint8List> generatePurchaseRequisitionPdf(
@@ -555,7 +557,7 @@ class PurchaseRequisitionPdfExportService {
           child: pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
             children: [
-              _buildSignatureBox('Requested By', requisition.requestedBy),
+              _buildSignatureBox('Requested By', requisition.requestedBy, showSignature: true),
               _buildSignatureBox('Approved By', requisition.approvedBy),
               if (hasHighValueItems)
                 _buildSignatureBox(
@@ -569,7 +571,7 @@ class PurchaseRequisitionPdfExportService {
     );
   }
 
-  pw.Widget _buildSignatureBox(String label, String? value) {
+  pw.Widget _buildSignatureBox(String label, String? value, {bool showSignature = false}) {
     return pw.Expanded(
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.center,
@@ -579,7 +581,9 @@ class PurchaseRequisitionPdfExportService {
             style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold),
             textAlign: pw.TextAlign.center,
           ),
-          pw.SizedBox(height: 40),
+          showSignature
+              ? PdfSignatureHelper.slot(width: 100, height: 40)
+              : pw.SizedBox(height: 40),
           pw.Container(
             width: 120,
             decoration: const pw.BoxDecoration(

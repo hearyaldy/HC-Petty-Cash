@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../models/adcom_minutes.dart';
 import '../../models/meeting.dart';
+import '../../services/adcom_minutes_service.dart';
 import '../../services/meeting_service.dart';
 import '../../utils/responsive_helper.dart';
 
@@ -15,6 +17,7 @@ class MeetingsDashboardScreen extends StatefulWidget {
 
 class _MeetingsDashboardScreenState extends State<MeetingsDashboardScreen> {
   final MeetingService _meetingService = MeetingService();
+  final AdcomMinutesService _adcomMinutesService = AdcomMinutesService();
 
   int _totalMeetings = 0;
   int _scheduledMeetings = 0;
@@ -910,73 +913,84 @@ class _MeetingsDashboardScreenState extends State<MeetingsDashboardScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        StreamBuilder<List<Meeting>>(
-          stream: _meetingService.getMeetings(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
+        StreamBuilder<List<AdcomMinutes>>(
+          stream: _adcomMinutesService.getMinutes(),
+          builder: (context, adcomSnapshot) {
+            // agendaIds that already have ADCOM minutes recorded against them.
+            final agendaIdsWithMinutes = (adcomSnapshot.data ?? [])
+                .map((m) => m.agendaId)
+                .toSet();
 
-            final meetings = snapshot.data ?? [];
-            final agendaTargets = meetings
-                .where(
-                  (meeting) =>
-                      (meeting.status == 'scheduled' ||
-                          meeting.status == 'inProgress') &&
-                      meeting.agendaId == null,
-                )
-                .take(3)
-                .toList();
-            final minutesTargets = meetings
-                .where(
-                  (meeting) =>
-                      (meeting.status == 'inProgress' ||
-                          meeting.status == 'completed') &&
-                      meeting.minutesId == null,
-                )
-                .take(3)
-                .toList();
+            return StreamBuilder<List<Meeting>>(
+              stream: _meetingService.getMeetings(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-            final agendaCard = _buildAgendaMinutesCard(
-              title: 'Agendas',
-              subtitle: 'Meetings needing an agenda',
-              icon: Icons.list_alt,
-              color: Colors.indigo,
-              meetings: agendaTargets,
-              emptyMessage: 'All upcoming meetings have agendas.',
-              actionLabel: 'Create Agenda',
-              onAction: (meeting) =>
-                  context.push('/meetings/${meeting.id}/agenda/edit'),
-            );
+                final meetings = snapshot.data ?? [];
+                final agendaTargets = meetings
+                    .where(
+                      (meeting) =>
+                          (meeting.status == 'scheduled' ||
+                              meeting.status == 'inProgress') &&
+                          meeting.agendaId == null,
+                    )
+                    .take(3)
+                    .toList();
+                // A meeting needs minutes if it has no ADCOM minutes for its
+                // agenda (the actual system meetings use) and no legacy
+                // minutesId either.
+                final minutesTargets = meetings
+                    .where(
+                      (meeting) =>
+                          meeting.minutesId == null &&
+                          !agendaIdsWithMinutes.contains(meeting.agendaId),
+                    )
+                    .toList();
 
-            final minutesCard = _buildAgendaMinutesCard(
-              title: 'Minutes',
-              subtitle: 'Assign minutes to a meeting',
-              icon: Icons.description,
-              color: Colors.teal,
-              meetings: minutesTargets,
-              emptyMessage: 'No meetings need minutes right now.',
-              actionLabel: 'Create Minutes',
-              onAction: (meeting) =>
-                  context.push('/meetings/${meeting.id}/minutes/edit'),
-            );
+                final agendaCard = _buildAgendaMinutesCard(
+                  title: 'Agendas',
+                  subtitle: 'Meetings needing an agenda',
+                  icon: Icons.list_alt,
+                  color: Colors.indigo,
+                  meetings: agendaTargets,
+                  emptyMessage: 'All upcoming meetings have agendas.',
+                  actionLabel: 'Create Agenda',
+                  onAction: (meeting) =>
+                      context.push('/meetings/${meeting.id}'),
+                );
 
-            if (ResponsiveHelper.isMobile(context)) {
-              return Column(
-                children: [
-                  agendaCard,
-                  const SizedBox(height: 12),
-                  minutesCard,
-                ],
-              );
-            }
+                final minutesCard = _buildAgendaMinutesCard(
+                  title: 'Minutes',
+                  subtitle: 'Assign minutes to a meeting',
+                  icon: Icons.description,
+                  color: Colors.teal,
+                  meetings: minutesTargets,
+                  emptyMessage: 'No meetings need minutes right now.',
+                  actionLabel: 'Create Minutes',
+                  onAction: (meeting) =>
+                      context.push('/meetings/${meeting.id}'),
+                );
 
-            return Row(
-              children: [
-                Expanded(child: agendaCard),
-                const SizedBox(width: 12),
-                Expanded(child: minutesCard),
-              ],
+                if (ResponsiveHelper.isMobile(context)) {
+                  return Column(
+                    children: [
+                      agendaCard,
+                      const SizedBox(height: 12),
+                      minutesCard,
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    Expanded(child: agendaCard),
+                    const SizedBox(width: 12),
+                    Expanded(child: minutesCard),
+                  ],
+                );
+              },
             );
           },
         ),
@@ -1377,6 +1391,12 @@ class _MeetingsDashboardScreenState extends State<MeetingsDashboardScreen> {
                 label: 'Committee Members',
                 color: Colors.teal,
                 onPressed: () => context.push('/meetings/committee-members'),
+              ),
+              _buildQuickActionChip(
+                icon: Icons.fact_check_outlined,
+                label: 'Search Voted Minutes',
+                color: Colors.green,
+                onPressed: () => context.push('/meetings/minutes/search'),
               ),
             ],
           ),

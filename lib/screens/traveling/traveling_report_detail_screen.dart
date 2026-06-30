@@ -7,6 +7,7 @@ import '../../models/traveling_report.dart';
 import '../../models/traveling_per_diem_entry.dart';
 import '../../services/firestore_service.dart';
 import '../../services/traveling_report_export_service.dart';
+import '../../models/enums.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/edit_traveling_report_dialog.dart';
 import '../../widgets/traveling_per_diem_entry_dialog.dart';
@@ -260,6 +261,93 @@ class _TravelingReportDetailScreenState
     }
   }
 
+  Future<void> _revertToDraft(TravelingReport report) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Revert to Draft'),
+        content: const Text(
+          'This will revert the report back to draft status, clearing all submission and approval data. Continue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            child: const Text('Revert to Draft'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      try {
+        await _firestoreService.revertTravelingReportToDraft(report.id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Report reverted to draft'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error reverting report: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _deleteReport(TravelingReport report) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Report'),
+        content: const Text(
+          'This will permanently delete this report and all its per diem entries. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      try {
+        await _firestoreService.deleteTravelingReport(report.id);
+        if (mounted) {
+          context.pop();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error deleting report: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   Future<void> _submitReport(TravelingReport report) async {
     if (report.status != 'draft') {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -447,7 +535,14 @@ class _TravelingReportDetailScreenState
     );
   }
 
-  Widget _buildHeaderCard() {
+  Widget _buildHeaderCard([TravelingReport? report]) {
+    final auth = context.read<AuthProvider>();
+    final canApprove = auth.canApprove();
+    final isAdminUser = auth.hasRole(UserRole.admin);
+    final currentUserId = auth.currentUser?.id;
+    final status = report?.status;
+    final isOwner = report?.reporterId == currentUserId;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -487,50 +582,82 @@ class _TravelingReportDetailScreenState
                 ),
                 tooltip: 'Actions',
                 onSelected: (value) async {
-                  final report = await _firestoreService.getTravelingReport(
+                  final freshReport = await _firestoreService.getTravelingReport(
                     widget.reportId,
                   );
-                  if (report == null) return;
+                  if (freshReport == null) return;
 
                   switch (value) {
                     case 'edit':
-                      _editReport(report);
+                      _editReport(freshReport);
                       break;
                     case 'submit':
-                      _submitReport(report);
+                      _submitReport(freshReport);
+                      break;
+                    case 'revert_to_draft':
+                      _revertToDraft(freshReport);
+                      break;
+                    case 'delete':
+                      _deleteReport(freshReport);
                       break;
                     case 'export':
-                      _exportPDF(report);
+                      _exportPDF(freshReport);
                       break;
                     case 'print':
-                      _printReport(report);
+                      _printReport(freshReport);
                       break;
                     case 'print_voucher':
-                      _printTravelingReportVoucher(report);
+                      _printTravelingReportVoucher(freshReport);
                       break;
                   }
                 },
                 itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'edit',
-                    child: Row(
-                      children: [
-                        Icon(Icons.edit, size: 20),
-                        SizedBox(width: 12),
-                        Text('Edit Report'),
-                      ],
+                  if (status == 'draft') ...[
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit, size: 20),
+                          SizedBox(width: 12),
+                          Text('Edit Report'),
+                        ],
+                      ),
                     ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'submit',
-                    child: Row(
-                      children: [
-                        Icon(Icons.send, size: 20),
-                        SizedBox(width: 12),
-                        Text('Submit'),
-                      ],
+                    const PopupMenuItem(
+                      value: 'submit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.send, size: 20),
+                          SizedBox(width: 12),
+                          Text('Submit'),
+                        ],
+                      ),
                     ),
-                  ),
+                  ],
+                  if (status != 'draft' && canApprove)
+                    PopupMenuItem(
+                      value: 'revert_to_draft',
+                      child: Row(
+                        children: [
+                          Icon(Icons.undo, size: 20, color: Colors.orange.shade700),
+                          const SizedBox(width: 12),
+                          Text('Revert to Draft',
+                              style: TextStyle(color: Colors.orange.shade700)),
+                        ],
+                      ),
+                    ),
+                  if (report != null && (isAdminUser || (status == 'draft' && isOwner)))
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_outline, size: 20, color: Colors.red.shade700),
+                          const SizedBox(width: 12),
+                          Text('Delete Report',
+                              style: TextStyle(color: Colors.red.shade700)),
+                        ],
+                      ),
+                    ),
                   const PopupMenuItem(
                     value: 'export',
                     child: Row(
@@ -636,7 +763,7 @@ class _TravelingReportDetailScreenState
                 ),
                 child: Column(
                   children: [
-                    _buildHeaderCard(),
+                    _buildHeaderCard(null),
                     const SizedBox(height: 100),
                     const Center(child: CircularProgressIndicator()),
                   ],
@@ -653,7 +780,7 @@ class _TravelingReportDetailScreenState
                 ),
                 child: Column(
                   children: [
-                    _buildHeaderCard(),
+                    _buildHeaderCard(null),
                     const SizedBox(height: 100),
                     Center(child: Text('Error: ${snapshot.error}')),
                   ],
@@ -671,7 +798,7 @@ class _TravelingReportDetailScreenState
                 ),
                 child: Column(
                   children: [
-                    _buildHeaderCard(),
+                    _buildHeaderCard(null),
                     const SizedBox(height: 100),
                     const Center(child: Text('Report not found')),
                   ],
@@ -695,7 +822,7 @@ class _TravelingReportDetailScreenState
         ),
         child: Column(
           children: [
-            _buildHeaderCard(),
+            _buildHeaderCard(report),
             const SizedBox(height: 16),
             _buildReportHeader(report),
             _buildTravelingDetails(report),
@@ -910,19 +1037,20 @@ class _TravelingReportDetailScreenState
             ),
           ],
           const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () => _showSupportDocumentUploadDialog(report),
-              icon: const Icon(Icons.upload_file, size: 18),
-              label: const Text('Upload Support Documents'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.orange.shade700,
-                padding: const EdgeInsets.symmetric(vertical: 12),
+          if (context.read<AuthProvider>().canUploadSupportDocument())
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => _showSupportDocumentUploadDialog(report),
+                icon: const Icon(Icons.upload_file, size: 18),
+                label: const Text('Upload Support Documents'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.orange.shade700,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
               ),
             ),
-          ),
         ],
       ),
     );

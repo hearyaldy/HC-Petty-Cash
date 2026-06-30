@@ -29,7 +29,7 @@ class AppDrawer extends StatelessWidget {
                   _buildNavItem(
                     context,
                     icon: Icons.dashboard_rounded,
-                    title: 'Admin Hub',
+                    title: isAdmin ? 'Admin Hub' : 'Main Hub',
                     route: '/admin-hub',
                     color: const Color(0xFF2563EB),
                   ),
@@ -50,6 +50,7 @@ class AppDrawer extends StatelessWidget {
                       _NavItem(Icons.trending_up, 'Income Reports', '/income'),
                       _NavItem(Icons.shopping_cart_outlined, 'Purchase Requisitions', '/purchase-requisitions'),
                       _NavItem(Icons.account_balance_wallet_outlined, 'Cash Advances', '/cash-advances'),
+                      _NavItem(Icons.receipt_long_outlined, 'Expense Claims', '/expense-claims'),
                       if (canApprove)
                         _NavItem(Icons.pending_actions, 'Pending Approvals', '/approvals', badge: true),
                       if (canApprove)
@@ -150,6 +151,17 @@ class AppDrawer extends StatelessWidget {
                         _NavItem(Icons.article, 'AdCom Agendas', '/admin/adcom-agendas'),
                       ],
                     ),
+
+                    // MI Surveys
+                    _buildSection(
+                      context,
+                      icon: Icons.poll_outlined,
+                      title: 'MI Surveys',
+                      color: const Color(0xFF0D9488),
+                      items: [
+                        _NavItem(Icons.poll_outlined, 'Survey Management', '/admin/surveys'),
+                      ],
+                    ),
                   ],
 
                   // ── Personal (non-admin staff) ───────────────────────
@@ -171,8 +183,12 @@ class AppDrawer extends StatelessWidget {
                 if (isStudentWorker)
                   _buildSection(
                     context,
-                    icon: Icons.school,
-                    title: 'Student',
+                    icon: user?.workerType == 'volunteer'
+                        ? Icons.volunteer_activism
+                        : Icons.school,
+                    title: user?.workerType == 'volunteer'
+                        ? 'Volunteer'
+                        : 'Student',
                     color: const Color(0xFF0891B2),
                     items: [
                       _NavItem(Icons.dashboard_outlined, 'Student Dashboard', '/student-dashboard'),

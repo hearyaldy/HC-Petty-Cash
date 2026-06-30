@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 import 'package:provider/provider.dart';
+import '../../models/enums.dart';
 import '../../models/traveling_report.dart';
 import '../../services/firestore_service.dart';
 import '../../providers/auth_provider.dart';
@@ -176,17 +177,17 @@ class _TravelingReportsScreenState extends State<TravelingReportsScreen> {
   Future<void> _deleteReport(TravelingReport report) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final user = authProvider.currentUser;
+    final isAdmin = authProvider.hasRole(UserRole.admin);
 
     if (user == null) return;
 
-    // Only allow deletion of user's own draft or submitted reports
-    if (report.reporterId != user.id ||
-        (!['draft', 'submitted'].contains(report.status))) {
+    // Admin can delete any report; others can only delete their own draft/submitted
+    if (!isAdmin &&
+        (report.reporterId != user.id ||
+            !['draft', 'submitted'].contains(report.status))) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'You can only delete your own draft or submitted reports',
-          ),
+          content: Text('You can only delete your own draft or submitted reports'),
           backgroundColor: Colors.red,
         ),
       );
@@ -516,6 +517,10 @@ class _TravelingReportsScreenState extends State<TravelingReportsScreen> {
     final dateFormat = DateFormat('MMM dd, yyyy');
     final currencyFormat = NumberFormat('#,##0.00', 'en_US');
     final statusColor = _getStatusColor(report.status);
+    final auth = context.read<AuthProvider>();
+    final isAdmin = auth.hasRole(UserRole.admin);
+    final currentUserId = auth.currentUser?.id;
+    final isOwner = report.reporterId == currentUserId;
 
     IconData statusIcon;
     switch (report.status) {
@@ -721,7 +726,7 @@ class _TravelingReportsScreenState extends State<TravelingReportsScreen> {
                       foregroundColor: Theme.of(context).colorScheme.primary,
                     ),
                   ),
-                  if (report.status == 'draft') ...[
+                  if (report.status == 'draft' || (isAdmin && isOwner)) ...[
                     const SizedBox(width: 8),
                     TextButton.icon(
                       onPressed: () => _editReport(report),
@@ -732,7 +737,7 @@ class _TravelingReportsScreenState extends State<TravelingReportsScreen> {
                       ),
                     ),
                   ],
-                  if (['draft', 'submitted'].contains(report.status)) ...[
+                  if (['draft', 'submitted'].contains(report.status) || isAdmin) ...[
                     const SizedBox(width: 8),
                     TextButton.icon(
                       onPressed: () => _deleteReport(report),

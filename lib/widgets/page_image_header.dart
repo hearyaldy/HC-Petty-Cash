@@ -25,86 +25,66 @@ class PageImageHeader extends StatelessWidget {
     return SizedBox(
       height: height,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 0),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          image: const DecorationImage(
-            image: AssetImage('assets/assets/images/app_icon.png'),
-            fit: BoxFit.cover,
-            alignment: Alignment.centerRight,
+          gradient: LinearGradient(
+            colors: [Colors.indigo.shade700, Colors.purple.shade500],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.18),
+              color: Colors.indigo.withValues(alpha: 0.3),
               blurRadius: 16,
               offset: const Offset(0, 8),
             ),
           ],
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: Stack(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: Column(
             children: [
-              Container(color: Colors.black.withValues(alpha: 0.25)),
-              Positioned.fill(
-                child: Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.transparent, Colors.black54],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                    ),
-                  ),
-                ),
+              Row(
+                children: [
+                  if (showBackButton)
+                    leading ??
+                        _buildHeaderActionButton(
+                          icon: Icons.arrow_back,
+                          tooltip: 'Back',
+                          onPressed: () => Navigator.of(context).pop(),
+                        )
+                  else
+                    const SizedBox(width: 40),
+                  const Spacer(),
+                  ...actions,
+                ],
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              const Spacer(),
+              Align(
+                alignment: Alignment.centerLeft,
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        if (showBackButton)
-                          leading ??
-                              _buildHeaderActionButton(
-                                icon: Icons.arrow_back,
-                                tooltip: 'Back',
-                                onPressed: () => Navigator.of(context).pop(),
-                              )
-                        else
-                          const SizedBox(width: 40),
-                        const Spacer(),
-                        ...actions,
-                      ],
-                    ),
-                    const Spacer(),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ?statusChip,
-                          if (statusChip != null) const SizedBox(height: 10),
-                          Text(
-                            title,
-                            style: const TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          if (subtitle != null) ...[
-                            const SizedBox(height: 6),
-                            Text(
-                              subtitle!,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ],
+                    ?statusChip,
+                    if (statusChip != null) const SizedBox(height: 10),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
                     ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        subtitle!,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -126,7 +106,7 @@ class PageImageHeader extends StatelessWidget {
       tooltip: tooltip,
       icon: Icon(icon, color: iconColor),
       style: IconButton.styleFrom(
-        backgroundColor: Colors.black.withValues(alpha: 0.3),
+        backgroundColor: Colors.white.withValues(alpha: 0.15),
         foregroundColor: Colors.white,
         minimumSize: const Size(40, 40),
         shape: const CircleBorder(),

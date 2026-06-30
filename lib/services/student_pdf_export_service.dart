@@ -3,6 +3,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
 import '../models/student_timesheet.dart';
+import 'pdf_signature_helper.dart';
 
 class StudentPdfExportService {
   Future<Uint8List> exportStudentReport({
@@ -21,6 +22,7 @@ class StudentPdfExportService {
     required String? role,
     required String? paymentStatus,
   }) async {
+    await PdfSignatureHelper.load();
     final pdf = pw.Document();
     final dateFormat = DateFormat('MMM dd, yyyy');
     final timeFormat = DateFormat('HH:mm');
@@ -579,7 +581,7 @@ class StudentPdfExportService {
                         fontWeight: pw.FontWeight.bold,
                       ),
                     ),
-                    pw.SizedBox(height: 40),
+                    PdfSignatureHelper.slot(width: 100, height: 40),
                     pw.Container(
                       decoration: pw.BoxDecoration(
                         border: pw.Border(

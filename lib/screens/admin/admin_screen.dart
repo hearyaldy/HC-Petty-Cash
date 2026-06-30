@@ -439,6 +439,26 @@ class _AdminScreenState extends State<AdminScreen> {
                               ),
                             ),
                           ),
+                          if (user.workerType == 'volunteer')
+                            Container(
+                              margin: const EdgeInsets.only(right: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.purple.shade400,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Text(
+                                'Volunteer',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
                           if (profile?.grade != null)
                             Container(
                               padding: const EdgeInsets.symmetric(
@@ -1476,6 +1496,17 @@ class _AdminScreenState extends State<AdminScreen> {
     String? selectedLanguage = profile?.language;
     String? selectedRole = profile?.role;
     String? selectedGrade = profile?.grade;
+    final isVolunteer = user.workerType == 'volunteer';
+
+    // Backward compat: a previously saved free-text role won't match the
+    // fixed list below, so treat it as a custom "Other" value.
+    final customRoleController = TextEditingController();
+    if (selectedRole != null &&
+        !['Video Editor', 'Producer', 'Content Creator', 'Language Editor', 'Other']
+            .contains(selectedRole)) {
+      customRoleController.text = selectedRole;
+      selectedRole = 'Other';
+    }
 
     final yearLevels = [
       '1st Year',
@@ -1521,8 +1552,8 @@ class _AdminScreenState extends State<AdminScreen> {
                     color: Colors.orange,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(
-                    Icons.school,
+                  child: Icon(
+                    isVolunteer ? Icons.volunteer_activism : Icons.school,
                     color: Colors.white,
                     size: 20,
                   ),
@@ -1532,9 +1563,9 @@ class _AdminScreenState extends State<AdminScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Edit Student Profile',
-                        style: TextStyle(fontSize: 18),
+                      Text(
+                        isVolunteer ? 'Edit Volunteer Profile' : 'Edit Student Profile',
+                        style: const TextStyle(fontSize: 18),
                       ),
                       Text(
                         user.name,
@@ -1555,17 +1586,19 @@ class _AdminScreenState extends State<AdminScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    TextFormField(
-                      controller: studentNumberController,
-                      decoration: const InputDecoration(
-                        labelText: 'Student Number *',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.badge),
+                    if (!isVolunteer) ...[
+                      TextFormField(
+                        controller: studentNumberController,
+                        decoration: const InputDecoration(
+                          labelText: 'Student Number *',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.badge),
+                        ),
+                        validator: (value) =>
+                            value == null || value.isEmpty ? 'Required' : null,
                       ),
-                      validator: (value) =>
-                          value == null || value.isEmpty ? 'Required' : null,
-                    ),
-                    const SizedBox(height: 12),
+                      const SizedBox(height: 12),
+                    ],
                     TextFormField(
                       controller: phoneNumberController,
                       decoration: const InputDecoration(
@@ -1577,32 +1610,35 @@ class _AdminScreenState extends State<AdminScreen> {
                           value == null || value.isEmpty ? 'Required' : null,
                     ),
                     const SizedBox(height: 12),
-                    TextFormField(
-                      controller: courseController,
-                      decoration: const InputDecoration(
-                        labelText: 'Course *',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.book),
+                    if (!isVolunteer) ...[
+                      TextFormField(
+                        controller: courseController,
+                        decoration: const InputDecoration(
+                          labelText: 'Course *',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.book),
+                        ),
+                        validator: (value) =>
+                            value == null || value.isEmpty ? 'Required' : null,
                       ),
-                      validator: (value) =>
-                          value == null || value.isEmpty ? 'Required' : null,
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedYearLevel,
-                      decoration: const InputDecoration(
-                        labelText: 'Year Level',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.school_outlined),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedYearLevel,
+                        decoration: const InputDecoration(
+                          labelText: 'Year Level',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.school_outlined),
+                        ),
+                        items: yearLevels
+                            .map(
+                              (y) => DropdownMenuItem(value: y, child: Text(y)),
+                            )
+                            .toList(),
+                        onChanged: (v) =>
+                            setState(() => selectedYearLevel = v!),
                       ),
-                      items: yearLevels
-                          .map(
-                            (y) => DropdownMenuItem(value: y, child: Text(y)),
-                          )
-                          .toList(),
-                      onChanged: (v) => setState(() => selectedYearLevel = v!),
-                    ),
-                    const SizedBox(height: 12),
+                      const SizedBox(height: 12),
+                    ],
                     DropdownButtonFormField<String>(
                       initialValue: selectedLanguage,
                       decoration: const InputDecoration(
@@ -1632,6 +1668,25 @@ class _AdminScreenState extends State<AdminScreen> {
                           .toList(),
                       onChanged: (v) => setState(() => selectedRole = v),
                     ),
+                    if (selectedRole == 'Other') ...[
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: customRoleController,
+                        decoration: const InputDecoration(
+                          labelText: 'Specify Role *',
+                          hintText: 'e.g., Photographer',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.edit_note),
+                        ),
+                        validator: (value) {
+                          if (selectedRole == 'Other' &&
+                              (value == null || value.trim().isEmpty)) {
+                            return 'Please specify the role';
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
                       initialValue: selectedGrade,
@@ -1698,14 +1753,21 @@ class _AdminScreenState extends State<AdminScreen> {
                 onPressed: () async {
                   if (formKey.currentState!.validate()) {
                     Navigator.pop(context);
+                    final effectiveRole =
+                        selectedRole == 'Other' &&
+                            customRoleController.text.trim().isNotEmpty
+                        ? customRoleController.text.trim()
+                        : selectedRole;
                     await _updateStudentProfile(
                       user.id,
-                      studentNumber: studentNumberController.text.trim(),
+                      studentNumber: isVolunteer
+                          ? ''
+                          : studentNumberController.text.trim(),
                       phoneNumber: phoneNumberController.text.trim(),
-                      course: courseController.text.trim(),
-                      yearLevel: selectedYearLevel,
+                      course: isVolunteer ? '' : courseController.text.trim(),
+                      yearLevel: isVolunteer ? '' : selectedYearLevel,
                       language: selectedLanguage,
-                      role: selectedRole,
+                      role: effectiveRole,
                       grade: selectedGrade,
                       hourlyRate: calculatedRate > 0
                           ? calculatedRate

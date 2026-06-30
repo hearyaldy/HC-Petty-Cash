@@ -12,9 +12,10 @@ class BudgetService {
   // ── Budget Years ──────────────────────────────────────────────────────────
 
   Stream<List<BudgetYear>> budgetYearsStream() {
-    return _years.orderBy('year', descending: true).snapshots().map(
-          (s) => s.docs.map((d) => BudgetYear.fromFirestore(d)).toList(),
-        );
+    return _years
+        .orderBy('year', descending: true)
+        .snapshots()
+        .map((s) => s.docs.map((d) => BudgetYear.fromFirestore(d)).toList());
   }
 
   Future<BudgetYear?> getBudgetYear(String id) async {
@@ -32,8 +33,7 @@ class BudgetService {
 
   Future<void> deleteBudgetYear(String id) async {
     final batch = _db.batch();
-    final items =
-        await _items.where('budgetYearId', isEqualTo: id).get();
+    final items = await _items.where('budgetYearId', isEqualTo: id).get();
     for (final doc in items.docs) {
       batch.delete(doc.reference);
     }
@@ -48,7 +48,9 @@ class BudgetService {
         .where('budgetYearId', isEqualTo: budgetYearId)
         .orderBy('sortOrder')
         .snapshots()
-        .map((s) => s.docs.map((d) => BudgetLineItem.fromFirestore(d)).toList());
+        .map(
+          (s) => s.docs.map((d) => BudgetLineItem.fromFirestore(d)).toList(),
+        );
   }
 
   Future<List<BudgetLineItem>> getLineItems(String budgetYearId) async {
@@ -61,6 +63,30 @@ class BudgetService {
 
   Future<void> updateLineItem(BudgetLineItem item) async {
     await _items.doc(item.id).update(item.toFirestore());
+  }
+
+  Future<void> updateSection({
+    required String budgetYearId,
+    required String currentScheduleCode,
+    required String scheduleCode,
+    required String sectionTitle,
+    required String sectionType,
+  }) async {
+    final snap = await _items
+        .where('budgetYearId', isEqualTo: budgetYearId)
+        .where('scheduleCode', isEqualTo: currentScheduleCode)
+        .get();
+    final batch = _db.batch();
+    final now = Timestamp.fromDate(DateTime.now());
+    for (final doc in snap.docs) {
+      batch.update(doc.reference, {
+        'scheduleCode': scheduleCode,
+        'sectionTitle': sectionTitle,
+        'sectionType': sectionType,
+        'updatedAt': now,
+      });
+    }
+    await batch.commit();
   }
 
   Future<BudgetLineItem> addLineItem({
@@ -96,6 +122,21 @@ class BudgetService {
     await _items.doc(id).delete();
   }
 
+  Future<void> deleteSection({
+    required String budgetYearId,
+    required String scheduleCode,
+  }) async {
+    final snap = await _items
+        .where('budgetYearId', isEqualTo: budgetYearId)
+        .where('scheduleCode', isEqualTo: scheduleCode)
+        .get();
+    final batch = _db.batch();
+    for (final doc in snap.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
+  }
+
   // ── Create new year (seeded with default HCSA schedule) ──────────────────
 
   Future<BudgetYear> createBudgetYear({
@@ -125,7 +166,10 @@ class BudgetService {
   }
 
   Future<void> _copyLineItems(
-      String fromYearId, String toYearId, Uuid uuid) async {
+    String fromYearId,
+    String toYearId,
+    Uuid uuid,
+  ) async {
     final source = await getLineItems(fromYearId);
     final batch = _db.batch();
     for (final item in source) {
@@ -160,62 +204,126 @@ class BudgetService {
 
   /// Returns a map of lineItemId → actual amount for the given year.
   Future<Map<String, double>> calculateActuals(
-      List<BudgetLineItem> items, int year) async {
+    List<BudgetLineItem> items,
+    int year,
+  ) async {
     final result = <String, double>{};
     try {
       final start = Timestamp.fromDate(DateTime(year, 1, 1));
       final end = Timestamp.fromDate(DateTime(year, 12, 31, 23, 59, 59));
 
-      // Pre-fetch all transactions for the year (approved/processed)
-      final txSnap = await _db
-          .collection('transactions')
-          .where('date', isGreaterThanOrEqualTo: start)
-          .where('date', isLessThanOrEqualTo: end)
-          .where('status', whereIn: ['approved', 'processed'])
-          .get();
+      // Query by date only — filter status in-memory to avoid composite index requirements.
 
+      // Transactions (petty cash line items)
       final Map<String, double> txByCategory = {};
-      for (final doc in txSnap.docs) {
-        final data = doc.data();
-        final cat = data['category'] as String? ?? 'other';
-        final amount = (data['amount'] ?? 0.0).toDouble();
-        txByCategory[cat] = (txByCategory[cat] ?? 0.0) + amount;
+      try {
+        final txSnap = await _db
+            .collection('transactions')
+            .where('date', isGreaterThanOrEqualTo: start)
+            .where('date', isLessThanOrEqualTo: end)
+            .get();
+        for (final doc in txSnap.docs) {
+          final data = doc.data();
+          final status = data['status'] as String? ?? '';
+          if (status != 'approved' && status != 'processed') continue;
+          final customCat = data['customCategory'] as String?;
+          final amount = (data['amount'] ?? 0.0).toDouble();
+          if (customCat != null && customCat.isNotEmpty) {
+            txByCategory[customCat] = (txByCategory[customCat] ?? 0.0) + amount;
+          } else {
+            final cat = data['category'] as String? ?? 'other';
+            txByCategory[cat] = (txByCategory[cat] ?? 0.0) + amount;
+          }
+        }
+      } catch (e) {
+        AppLogger.warning('Budget actuals — transactions query failed: $e');
       }
 
-      // Pre-fetch traveling reports totals
+      // Traveling reports
       double travelingTotal = 0.0;
       try {
         final trSnap = await _db
             .collection('traveling_reports')
             .where('reportDate', isGreaterThanOrEqualTo: start)
             .where('reportDate', isLessThanOrEqualTo: end)
-            .where('status', whereIn: ['approved', 'closed'])
             .get();
         for (final doc in trSnap.docs) {
           final data = doc.data();
+          final status = data['status'] as String? ?? '';
+          if (status != 'approved' && status != 'closed') continue;
           travelingTotal += (data['perDiemTotal'] ?? 0.0).toDouble();
-          final km = ((data['mileageEnd'] ?? 0.0) - (data['mileageStart'] ?? 0.0)).toDouble();
+          final km =
+              ((data['mileageEnd'] ?? 0.0) - (data['mileageStart'] ?? 0.0))
+                  .toDouble();
           travelingTotal += km * 5.0;
         }
       } catch (e) {
-        AppLogger.warning('Could not fetch traveling reports for actuals: $e');
+        AppLogger.warning(
+          'Budget actuals — traveling reports query failed: $e',
+        );
       }
 
-      // Pre-fetch income reports totals
+      // Income reports
       double incomeTotal = 0.0;
       try {
         final incSnap = await _db
             .collection('income_reports')
             .where('reportDate', isGreaterThanOrEqualTo: start)
             .where('reportDate', isLessThanOrEqualTo: end)
-            .where('status', whereIn: ['approved', 'closed'])
             .get();
         for (final doc in incSnap.docs) {
-          incomeTotal += (doc.data()['totalIncome'] ?? 0.0).toDouble();
+          final data = doc.data();
+          final status = data['status'] as String? ?? '';
+          if (status != 'approved' && status != 'closed') continue;
+          incomeTotal += (data['totalIncome'] ?? 0.0).toDouble();
         }
       } catch (e) {
-        AppLogger.warning('Could not fetch income reports for actuals: $e');
+        AppLogger.warning('Budget actuals — income reports query failed: $e');
       }
+
+      // Petty cash reports
+      double pettyCashTotal = 0.0;
+      try {
+        final pcSnap = await _db
+            .collection('reports')
+            .where('periodStart', isGreaterThanOrEqualTo: start)
+            .where('periodStart', isLessThanOrEqualTo: end)
+            .get();
+        for (final doc in pcSnap.docs) {
+          final data = doc.data();
+          final status = data['status'] as String? ?? '';
+          if (status != 'approved' && status != 'closed') continue;
+          pettyCashTotal += (data['totalDisbursements'] ?? 0.0).toDouble();
+        }
+      } catch (e) {
+        AppLogger.warning(
+          'Budget actuals — petty cash reports query failed: $e',
+        );
+      }
+
+      // Project reports
+      double projectTotal = 0.0;
+      try {
+        final prSnap = await _db
+            .collection('project_reports')
+            .where('startDate', isGreaterThanOrEqualTo: start)
+            .where('startDate', isLessThanOrEqualTo: end)
+            .get();
+        for (final doc in prSnap.docs) {
+          final data = doc.data();
+          final status = data['status'] as String? ?? '';
+          if (status != 'approved' && status != 'closed') continue;
+          projectTotal += (data['totalExpenses'] ?? 0.0).toDouble();
+        }
+      } catch (e) {
+        AppLogger.warning('Budget actuals — project reports query failed: $e');
+      }
+
+      AppLogger.info(
+        'Budget actuals $year: tx=${txByCategory.length} cats, '
+        'travel=$travelingTotal, income=$incomeTotal, '
+        'pettyCash=$pettyCashTotal, project=$projectTotal',
+      );
 
       // Map each line item
       for (final item in items) {
@@ -226,6 +334,12 @@ class BudgetService {
         }
         if (item.linkedReportType == 'income') {
           actual += incomeTotal;
+        }
+        if (item.linkedReportType == 'petty_cash') {
+          actual += pettyCashTotal;
+        }
+        if (item.linkedReportType == 'project') {
+          actual += projectTotal;
         }
         if (item.linkedTransactionCategory != null) {
           actual += txByCategory[item.linkedTransactionCategory!] ?? 0.0;
@@ -339,127 +453,276 @@ class BudgetService {
       String name, {
       String? txCat,
       String? reportType,
-    }) =>
-        BudgetLineItem(
-          id: uuid.v4(),
-          budgetYearId: yearId,
-          scheduleCode: code,
-          sectionTitle: section,
-          sectionType: type,
-          name: name,
-          budgetAmount: _budget2026Amounts[name] ?? 0.0,
-          linkedTransactionCategory: txCat,
-          linkedReportType: reportType,
-          sortOrder: order++,
-        );
+    }) => BudgetLineItem(
+      id: uuid.v4(),
+      budgetYearId: yearId,
+      scheduleCode: code,
+      sectionTitle: section,
+      sectionType: type,
+      name: name,
+      budgetAmount: _budget2026Amounts[name] ?? 0.0,
+      linkedTransactionCategory: txCat,
+      linkedReportType: reportType,
+      sortOrder: order++,
+    );
 
     return [
       // ── Income ────────────────────────────────────────────────────────────
-      mk('S-15', 'Tithe Income', 'income',
-          'Tithe Percentages from Mission 1.3% (0.75%)'),
+      mk(
+        'S-15',
+        'Tithe Income',
+        'income',
+        'Tithe Percentages from Mission 1.3% (0.75%)',
+      ),
       mk('S-16', 'Offering Income & Specific Donations', 'income', 'Donations'),
       mk('S-17', 'Other Operating Income', 'income', "Employee's rental share"),
       mk('S-17', 'Other Operating Income', 'income', 'House Rental (Income)'),
       mk('S-17', 'Other Operating Income', 'income', 'Miscellaneous Income'),
       mk('S-17', 'Other Operating Income', 'income', 'Other Incomes'),
-      mk('S-17', 'Other Operating Income', 'income', 'Production Service Income'),
-      mk('S-17', 'Other Operating Income', 'income', 'Project/Funct - Alloc Income'),
+      mk(
+        'S-17',
+        'Other Operating Income',
+        'income',
+        'Production Service Income',
+      ),
+      mk(
+        'S-17',
+        'Other Operating Income',
+        'income',
+        'Project/Funct - Alloc Income',
+      ),
       mk('S-17', 'Other Operating Income', 'income', 'Travel Income'),
       // ── Expenses ─────────────────────────────────────────────────────────
       mk('S-18a', 'Employee Related Expenses', 'expense', 'AD & D Insurance'),
-      mk('S-18a', 'Employee Related Expenses', 'expense',
-          'Bonus/Christmas Gift/Farewell'),
-      mk('S-18a', 'Employee Related Expenses', 'expense',
-          'Car Allowance (annual exp)'),
-      mk('S-18a', 'Employee Related Expenses', 'expense',
-          'Continue Education (Upgrading)'),
+      mk(
+        'S-18a',
+        'Employee Related Expenses',
+        'expense',
+        'Bonus/Christmas Gift/Farewell',
+      ),
+      mk(
+        'S-18a',
+        'Employee Related Expenses',
+        'expense',
+        'Car Allowance (annual exp)',
+      ),
+      mk(
+        'S-18a',
+        'Employee Related Expenses',
+        'expense',
+        'Continue Education (Upgrading)',
+      ),
       mk('S-18a', 'Employee Related Expenses', 'expense', 'Dental Expense'),
-      mk('S-18a', 'Employee Related Expenses', 'expense',
-          'EPF Contribution/Provident Fund'),
+      mk(
+        'S-18a',
+        'Employee Related Expenses',
+        'expense',
+        'EPF Contribution/Provident Fund',
+      ),
       mk('S-18a', 'Employee Related Expenses', 'expense', 'Educational Aid'),
       mk('S-18a', 'Employee Related Expenses', 'expense', 'Equipment Subsidy'),
-      mk('S-18a', 'Employee Related Expenses', 'expense',
-          'Global Life Insurance'),
-      mk('S-18a', 'Employee Related Expenses', 'expense',
-          'Home Base Deposit/Retirement Contribution 3%'),
-      mk('S-18a', 'Employee Related Expenses', 'expense',
-          "Home Owner's subsidy/Rental subsidy"),
+      mk(
+        'S-18a',
+        'Employee Related Expenses',
+        'expense',
+        'Global Life Insurance',
+      ),
+      mk(
+        'S-18a',
+        'Employee Related Expenses',
+        'expense',
+        'Home Base Deposit/Retirement Contribution 3%',
+      ),
+      mk(
+        'S-18a',
+        'Employee Related Expenses',
+        'expense',
+        "Home Owner's subsidy/Rental subsidy",
+      ),
       mk('S-18a', 'Employee Related Expenses', 'expense', 'Intern Cost'),
-      mk('S-18a', 'Employee Related Expenses', 'expense', 'Medical Expense',
-          txCat: 'medicalReimbursement'),
-      mk('S-18a', 'Employee Related Expenses', 'expense',
-          'Mobile Telephone Allow.'),
+      mk(
+        'S-18a',
+        'Employee Related Expenses',
+        'expense',
+        'Medical Expense',
+        txCat: 'medicalReimbursement',
+      ),
+      mk(
+        'S-18a',
+        'Employee Related Expenses',
+        'expense',
+        'Mobile Telephone Allow.',
+      ),
       mk('S-18a', 'Employee Related Expenses', 'expense', 'Optical Expense'),
       mk('S-18a', 'Employee Related Expenses', 'expense', 'Salary'),
       mk('S-18a', 'Employee Related Expenses', 'expense', 'Social Security'),
       mk('S-18a', 'Employee Related Expenses', 'expense', 'Stipend'),
-      mk('S-18b', 'Travel Expenses', 'expense', 'Home Leave Expense',
-          txCat: 'travel'),
-      mk('S-18b', 'Travel Expenses', 'expense', 'Travel Expense',
-          reportType: 'traveling'),
+      mk(
+        'S-18b',
+        'Travel Expenses',
+        'expense',
+        'Home Leave Expense',
+        txCat: 'travel',
+      ),
+      mk(
+        'S-18b',
+        'Travel Expenses',
+        'expense',
+        'Travel Expense',
+        reportType: 'traveling',
+      ),
       mk('S-18c', 'Program Specific Expenses', 'expense', 'Evangelism Expense'),
-      mk('S-18c', 'Program Specific Expenses', 'expense',
-          'HC Production Expense'),
-      mk('S-18c', 'Program Specific Expenses', 'expense',
-          'Project/Funct Alloc Expense'),
-      mk('S-18c', 'Program Specific Expenses', 'expense',
-          'Software Maintenance Expense'),
+      mk(
+        'S-18c',
+        'Program Specific Expenses',
+        'expense',
+        'HC Production Expense',
+      ),
+      mk(
+        'S-18c',
+        'Program Specific Expenses',
+        'expense',
+        'Project/Funct Alloc Expense',
+      ),
+      mk(
+        'S-18c',
+        'Program Specific Expenses',
+        'expense',
+        'Software Maintenance Expense',
+      ),
       mk('S-19', 'Administrative Expenses', 'expense', 'Entertainment Expense'),
       mk('S-19', 'Administrative Expenses', 'expense', 'General Meeting'),
       mk('S-19', 'Administrative Expenses', 'expense', 'Immigration Expense'),
-      mk('S-20a', 'Office Expenses', 'expense', 'Office Supplies',
-          txCat: 'supplies'),
+      mk(
+        'S-20a',
+        'Office Expenses',
+        'expense',
+        'Office Supplies',
+        txCat: 'supplies',
+      ),
       mk('S-20a', 'Office Expenses', 'expense', 'Photocopy'),
       mk('S-20a', 'Office Expenses', 'expense', 'Postage'),
       mk('S-20a', 'Office Expenses', 'expense', 'Telephone Expense'),
-      mk('S-20a', 'Office Expenses', 'expense',
-          'Translation & Printing Expense'),
+      mk(
+        'S-20a',
+        'Office Expenses',
+        'expense',
+        'Translation & Printing Expense',
+      ),
       mk('S-20b', 'General Expenses', 'expense', 'Condolence Expenses/Wreath'),
-      mk('S-20b', 'General Expenses', 'expense', 'Internet Expense',
-          txCat: 'utilities'),
+      mk(
+        'S-20b',
+        'General Expenses',
+        'expense',
+        'Internet Expense',
+        txCat: 'utilities',
+      ),
       mk('S-20b', 'General Expenses', 'expense', 'Retreat Expense'),
       mk('S-20b', 'General Expenses', 'expense', 'Software Licenses'),
       mk('S-20b', 'General Expenses', 'expense', 'Student Labor'),
-      mk('S-20b', 'General Expenses', 'expense',
-          'Uncapitalized Tools & Accessories'),
+      mk(
+        'S-20b',
+        'General Expenses',
+        'expense',
+        'Uncapitalized Tools & Accessories',
+      ),
       mk('S-20b', 'General Expenses', 'expense', 'Advertisement Expense'),
       mk('S-21', 'Other Operating Expense', 'expense', 'Building Insurance'),
-      mk('S-21', 'Other Operating Expense', 'expense',
-          'Building Maintenance Expense', txCat: 'maintenance'),
-      mk('S-21', 'Other Operating Expense', 'expense',
-          'Deprec Exp - Buildings And Fixtures'),
-      mk('S-21', 'Other Operating Expense', 'expense',
-          'Deprec Exp - Furnishings And Equipment'),
+      mk(
+        'S-21',
+        'Other Operating Expense',
+        'expense',
+        'Building Maintenance Expense',
+        txCat: 'maintenance',
+      ),
+      mk(
+        'S-21',
+        'Other Operating Expense',
+        'expense',
+        'Deprec Exp - Buildings And Fixtures',
+      ),
+      mk(
+        'S-21',
+        'Other Operating Expense',
+        'expense',
+        'Deprec Exp - Furnishings And Equipment',
+      ),
       mk('S-21', 'Other Operating Expense', 'expense', 'Deprec Exp - Vehicles'),
-      mk('S-21', 'Other Operating Expense', 'expense',
-          'Diesel Fuel/Gasoline Expense'),
-      mk('S-21', 'Other Operating Expense', 'expense', 'Electricity',
-          txCat: 'utilities'),
+      mk(
+        'S-21',
+        'Other Operating Expense',
+        'expense',
+        'Diesel Fuel/Gasoline Expense',
+      ),
+      mk(
+        'S-21',
+        'Other Operating Expense',
+        'expense',
+        'Electricity',
+        txCat: 'utilities',
+      ),
       mk('S-21', 'Other Operating Expense', 'expense', 'Ground Expense'),
       mk('S-21', 'Other Operating Expense', 'expense', 'Janitorial Expense'),
-      mk('S-21', 'Other Operating Expense', 'expense',
-          'Repair & Maintenance Expense', txCat: 'maintenance'),
+      mk(
+        'S-21',
+        'Other Operating Expense',
+        'expense',
+        'Repair & Maintenance Expense',
+        txCat: 'maintenance',
+      ),
       mk('S-21', 'Other Operating Expense', 'expense', 'Security Expense'),
-      mk('S-21', 'Other Operating Expense', 'expense',
-          'Tool & Equipment Accessory'),
+      mk(
+        'S-21',
+        'Other Operating Expense',
+        'expense',
+        'Tool & Equipment Accessory',
+      ),
       mk('S-21', 'Other Operating Expense', 'expense', 'Vehicle Insurance'),
-      mk('S-21', 'Other Operating Expense', 'expense',
-          'Vehicle Repair/Maintenance'),
+      mk(
+        'S-21',
+        'Other Operating Expense',
+        'expense',
+        'Vehicle Repair/Maintenance',
+      ),
       mk('S-21', 'Other Operating Expense', 'expense', 'Vehicle Road Tax'),
       mk('S-21', 'Other Operating Expense', 'expense', 'Water'),
       // ── Appropriations ────────────────────────────────────────────────────
-      mk('S-22', 'Tithe Appropriation Received', 'appropriation',
-          'Tithe Appropriation Received'),
-      mk('S-23', 'Tithe Appropriation Disbursed', 'appropriation',
-          'Tithe Appropriation Disbursed'),
-      mk('S-24', 'Non-Tithe Appropriation Received', 'appropriation',
-          'Non Tithe SEUM Appropriation Received'),
-      mk('S-24', 'Non-Tithe Appropriation Received', 'appropriation',
-          'Non Tithe Special Appropriation Received'),
-      mk('S-24', 'Non-Tithe Appropriation Received', 'appropriation',
-          'Non Tithe from SSD Special Appropriation'),
-      mk('S-25', 'Non-Tithe Appropriation Disbursed', 'appropriation',
-          'Non-Tithe Appropriation Disbursed'),
+      mk(
+        'S-22',
+        'Tithe Appropriation Received',
+        'appropriation',
+        'Tithe Appropriation Received',
+      ),
+      mk(
+        'S-23',
+        'Tithe Appropriation Disbursed',
+        'appropriation',
+        'Tithe Appropriation Disbursed',
+      ),
+      mk(
+        'S-24',
+        'Non-Tithe Appropriation Received',
+        'appropriation',
+        'Non Tithe SEUM Appropriation Received',
+      ),
+      mk(
+        'S-24',
+        'Non-Tithe Appropriation Received',
+        'appropriation',
+        'Non Tithe Special Appropriation Received',
+      ),
+      mk(
+        'S-24',
+        'Non-Tithe Appropriation Received',
+        'appropriation',
+        'Non Tithe from SSD Special Appropriation',
+      ),
+      mk(
+        'S-25',
+        'Non-Tithe Appropriation Disbursed',
+        'appropriation',
+        'Non-Tithe Appropriation Disbursed',
+      ),
     ];
   }
 }

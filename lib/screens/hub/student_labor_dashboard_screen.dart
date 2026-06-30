@@ -744,6 +744,13 @@ class _StudentLaborDashboardScreenState
         color: Colors.blue,
         route: '/admin/users',
       ),
+      _MenuItem(
+        title: 'Budget Planning',
+        subtitle: 'Yearly budget by language',
+        icon: Icons.account_balance_wallet,
+        color: Colors.deepOrange,
+        route: '/student-labor/budget',
+      ),
     ];
 
     return Column(

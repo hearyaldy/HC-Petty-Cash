@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/enums.dart';
@@ -53,6 +54,8 @@ class _AddBudgetItemDialogState extends State<AddBudgetItemDialog> {
   String? _linkedTxCategory;
   String? _linkedReportType;
   late String _sectionType;
+  List<String> _customCategories = [];
+  bool _isSubmitting = false;
 
   static const _sectionTypes = [
     (value: 'income', label: 'Income'),
@@ -63,17 +66,35 @@ class _AddBudgetItemDialogState extends State<AddBudgetItemDialog> {
   static const _reportTypes = [
     (value: 'traveling', label: 'Traveling Reports'),
     (value: 'income', label: 'Income Reports'),
+    (value: 'petty_cash', label: 'Petty Cash Reports'),
+    (value: 'project', label: 'Project Reports'),
   ];
 
   @override
   void initState() {
     super.initState();
     _codeCtrl = TextEditingController(text: widget.scheduleCode ?? '');
-    _sectionTitleCtrl =
-        TextEditingController(text: widget.sectionTitle ?? '');
+    _sectionTitleCtrl = TextEditingController(text: widget.sectionTitle ?? '');
     _nameCtrl = TextEditingController();
     _amountCtrl = TextEditingController();
     _sectionType = widget.sectionType;
+    _loadCustomCategories();
+  }
+
+  Future<void> _loadCustomCategories() async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('transactions')
+          .where('customCategory', isNotEqualTo: '')
+          .limit(500)
+          .get();
+      final cats = <String>{};
+      for (final doc in snap.docs) {
+        final c = doc.data()['customCategory'] as String?;
+        if (c != null && c.isNotEmpty) cats.add(c);
+      }
+      if (mounted) setState(() => _customCategories = cats.toList()..sort());
+    } catch (_) {}
   }
 
   @override
@@ -86,12 +107,13 @@ class _AddBudgetItemDialogState extends State<AddBudgetItemDialog> {
   }
 
   void _save() {
+    if (_isSubmitting) return;
     if (!_formKey.currentState!.validate()) return;
-    final amount =
-        double.tryParse(_amountCtrl.text.replaceAll(',', '')) ?? 0.0;
+    setState(() => _isSubmitting = true);
+    final amount = double.tryParse(_amountCtrl.text.replaceAll(',', '')) ?? 0.0;
     Navigator.of(context).pop(
       NewBudgetItemData(
-        scheduleCode: _codeCtrl.text.trim().toUpperCase(),
+        scheduleCode: _codeCtrl.text.trim(),
         sectionTitle: _sectionTitleCtrl.text.trim(),
         sectionType: _sectionType,
         name: _nameCtrl.text.trim(),
@@ -142,19 +164,19 @@ class _AddBudgetItemDialogState extends State<AddBudgetItemDialog> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            isNew
-                                ? 'New Budget Section'
-                                : 'Add Line Item',
+                            isNew ? 'New Budget Section' : 'Add Line Item',
                             style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold),
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           if (!isNew)
                             Text(
                               '${widget.scheduleCode} · ${widget.sectionTitle}',
                               style: TextStyle(
-                                  fontSize: 12,
-                                  color: cs.onSurfaceVariant),
+                                fontSize: 12,
+                                color: cs.onSurfaceVariant,
+                              ),
                             ),
                         ],
                       ),
@@ -169,11 +191,14 @@ class _AddBudgetItemDialogState extends State<AddBudgetItemDialog> {
 
                 // ── Section fields (new section only) ──────────────────────
                 if (isNew) ...[
-                  Text('Section Details',
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: cs.onSurfaceVariant)),
+                  Text(
+                    'Section Details',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -182,18 +207,16 @@ class _AddBudgetItemDialogState extends State<AddBudgetItemDialog> {
                         width: 110,
                         child: TextFormField(
                           controller: _codeCtrl,
-                          textCapitalization:
-                              TextCapitalization.characters,
+                          textCapitalization: TextCapitalization.none,
                           decoration: const InputDecoration(
                             labelText: 'Code *',
                             hintText: 'S-26',
                             border: OutlineInputBorder(),
                             helperText: 'e.g. S-26',
                           ),
-                          validator: (v) =>
-                              (v == null || v.trim().isEmpty)
-                                  ? 'Required'
-                                  : null,
+                          validator: (v) => (v == null || v.trim().isEmpty)
+                              ? 'Required'
+                              : null,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -204,10 +227,9 @@ class _AddBudgetItemDialogState extends State<AddBudgetItemDialog> {
                             labelText: 'Section Title *',
                             border: OutlineInputBorder(),
                           ),
-                          validator: (v) =>
-                              (v == null || v.trim().isEmpty)
-                                  ? 'Required'
-                                  : null,
+                          validator: (v) => (v == null || v.trim().isEmpty)
+                              ? 'Required'
+                              : null,
                         ),
                       ),
                     ],
@@ -215,28 +237,32 @@ class _AddBudgetItemDialogState extends State<AddBudgetItemDialog> {
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     key: ValueKey('type_$_sectionType'),
-                    value: _sectionType,
+                    initialValue: _sectionType,
                     decoration: const InputDecoration(
                       labelText: 'Type',
                       border: OutlineInputBorder(),
                     ),
                     items: _sectionTypes
-                        .map((t) => DropdownMenuItem(
-                              value: t.value,
-                              child: Text(t.label),
-                            ))
+                        .map(
+                          (t) => DropdownMenuItem(
+                            value: t.value,
+                            child: Text(t.label),
+                          ),
+                        )
                         .toList(),
-                    onChanged: (v) =>
-                        setState(() => _sectionType = v!),
+                    onChanged: (v) => setState(() => _sectionType = v!),
                   ),
                   const SizedBox(height: 20),
                   Divider(color: cs.outlineVariant),
                   const SizedBox(height: 12),
-                  Text('First Line Item',
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: cs.onSurfaceVariant)),
+                  Text(
+                    'First Line Item',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
                   const SizedBox(height: 8),
                 ],
 
@@ -255,8 +281,9 @@ class _AddBudgetItemDialogState extends State<AddBudgetItemDialog> {
                 // ── Budget amount ──────────────────────────────────────────
                 TextFormField(
                   controller: _amountCtrl,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   decoration: InputDecoration(
                     labelText: 'Budget Amount (฿)',
                     border: const OutlineInputBorder(),
@@ -277,14 +304,19 @@ class _AddBudgetItemDialogState extends State<AddBudgetItemDialog> {
                 const SizedBox(height: 20),
 
                 // ── Auto-link section ──────────────────────────────────────
-                Text('Auto-link Actuals (optional)',
-                    style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: cs.onSurfaceVariant)),
+                Text(
+                  'Auto-link Actuals (optional)',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String?>(
-                  key: ValueKey('txCat_$_linkedTxCategory'),
+                  key: ValueKey(
+                    'txCat_${_linkedTxCategory}_${_customCategories.length}',
+                  ),
                   initialValue: _linkedTxCategory,
                   decoration: const InputDecoration(
                     labelText: 'Link to Transaction Category',
@@ -293,14 +325,33 @@ class _AddBudgetItemDialogState extends State<AddBudgetItemDialog> {
                   ),
                   items: [
                     const DropdownMenuItem(
-                        value: null, child: Text('— None —')),
-                    ...ExpenseCategory.values.map((e) => DropdownMenuItem(
-                          value: e.name,
-                          child: Text(e.displayName),
-                        )),
+                      value: null,
+                      child: Text('— None —'),
+                    ),
+                    ...ExpenseCategory.values.map(
+                      (e) => DropdownMenuItem(
+                        value: e.name,
+                        child: Text(e.displayName),
+                      ),
+                    ),
+                    if (_customCategories.isNotEmpty) ...[
+                      const DropdownMenuItem(
+                        value: '__sep__',
+                        enabled: false,
+                        child: Text(
+                          '── Custom Categories ──',
+                          style: TextStyle(fontSize: 11, color: Colors.grey),
+                        ),
+                      ),
+                      ..._customCategories.map(
+                        (c) => DropdownMenuItem(value: c, child: Text(c)),
+                      ),
+                    ],
                   ],
-                  onChanged: (v) =>
-                      setState(() => _linkedTxCategory = v),
+                  onChanged: (v) {
+                    if (v == '__sep__') return;
+                    setState(() => _linkedTxCategory = v);
+                  },
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String?>(
@@ -313,14 +364,17 @@ class _AddBudgetItemDialogState extends State<AddBudgetItemDialog> {
                   ),
                   items: [
                     const DropdownMenuItem(
-                        value: null, child: Text('— None —')),
-                    ..._reportTypes.map((r) => DropdownMenuItem(
-                          value: r.value,
-                          child: Text(r.label),
-                        )),
+                      value: null,
+                      child: Text('— None —'),
+                    ),
+                    ..._reportTypes.map(
+                      (r) => DropdownMenuItem(
+                        value: r.value,
+                        child: Text(r.label),
+                      ),
+                    ),
                   ],
-                  onChanged: (v) =>
-                      setState(() => _linkedReportType = v),
+                  onChanged: (v) => setState(() => _linkedReportType = v),
                 ),
                 const SizedBox(height: 24),
 
@@ -334,9 +388,11 @@ class _AddBudgetItemDialogState extends State<AddBudgetItemDialog> {
                     ),
                     const SizedBox(width: 12),
                     FilledButton.icon(
-                      onPressed: _save,
-                      icon: Icon(isNew ? Icons.create_new_folder : Icons.add,
-                          size: 16),
+                      onPressed: _isSubmitting ? null : _save,
+                      icon: Icon(
+                        isNew ? Icons.create_new_folder : Icons.add,
+                        size: 16,
+                      ),
                       label: Text(isNew ? 'Create Section' : 'Add Item'),
                     ),
                   ],

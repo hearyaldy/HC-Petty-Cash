@@ -4,40 +4,50 @@ import 'enums.dart';
 class MedicalClaimItem {
   final String id;
   final String description;
-  final String claimType; // 'outPatient' or 'inPatient'
+  final String claimType; // 'outPatient' or 'inPatient' (derived from claimCategory)
+  final String claimCategory; // MedicalClaimCategory.name
   final double totalBill;
-  final double amountReimburse; // Calculated: 75% for OP, 90% for IP
+  final double amountReimburse;
 
   MedicalClaimItem({
     required this.id,
     required this.description,
     required this.claimType,
     required this.totalBill,
+    String? claimCategory,
     double? amountReimburse,
-  }) : amountReimburse = amountReimburse ?? _calculateReimbursement(claimType, totalBill);
+  })  : claimCategory = claimCategory ?? 'outpatientGeneral',
+        amountReimburse = amountReimburse ??
+            _calculateReimbursement(claimType, totalBill, claimCategory ?? 'outpatientGeneral');
 
-  static double _calculateReimbursement(String claimType, double totalBill) {
-    final type = claimType.toMedicalClaimType();
-    return totalBill * type.reimbursementRate;
+  static double _calculateReimbursement(
+      String claimType, double totalBill, String claimCategory) {
+    final rate = claimCategory.toMedicalClaimCategory().reimbursementRate;
+    return totalBill * rate;
   }
 
   MedicalClaimType get claimTypeEnum => claimType.toMedicalClaimType();
+  MedicalClaimCategory get claimCategoryEnum => claimCategory.toMedicalClaimCategory();
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
       'description': description,
       'claimType': claimType,
+      'claimCategory': claimCategory,
       'totalBill': totalBill,
       'amountReimburse': amountReimburse,
     };
   }
 
   factory MedicalClaimItem.fromJson(Map<String, dynamic> json) {
+    final ct = json['claimType'] as String? ?? 'outPatient';
     return MedicalClaimItem(
       id: json['id'] as String,
       description: json['description'] as String,
-      claimType: json['claimType'] as String,
+      claimType: ct,
+      claimCategory: json['claimCategory'] as String? ??
+          (ct == 'inPatient' ? 'hospitalizationInpatient' : 'outpatientGeneral'),
       totalBill: (json['totalBill'] as num).toDouble(),
       amountReimburse: (json['amountReimburse'] as num?)?.toDouble(),
     );
@@ -47,17 +57,21 @@ class MedicalClaimItem {
     String? id,
     String? description,
     String? claimType,
+    String? claimCategory,
     double? totalBill,
     double? amountReimburse,
   }) {
-    final newClaimType = claimType ?? this.claimType;
+    final newCategory = claimCategory ?? this.claimCategory;
     final newTotalBill = totalBill ?? this.totalBill;
+    final newClaimType = claimType ?? newCategory.toMedicalClaimCategory().claimType;
     return MedicalClaimItem(
       id: id ?? this.id,
       description: description ?? this.description,
       claimType: newClaimType,
+      claimCategory: newCategory,
       totalBill: newTotalBill,
-      amountReimburse: amountReimburse ?? _calculateReimbursement(newClaimType, newTotalBill),
+      amountReimburse: amountReimburse ??
+          _calculateReimbursement(newClaimType, newTotalBill, newCategory),
     );
   }
 }
@@ -88,6 +102,14 @@ class MedicalBillReimbursement {
   final List<String> supportDocumentUrls;
   final DateTime? updatedAt;
 
+  // Meeting reference (optional)
+  final String? linkedMinutesId;
+  final String? linkedMinutesLabel;
+  final String? linkedActionItemNumber;
+  final String? linkedActionItemTitle;
+  final String? linkedActionItemDescription;
+  final String? linkedActionItemAction;
+
   MedicalBillReimbursement({
     required this.id,
     required this.reportNumber,
@@ -111,6 +133,12 @@ class MedicalBillReimbursement {
     this.paidTo,
     List<String>? supportDocumentUrls,
     this.updatedAt,
+    this.linkedMinutesId,
+    this.linkedMinutesLabel,
+    this.linkedActionItemNumber,
+    this.linkedActionItemTitle,
+    this.linkedActionItemDescription,
+    this.linkedActionItemAction,
   })  : claimItems = claimItems ?? [],
         supportDocumentUrls = supportDocumentUrls ?? [],
         totalBill = totalBill ?? (claimItems ?? []).fold(0.0, (acc, item) => acc + item.totalBill),
@@ -166,6 +194,12 @@ class MedicalBillReimbursement {
       'paidTo': paidTo,
       'supportDocumentUrls': supportDocumentUrls,
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
+      'linkedMinutesId': linkedMinutesId,
+      'linkedMinutesLabel': linkedMinutesLabel,
+      'linkedActionItemNumber': linkedActionItemNumber,
+      'linkedActionItemTitle': linkedActionItemTitle,
+      'linkedActionItemDescription': linkedActionItemDescription,
+      'linkedActionItemAction': linkedActionItemAction,
     };
   }
 
@@ -214,6 +248,12 @@ class MedicalBillReimbursement {
       supportDocumentUrls:
           (data['supportDocumentUrls'] as List<dynamic>?)?.cast<String>() ?? [],
       updatedAt: parseTimestampOptional(data['updatedAt']),
+      linkedMinutesId: data['linkedMinutesId'],
+      linkedMinutesLabel: data['linkedMinutesLabel'],
+      linkedActionItemNumber: data['linkedActionItemNumber'],
+      linkedActionItemTitle: data['linkedActionItemTitle'],
+      linkedActionItemDescription: data['linkedActionItemDescription'],
+      linkedActionItemAction: data['linkedActionItemAction'],
     );
   }
 
@@ -265,6 +305,12 @@ class MedicalBillReimbursement {
               ? (json['updatedAt'] as Timestamp).toDate()
               : DateTime.parse(json['updatedAt']))
           : null,
+      linkedMinutesId: json['linkedMinutesId'],
+      linkedMinutesLabel: json['linkedMinutesLabel'],
+      linkedActionItemNumber: json['linkedActionItemNumber'],
+      linkedActionItemTitle: json['linkedActionItemTitle'],
+      linkedActionItemDescription: json['linkedActionItemDescription'],
+      linkedActionItemAction: json['linkedActionItemAction'],
     );
   }
 
@@ -291,6 +337,12 @@ class MedicalBillReimbursement {
     String? paidTo,
     List<String>? supportDocumentUrls,
     DateTime? updatedAt,
+    String? linkedMinutesId,
+    String? linkedMinutesLabel,
+    String? linkedActionItemNumber,
+    String? linkedActionItemTitle,
+    String? linkedActionItemDescription,
+    String? linkedActionItemAction,
   }) {
     return MedicalBillReimbursement(
       id: id ?? this.id,
@@ -315,6 +367,12 @@ class MedicalBillReimbursement {
       paidTo: paidTo ?? this.paidTo,
       supportDocumentUrls: supportDocumentUrls ?? this.supportDocumentUrls,
       updatedAt: updatedAt ?? this.updatedAt,
+      linkedMinutesId: linkedMinutesId ?? this.linkedMinutesId,
+      linkedMinutesLabel: linkedMinutesLabel ?? this.linkedMinutesLabel,
+      linkedActionItemNumber: linkedActionItemNumber ?? this.linkedActionItemNumber,
+      linkedActionItemTitle: linkedActionItemTitle ?? this.linkedActionItemTitle,
+      linkedActionItemDescription: linkedActionItemDescription ?? this.linkedActionItemDescription,
+      linkedActionItemAction: linkedActionItemAction ?? this.linkedActionItemAction,
     );
   }
 }

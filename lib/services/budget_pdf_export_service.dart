@@ -11,6 +11,8 @@ import '../utils/logger.dart';
 class BudgetPdfExportService {
   pw.Font? _regular;
   pw.Font? _bold;
+  pw.Font? _latinRegular;
+  pw.Font? _latinBold;
   pw.ImageProvider? _logo;
 
   static const _primary = PdfColor.fromInt(0xFF1565C0);
@@ -32,11 +34,13 @@ class BudgetPdfExportService {
           await rootBundle.load('assets/fonts/NotoSansThai-Bold.ttf'));
     } catch (e) {
       AppLogger.warning('Budget PDF: font load failed: $e');
-      try {
-        _regular = await PdfGoogleFonts.notoSansRegular();
-        _bold = await PdfGoogleFonts.notoSansBold();
-      } catch (_) {}
     }
+    try {
+      _latinRegular = await PdfGoogleFonts.notoSansRegular();
+      _latinBold = await PdfGoogleFonts.notoSansBold();
+      _regular ??= _latinRegular;
+      _bold ??= _latinBold;
+    } catch (_) {}
     try {
       final data = await rootBundle.load('assets/images/hope_channel_logo.png');
       _logo = pw.MemoryImage(data.buffer.asUint8List());
@@ -47,6 +51,10 @@ class BudgetPdfExportService {
           {double size = 10, bool bold = false, PdfColor? color}) =>
       pw.TextStyle(
         font: bold ? _bold : _regular,
+        fontFallback: [
+          if (bold && _latinBold != null) _latinBold!,
+          if (!bold && _latinRegular != null) _latinRegular!,
+        ],
         fontSize: size,
         color: color ?? PdfColors.black,
       );
@@ -60,6 +68,7 @@ class BudgetPdfExportService {
     final pdf = pw.Document();
 
     // Group items by type → section
+    // Appropriations are part of income (funds received from conference/union).
     final incomeItems = items.where((i) => i.sectionType == 'income').toList();
     final expenseItems =
         items.where((i) => i.sectionType == 'expense').toList();
@@ -67,13 +76,13 @@ class BudgetPdfExportService {
         items.where((i) => i.sectionType == 'appropriation').toList();
 
     final incomeBudgetTotal =
-        incomeItems.fold(0.0, (s, i) => s + i.budgetAmount);
+        (incomeItems + appropriationItems).fold(0.0, (s, i) => s + i.budgetAmount);
     final expenseBudgetTotal =
         expenseItems.fold(0.0, (s, i) => s + i.budgetAmount);
     final netBudget = incomeBudgetTotal - expenseBudgetTotal;
 
     final incomeActualTotal =
-        incomeItems.fold(0.0, (s, i) => s + (actuals[i.id] ?? 0));
+        (incomeItems + appropriationItems).fold(0.0, (s, i) => s + (actuals[i.id] ?? 0));
     final expenseActualTotal =
         expenseItems.fold(0.0, (s, i) => s + (actuals[i.id] ?? 0));
 
@@ -94,12 +103,22 @@ class BudgetPdfExportService {
             year: year,
           ),
           pw.SizedBox(height: 16),
-          if (incomeItems.isNotEmpty) ...[
+          if (incomeItems.isNotEmpty || appropriationItems.isNotEmpty) ...[
             _sectionTypeHeader('INCOME', _green),
             pw.SizedBox(height: 6),
             ..._buildSections(incomeItems, actuals),
-            _buildTypeTotal('Total Operating Income', incomeItems, actuals,
-                _green),
+            if (appropriationItems.isNotEmpty) ...[
+              pw.SizedBox(height: 8),
+              _subSectionLabel('APPROPRIATIONS RECEIVED'),
+              pw.SizedBox(height: 4),
+              ..._buildSections(appropriationItems, actuals),
+            ],
+            _buildCombinedTotal(
+              'Total Income & Appropriations',
+              incomeItems + appropriationItems,
+              actuals,
+              _green,
+            ),
             pw.SizedBox(height: 16),
           ],
           if (expenseItems.isNotEmpty) ...[
@@ -108,14 +127,6 @@ class BudgetPdfExportService {
             ..._buildSections(expenseItems, actuals),
             _buildTypeTotal(
                 'Total Operating Expense', expenseItems, actuals, _red),
-            pw.SizedBox(height: 16),
-          ],
-          if (appropriationItems.isNotEmpty) ...[
-            _sectionTypeHeader('APPROPRIATIONS', _primary),
-            pw.SizedBox(height: 6),
-            ..._buildSections(appropriationItems, actuals),
-            _buildTypeTotal('Net Appropriation', appropriationItems, actuals,
-                _primary),
           ],
         ],
       ),
@@ -223,7 +234,7 @@ class BudgetPdfExportService {
           pw.SizedBox(height: 10),
           pw.Row(
             children: [
-              _summaryCell('Total Income Budget',
+              _summaryCell('Income & Appropriations',
                   '฿${_fmt.format(incomeBudget)}', _green),
               _summaryCell('Total Expense Budget',
                   '฿${_fmt.format(expenseBudget)}', _red),
@@ -282,6 +293,46 @@ class BudgetPdfExportService {
       ),
       child: pw.Text(label,
           style: _style(size: 10, bold: true, color: PdfColors.white)),
+    );
+  }
+
+  pw.Widget _subSectionLabel(String label) {
+    return pw.Row(
+      children: [
+        pw.Container(width: 3, height: 12, color: _green),
+        pw.SizedBox(width: 6),
+        pw.Text(label, style: _style(size: 8, bold: true, color: _grey)),
+      ],
+    );
+  }
+
+  pw.Widget _buildCombinedTotal(String label, List<BudgetLineItem> items,
+      Map<String, double> actuals, PdfColor color) {
+    final budgetTotal = items.fold(0.0, (s, i) => s + i.budgetAmount);
+    final actualTotal = items.fold(0.0, (s, i) => s + (actuals[i.id] ?? 0));
+
+    return pw.Container(
+      margin: const pw.EdgeInsets.only(top: 4),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: pw.BoxDecoration(
+        color: color,
+        borderRadius: pw.BorderRadius.circular(4),
+      ),
+      child: pw.Row(
+        children: [
+          pw.Expanded(
+            child: pw.Text(label,
+                style: _style(size: 10, bold: true, color: PdfColors.white)),
+          ),
+          pw.Text('฿${_fmt.format(budgetTotal)}',
+              style: _style(size: 11, bold: true, color: PdfColors.white)),
+          if (actualTotal > 0) ...[
+            pw.SizedBox(width: 16),
+            pw.Text('Actual: ฿${_fmt.format(actualTotal)}',
+                style: _style(size: 9, color: PdfColor.fromInt(0xCCFFFFFF))),
+          ],
+        ],
+      ),
     );
   }
 
@@ -393,7 +444,7 @@ class BudgetPdfExportService {
                       width: 80,
                       child: pw.Text(
                         item.budgetAmount == 0
-                            ? '—'
+                            ? '-'
                             : '฿${_fmt.format(item.budgetAmount)}',
                         textAlign: pw.TextAlign.right,
                         style: _style(size: 8),
@@ -402,7 +453,7 @@ class BudgetPdfExportService {
                     pw.SizedBox(
                       width: 80,
                       child: pw.Text(
-                        hasActual ? '฿${_fmt.format(actual)}' : '—',
+                        hasActual ? '฿${_fmt.format(actual)}' : '-',
                         textAlign: pw.TextAlign.right,
                         style: _style(size: 8),
                       ),
@@ -420,7 +471,7 @@ class BudgetPdfExportService {
                                   bold: true,
                                   color: variance < 0 ? _red : _green),
                             )
-                          : pw.Text('—',
+                          : pw.Text('-',
                               textAlign: pw.TextAlign.right,
                               style: _style(size: 8, color: _grey)),
                     ),

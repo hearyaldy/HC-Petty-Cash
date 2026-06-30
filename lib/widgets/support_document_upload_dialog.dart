@@ -405,7 +405,19 @@ class _SupportDocumentUploadDialogState
     final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
     return AlertDialog(
-      title: const Text('Support Document'),
+      title: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text('Support Document'),
+          IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.close),
+            tooltip: 'Close',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+        ],
+      ),
       content: SizedBox(
         width: 400,
         child: Column(
@@ -902,6 +914,16 @@ class _SupportDocumentUploadDialogState
           onPressed: () => Navigator.pop(context),
           child: const Text('Close'),
         ),
+        if (_uploadedUrls.isNotEmpty)
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.check, size: 18),
+            label: const Text('Done'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+          ),
       ],
     );
   }

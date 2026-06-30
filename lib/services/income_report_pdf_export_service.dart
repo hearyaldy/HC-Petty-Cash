@@ -8,6 +8,7 @@ import '../models/income_report.dart';
 import '../models/organization.dart';
 import '../utils/constants.dart';
 import '../utils/logger.dart';
+import 'pdf_signature_helper.dart';
 
 class IncomeReportPdfExportService {
   pw.Font? _ttf;
@@ -47,6 +48,7 @@ class IncomeReportPdfExportService {
     } catch (e) {
       // Logo loading failed, will use fallback
     }
+    await PdfSignatureHelper.load();
   }
 
   Future<void> _loadOrganizationLogo(String? logoUrl) async {
@@ -619,7 +621,7 @@ class IncomeReportPdfExportService {
           child: pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
             children: [
-              _buildSignatureBox('Prepared By', report.createdByName),
+              _buildSignatureBox('Prepared By', report.createdByName, showSignature: true),
               _buildSignatureBox('Reviewed By', null),
               _buildSignatureBox('Approved By', report.approvedBy),
             ],
@@ -629,7 +631,7 @@ class IncomeReportPdfExportService {
     );
   }
 
-  pw.Widget _buildSignatureBox(String label, String? value) {
+  pw.Widget _buildSignatureBox(String label, String? value, {bool showSignature = false}) {
     return pw.Expanded(
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.center,
@@ -639,7 +641,9 @@ class IncomeReportPdfExportService {
             style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold),
             textAlign: pw.TextAlign.center,
           ),
-          pw.SizedBox(height: 40),
+          showSignature
+              ? PdfSignatureHelper.slot(width: 100, height: 40)
+              : pw.SizedBox(height: 40),
           pw.Container(
             width: 120,
             decoration: const pw.BoxDecoration(

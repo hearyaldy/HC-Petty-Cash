@@ -663,3 +663,245 @@ extension MedicalClaimTypeExtension on String {
     );
   }
 }
+
+// Full Schedule of Medical Benefits categories
+enum MedicalClaimCategory {
+  ambulanceWithHospitalization,
+  ambulanceWithoutHospitalization,
+  dental,
+  durableMedicalEquipment,
+  spinalChiropractic,
+  orthopedicShoes,
+  physicalTherapy,
+  occupationalTherapy,
+  speechTherapy,
+  hearingCare,
+  hearingAids,
+  hospitalizationInpatient,
+  humanOrganTransplant,
+  infertilityTreatment,
+  immunizations,
+  mentalHealthInpatient,
+  mentalHealthOutpatient,
+  obstetricsInpatient,
+  obstetricsOutpatient,
+  outpatientGeneral,
+  outpatientSurgeryGeneral,
+  outpatientSurgeryLocal,
+  prescriptionDrugs;
+
+  String get displayName {
+    switch (this) {
+      case MedicalClaimCategory.ambulanceWithHospitalization:
+        return 'Ambulance (resulting in hospitalization)';
+      case MedicalClaimCategory.ambulanceWithoutHospitalization:
+        return 'Ambulance (not resulting in hospitalization)';
+      case MedicalClaimCategory.dental:
+        return 'Dental & Orthodontic Care';
+      case MedicalClaimCategory.durableMedicalEquipment:
+        return 'Durable Medical Equipment';
+      case MedicalClaimCategory.spinalChiropractic:
+        return 'Spinal / Chiropractic';
+      case MedicalClaimCategory.orthopedicShoes:
+        return 'Orthopedic Shoes';
+      case MedicalClaimCategory.physicalTherapy:
+        return 'Physical Therapy';
+      case MedicalClaimCategory.occupationalTherapy:
+        return 'Occupational Therapy';
+      case MedicalClaimCategory.speechTherapy:
+        return 'Speech Therapy';
+      case MedicalClaimCategory.hearingCare:
+        return 'Hearing Care';
+      case MedicalClaimCategory.hearingAids:
+        return 'Hearing Aids';
+      case MedicalClaimCategory.hospitalizationInpatient:
+        return 'Hospitalization (inpatient)';
+      case MedicalClaimCategory.humanOrganTransplant:
+        return 'Human Organ / Tissue Transplant';
+      case MedicalClaimCategory.infertilityTreatment:
+        return 'Infertility Treatment';
+      case MedicalClaimCategory.immunizations:
+        return 'Immunizations';
+      case MedicalClaimCategory.mentalHealthInpatient:
+        return 'Mental Health (inpatient)';
+      case MedicalClaimCategory.mentalHealthOutpatient:
+        return 'Mental Health (outpatient)';
+      case MedicalClaimCategory.obstetricsInpatient:
+        return 'Obstetrics (inpatient)';
+      case MedicalClaimCategory.obstetricsOutpatient:
+        return 'Obstetrics (outpatient)';
+      case MedicalClaimCategory.outpatientGeneral:
+        return 'Outpatient Medical Services';
+      case MedicalClaimCategory.outpatientSurgeryGeneral:
+        return 'Outpatient Surgery (general anesthesia)';
+      case MedicalClaimCategory.outpatientSurgeryLocal:
+        return 'Outpatient Surgery (local anesthesia)';
+      case MedicalClaimCategory.prescriptionDrugs:
+        return 'Prescription Drugs';
+    }
+  }
+
+  double get reimbursementRate {
+    switch (this) {
+      case MedicalClaimCategory.ambulanceWithHospitalization:
+      case MedicalClaimCategory.hospitalizationInpatient:
+      case MedicalClaimCategory.humanOrganTransplant:
+      case MedicalClaimCategory.mentalHealthInpatient:
+      case MedicalClaimCategory.obstetricsInpatient:
+      case MedicalClaimCategory.outpatientSurgeryGeneral:
+        return 0.90;
+      default:
+        return 0.75;
+    }
+  }
+
+  // WF multiplier for annual limit; null = UCR (no WF cap)
+  double? get annualLimitMultiplier {
+    switch (this) {
+      case MedicalClaimCategory.durableMedicalEquipment:
+        return 1.0;
+      case MedicalClaimCategory.orthopedicShoes:
+        return 0.25;
+      case MedicalClaimCategory.physicalTherapy:
+        return 0.5;
+      case MedicalClaimCategory.occupationalTherapy:
+        return 0.5;
+      case MedicalClaimCategory.speechTherapy:
+        return 0.5;
+      default:
+        return null;
+    }
+  }
+
+  // WF multiplier for lifetime limit; null if annual/UCR
+  double? get lifetimeLimitMultiplier {
+    switch (this) {
+      case MedicalClaimCategory.humanOrganTransplant:
+        return 30.0;
+      case MedicalClaimCategory.infertilityTreatment:
+        return 3.0;
+      default:
+        return null;
+    }
+  }
+
+  bool get isLifetimeLimit => lifetimeLimitMultiplier != null;
+
+  bool get isInpatient {
+    switch (this) {
+      case MedicalClaimCategory.ambulanceWithHospitalization:
+      case MedicalClaimCategory.hospitalizationInpatient:
+      case MedicalClaimCategory.humanOrganTransplant:
+      case MedicalClaimCategory.mentalHealthInpatient:
+      case MedicalClaimCategory.obstetricsInpatient:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  String get claimType => isInpatient ? 'inPatient' : 'outPatient';
+
+  String get limitDescription {
+    if (lifetimeLimitMultiplier != null) {
+      return '${lifetimeLimitMultiplier!.toStringAsFixed(0)}× WF (lifetime)';
+    }
+    if (this == MedicalClaimCategory.dental) {
+      return '0.75–1.5× WF annual (by years of service)';
+    }
+    if (annualLimitMultiplier != null) {
+      return '${annualLimitMultiplier!}× WF (annual)';
+    }
+    switch (this) {
+      case MedicalClaimCategory.spinalChiropractic:
+        return 'UCR · up to 24 visits/year';
+      case MedicalClaimCategory.hearingAids:
+        return 'UCR · every 3 years';
+      case MedicalClaimCategory.mentalHealthInpatient:
+        return 'UCR · up to 30 days/year';
+      case MedicalClaimCategory.mentalHealthOutpatient:
+        return 'UCR · up to 30 visits/year';
+      default:
+        return 'UCR';
+    }
+  }
+}
+
+extension MedicalClaimCategoryExtension on String {
+  MedicalClaimCategory toMedicalClaimCategory() {
+    return MedicalClaimCategory.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => MedicalClaimCategory.outpatientGeneral,
+    );
+  }
+}
+
+// Expense Claim enums
+enum ExpenseClaimStatus {
+  pending,
+  approved,
+  rejected;
+
+  String get displayName {
+    switch (this) {
+      case ExpenseClaimStatus.pending:
+        return 'Pending Approval';
+      case ExpenseClaimStatus.approved:
+        return 'Approved';
+      case ExpenseClaimStatus.rejected:
+        return 'Rejected';
+    }
+  }
+
+  Color get color {
+    switch (this) {
+      case ExpenseClaimStatus.pending:
+        return const Color(0xFFFFA726); // Orange
+      case ExpenseClaimStatus.approved:
+        return const Color(0xFF66BB6A); // Green
+      case ExpenseClaimStatus.rejected:
+        return const Color(0xFFEF5350); // Red
+    }
+  }
+}
+
+extension ExpenseClaimStatusExtension on String {
+  ExpenseClaimStatus toExpenseClaimStatus() {
+    return ExpenseClaimStatus.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => ExpenseClaimStatus.pending,
+    );
+  }
+
+  String get expenseClaimStatusDisplayName => toExpenseClaimStatus().displayName;
+}
+
+enum ExpenseLineCategory {
+  travel,
+  meals,
+  supplies,
+  other;
+
+  String get displayName {
+    switch (this) {
+      case ExpenseLineCategory.travel:
+        return 'Travel / Transport';
+      case ExpenseLineCategory.meals:
+        return 'Meals & Entertainment';
+      case ExpenseLineCategory.supplies:
+        return 'Office Supplies';
+      case ExpenseLineCategory.other:
+        return 'Other';
+    }
+  }
+
+}
+
+extension ExpenseLineCategoryExtension on String {
+  ExpenseLineCategory toExpenseLineCategory() {
+    return ExpenseLineCategory.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => ExpenseLineCategory.other,
+    );
+  }
+}

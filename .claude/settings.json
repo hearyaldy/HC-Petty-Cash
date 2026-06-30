@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter config *)",
+      "Bash(firebase --version)",
+      "Bash(flutter --version)",
+      "Bash(unzip -p HCSEA_MI_Survey_Toolkit.docx word/document.xml)"
+    ]
+  }
+}

@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../models/payment_voucher.dart';
 import '../utils/constants.dart';
 import '../utils/logger.dart';
+import 'pdf_signature_helper.dart';
 
 class PaymentVoucherPdfExportService {
   pw.Font? _ttf;
@@ -44,6 +45,7 @@ class PaymentVoucherPdfExportService {
       // Logo loading failed; will use text fallback.
       AppLogger.warning('PaymentVoucherPdf: Failed to load logo: $e');
     }
+    await PdfSignatureHelper.load();
   }
 
   Future<Uint8List> generatePdf(PaymentVoucher voucher) async {
@@ -500,13 +502,16 @@ class PaymentVoucherPdfExportService {
   }
 
   pw.Widget _buildSignatureBox(String name, String title) {
+    final isPreparedBy = title == 'Prepared By';
     return pw.Expanded(
       child: pw.Padding(
         padding: const pw.EdgeInsets.symmetric(horizontal: 8),
         child: pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.center,
           children: [
-            pw.SizedBox(height: 50), // space for signature
+            isPreparedBy
+                ? PdfSignatureHelper.slot(width: 100, height: 50)
+                : pw.SizedBox(height: 50), // space for signature
             pw.Container(
               height: 1,
               color: PdfColors.grey700,

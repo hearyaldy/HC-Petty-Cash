@@ -139,6 +139,114 @@ class AdcomMinutesService {
     }
   }
 
+  /// When an agenda item is edited, update the matching minutes item and propagate to linked documents.
+  /// This runs independently of whether the minutes edit screen is open.
+  Future<void> propagateAgendaItemChanges(
+    String agendaId,
+    AgendaItem updatedItem,
+  ) async {
+    final minutes = await getMinutesByAgendaId(agendaId);
+    if (minutes == null) return;
+
+    final items = List<MinutesItem>.from(minutes.minutesItems);
+    final idx = items.indexWhere(
+      (m) => m.itemNumber == updatedItem.itemNumber,
+    );
+    if (idx == -1) return;
+
+    final existing = items[idx];
+    items[idx] = existing.copyWith(
+      title: updatedItem.title,
+      description: updatedItem.description,
+      actionType: updatedItem.actionType,
+    );
+
+    await _firestore.collection(_collection).doc(minutes.id).update({
+      'minutesItems': items.map((i) => i.toMap()).toList(),
+      'updatedAt': Timestamp.fromDate(DateTime.now()),
+    });
+
+    await propagateItemChanges(
+      minutesId: minutes.id,
+      itemNumber: existing.itemNumber,
+      title: updatedItem.title,
+      description: updatedItem.description,
+      statusDisplayName: existing.status.displayName,
+    );
+  }
+
+  /// Propagate all field changes for a single minutes item to linked cash advances and purchase requisitions
+  Future<void> propagateItemChanges({
+    required String minutesId,
+    required String itemNumber,
+    required String title,
+    required String description,
+    required String statusDisplayName,
+  }) async {
+    final now = Timestamp.fromDate(DateTime.now());
+    final updateData = {
+      'linkedActionItemTitle': title,
+      'linkedActionItemDescription': description,
+      'linkedActionItemAction': statusDisplayName,
+      'updatedAt': now,
+    };
+
+    final caSnapshot = await _firestore
+        .collection('cash_advances')
+        .where('linkedMinutesId', isEqualTo: minutesId)
+        .where('linkedActionItemNumber', isEqualTo: itemNumber)
+        .get();
+
+    for (final doc in caSnapshot.docs) {
+      await doc.reference.update(updateData);
+    }
+
+    final prSnapshot = await _firestore
+        .collection('purchase_requisitions')
+        .where('linkedMinutesId', isEqualTo: minutesId)
+        .where('linkedActionItemNumber', isEqualTo: itemNumber)
+        .get();
+
+    for (final doc in prSnapshot.docs) {
+      await doc.reference.update(updateData);
+    }
+  }
+
+  /// Propagate field changes for all minutes items in bulk (used after agenda sync).
+  /// Fetches all linked cash advances and purchase requisitions for the minutes in
+  /// two queries, then updates each document whose linked item number is found in [items].
+  Future<void> propagateAllItemChanges(
+    String minutesId,
+    List<MinutesItem> items,
+  ) async {
+    if (items.isEmpty) return;
+
+    final itemByNumber = {for (final i in items) i.itemNumber: i};
+    final now = Timestamp.fromDate(DateTime.now());
+
+    for (final collection in ['cash_advances', 'purchase_requisitions']) {
+      final snapshot = await _firestore
+          .collection(collection)
+          .where('linkedMinutesId', isEqualTo: minutesId)
+          .get();
+
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final itemNumber = data['linkedActionItemNumber'] as String?;
+        if (itemNumber == null) continue;
+        final item = itemByNumber[itemNumber];
+        if (item == null) continue;
+
+        await doc.reference.update({
+          'linkedActionItemTitle': item.title,
+          'linkedActionItemDescription': item.description,
+          'linkedActionItemAction': item.status.displayName,
+          'updatedAt': now,
+        });
+      }
+    }
+  }
+
   /// Update item status (Voted/Tabled/Discussed)
   Future<void> updateItemStatus(
     String minutesId,

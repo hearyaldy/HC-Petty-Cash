@@ -42,7 +42,9 @@
       "Skill(frontend:*)",
       "Bash(open /Users/hearyhealdysairin/Documents/Flutter/hc_financial/hc_finannce_report/dashboard_mockup.html)",
       "Bash(dart analyze:*)",
-      "Bash(git -C /Users/hearyhealdysairin/Documents/Flutter/hc_financial/hc_finannce_report log --oneline -5)"
+      "Bash(git -C /Users/hearyhealdysairin/Documents/Flutter/hc_financial/hc_finannce_report log --oneline -5)",
+      "Bash(flutter analyze *)",
+      "Bash(flutter build *)"
     ]
   }
 }

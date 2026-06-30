@@ -6,7 +6,6 @@ import '../../models/salary_benefits.dart';
 import '../../services/salary_benefits_service.dart';
 import '../../services/staff_service.dart';
 import '../../utils/responsive_helper.dart';
-import '../../widgets/page_image_header.dart';
 
 class AddEditSalaryBenefitsScreen extends StatefulWidget {
   final String? salaryBenefitsId;
@@ -512,7 +511,7 @@ class _AddEditSalaryBenefitsScreenState
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.green.shade400, width: 2),
+        borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -530,7 +529,6 @@ class _AddEditSalaryBenefitsScreenState
     Widget? trailing,
   }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -545,8 +543,23 @@ class _AddEditSalaryBenefitsScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.all(20),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  iconGradient[0].withValues(alpha: 0.1),
+                  Colors.transparent,
+                ],
+              ),
+              border: Border(
+                left: BorderSide(color: iconGradient[0], width: 4),
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+              ),
+            ),
             child: Row(
               children: [
                 Container(
@@ -554,25 +567,31 @@ class _AddEditSalaryBenefitsScreenState
                   decoration: BoxDecoration(
                     gradient: LinearGradient(colors: iconGradient),
                     borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: iconGradient[0].withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: Icon(icon, color: Colors.white, size: 20),
                 ),
                 const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: iconGradient[0],
                   ),
                 ),
-                ?trailing,
+                if (trailing != null) ...[const Spacer(), trailing],
               ],
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: children,
@@ -624,714 +643,726 @@ class _AddEditSalaryBenefitsScreenState
   Widget build(BuildContext context) {
     final isEditing = widget.salaryBenefitsId != null;
 
-    // Show loading if not initialized or staff is null
+    final isMobile = ResponsiveHelper.isMobile(context);
+    final staff = _staff;
+
+    final header = Container(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.indigo.shade700, Colors.purple.shade500],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.indigo.withValues(alpha: 0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildHeaderActionButton(
+                icon: Icons.arrow_back,
+                tooltip: 'Back',
+                onPressed: () => context.pop(),
+              ),
+              if (_isLoading)
+                const SizedBox(
+                  width: 36,
+                  height: 36,
+                  child: Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    ),
+                  ),
+                )
+              else
+                _buildHeaderActionButton(
+                  icon: Icons.save,
+                  tooltip: 'Save',
+                  onPressed: _saveSalaryBenefits,
+                ),
+            ],
+          ),
+          SizedBox(height: isMobile ? 16 : 20),
+          if (staff != null)
+            Row(
+              children: [
+                Container(
+                  width: isMobile ? 50 : 60,
+                  height: isMobile ? 50 : 60,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.2),
+                    border: Border.all(color: Colors.white, width: 2),
+                    image: staff.photoUrl != null
+                        ? DecorationImage(
+                            image: NetworkImage(staff.photoUrl!),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
+                  ),
+                  child: staff.photoUrl == null
+                      ? Center(
+                          child: Text(
+                            staff.fullName.isNotEmpty
+                                ? staff.fullName[0].toUpperCase()
+                                : '?',
+                            style: TextStyle(
+                              fontSize: isMobile ? 20 : 24,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        staff.fullName,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: isMobile ? 18 : 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        isEditing
+                            ? 'Edit Salary & Benefits'
+                            : 'Add Salary & Benefits',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          fontSize: isMobile ? 12 : 14,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          staff.employeeId,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            )
+          else
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.account_balance_wallet,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Text(
+                  isEditing ? 'Edit Salary & Benefits' : 'Add Salary & Benefits',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: isMobile ? 18 : 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+
+    final wrappedHeader = Padding(
+      padding: ResponsiveHelper.getScreenPadding(context),
+      child: ResponsiveContainer(child: header),
+    );
+
     if (!_isInitialized || _staff == null) {
       return Scaffold(
         backgroundColor: Colors.grey[100],
-        body: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(
-              child: PageImageHeader(
-                title:
-                    isEditing ? 'Edit Salary & Benefits' : 'Add Salary & Benefits',
-                subtitle: 'Loading staff information...',
-                actions: [
-                  PageImageHeader.actionButton(
-                    icon: Icons.close,
-                    tooltip: 'Close',
-                    onPressed: () {
-                      if (mounted) {
-                        Navigator.of(context).pop();
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ),
-            SliverFillRemaining(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const CircularProgressIndicator(),
-                    const SizedBox(height: 16),
-                    const Text('Loading staff information...'),
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        if (mounted) {
-                          Navigator.of(context).pop();
-                        }
-                      },
-                      icon: const Icon(Icons.arrow_back),
-                      label: const Text('Go Back'),
-                    ),
-                  ],
-                ),
-              ),
+        body: Column(
+          children: [
+            wrappedHeader,
+            const Expanded(
+              child: Center(child: CircularProgressIndicator()),
             ),
           ],
         ),
       );
     }
 
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      body: CustomScrollView(
-        slivers: [
-          // Modern SliverAppBar with gradient
-          SliverToBoxAdapter(
-            child: PageImageHeader(
-              title:
-                  isEditing ? 'Edit Salary & Benefits' : 'Add Salary & Benefits',
-              subtitle: _staff?.fullName ?? '',
-              actions: [
-                if (_isLoading)
-                  const Padding(
-                    padding: EdgeInsets.all(8),
-                    child: SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+    final content = SingleChildScrollView(
+      child: Center(
+        child: Container(
+          constraints: BoxConstraints(
+            maxWidth: ResponsiveHelper.getMaxContentWidth(context),
+          ),
+          padding: ResponsiveHelper.getScreenPadding(context),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 16),
+
+                // Staff Information Card
+                _buildSectionCard(
+                  title: 'Staff Information',
+                  icon: Icons.person,
+                  iconGradient: [Colors.blue.shade400, Colors.blue.shade600],
+                  children: [
+                    _buildStaffInfoRow('Name', _staff?.fullName ?? ''),
+                    _buildStaffInfoRow('Employee ID', _staff?.employeeId ?? ''),
+                    _buildStaffInfoRow('Position', _staff?.position ?? ''),
+                    _buildStaffInfoRow('Department', _staff?.department ?? ''),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Basic Salary Information Section
+                _buildSectionCard(
+                  title: 'Basic Salary Information',
+                  icon: Icons.attach_money,
+                  iconGradient: [Colors.green.shade400, Colors.green.shade600],
+                  children: [
+                    TextFormField(
+                      controller: _wageFactorController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: _buildInputDecoration(
+                        label: 'Wage Factor (THB) *',
+                        icon: Icons.attach_money,
+                        helperText: 'Base wage factor amount',
+                      ),
+                      onChanged: (_) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) setState(() {});
+                        });
+                      },
+                      validator: (value) {
+                        if (value == null || value.isEmpty) return 'Please enter wage factor';
+                        if (double.tryParse(value) == null) return 'Please enter a valid number';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _salaryPercentageController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: _buildInputDecoration(
+                        label: 'Salary Scale (%) *',
+                        icon: Icons.percent,
+                        helperText: 'Percentage of wage factor',
+                      ),
+                      onChanged: (_) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) setState(() {});
+                        });
+                      },
+                      validator: (value) {
+                        if (value == null || value.isEmpty) return 'Please enter salary scale percentage';
+                        if (double.tryParse(value) == null) return 'Please enter a valid number';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    _buildCalculatedValueCard(
+                      label: 'Gross Salary (Calculated):',
+                      value: _calculateGrossSalary(),
+                      color: Colors.green,
+                      isLarge: true,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _effectiveDateController,
+                      readOnly: true,
+                      decoration: _buildInputDecoration(
+                        label: 'Effective Date *',
+                        icon: Icons.calendar_today,
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) return 'Please select effective date';
+                        return null;
+                      },
+                      onTap: () => _selectDate(isEffectiveDate: true),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Health Benefits Section
+                _buildSectionCard(
+                  title: 'Health Benefits',
+                  icon: Icons.health_and_safety,
+                  iconGradient: [Colors.pink.shade400, Colors.pink.shade600],
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _outPatientPercentageController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: _buildInputDecoration(
+                              label: 'Out-Patient (%)',
+                              icon: Icons.local_hospital,
+                              hintText: '75',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _inPatientPercentageController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: _buildInputDecoration(
+                              label: 'In-Patient (%)',
+                              icon: Icons.bed,
+                              hintText: '90',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _annualLeaveDaysController,
+                            keyboardType: TextInputType.number,
+                            decoration: _buildInputDecoration(
+                              label: 'Annual Leave (Days)',
+                              icon: Icons.beach_access,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _housingAllowanceController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: _buildInputDecoration(
+                              label: 'Housing Allowance (THB)',
+                              icon: Icons.home,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Monthly Allowances Section
+                _buildSectionCard(
+                  title: 'Monthly Allowances',
+                  icon: Icons.account_balance_wallet,
+                  iconGradient: [Colors.orange.shade400, Colors.orange.shade600],
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.orange.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.orange.shade700, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'These allowances are paid every month.',
+                              style: TextStyle(color: Colors.orange.shade700, fontSize: 13),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  )
-                else
-                  PageImageHeader.actionButton(
-                    icon: Icons.save,
-                    tooltip: 'Save',
-                    onPressed: _saveSalaryBenefits,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _phoneAllowanceController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: _buildInputDecoration(
+                              label: 'Phone Allowance (THB/Month)',
+                              icon: Icons.phone_android,
+                              helperText: 'Monthly amount',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        const Expanded(child: SizedBox()),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Annual Allowances Section
+                _buildSectionCard(
+                  title: 'Annual Allowances',
+                  icon: Icons.card_giftcard,
+                  iconGradient: [Colors.teal.shade400, Colors.teal.shade600],
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.teal.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.teal.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.teal.shade700, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'These allowances are paid once a year, not monthly.',
+                              style: TextStyle(color: Colors.teal.shade700, fontSize: 13),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _equipmentAllowanceController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: _buildInputDecoration(
+                              label: 'Equipment Allowance (THB/Year)',
+                              icon: Icons.computer,
+                              helperText: 'Annual amount',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _continueEducationAllowanceController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: _buildInputDecoration(
+                              label: 'Continuing Education (THB/Year)',
+                              icon: Icons.school,
+                              helperText: 'Annual amount',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Deductions Section
+                _buildSectionCard(
+                  title: 'Deductions',
+                  icon: Icons.remove_circle_outline,
+                  iconGradient: [Colors.red.shade400, Colors.red.shade600],
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: TextFormField(
+                            controller: _tithePercentageController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: _buildInputDecoration(
+                              label: 'Tithe (%)',
+                              icon: Icons.volunteer_activism,
+                              hintText: '10',
+                            ),
+                            onChanged: (_) {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (mounted) setState(() {});
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          flex: 3,
+                          child: _buildCalculatedValueCard(
+                            label: 'Tithe Amount:',
+                            value: _calculateTithe(),
+                            color: Colors.orange,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _socialSecurityPercentageController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: _buildInputDecoration(
+                        label: 'Social Security (THB)',
+                        icon: Icons.security,
+                      ),
+                      onChanged: (_) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) setState(() {});
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: TextFormField(
+                            controller: _providentFundPercentageController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: _buildInputDecoration(
+                              label: 'Provident Fund (%)',
+                              icon: Icons.savings,
+                              hintText: '10',
+                            ),
+                            onChanged: (_) {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (mounted) setState(() {});
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          flex: 3,
+                          child: _buildCalculatedValueCard(
+                            label: 'Provident Fund:',
+                            value: _calculateProvidentFund(),
+                            color: Colors.blue,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: TextFormField(
+                            controller: _houseRentalPercentageController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: _buildInputDecoration(
+                              label: 'House Rental (%)',
+                              icon: Icons.house,
+                              hintText: '10',
+                            ),
+                            onChanged: (_) {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (mounted) setState(() {});
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          flex: 3,
+                          child: _buildCalculatedValueCard(
+                            label: 'House Rental:',
+                            value: _calculateHouseRental(),
+                            color: Colors.purple,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _buildCalculatedValueCard(
+                      label: 'Total Deductions:',
+                      value: _calculateTotalDeductions(),
+                      color: Colors.red,
+                      isLarge: true,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Additional Information Section
+                _buildSectionCard(
+                  title: 'Additional Information',
+                  icon: Icons.info_outline,
+                  iconGradient: [Colors.indigo.shade400, Colors.indigo.shade600],
+                  children: [
+                    DropdownButtonFormField<String>(
+                      initialValue: _currency,
+                      decoration: _buildInputDecoration(
+                        label: 'Currency',
+                        icon: Icons.currency_exchange,
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'THB', child: Text('THB (Thai Baht)')),
+                        DropdownMenuItem(value: 'USD', child: Text('USD (US Dollar)')),
+                        DropdownMenuItem(value: 'EUR', child: Text('EUR (Euro)')),
+                        DropdownMenuItem(value: 'GBP', child: Text('GBP (British Pound)')),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) setState(() { _currency = value; });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: SwitchListTile(
+                        title: const Text('Active'),
+                        subtitle: const Text('Is this salary record currently active?'),
+                        value: _isActive,
+                        onChanged: (value) => setState(() { _isActive = value; }),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _notesController,
+                      maxLines: 3,
+                      decoration: _buildInputDecoration(
+                        label: 'Notes',
+                        icon: Icons.note,
+                        hintText: 'Any additional notes...',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Net Salary Summary Card
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Colors.green.shade500, Colors.green.shade700],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.green.withValues(alpha: 0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
                   ),
-              ],
-            ),
-          ),
-          // Content
-          SliverToBoxAdapter(
-            child: ResponsiveContainer(
-              child: Padding(
-                padding: ResponsiveHelper.getScreenPadding(context),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const SizedBox(height: 24),
-
-                      // Staff Information Card
-                      _buildSectionCard(
-                        title: 'Staff Information',
-                        icon: Icons.person,
-                        iconGradient: [
-                          Colors.blue.shade400,
-                          Colors.blue.shade600,
-                        ],
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildStaffInfoRow('Name', _staff?.fullName ?? ''),
-                          _buildStaffInfoRow(
-                            'Employee ID',
-                            _staff?.employeeId ?? '',
+                          const Text(
+                            'Net Salary',
+                            style: TextStyle(fontSize: 16, color: Colors.white70),
                           ),
-                          _buildStaffInfoRow(
-                            'Position',
-                            _staff?.position ?? '',
-                          ),
-                          _buildStaffInfoRow(
-                            'Department',
-                            _staff?.department ?? '',
-                          ),
-                        ],
-                      ),
-
-                      // Basic Salary Information Section
-                      _buildSectionCard(
-                        title: 'Basic Salary Information',
-                        icon: Icons.attach_money,
-                        iconGradient: [
-                          Colors.green.shade400,
-                          Colors.green.shade600,
-                        ],
-                        children: [
-                          TextFormField(
-                            controller: _wageFactorController,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            decoration: _buildInputDecoration(
-                              label: 'Wage Factor (THB) *',
-                              icon: Icons.attach_money,
-                              helperText: 'Base wage factor amount',
-                            ),
-                            onChanged: (_) {
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                if (mounted) setState(() {});
-                              });
-                            },
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter wage factor';
-                              }
-                              if (double.tryParse(value) == null) {
-                                return 'Please enter a valid number';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _salaryPercentageController,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            decoration: _buildInputDecoration(
-                              label: 'Salary Scale (%) *',
-                              icon: Icons.percent,
-                              helperText: 'Percentage of wage factor',
-                            ),
-                            onChanged: (_) {
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                if (mounted) setState(() {});
-                              });
-                            },
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter salary scale percentage';
-                              }
-                              if (double.tryParse(value) == null) {
-                                return 'Please enter a valid number';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          _buildCalculatedValueCard(
-                            label: 'Gross Salary (Calculated):',
-                            value: _calculateGrossSalary(),
-                            color: Colors.green,
-                            isLarge: true,
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _effectiveDateController,
-                            readOnly: true,
-                            decoration: _buildInputDecoration(
-                              label: 'Effective Date *',
-                              icon: Icons.calendar_today,
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please select effective date';
-                              }
-                              return null;
-                            },
-                            onTap: () => _selectDate(isEffectiveDate: true),
-                          ),
-                        ],
-                      ),
-
-                      // Health Benefits Section
-                      _buildSectionCard(
-                        title: 'Health Benefits',
-                        icon: Icons.health_and_safety,
-                        iconGradient: [
-                          Colors.pink.shade400,
-                          Colors.pink.shade600,
-                        ],
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextFormField(
-                                  controller: _outPatientPercentageController,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                        decimal: true,
-                                      ),
-                                  decoration: _buildInputDecoration(
-                                    label: 'Out-Patient (%)',
-                                    icon: Icons.local_hospital,
-                                    hintText: '75',
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: TextFormField(
-                                  controller: _inPatientPercentageController,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                        decimal: true,
-                                      ),
-                                  decoration: _buildInputDecoration(
-                                    label: 'In-Patient (%)',
-                                    icon: Icons.bed,
-                                    hintText: '90',
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextFormField(
-                                  controller: _annualLeaveDaysController,
-                                  keyboardType: TextInputType.number,
-                                  decoration: _buildInputDecoration(
-                                    label: 'Annual Leave (Days)',
-                                    icon: Icons.beach_access,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: TextFormField(
-                                  controller: _housingAllowanceController,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                        decimal: true,
-                                      ),
-                                  decoration: _buildInputDecoration(
-                                    label: 'Housing Allowance (THB)',
-                                    icon: Icons.home,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-
-                      // Monthly Allowances Section
-                      _buildSectionCard(
-                        title: 'Monthly Allowances',
-                        icon: Icons.account_balance_wallet,
-                        iconGradient: [
-                          Colors.orange.shade400,
-                          Colors.orange.shade600,
-                        ],
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            margin: const EdgeInsets.only(bottom: 16),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.orange.shade200),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.info_outline,
-                                  color: Colors.orange.shade700,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    'These allowances are paid every month.',
-                                    style: TextStyle(
-                                      color: Colors.orange.shade700,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextFormField(
-                                  controller: _phoneAllowanceController,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                        decimal: true,
-                                      ),
-                                  decoration: _buildInputDecoration(
-                                    label: 'Phone Allowance (THB/Month)',
-                                    icon: Icons.phone_android,
-                                    helperText: 'Monthly amount',
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              const Expanded(
-                                child: SizedBox(),
-                              ), // Placeholder for future fields
-                            ],
-                          ),
-                        ],
-                      ),
-
-                      // Annual Allowances Section
-                      _buildSectionCard(
-                        title: 'Annual Allowances',
-                        icon: Icons.card_giftcard,
-                        iconGradient: [
-                          Colors.teal.shade400,
-                          Colors.teal.shade600,
-                        ],
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            margin: const EdgeInsets.only(bottom: 16),
-                            decoration: BoxDecoration(
-                              color: Colors.teal.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.teal.shade200),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.info_outline,
-                                  color: Colors.teal.shade700,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    'These allowances are paid once a year, not monthly.',
-                                    style: TextStyle(
-                                      color: Colors.teal.shade700,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextFormField(
-                                  controller: _equipmentAllowanceController,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                        decimal: true,
-                                      ),
-                                  decoration: _buildInputDecoration(
-                                    label: 'Equipment Allowance (THB/Year)',
-                                    icon: Icons.computer,
-                                    helperText: 'Annual amount',
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: TextFormField(
-                                  controller:
-                                      _continueEducationAllowanceController,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                        decimal: true,
-                                      ),
-                                  decoration: _buildInputDecoration(
-                                    label: 'Continuing Education (THB/Year)',
-                                    icon: Icons.school,
-                                    helperText: 'Annual amount',
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-
-                      // Deductions Section
-                      _buildSectionCard(
-                        title: 'Deductions',
-                        icon: Icons.remove_circle_outline,
-                        iconGradient: [
-                          Colors.red.shade400,
-                          Colors.red.shade600,
-                        ],
-                        children: [
-                          // Tithe
-                          Row(
-                            children: [
-                              Expanded(
-                                flex: 2,
-                                child: TextFormField(
-                                  controller: _tithePercentageController,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                        decimal: true,
-                                      ),
-                                  decoration: _buildInputDecoration(
-                                    label: 'Tithe (%)',
-                                    icon: Icons.volunteer_activism,
-                                    hintText: '10',
-                                  ),
-                                  onChanged: (_) {
-                                    WidgetsBinding.instance
-                                        .addPostFrameCallback((_) {
-                                          if (mounted) setState(() {});
-                                        });
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                flex: 3,
-                                child: _buildCalculatedValueCard(
-                                  label: 'Tithe Amount:',
-                                  value: _calculateTithe(),
-                                  color: Colors.orange,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          // Social Security (Fixed Amount)
-                          TextFormField(
-                            controller: _socialSecurityPercentageController,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            decoration: _buildInputDecoration(
-                              label: 'Social Security (THB)',
-                              icon: Icons.security,
-                            ),
-                            onChanged: (_) {
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                if (mounted) setState(() {});
-                              });
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          // Provident Fund
-                          Row(
-                            children: [
-                              Expanded(
-                                flex: 2,
-                                child: TextFormField(
-                                  controller:
-                                      _providentFundPercentageController,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                        decimal: true,
-                                      ),
-                                  decoration: _buildInputDecoration(
-                                    label: 'Provident Fund (%)',
-                                    icon: Icons.savings,
-                                    hintText: '10',
-                                  ),
-                                  onChanged: (_) {
-                                    WidgetsBinding.instance
-                                        .addPostFrameCallback((_) {
-                                          if (mounted) setState(() {});
-                                        });
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                flex: 3,
-                                child: _buildCalculatedValueCard(
-                                  label: 'Provident Fund:',
-                                  value: _calculateProvidentFund(),
-                                  color: Colors.blue,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          // House Rental
-                          Row(
-                            children: [
-                              Expanded(
-                                flex: 2,
-                                child: TextFormField(
-                                  controller: _houseRentalPercentageController,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                        decimal: true,
-                                      ),
-                                  decoration: _buildInputDecoration(
-                                    label: 'House Rental (%)',
-                                    icon: Icons.house,
-                                    hintText: '10',
-                                  ),
-                                  onChanged: (_) {
-                                    WidgetsBinding.instance
-                                        .addPostFrameCallback((_) {
-                                          if (mounted) setState(() {});
-                                        });
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                flex: 3,
-                                child: _buildCalculatedValueCard(
-                                  label: 'House Rental:',
-                                  value: _calculateHouseRental(),
-                                  color: Colors.purple,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          // Total Deductions Display
-                          _buildCalculatedValueCard(
-                            label: 'Total Deductions:',
-                            value: _calculateTotalDeductions(),
-                            color: Colors.red,
-                            isLarge: true,
-                          ),
-                        ],
-                      ),
-
-                      // Additional Information Section
-                      _buildSectionCard(
-                        title: 'Additional Information',
-                        icon: Icons.info_outline,
-                        iconGradient: [
-                          Colors.indigo.shade400,
-                          Colors.indigo.shade600,
-                        ],
-                        children: [
-                          DropdownButtonFormField<String>(
-                            initialValue: _currency,
-                            decoration: _buildInputDecoration(
-                              label: 'Currency',
-                              icon: Icons.currency_exchange,
-                            ),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'THB',
-                                child: Text('THB (Thai Baht)'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'USD',
-                                child: Text('USD (US Dollar)'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'EUR',
-                                child: Text('EUR (Euro)'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'GBP',
-                                child: Text('GBP (British Pound)'),
-                              ),
-                            ],
-                            onChanged: (value) {
-                              if (value != null) {
-                                setState(() {
-                                  _currency = value;
-                                });
-                              }
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade50,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.grey.shade300),
-                            ),
-                            child: SwitchListTile(
-                              title: const Text('Active'),
-                              subtitle: const Text(
-                                'Is this salary record currently active?',
-                              ),
-                              value: _isActive,
-                              onChanged: (value) {
-                                setState(() {
-                                  _isActive = value;
-                                });
-                              },
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _notesController,
-                            maxLines: 3,
-                            decoration: _buildInputDecoration(
-                              label: 'Notes',
-                              icon: Icons.note,
-                              hintText: 'Any additional notes...',
+                          const SizedBox(height: 4),
+                          Text(
+                            'THB ${NumberFormat('#,##0').format(_calculateNetSalary())}',
+                            style: const TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
                             ),
                           ),
                         ],
                       ),
-
-                      // Net Salary Summary Card
                       Container(
-                        margin: const EdgeInsets.only(bottom: 16),
-                        padding: const EdgeInsets.all(24),
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Colors.green.shade500,
-                              Colors.green.shade700,
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.green.withValues(alpha: 0.3),
-                              blurRadius: 12,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Net Salary',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.white70,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'THB ${NumberFormat('#,##0').format(_calculateNetSalary())}',
-                                  style: const TextStyle(
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.account_balance_wallet,
-                                color: Colors.white,
-                                size: 32,
-                              ),
-                            ),
-                          ],
+                        child: const Icon(
+                          Icons.account_balance_wallet,
+                          color: Colors.white,
+                          size: 32,
                         ),
                       ),
-
-                      const SizedBox(height: 32),
                     ],
                   ),
                 ),
-              ),
+
+                const SizedBox(height: 32),
+              ],
             ),
           ),
+        ),
+      ),
+    );
+
+    return Scaffold(
+      backgroundColor: Colors.grey[100],
+      body: Column(
+        children: [
+          wrappedHeader,
+          Expanded(child: content),
         ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
       ),
     );
   }

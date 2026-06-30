@@ -495,6 +495,13 @@ class _SettingsScreenImplState extends State<SettingsScreenImpl> {
                   ),
                   const Divider(height: 1),
                   _buildSettingTile(
+                    icon: Icons.privacy_tip_outlined,
+                    title: 'Privacy Policy',
+                    subtitle: 'How we collect and protect your data',
+                    onTap: () => context.push('/privacy-policy'),
+                  ),
+                  const Divider(height: 1),
+                  _buildSettingTile(
                     icon: Icons.help_outline,
                     title: 'Help & Support',
                     subtitle: 'Get help or contact support',

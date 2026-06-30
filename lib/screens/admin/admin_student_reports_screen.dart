@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
+import 'package:printing/printing.dart';
+import '../../services/student_summary_pdf_service.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
 
@@ -18,6 +20,9 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
   String? _selectedStatus;
   List<Map<String, dynamic>> _students = [];
   bool _isLoadingStudents = true;
+
+  // Full profile data for PDF reports (studentId → profile fields)
+  final Map<String, Map<String, dynamic>> _profiles = {};
 
   // Store reports in state to avoid StreamBuilder issues on web
   List<QueryDocumentSnapshot<Map<String, dynamic>>> _reports = [];
@@ -96,8 +101,9 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
           .collection('student_profiles')
           .get(const GetOptions(source: Source.server));
 
-      // Remove duplicates by creating a map with unique IDs, then converting back to list
       final uniqueStudentsMap = <String, Map<String, dynamic>>{};
+      _profiles.clear();
+
       for (final doc in studentsQuery.docs) {
         final data = doc.data();
         final id = doc.id;
@@ -105,6 +111,13 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
           'id': id,
           'name': data['studentName'] ?? 'Unknown',
           'photoUrl': data['photoUrl'] as String?,
+        };
+        // Store full profile for PDF reports
+        _profiles[id] = {
+          'language': data['language'] ?? '',
+          'role': data['role'] ?? '',
+          'grade': data['grade'] ?? '',
+          'hourlyRate': (data['hourlyRate'] as num?)?.toDouble() ?? 0.0,
         };
       }
       _students = uniqueStudentsMap.values.toList();
@@ -214,6 +227,231 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
     );
   }
 
+  Future<void> _showReportOptionsDialog() async {
+    StudentSummaryReportType? selectedType;
+    bool generating = false;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) {
+          return AlertDialog(
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.picture_as_pdf, color: Colors.orange.shade700),
+                ),
+                const SizedBox(width: 12),
+                const Text('Print Summary Report'),
+              ],
+            ),
+            content: SizedBox(
+              width: 420,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Choose the type of report to generate. Data is based on the current filter (${_reports.length} reports).',
+                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                  ),
+                  const SizedBox(height: 16),
+                  _reportTypeCard(
+                    type: StudentSummaryReportType.workSummary,
+                    selected: selectedType,
+                    icon: Icons.people_outline,
+                    title: 'Student Work Summary',
+                    subtitle: 'All students — total hours, amounts, approval status in one table.',
+                    onTap: () => setS(() => selectedType = StudentSummaryReportType.workSummary),
+                  ),
+                  const SizedBox(height: 8),
+                  _reportTypeCard(
+                    type: StudentSummaryReportType.paymentByLanguage,
+                    selected: selectedType,
+                    icon: Icons.language,
+                    title: 'Payment by Language',
+                    subtitle: 'Students grouped by language with subtotals and grand total.',
+                    onTap: () => setS(() => selectedType = StudentSummaryReportType.paymentByLanguage),
+                  ),
+                  const SizedBox(height: 8),
+                  _reportTypeCard(
+                    type: StudentSummaryReportType.taskByLanguage,
+                    selected: selectedType,
+                    icon: Icons.category_outlined,
+                    title: 'Work Type × Language',
+                    subtitle: 'Cross-reference of task types per language (uses timesheet detail).',
+                    onTap: () => setS(() => selectedType = StudentSummaryReportType.taskByLanguage),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: generating ? null : () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton.icon(
+                onPressed: (selectedType == null || generating)
+                    ? null
+                    : () async {
+                        setS(() => generating = true);
+                        final nav = Navigator.of(ctx);
+                        final messenger = ScaffoldMessenger.of(context);
+                        try {
+                          await _generateReport(selectedType!);
+                          if (mounted) nav.pop();
+                        } catch (e) {
+                          if (mounted) {
+                            nav.pop();
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text('Failed to generate report: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                icon: generating
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.print),
+                label: Text(generating ? 'Generating…' : 'Generate PDF'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange.shade700,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _reportTypeCard({
+    required StudentSummaryReportType type,
+    required StudentSummaryReportType? selected,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    final isSelected = selected == type;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected ? Colors.orange.shade600 : Colors.grey.shade300,
+            width: isSelected ? 2 : 1,
+          ),
+          color: isSelected ? Colors.orange.shade50 : Colors.white,
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.orange.shade100 : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, size: 20, color: isSelected ? Colors.orange.shade700 : Colors.grey[600]),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: isSelected ? Colors.orange.shade800 : Colors.grey[800],
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            ),
+            if (isSelected)
+              Icon(Icons.check_circle, color: Colors.orange.shade600, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _generateReport(StudentSummaryReportType type) async {
+    final reportData = _reports.map((doc) => {'reportId': doc.id, ...doc.data()}).toList();
+
+    List<Map<String, dynamic>> timesheets = [];
+    if (type == StudentSummaryReportType.taskByLanguage) {
+      final reportIds = reportData.map((r) => r['reportId'] as String).toList();
+      final chunks = <List<String>>[];
+      for (var i = 0; i < reportIds.length; i += 30) {
+        chunks.add(reportIds.sublist(i, i + 30 < reportIds.length ? i + 30 : reportIds.length));
+      }
+      for (final chunk in chunks) {
+        final snap = await FirebaseFirestore.instance
+            .collection('student_timesheets')
+            .where('reportId', whereIn: chunk)
+            .get(const GetOptions(source: Source.server));
+        timesheets.addAll(snap.docs.map((d) => {'id': d.id, ...d.data()}));
+      }
+    }
+
+    // Infer report year from the data (use current year as fallback)
+    int reportYear = DateTime.now().year;
+    for (final r in reportData) {
+      final month = r['month'] as String? ?? '';
+      final parts = month.split('-');
+      if (parts.isNotEmpty) {
+        final y = int.tryParse(parts[0]);
+        if (y != null && y > 2000) { reportYear = y; break; }
+      }
+    }
+
+    // Fetch budget data for comparison
+    Map<String, dynamic>? budgetData;
+    try {
+      final budgetDoc = await FirebaseFirestore.instance
+          .collection('student_labor_budgets')
+          .doc('$reportYear')
+          .get();
+      if (budgetDoc.exists) budgetData = budgetDoc.data();
+    } catch (_) {}
+
+    final statusLabel = _selectedStatus != null ? _selectedStatus!.toUpperCase() : 'All';
+    final bytes = await StudentSummaryPdfService().generateReport(
+      type: type,
+      reports: reportData,
+      profiles: _profiles,
+      timesheets: timesheets,
+      statusFilter: _selectedStatus != null ? statusLabel : null,
+      budgetData: budgetData,
+    );
+
+    await Printing.layoutPdf(onLayout: (_) async => bytes);
+  }
+
   Widget _buildWelcomeHeader() {
     return Container(
       margin: const EdgeInsets.all(24),
@@ -278,6 +516,12 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
                   ),
                   Row(
                     children: [
+                      _buildHeaderActionButton(
+                        icon: Icons.picture_as_pdf,
+                        tooltip: 'Print Summary Report',
+                        onPressed: _showReportOptionsDialog,
+                      ),
+                      const SizedBox(width: 8),
                       _buildHeaderActionButton(
                         icon: Icons.refresh,
                         tooltip: 'Refresh',
@@ -643,6 +887,15 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
         statusIcon = Icons.edit_document;
     }
 
+    final paymentStatus =
+        reportData['paymentStatus'] as String? ?? 'not_paid';
+    final (Color payColor, String payLabel, IconData payIcon) =
+        switch (paymentStatus) {
+      'paid' => (Colors.green, 'PAID', Icons.check_circle_outline),
+      'review' => (Colors.orange, 'IN REVIEW', Icons.pending_outlined),
+      _ => (Colors.grey, 'UNPAID', Icons.money_off_outlined),
+    };
+
     final monthDisplay = _formatReportPeriod(reportData);
 
     return InkWell(
@@ -732,27 +985,57 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
                 ],
               ),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: statusColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(statusIcon, size: 14, color: statusColor),
-                  const SizedBox(width: 4),
-                  Text(
-                    status.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: statusColor,
-                    ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                ],
-              ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(statusIcon, size: 14, color: statusColor),
+                      const SizedBox(width: 4),
+                      Text(
+                        status.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: statusColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: payColor.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: payColor.withValues(alpha: 0.35)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(payIcon, size: 11, color: payColor),
+                      const SizedBox(width: 3),
+                      Text(
+                        payLabel,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: payColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
             const SizedBox(width: 4),
             PopupMenuButton<String>(
@@ -808,20 +1091,111 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
                       }
                     }
                   }
+                } else if (value == 'payment_paid' ||
+                    value == 'payment_not_paid' ||
+                    value == 'payment_review') {
+                  final newStatus = value.replaceFirst('payment_', '');
+                  try {
+                    await FirebaseFirestore.instance
+                        .collection('student_monthly_reports')
+                        .doc(reportId)
+                        .update({'paymentStatus': newStatus});
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                              'Payment status updated to ${newStatus.replaceAll('_', ' ').toUpperCase()}'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                      _loadReports();
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Error updating payment status: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
                 }
               },
-              itemBuilder: (context) => const [
-                PopupMenuItem<String>(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete, size: 18, color: Colors.red),
-                      SizedBox(width: 8),
-                      Text('Delete', style: TextStyle(color: Colors.red)),
-                    ],
+              itemBuilder: (_) {
+                final currentPayment =
+                    reportData['paymentStatus'] as String? ?? 'not_paid';
+                return [
+                  const PopupMenuItem<String>(
+                    enabled: false,
+                    height: 28,
+                    child: Text('Payment Status',
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey)),
                   ),
-                ),
-              ],
+                  PopupMenuItem<String>(
+                    value: 'payment_paid',
+                    child: Row(children: [
+                      Icon(Icons.check_circle_outline,
+                          size: 16,
+                          color: currentPayment == 'paid'
+                              ? Colors.green
+                              : Colors.grey),
+                      const SizedBox(width: 8),
+                      const Text('Paid'),
+                      if (currentPayment == 'paid') ...[
+                        const Spacer(),
+                        const Icon(Icons.done, size: 14, color: Colors.green),
+                      ],
+                    ]),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'payment_review',
+                    child: Row(children: [
+                      Icon(Icons.pending_outlined,
+                          size: 16,
+                          color: currentPayment == 'review'
+                              ? Colors.orange
+                              : Colors.grey),
+                      const SizedBox(width: 8),
+                      const Text('In Review'),
+                      if (currentPayment == 'review') ...[
+                        const Spacer(),
+                        const Icon(Icons.done, size: 14, color: Colors.orange),
+                      ],
+                    ]),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'payment_not_paid',
+                    child: Row(children: [
+                      Icon(Icons.money_off_outlined,
+                          size: 16,
+                          color: currentPayment == 'not_paid'
+                              ? Colors.red
+                              : Colors.grey),
+                      const SizedBox(width: 8),
+                      const Text('Not Paid'),
+                      if (currentPayment == 'not_paid') ...[
+                        const Spacer(),
+                        const Icon(Icons.done, size: 14, color: Colors.red),
+                      ],
+                    ]),
+                  ),
+                  const PopupMenuDivider(),
+                  const PopupMenuItem<String>(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete, size: 18, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text('Delete', style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
+                  ),
+                ];
+              },
               icon: Icon(Icons.more_vert, color: Colors.grey[500], size: 20),
             ),
           ],

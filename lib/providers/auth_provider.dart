@@ -90,6 +90,7 @@ class AuthProvider extends ChangeNotifier {
     required String name,
     required UserRole role,
     required String department,
+    String workerType = 'student',
   }) async {
     try {
       // Sanitize inputs
@@ -104,6 +105,7 @@ class AuthProvider extends ChangeNotifier {
         name: sanitizedName,
         role: role,
         department: sanitizedDepartment,
+        workerType: workerType,
       );
 
       // Notify listeners after successful registration to trigger navigation
@@ -151,6 +153,10 @@ class AuthProvider extends ChangeNotifier {
 
   bool canCreateReports() {
     return _authService.canCreateReports();
+  }
+
+  bool canUploadSupportDocument() {
+    return _authService.canUploadSupportDocument();
   }
 
   bool canCreatePurchaseRequisitions() {

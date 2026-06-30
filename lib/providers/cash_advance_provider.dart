@@ -124,12 +124,7 @@ class CashAdvanceProvider extends ChangeNotifier {
     List<String>? supportDocumentUrls,
     List<CashAdvanceItem>? items,
     String? purchaseRequisitionId,
-    String? linkedMinutesId,
-    String? linkedMinutesLabel,
-    String? linkedActionItemNumber,
-    String? linkedActionItemTitle,
-    String? linkedActionItemDescription,
-    String? linkedActionItemAction,
+    List<CashAdvanceMeetingReference>? meetingReferences,
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -149,12 +144,7 @@ class CashAdvanceProvider extends ChangeNotifier {
         supportDocumentUrls: supportDocumentUrls,
         items: items,
         purchaseRequisitionId: purchaseRequisitionId,
-        linkedMinutesId: linkedMinutesId,
-        linkedMinutesLabel: linkedMinutesLabel,
-        linkedActionItemNumber: linkedActionItemNumber,
-        linkedActionItemTitle: linkedActionItemTitle,
-        linkedActionItemDescription: linkedActionItemDescription,
-        linkedActionItemAction: linkedActionItemAction,
+        meetingReferences: meetingReferences,
       );
 
       _advances.insert(0, advance);

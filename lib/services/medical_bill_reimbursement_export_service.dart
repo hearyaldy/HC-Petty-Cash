@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io' show File;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart' show rootBundle;
@@ -91,7 +92,7 @@ class MedicalBillReimbursementExportService {
     }
 
     pdf.addPage(
-      pw.Page(
+      pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(30),
         theme: pw.ThemeData.withFont(
@@ -99,39 +100,58 @@ class MedicalBillReimbursementExportService {
           bold: ttfBold ?? pw.Font.helveticaBold(),
           fontFallback: [?notoFallback, ?emojiFont],
         ),
-        build: (context) => pw.Column(
+        header: (_) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            // Header
             _buildHeader(ttf, ttfBold, logoImage),
             pw.SizedBox(height: 12),
-
-            // Title
             _buildTitle(ttf, ttfBold),
-            pw.SizedBox(height: 16),
-
-            // Report Info Section
-            _buildReportInfoSection(report, dateFormat, ttf, ttfBold),
-            pw.SizedBox(height: 16),
-
-            // Medical Claims Table
-            _buildMedicalClaimsTable(report, currencyFormat, ttf, ttfBold),
-            pw.SizedBox(height: 16),
-
-            // Summary Section
-            _buildSummarySection(report, currencyFormat, ttf, ttfBold),
-
-            // Spacer
-            pw.Expanded(child: pw.Container()),
-
-            // Signature Section
-            _buildSignatureSection(report, ttf, ttfBold),
             pw.SizedBox(height: 12),
-
-            // Footer
-            _buildFooter(report, dateFormat, ttf),
           ],
         ),
+        footer: (ctx) => pw.Container(
+          padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: pw.BoxDecoration(
+            border: pw.Border.all(color: PdfColors.grey300),
+            borderRadius: pw.BorderRadius.circular(4),
+          ),
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                'Report ID: ${report.id.length > 12 ? '${report.id.substring(0, 12)}...' : report.id}',
+                style: pw.TextStyle(fontSize: 7, color: PdfColors.grey600, font: ttf),
+              ),
+              pw.Text(
+                'Page ${ctx.pageNumber} of ${ctx.pagesCount}  |  Printed: ${dateFormat.format(DateTime.now())}',
+                style: pw.TextStyle(fontSize: 7, color: PdfColors.grey600, font: ttf),
+              ),
+            ],
+          ),
+        ),
+        build: (_) => [
+          // Report Info Section
+          _buildReportInfoSection(report, dateFormat, ttf, ttfBold),
+          pw.SizedBox(height: 16),
+
+          // Claims table label + table + note as separate items so MultiPage
+          // can break the table at row boundaries across pages
+          ..._buildMedicalClaimsParts(report, currencyFormat, ttf, ttfBold),
+          pw.SizedBox(height: 16),
+
+          // Summary Section
+          _buildSummarySection(report, currencyFormat, ttf, ttfBold),
+
+          // Meeting Reference (if linked)
+          if (report.linkedMinutesId != null) ...[
+            pw.SizedBox(height: 16),
+            _buildMeetingReferenceSection(report, ttf, ttfBold),
+          ],
+          pw.SizedBox(height: 16),
+
+          // Signature Section
+          _buildSignatureSection(report, ttf, ttfBold),
+        ],
       ),
     );
 
@@ -316,7 +336,9 @@ class MedicalBillReimbursementExportService {
     );
   }
 
-  pw.Widget _buildMedicalClaimsTable(
+  // Returns table components as separate widgets so pw.MultiPage can break
+  // the table at row boundaries across pages without leaving a gap.
+  List<pw.Widget> _buildMedicalClaimsParts(
     MedicalBillReimbursement report,
     NumberFormat currencyFormat,
     pw.Font? font,
@@ -331,21 +353,17 @@ class MedicalBillReimbursementExportService {
       verticalInside: pw.BorderSide(color: PdfColors.grey400, width: 0.4),
     );
 
-    final bodyRows = <pw.TableRow>[];
+    final dataRows = <pw.TableRow>[];
 
-    // Add claim items
     for (var i = 0; i < report.claimItems.length; i++) {
       final item = report.claimItems[i];
-      bodyRows.add(
+      dataRows.add(
         pw.TableRow(
           children: [
             _buildTableCell('${i + 1}', font, align: pw.TextAlign.center),
             _buildTableCell(item.description, font),
-            _buildTableCell(
-              item.claimTypeEnum.shortName,
-              font,
-              align: pw.TextAlign.center,
-            ),
+            _buildTableCell(item.claimTypeEnum.shortName, font,
+                align: pw.TextAlign.center),
             _buildTableCell(
               '${AppConstants.currencySymbol} ${currencyFormat.format(item.totalBill)}',
               font,
@@ -366,27 +384,8 @@ class MedicalBillReimbursementExportService {
       );
     }
 
-    // Add empty rows to fill space (minimum 10 rows)
-    final emptyRowsNeeded = 10 - report.claimItems.length;
-    if (emptyRowsNeeded > 0) {
-      for (var i = 0; i < emptyRowsNeeded; i++) {
-        bodyRows.add(
-          pw.TableRow(
-            children: [
-              _buildTableCell('', font),
-              _buildTableCell('', font),
-              _buildTableCell('', font),
-              _buildTableCell('', font),
-              _buildTableCell('', font),
-              _buildTableCell('', font),
-            ],
-          ),
-        );
-      }
-    }
-
-    // Add total row
-    bodyRows.add(
+    // Total row
+    dataRows.add(
       pw.TableRow(
         decoration: const pw.BoxDecoration(color: PdfColors.grey200),
         children: [
@@ -408,56 +407,55 @@ class MedicalBillReimbursementExportService {
       ),
     );
 
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.Text(
-          'Details of Medical Claim:',
-          style: pw.TextStyle(
-            fontSize: 11,
-            fontWeight: pw.FontWeight.bold,
-            font: fontBold,
+    return [
+      pw.Text(
+        'Details of Medical Claim:',
+        style: pw.TextStyle(
+            fontSize: 11, fontWeight: pw.FontWeight.bold, font: fontBold),
+      ),
+      pw.SizedBox(height: 8),
+      pw.Table(
+        border: tableBorder,
+        columnWidths: const {
+          0: pw.FlexColumnWidth(0.8),
+          1: pw.FlexColumnWidth(4.0),
+          2: pw.FlexColumnWidth(1.2),
+          3: pw.FlexColumnWidth(2.0),
+          4: pw.FlexColumnWidth(1.5),
+          5: pw.FlexColumnWidth(2.0),
+        },
+        children: [
+          pw.TableRow(
+            decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+            children: [
+              _buildTableCell('No.', fontBold,
+                  align: pw.TextAlign.center, isHeader: true),
+              _buildTableCell('Description', fontBold,
+                  align: pw.TextAlign.center, isHeader: true),
+              _buildTableCell('Type\n(OP/IP)', fontBold,
+                  align: pw.TextAlign.center, isHeader: true),
+              _buildTableCell('Total Bill', fontBold,
+                  align: pw.TextAlign.center, isHeader: true),
+              _buildTableCell('Rate', fontBold,
+                  align: pw.TextAlign.center, isHeader: true),
+              _buildTableCell('Amount\nReimburse', fontBold,
+                  align: pw.TextAlign.center, isHeader: true),
+            ],
           ),
+          ...dataRows,
+        ],
+      ),
+      pw.SizedBox(height: 4),
+      pw.Text(
+        'Note: OP (Out Patient) = 75% reimbursement | IP (In Patient) = 90% reimbursement',
+        style: pw.TextStyle(
+          fontSize: 8,
+          font: font,
+          color: PdfColors.grey600,
+          fontStyle: pw.FontStyle.italic,
         ),
-        pw.SizedBox(height: 8),
-        pw.Table(
-          border: tableBorder,
-          columnWidths: const {
-            0: pw.FlexColumnWidth(0.8), // No
-            1: pw.FlexColumnWidth(4.0), // Description
-            2: pw.FlexColumnWidth(1.2), // Type (OP/IP)
-            3: pw.FlexColumnWidth(2.0), // Total Bill
-            4: pw.FlexColumnWidth(1.5), // Rate %
-            5: pw.FlexColumnWidth(2.0), // Amount Reimburse
-          },
-          children: [
-            // Header row
-            pw.TableRow(
-              decoration: const pw.BoxDecoration(color: PdfColors.grey300),
-              children: [
-                _buildTableCell('No.', fontBold, align: pw.TextAlign.center, isHeader: true),
-                _buildTableCell('Description', fontBold, align: pw.TextAlign.center, isHeader: true),
-                _buildTableCell('Type\n(OP/IP)', fontBold, align: pw.TextAlign.center, isHeader: true),
-                _buildTableCell('Total Bill', fontBold, align: pw.TextAlign.center, isHeader: true),
-                _buildTableCell('Rate', fontBold, align: pw.TextAlign.center, isHeader: true),
-                _buildTableCell('Amount\nReimburse', fontBold, align: pw.TextAlign.center, isHeader: true),
-              ],
-            ),
-            ...bodyRows,
-          ],
-        ),
-        pw.SizedBox(height: 4),
-        pw.Text(
-          'Note: OP (Out Patient) = 75% reimbursement | IP (In Patient) = 90% reimbursement',
-          style: pw.TextStyle(
-            fontSize: 8,
-            font: font,
-            color: PdfColors.grey600,
-            fontStyle: pw.FontStyle.italic,
-          ),
-        ),
-      ],
-    );
+      ),
+    ];
   }
 
   pw.Widget _buildTableCell(
@@ -579,6 +577,71 @@ class MedicalBillReimbursementExportService {
     );
   }
 
+  pw.Widget _buildMeetingReferenceSection(
+    MedicalBillReimbursement report,
+    pw.Font? font,
+    pw.Font? fontBold,
+  ) {
+    const indigoBg = PdfColor.fromInt(0xFFE8EAF6);
+    const indigoBorder = PdfColor.fromInt(0xFF9FA8DA);
+    const indigoTitle = PdfColor.fromInt(0xFF283593);
+    const labelColor = PdfColor.fromInt(0xFF6B7280);
+
+    pw.Widget refRow(String label, String value, {bool bold = false}) {
+      return pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 4),
+        child: pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.SizedBox(
+              width: 90,
+              child: pw.Text(
+                '$label:',
+                style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, font: fontBold, color: labelColor),
+              ),
+            ),
+            pw.Expanded(
+              child: pw.Text(
+                value,
+                style: pw.TextStyle(fontSize: 9, font: bold ? fontBold : font),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(12),
+      decoration: pw.BoxDecoration(
+        color: indigoBg,
+        border: pw.Border.all(color: indigoBorder),
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            'Meeting Reference',
+            style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, font: fontBold, color: indigoTitle),
+          ),
+          pw.SizedBox(height: 8),
+          if (report.linkedMinutesLabel != null)
+            refRow('Minutes', report.linkedMinutesLabel!),
+          if (report.linkedActionItemNumber != null)
+            refRow('Item No.', report.linkedActionItemNumber!, bold: true),
+          if (report.linkedActionItemAction != null)
+            refRow('Action', report.linkedActionItemAction!, bold: true),
+          if (report.linkedActionItemTitle != null)
+            refRow('Heading', report.linkedActionItemTitle!, bold: true),
+          if (report.linkedActionItemDescription != null &&
+              report.linkedActionItemDescription!.isNotEmpty)
+            refRow('Description', _stripMarkup(report.linkedActionItemDescription!)),
+        ],
+      ),
+    );
+  }
+
   pw.Widget _buildSignatureSection(
     MedicalBillReimbursement report,
     pw.Font? font,
@@ -671,38 +734,13 @@ class MedicalBillReimbursementExportService {
     );
   }
 
-  pw.Widget _buildFooter(
-    MedicalBillReimbursement report,
-    DateFormat dateFormat,
-    pw.Font? font,
-  ) {
-    return pw.Container(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: PdfColors.grey300),
-        borderRadius: pw.BorderRadius.circular(4),
-      ),
-      child: pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-        children: [
-          pw.Text(
-            'Report ID: ${report.id.length > 12 ? '${report.id.substring(0, 12)}...' : report.id}',
-            style: pw.TextStyle(
-              fontSize: 7,
-              color: PdfColors.grey600,
-              font: font,
-            ),
-          ),
-          pw.Text(
-            'Printed: ${dateFormat.format(DateTime.now())}',
-            style: pw.TextStyle(
-              fontSize: 7,
-              color: PdfColors.grey600,
-              font: font,
-            ),
-          ),
-        ],
-      ),
-    );
+  String _stripMarkup(String text) {
+    if (text.startsWith('[')) {
+      try {
+        final ops = jsonDecode(text) as List;
+        return ops.whereType<Map>().map((op) => op['insert']).whereType<String>().join().trim();
+      } catch (_) {}
+    }
+    return text;
   }
 }

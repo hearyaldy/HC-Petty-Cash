@@ -49,13 +49,9 @@ class CashAdvance {
   final double? settledAmount;
   final double? returnedAmount;
 
-  // Meeting Minutes Reference
-  final String? linkedMinutesId;        // AdcomMinutes document ID
-  final String? linkedMinutesLabel;     // e.g. "ADCOM – Feb 05, 2025"
-  final String? linkedActionItemNumber; // e.g. "05/02-AD001"
-  final String? linkedActionItemTitle;  // Heading of the action item
-  final String? linkedActionItemDescription; // Description
-  final String? linkedActionItemAction; // ActionType display name (e.g. "Recommended")
+  // Meeting Minutes References (one cash advance can cite multiple action items,
+  // potentially from different meetings)
+  final List<CashAdvanceMeetingReference> meetingReferences;
 
   // Supporting Documents
   final List<String> supportDocumentUrls;
@@ -93,16 +89,12 @@ class CashAdvance {
     this.settledAt,
     this.settledAmount,
     this.returnedAmount,
-    this.linkedMinutesId,
-    this.linkedMinutesLabel,
-    this.linkedActionItemNumber,
-    this.linkedActionItemTitle,
-    this.linkedActionItemDescription,
-    this.linkedActionItemAction,
+    List<CashAdvanceMeetingReference>? meetingReferences,
     List<String>? supportDocumentUrls,
     this.notes,
     this.companyName,
   })  : items = items ?? [],
+        meetingReferences = meetingReferences ?? [],
         supportDocumentUrls = supportDocumentUrls ?? [];
 
   // Get status enum
@@ -166,12 +158,8 @@ class CashAdvance {
       'settledAt': settledAt != null ? Timestamp.fromDate(settledAt!) : null,
       'settledAmount': settledAmount,
       'returnedAmount': returnedAmount,
-      'linkedMinutesId': linkedMinutesId,
-      'linkedMinutesLabel': linkedMinutesLabel,
-      'linkedActionItemNumber': linkedActionItemNumber,
-      'linkedActionItemTitle': linkedActionItemTitle,
-      'linkedActionItemDescription': linkedActionItemDescription,
-      'linkedActionItemAction': linkedActionItemAction,
+      'meetingReferences':
+          meetingReferences.map((ref) => ref.toMap()).toList(),
       'supportDocumentUrls': supportDocumentUrls,
       'notes': notes,
       'companyName': companyName,
@@ -229,17 +217,35 @@ class CashAdvance {
       settledAt: parseTimestampOptional(data['settledAt']),
       settledAmount: (data['settledAmount'] as num?)?.toDouble(),
       returnedAmount: (data['returnedAmount'] as num?)?.toDouble(),
-      linkedMinutesId: data['linkedMinutesId'],
-      linkedMinutesLabel: data['linkedMinutesLabel'],
-      linkedActionItemNumber: data['linkedActionItemNumber'],
-      linkedActionItemTitle: data['linkedActionItemTitle'],
-      linkedActionItemDescription: data['linkedActionItemDescription'],
-      linkedActionItemAction: data['linkedActionItemAction'],
+      meetingReferences: _parseMeetingReferences(data),
       supportDocumentUrls:
           (data['supportDocumentUrls'] as List<dynamic>?)?.cast<String>() ?? [],
       notes: data['notes'],
       companyName: data['companyName'],
     );
+  }
+
+  // Reads the new 'meetingReferences' array; falls back to the legacy single
+  // linkedMinutesId/linkedActionItem* fields from older documents.
+  static List<CashAdvanceMeetingReference> _parseMeetingReferences(
+      Map<String, dynamic> data) {
+    final raw = data['meetingReferences'] as List<dynamic>?;
+    if (raw != null) {
+      return raw.map((ref) => CashAdvanceMeetingReference.fromMap(ref)).toList();
+    }
+    if (data['linkedMinutesId'] != null) {
+      return [
+        CashAdvanceMeetingReference(
+          minutesId: data['linkedMinutesId'],
+          minutesLabel: data['linkedMinutesLabel'] ?? '',
+          actionItemNumber: data['linkedActionItemNumber'] ?? '',
+          actionItemTitle: data['linkedActionItemTitle'],
+          actionItemDescription: data['linkedActionItemDescription'],
+          actionItemAction: data['linkedActionItemAction'],
+        ),
+      ];
+    }
+    return [];
   }
 
   Map<String, dynamic> toJson() => toFirestore();
@@ -309,12 +315,7 @@ class CashAdvance {
           : null,
       settledAmount: (json['settledAmount'] as num?)?.toDouble(),
       returnedAmount: (json['returnedAmount'] as num?)?.toDouble(),
-      linkedMinutesId: json['linkedMinutesId'],
-      linkedMinutesLabel: json['linkedMinutesLabel'],
-      linkedActionItemNumber: json['linkedActionItemNumber'],
-      linkedActionItemTitle: json['linkedActionItemTitle'],
-      linkedActionItemDescription: json['linkedActionItemDescription'],
-      linkedActionItemAction: json['linkedActionItemAction'],
+      meetingReferences: _parseMeetingReferences(json),
       supportDocumentUrls:
           (json['supportDocumentUrls'] as List<dynamic>?)?.cast<String>() ?? [],
       notes: json['notes'],
@@ -353,12 +354,7 @@ class CashAdvance {
     DateTime? settledAt,
     double? settledAmount,
     double? returnedAmount,
-    String? linkedMinutesId,
-    String? linkedMinutesLabel,
-    String? linkedActionItemNumber,
-    String? linkedActionItemTitle,
-    String? linkedActionItemDescription,
-    String? linkedActionItemAction,
+    List<CashAdvanceMeetingReference>? meetingReferences,
     List<String>? supportDocumentUrls,
     String? notes,
     String? companyName,
@@ -394,12 +390,7 @@ class CashAdvance {
       settledAt: settledAt ?? this.settledAt,
       settledAmount: settledAmount ?? this.settledAmount,
       returnedAmount: returnedAmount ?? this.returnedAmount,
-      linkedMinutesId: linkedMinutesId ?? this.linkedMinutesId,
-      linkedMinutesLabel: linkedMinutesLabel ?? this.linkedMinutesLabel,
-      linkedActionItemNumber: linkedActionItemNumber ?? this.linkedActionItemNumber,
-      linkedActionItemTitle: linkedActionItemTitle ?? this.linkedActionItemTitle,
-      linkedActionItemDescription: linkedActionItemDescription ?? this.linkedActionItemDescription,
-      linkedActionItemAction: linkedActionItemAction ?? this.linkedActionItemAction,
+      meetingReferences: meetingReferences ?? this.meetingReferences,
       supportDocumentUrls: supportDocumentUrls ?? this.supportDocumentUrls,
       notes: notes ?? this.notes,
       companyName: companyName ?? this.companyName,
@@ -438,6 +429,47 @@ class CashAdvanceItem {
       quantity: (data['quantity'] as num?)?.toInt() ?? 0,
       unitPrice: (data['unitPrice'] as num?)?.toDouble() ?? 0.0,
       notes: data['notes'],
+    );
+  }
+}
+
+class CashAdvanceMeetingReference {
+  final String minutesId;        // AdcomMinutes document ID
+  final String minutesLabel;     // e.g. "ADCOM – Feb 05, 2025"
+  final String actionItemNumber; // e.g. "05/02-AD001"
+  final String? actionItemTitle;
+  final String? actionItemDescription;
+  final String? actionItemAction; // ActionType display name (e.g. "Recommended")
+
+  CashAdvanceMeetingReference({
+    required this.minutesId,
+    required this.minutesLabel,
+    required this.actionItemNumber,
+    this.actionItemTitle,
+    this.actionItemDescription,
+    this.actionItemAction,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'minutesId': minutesId,
+      'minutesLabel': minutesLabel,
+      'actionItemNumber': actionItemNumber,
+      'actionItemTitle': actionItemTitle,
+      'actionItemDescription': actionItemDescription,
+      'actionItemAction': actionItemAction,
+    };
+  }
+
+  factory CashAdvanceMeetingReference.fromMap(dynamic raw) {
+    final data = raw is Map<String, dynamic> ? raw : <String, dynamic>{};
+    return CashAdvanceMeetingReference(
+      minutesId: data['minutesId'] ?? '',
+      minutesLabel: data['minutesLabel'] ?? '',
+      actionItemNumber: data['actionItemNumber'] ?? '',
+      actionItemTitle: data['actionItemTitle'],
+      actionItemDescription: data['actionItemDescription'],
+      actionItemAction: data['actionItemAction'],
     );
   }
 }

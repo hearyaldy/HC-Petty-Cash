@@ -642,6 +642,23 @@ class StaffService {
     }
   }
 
+  // Update family medical policy settings for a staff member
+  Future<void> updateFamilyMedicalSettings(
+    String staffId, {
+    required String familyStatus,
+    required int familyMemberCount,
+  }) async {
+    try {
+      await _firestore.collection(collectionName).doc(staffId).update({
+        'familyStatus': familyStatus,
+        'familyMemberCount': familyMemberCount,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw Exception('Failed to update family medical settings: $e');
+    }
+  }
+
   // Delete all documents for a staff member (used when deleting staff)
   Future<void> deleteAllStaffDocuments(String staffId) async {
     try {

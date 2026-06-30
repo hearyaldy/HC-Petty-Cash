@@ -24,6 +24,7 @@ class _StudentRegistrationScreenState extends State<StudentRegistrationScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  String _workerType = 'student';
 
   @override
   void dispose() {
@@ -65,6 +66,7 @@ class _StudentRegistrationScreenState extends State<StudentRegistrationScreen> {
         name: name,
         role: UserRole.studentWorker,
         department: _departmentController.text.trim(),
+        workerType: _workerType,
       );
 
       debugPrint('DEBUG: Registration completed, userId: $userId');
@@ -75,7 +77,7 @@ class _StudentRegistrationScreenState extends State<StudentRegistrationScreen> {
         debugPrint('DEBUG: Navigating to onboarding');
         // Navigate immediately with the user data we have
         final navUrl =
-            '/student-onboarding?userId=$userId&userName=${Uri.encodeComponent(name)}&userEmail=${Uri.encodeComponent(email)}';
+            '/student-onboarding?userId=$userId&userName=${Uri.encodeComponent(name)}&userEmail=${Uri.encodeComponent(email)}&workerType=$_workerType';
         debugPrint('DEBUG: Navigation URL: $navUrl');
         context.go(navUrl);
       } else {
@@ -162,15 +164,19 @@ class _StudentRegistrationScreenState extends State<StudentRegistrationScreen> {
                                 ),
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(
-                                Icons.school,
+                              child: Icon(
+                                _workerType == 'volunteer'
+                                    ? Icons.volunteer_activism
+                                    : Icons.school,
                                 size: 64,
                                 color: Colors.white,
                               ),
                             ),
                             const SizedBox(height: 24),
                             Text(
-                              'Student Worker Registration',
+                              _workerType == 'volunteer'
+                                  ? 'Volunteer Registration'
+                                  : 'Student Worker Registration',
                               style: Theme.of(context).textTheme.headlineSmall
                                   ?.copyWith(
                                     fontWeight: FontWeight.bold,
@@ -184,7 +190,31 @@ class _StudentRegistrationScreenState extends State<StudentRegistrationScreen> {
                               style: Theme.of(context).textTheme.bodyMedium,
                               textAlign: TextAlign.center,
                             ),
-                            const SizedBox(height: 32),
+                            const SizedBox(height: 24),
+                            // Worker Type Selector
+                            SegmentedButton<String>(
+                              segments: const [
+                                ButtonSegment(
+                                  value: 'student',
+                                  label: Text('Student'),
+                                  icon: Icon(Icons.school),
+                                ),
+                                ButtonSegment(
+                                  value: 'volunteer',
+                                  label: Text('Volunteer'),
+                                  icon: Icon(Icons.volunteer_activism),
+                                ),
+                              ],
+                              selected: {_workerType},
+                              onSelectionChanged: (selection) {
+                                setState(() => _workerType = selection.first);
+                              },
+                              style: SegmentedButton.styleFrom(
+                                selectedBackgroundColor: Colors.orange.shade600,
+                                selectedForegroundColor: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 24),
                             // Name Field
                             TextFormField(
                               controller: _nameController,

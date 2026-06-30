@@ -64,6 +64,10 @@ class Staff {
   // HR Data Link
   final String? hrSubmissionId; // Reference to the original HR data submission
 
+  // Medical claim policy
+  final String familyStatus; // 'single' or 'family'
+  final int familyMemberCount; // number of covered family members (spouse + children)
+
   // Metadata
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -112,6 +116,8 @@ class Staff {
     this.permissions = const [],
     this.documentsCount = 0,
     this.hrSubmissionId,
+    this.familyStatus = 'single',
+    this.familyMemberCount = 0,
     required this.createdAt,
     this.updatedAt,
     this.notes,
@@ -160,6 +166,8 @@ class Staff {
     this.permissions = const [],
     this.documentsCount = 0,
     this.hrSubmissionId,
+    this.familyStatus = 'single',
+    this.familyMemberCount = 0,
     DateTime? createdAt,
     this.updatedAt,
     this.notes,
@@ -226,6 +234,8 @@ class Staff {
       'permissions': permissions,
       'documentsCount': documentsCount,
       'hrSubmissionId': hrSubmissionId,
+      'familyStatus': familyStatus,
+      'familyMemberCount': familyMemberCount,
       'createdAt': firestore.Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt != null
           ? firestore.Timestamp.fromDate(updatedAt!)
@@ -326,6 +336,8 @@ class Staff {
           : [],
       documentsCount: data['documentsCount'] as int? ?? 0,
       hrSubmissionId: data['hrSubmissionId'] as String?,
+      familyStatus: data['familyStatus'] as String? ?? 'single',
+      familyMemberCount: data['familyMemberCount'] as int? ?? 0,
       createdAt: createdAt,
       updatedAt: data['updatedAt'] != null && data['updatedAt'] is firestore.Timestamp
           ? (data['updatedAt'] as firestore.Timestamp).toDate()
@@ -376,6 +388,8 @@ class Staff {
     double? approvalLimit,
     int? documentsCount,
     String? hrSubmissionId,
+    String? familyStatus,
+    int? familyMemberCount,
     DateTime? updatedAt,
     String? notes,
   }) {
@@ -425,6 +439,8 @@ class Staff {
       permissions: permissions,
       documentsCount: documentsCount ?? this.documentsCount,
       hrSubmissionId: hrSubmissionId ?? this.hrSubmissionId,
+      familyStatus: familyStatus ?? this.familyStatus,
+      familyMemberCount: familyMemberCount ?? this.familyMemberCount,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       notes: notes ?? this.notes,

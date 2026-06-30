@@ -548,12 +548,77 @@ class _AdminTravelingReportsScreenState
                     ],
                   ),
                 ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton.icon(
+                    onPressed: () => context.push('/admin/traveling-reports/${report.id}'),
+                    icon: const Icon(Icons.visibility, size: 16),
+                    label: const Text('View'),
+                    style: TextButton.styleFrom(foregroundColor: Colors.indigo.shade700),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton.icon(
+                    onPressed: () => _deleteReport(context, report),
+                    icon: const Icon(Icons.delete_outline, size: 16),
+                    label: const Text('Delete'),
+                    style: TextButton.styleFrom(foregroundColor: Colors.red.shade700),
+                  ),
+                ],
+              ),
               ],
             ),
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _deleteReport(BuildContext context, TravelingReport report) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Report'),
+        content: Text(
+          'Permanently delete "${report.reportNumber}" and all its per diem entries? This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && context.mounted) {
+      try {
+        await _firestoreService.deleteTravelingReport(report.id);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('"${report.reportNumber}" deleted'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error deleting report: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
   }
 
   Widget _buildInfoRow(IconData icon, String text) {

@@ -1114,6 +1114,7 @@ class _AdcomAgendaEditScreenState extends State<AdcomAgendaEditScreen> {
     if (result != null) {
       try {
         await _service.updateAgendaItem(widget.agendaId, index, result);
+        await _minutesService.propagateAgendaItemChanges(widget.agendaId, result);
         await _loadAgenda();
       } catch (e) {
         if (mounted) {

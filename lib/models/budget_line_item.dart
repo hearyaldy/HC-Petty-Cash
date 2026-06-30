@@ -9,7 +9,8 @@ class BudgetLineItem {
   final String name;
   final double budgetAmount;
   // Optional link to auto-sum actuals from existing app data
-  final String? linkedTransactionCategory; // e.g. 'travel', 'medicalReimbursement'
+  final String?
+  linkedTransactionCategory; // e.g. 'travel', 'medicalReimbursement'
   final String? linkedReportType; // 'traveling', 'income', 'student'
   final int sortOrder;
   final DateTime? updatedAt;
@@ -29,18 +30,18 @@ class BudgetLineItem {
   });
 
   Map<String, dynamic> toFirestore() => {
-        'id': id,
-        'budgetYearId': budgetYearId,
-        'scheduleCode': scheduleCode,
-        'sectionTitle': sectionTitle,
-        'sectionType': sectionType,
-        'name': name,
-        'budgetAmount': budgetAmount,
-        'linkedTransactionCategory': linkedTransactionCategory,
-        'linkedReportType': linkedReportType,
-        'sortOrder': sortOrder,
-        'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
-      };
+    'id': id,
+    'budgetYearId': budgetYearId,
+    'scheduleCode': scheduleCode,
+    'sectionTitle': sectionTitle,
+    'sectionType': sectionType,
+    'name': name,
+    'budgetAmount': budgetAmount,
+    'linkedTransactionCategory': linkedTransactionCategory,
+    'linkedReportType': linkedReportType,
+    'sortOrder': sortOrder,
+    'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
+  };
 
   factory BudgetLineItem.fromFirestore(DocumentSnapshot doc) {
     final d = doc.data() as Map<String, dynamic>;
@@ -60,27 +61,37 @@ class BudgetLineItem {
     );
   }
 
+  // Sentinel used so copyWith can distinguish "not passed" from "explicitly null".
+  static const _absent = Object();
+
   BudgetLineItem copyWith({
     String? budgetYearId,
+    String? scheduleCode,
+    String? sectionTitle,
+    String? sectionType,
+    String? name,
     double? budgetAmount,
-    String? linkedTransactionCategory,
-    String? linkedReportType,
+    Object? linkedTransactionCategory = _absent,
+    Object? linkedReportType = _absent,
+    int? sortOrder,
     DateTime? updatedAt,
-  }) =>
-      BudgetLineItem(
-        id: id,
-        budgetYearId: budgetYearId ?? this.budgetYearId,
-        scheduleCode: scheduleCode,
-        sectionTitle: sectionTitle,
-        sectionType: sectionType,
-        name: name,
-        budgetAmount: budgetAmount ?? this.budgetAmount,
-        linkedTransactionCategory:
-            linkedTransactionCategory ?? this.linkedTransactionCategory,
-        linkedReportType: linkedReportType ?? this.linkedReportType,
-        sortOrder: sortOrder,
-        updatedAt: updatedAt ?? this.updatedAt,
-      );
+  }) => BudgetLineItem(
+    id: id,
+    budgetYearId: budgetYearId ?? this.budgetYearId,
+    scheduleCode: scheduleCode ?? this.scheduleCode,
+    sectionTitle: sectionTitle ?? this.sectionTitle,
+    sectionType: sectionType ?? this.sectionType,
+    name: name ?? this.name,
+    budgetAmount: budgetAmount ?? this.budgetAmount,
+    linkedTransactionCategory: linkedTransactionCategory == _absent
+        ? this.linkedTransactionCategory
+        : linkedTransactionCategory as String?,
+    linkedReportType: linkedReportType == _absent
+        ? this.linkedReportType
+        : linkedReportType as String?,
+    sortOrder: sortOrder ?? this.sortOrder,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
 }
 
 // Section grouping helper

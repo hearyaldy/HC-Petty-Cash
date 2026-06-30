@@ -2,6 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 
+import '../models/survey.dart';
+import '../models/survey_response.dart';
+
 class AITextService {
   GenerativeModel? _model;
 
@@ -13,7 +16,7 @@ class AITextService {
     _model = null;
     final apiKey = _getApiKey();
     if (apiKey.isNotEmpty) {
-      _model = GenerativeModel(model: 'gemini-2.0-flash', apiKey: apiKey);
+      _model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: apiKey);
     }
   }
 
@@ -326,6 +329,108 @@ Only return the resolution text without any explanation.
         success: false,
         error: 'AI service error: ${e.toString()}',
       );
+    }
+  }
+
+  /// Analyse survey response data and return strategic insights + recommendations.
+  Future<AIResult> analyzeSurveyResponses({
+    required Survey survey,
+    required List<SurveyResponse> responses,
+  }) async {
+    _ensureInitialized();
+    if (_model == null) {
+      return AIResult(success: false, error: 'AI service not configured. Please set AI_API_KEY in .env.');
+    }
+    if (responses.isEmpty) {
+      return AIResult(success: false, error: 'No responses to analyze.');
+    }
+
+    try {
+      final buffer = StringBuffer();
+      buffer.writeln('SURVEY: ${survey.title}');
+      buffer.writeln('PURPOSE: ${survey.description}');
+      buffer.writeln('TOTAL RESPONSES: ${responses.length}');
+      buffer.writeln();
+
+      for (final section in survey.sections) {
+        buffer.writeln('── ${section.title} ──');
+        for (final q in section.questions) {
+          final answered = responses.where((r) => r.answerFor(q.id) != null).toList();
+          if (answered.isEmpty) continue;
+          buffer.writeln('\n${q.code}: ${q.text} (${answered.length} answered)');
+
+          if (q.type == QuestionType.openText) {
+            final samples = answered.take(5)
+                .map((r) => r.answerFor(q.id)?.value?.toString() ?? '')
+                .where((s) => s.isNotEmpty);
+            for (final s in samples) { buffer.writeln('  - "$s"'); }
+          } else if (q.type == QuestionType.scale) {
+            final vals = answered
+                .map((r) => r.answerFor(q.id)?.value)
+                .whereType<int>()
+                .toList();
+            if (vals.isNotEmpty) {
+              final avg = vals.reduce((a, b) => a + b) / vals.length;
+              buffer.writeln('  Average: ${avg.toStringAsFixed(2)} / ${q.scaleMax ?? 5}');
+              final counts = <int, int>{};
+              for (final v in vals) { counts[v] = (counts[v] ?? 0) + 1; }
+              counts.entries.toList()
+                ..sort((a, b) => a.key.compareTo(b.key))
+                ..forEach((e) => buffer.writeln('  ${e.key}: ${e.value} (${(e.value / vals.length * 100).toStringAsFixed(0)}%)'));
+            }
+          } else {
+            final counts = <String, int>{};
+            for (final r in answered) {
+              final v = r.answerFor(q.id)?.value;
+              if (v is List) {
+                for (final item in v) { final k = item.toString(); counts[k] = (counts[k] ?? 0) + 1; }
+              } else if (v != null) {
+                final k = v.toString();
+                counts[k] = (counts[k] ?? 0) + 1;
+              }
+            }
+            final sorted = counts.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+            for (final e in sorted.take(6)) {
+              buffer.writeln('  ${e.key}: ${e.value} (${(e.value / answered.length * 100).toStringAsFixed(0)}%)');
+            }
+          }
+        }
+      }
+
+      final prompt = '''
+You are an expert audience research analyst for Hope Channel Southeast Asia (HCSEA), a Christian media ministry producing digital content across Southeast Asia.
+
+Analyze the following survey data and provide strategic insights:
+
+${buffer.toString()}
+
+Please provide a structured analysis with these sections:
+
+## Key Findings
+3–5 bullet points of the most significant insights from the data.
+
+## Audience Profile
+A short paragraph describing who the respondents are based on the data.
+
+## Opportunities
+2–3 specific opportunities this data reveals for HCSEA's content strategy.
+
+## Recommendations
+4–5 specific, actionable recommendations for HCSEA based on this data. Be concrete and data-driven.
+
+## Content Strategy Implications
+How should these findings shape HCSEA's content topics, format, or platform strategy?
+
+Be concise, specific, and reference actual numbers/percentages from the data where possible.
+''';
+
+      final response = await _model!.generateContent([Content.text(prompt)]);
+      final text = response.text?.trim() ?? '';
+      if (text.isEmpty) return AIResult(success: false, error: 'No response from AI');
+      return AIResult(success: true, text: text);
+    } catch (e) {
+      debugPrint('Survey Analysis Error: $e');
+      return AIResult(success: false, error: 'AI service error: ${e.toString()}');
     }
   }
 

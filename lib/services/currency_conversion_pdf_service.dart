@@ -8,13 +8,26 @@ import 'package:printing/printing.dart';
 class CurrencyConversionPdfService {
   pw.Font? _regular;
   pw.Font? _bold;
+  pw.Font? _notoFallback;
+  pw.Font? _emojiFont;
 
   Future<void> _loadFonts() async {
     if (_regular != null) return;
-    final r = await rootBundle.load('assets/fonts/NotoSansThai-Regular.ttf');
-    final b = await rootBundle.load('assets/fonts/NotoSansThai-Bold.ttf');
-    _regular = pw.Font.ttf(r);
-    _bold = pw.Font.ttf(b);
+    try {
+      final r = await rootBundle.load('assets/fonts/NotoSansThai-Regular.ttf');
+      final b = await rootBundle.load('assets/fonts/NotoSansThai-Bold.ttf');
+      _regular = pw.Font.ttf(r);
+      _bold = pw.Font.ttf(b);
+    } catch (_) {
+      _regular = pw.Font.helvetica();
+      _bold = pw.Font.helveticaBold();
+    }
+    try {
+      _notoFallback = await PdfGoogleFonts.notoSansRegular();
+    } catch (_) {}
+    try {
+      _emojiFont = await PdfGoogleFonts.notoColorEmojiRegular();
+    } catch (_) {}
   }
 
   /// Prints a currency conversion support document.
@@ -65,7 +78,11 @@ class CurrencyConversionPdfService {
     final dateFormat = DateFormat('dd MMM yyyy');
     final numFormat = NumberFormat('#,##0.00');
 
-    final theme = pw.ThemeData.withFont(base: _regular!, bold: _bold!);
+    final theme = pw.ThemeData.withFont(
+      base: _regular!,
+      bold: _bold!,
+      fontFallback: [?_notoFallback, ?_emojiFont],
+    );
 
     final currencySymbol = _currencySymbol(foreignCurrency);
     final thbSymbol = '฿';
@@ -197,7 +214,15 @@ class CurrencyConversionPdfService {
               ),
               child: pw.Text(
                 'Formula: $currencySymbol ${numFormat.format(foreignAmount)} × ${numFormat.format(exchangeRate)} = $thbSymbol ${numFormat.format(thbAmount)}',
-                style: pw.TextStyle(fontSize: 9, color: PdfColors.grey600, fontStyle: pw.FontStyle.italic),
+                // Explicitly set font so the PDF library does NOT fall back to
+                // Helvetica-Oblique (which has no Unicode / Thai support).
+                style: pw.TextStyle(
+                  font: _regular,
+                  fontSize: 9,
+                  color: PdfColors.grey600,
+                  fontStyle: pw.FontStyle.italic,
+                  fontFallback: [?_notoFallback, ?_emojiFont],
+                ),
               ),
             ),
 
@@ -208,7 +233,14 @@ class CurrencyConversionPdfService {
             pw.SizedBox(height: 4),
             pw.Text(
               'Generated on ${dateFormat.format(DateTime.now())} — Exchange rate sourced at time of entry',
-              style: pw.TextStyle(fontSize: 8, color: PdfColors.grey500, fontStyle: pw.FontStyle.italic),
+              // Same fix: pin the font so italic does not revert to Helvetica-Oblique.
+              style: pw.TextStyle(
+                font: _regular,
+                fontSize: 8,
+                color: PdfColors.grey500,
+                fontStyle: pw.FontStyle.italic,
+                fontFallback: [?_notoFallback, ?_emojiFont],
+              ),
             ),
           ],
         ),

@@ -12,20 +12,15 @@ class MedicalBillReimbursementService {
   CollectionReference<Map<String, dynamic>> get _collection =>
       _firestore.collection('medical_bill_reimbursements');
 
-  /// Generate a unique report number (MBR-YYYYMMDD-XXX)
-  Future<String> _generateReportNumber() async {
+  /// Generate a unique report number without reading other reimbursements.
+  ///
+  /// Staff users can only read their own claims, so counting today's reports
+  /// from the client causes Firestore permission errors before create.
+  String _generateReportNumber(String id) {
     final today = DateTime.now();
-    final dateStr = DateFormat('yyyyMMdd').format(today);
-    final prefix = 'MBR-$dateStr-';
-
-    // Get count of reports created today
-    final snapshot = await _collection
-        .where('reportNumber', isGreaterThanOrEqualTo: prefix)
-        .where('reportNumber', isLessThan: '${prefix}Z')
-        .get();
-
-    final count = snapshot.docs.length + 1;
-    return '$prefix${count.toString().padLeft(3, '0')}';
+    final dateStr = DateFormat('yyyyMMdd-HHmmss').format(today);
+    final suffix = id.replaceAll('-', '').substring(0, 6).toUpperCase();
+    return 'MBR-$dateStr-$suffix';
   }
 
   /// Get all medical bill reimbursements
@@ -63,6 +58,22 @@ class MedicalBillReimbursementService {
     }
   }
 
+  /// Get all approved reimbursements whose reportDate falls in the given year
+  Future<List<MedicalBillReimbursement>> getApprovedForYear(int year) async {
+    try {
+      final snapshot = await _collection
+          .where('status', isEqualTo: 'approved')
+          .get();
+      return snapshot.docs
+          .map((doc) => MedicalBillReimbursement.fromFirestore(doc))
+          .where((r) => r.reportDate.year == year)
+          .toList();
+    } catch (e) {
+      AppLogger.severe('Error getting approved reimbursements for year: $e');
+      rethrow;
+    }
+  }
+
   /// Get a single reimbursement by ID
   Future<MedicalBillReimbursement?> getReimbursement(String id) async {
     try {
@@ -77,6 +88,8 @@ class MedicalBillReimbursementService {
   /// Create a new medical bill reimbursement
   Future<MedicalBillReimbursement> createReimbursement({
     required User requester,
+    String? requesterName,
+    String? overrideRequesterId, // use when filing on behalf of another staff
     required String department,
     required String subject,
     required List<MedicalClaimItem> claimItems,
@@ -84,17 +97,25 @@ class MedicalBillReimbursementService {
     String? notes,
     String? paidTo,
     List<String>? supportDocumentUrls,
+    String? linkedMinutesId,
+    String? linkedMinutesLabel,
+    String? linkedActionItemNumber,
+    String? linkedActionItemTitle,
+    String? linkedActionItemDescription,
+    String? linkedActionItemAction,
   }) async {
     try {
       final id = _uuid.v4();
-      final reportNumber = await _generateReportNumber();
+      final reportNumber = _generateReportNumber(id);
       final now = DateTime.now();
 
       final reimbursement = MedicalBillReimbursement(
         id: id,
         reportNumber: reportNumber,
-        requesterId: requester.id,
-        requesterName: requester.name,
+        requesterId: overrideRequesterId ?? requester.id,
+        requesterName: requesterName?.trim().isNotEmpty == true
+            ? requesterName!.trim()
+            : requester.name,
         department: department,
         reportDate: reportDate ?? now,
         subject: subject,
@@ -104,6 +125,12 @@ class MedicalBillReimbursementService {
         notes: notes,
         paidTo: paidTo,
         supportDocumentUrls: supportDocumentUrls,
+        linkedMinutesId: linkedMinutesId,
+        linkedMinutesLabel: linkedMinutesLabel,
+        linkedActionItemNumber: linkedActionItemNumber,
+        linkedActionItemTitle: linkedActionItemTitle,
+        linkedActionItemDescription: linkedActionItemDescription,
+        linkedActionItemAction: linkedActionItemAction,
       );
 
       await _collection.doc(id).set(reimbursement.toFirestore());
@@ -116,12 +143,37 @@ class MedicalBillReimbursementService {
     }
   }
 
+  /// Reassign the requester on any claim (admin action, status-independent)
+  Future<void> reassignRequester(
+    String id, {
+    required String requesterId,
+    required String requesterName,
+    required String department,
+  }) async {
+    try {
+      await _collection.doc(id).update({
+        'requesterId': requesterId,
+        'requesterName': requesterName,
+        'department': department,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      AppLogger.info('Reassigned requester on $id to $requesterName');
+    } catch (e) {
+      AppLogger.severe('Error reassigning requester: $e');
+      rethrow;
+    }
+  }
+
   /// Update a medical bill reimbursement
-  Future<void> updateReimbursement(MedicalBillReimbursement reimbursement) async {
+  Future<void> updateReimbursement(
+    MedicalBillReimbursement reimbursement,
+  ) async {
     try {
       final updated = reimbursement.copyWith(updatedAt: DateTime.now());
       await _collection.doc(reimbursement.id).update(updated.toFirestore());
-      AppLogger.info('Updated medical bill reimbursement: ${reimbursement.reportNumber}');
+      AppLogger.info(
+        'Updated medical bill reimbursement: ${reimbursement.reportNumber}',
+      );
     } catch (e) {
       AppLogger.severe('Error updating medical bill reimbursement: $e');
       rethrow;
@@ -220,13 +272,16 @@ class MedicalBillReimbursementService {
       });
       AppLogger.info('Reverted medical bill reimbursement to draft: $id');
     } catch (e) {
-      AppLogger.severe('Error reverting medical bill reimbursement to draft: $e');
+      AppLogger.severe(
+        'Error reverting medical bill reimbursement to draft: $e',
+      );
       rethrow;
     }
   }
 
   /// Get pending approval reimbursements
-  Future<List<MedicalBillReimbursement>> getPendingApprovalReimbursements() async {
+  Future<List<MedicalBillReimbursement>>
+  getPendingApprovalReimbursements() async {
     try {
       final snapshot = await _collection
           .where('status', isEqualTo: 'submitted')

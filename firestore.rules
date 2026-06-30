@@ -73,6 +73,13 @@ service cloud.firestore {
         get(/databases/$(database)/documents/staff/$(staffId)).data.userId == request.auth.uid;
     }
 
+    function isReimbursementOwner(reimbursement) {
+      return isAuthenticated() && (
+        reimbursement.requesterId == request.auth.uid ||
+        isStaffOwner(reimbursement.requesterId)
+      );
+    }
+
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
@@ -311,13 +318,13 @@ service cloud.firestore {
         || (resource.data.reporterId == request.auth.uid
             && resource.data.status == 'draft'
             && request.resource.data.status == 'submitted')
-        // Or admin can approve/reject/revert reports
-        || (isAdmin()
+        // Or approver (admin/manager/finance) can approve/reject/revert reports
+        || (canApprove()
             && resource.data.status in ['submitted', 'approved', 'rejected']
             && request.resource.data.status in ['approved', 'rejected', 'draft'])
       );
 
-      // Users can delete their own draft reports, admin can delete any
+      // Users can delete their own draft reports, admin can delete any status
       allow delete: if isAuthenticated() && (
         (resource.data.reporterId == request.auth.uid
           && resource.data.status == 'draft')
@@ -342,11 +349,13 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/traveling_reports/$(resource.data.reportId)).data.reporterId == request.auth.uid
         && get(/databases/$(database)/documents/traveling_reports/$(resource.data.reportId)).data.status == 'draft';
 
-      // Users can delete entries from their own draft reports
-      allow delete: if isAuthenticated()
-        && exists(/databases/$(database)/documents/traveling_reports/$(resource.data.reportId))
-        && get(/databases/$(database)/documents/traveling_reports/$(resource.data.reportId)).data.reporterId == request.auth.uid
-        && get(/databases/$(database)/documents/traveling_reports/$(resource.data.reportId)).data.status == 'draft';
+      // Users can delete entries from their own draft reports, admin can delete any
+      allow delete: if isAuthenticated() && (
+        (exists(/databases/$(database)/documents/traveling_reports/$(resource.data.reportId))
+          && get(/databases/$(database)/documents/traveling_reports/$(resource.data.reportId)).data.reporterId == request.auth.uid
+          && get(/databases/$(database)/documents/traveling_reports/$(resource.data.reportId)).data.status == 'draft')
+        || isAdmin()
+      );
     }
 
     // Income Reports collection
@@ -547,7 +556,7 @@ service cloud.firestore {
 
     // Annual Leave Requests collection
     match /annual_leave_requests/{requestId} {
-      // Staff can create their own requests
+      // Staff can create their own requests (submitted status only)
       allow create: if isAuthenticated() &&
         request.resource.data.requesterId == request.auth.uid &&
         request.resource.data.status == 'submitted' &&
@@ -563,16 +572,25 @@ service cloud.firestore {
         isFinance()
       );
 
-      // Only HR/Admin can approve/reject/update
+      // HR/Admin can update anything (approve/reject workflow)
+      // Owner can edit or unsend their own draft/submitted requests
       allow update: if isAuthenticated() && (
-        isAdmin() || isManager() || isFinance()
-      ) && (
-        // Prevent changing requester ownership
+        (isAdmin() || isManager() || isFinance()) &&
         request.resource.data.requesterId == resource.data.requesterId
+      ) || (
+        request.auth.uid == resource.data.requesterId &&
+        request.resource.data.requesterId == resource.data.requesterId &&
+        resource.data.status in ['draft', 'submitted'] &&
+        request.resource.data.status in ['draft', 'submitted'] &&
+        request.resource.data.approvedBy == resource.data.approvedBy &&
+        request.resource.data.approvedAt == resource.data.approvedAt
       );
 
-      // Only admin can delete
-      allow delete: if isAdmin();
+      // Admin can delete any; owner can delete their own drafts only
+      allow delete: if isAuthenticated() && (
+        isAdmin() ||
+        (request.auth.uid == resource.data.requesterId && resource.data.status == 'draft')
+      );
     }
 
     // Equipment Inventory collection
@@ -615,6 +633,25 @@ service cloud.firestore {
 
       // Only admins can update or delete history records
       allow update, delete: if isAdmin();
+    }
+
+    // Student Labor Budget Planning
+    match /student_labor_budgets/{year} {
+      // Admin, manager, and finance can read budget plans
+      allow read: if isAuthenticated() && (isAdmin() || isManager() || isFinance());
+
+      // Only admin can create or update budget plans
+      allow create, update: if isAdmin();
+
+      // Only admin can delete budget plans
+      allow delete: if isAdmin();
+    }
+
+    // Production Language Budget Planning
+    match /production_language_budgets/{year} {
+      allow read: if isAuthenticated() && (isAdmin() || isManager() || isFinance());
+      allow create, update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
     // Payment Rates collection (for student labor hourly rates)
@@ -804,24 +841,63 @@ service cloud.firestore {
     match /medical_bill_reimbursements/{reimbursementId} {
       // Owners can read their own reimbursements, approvers can read all
       allow read: if isAuthenticated() && (
-        resource.data.requesterId == request.auth.uid || canApprove()
+        isReimbursementOwner(resource.data) || canApprove()
       );
 
-      // Any authenticated user can create their own reimbursement
-      allow create: if isAuthenticated() &&
-        request.resource.data.requesterId == request.auth.uid;
+      // Any authenticated user can create their own reimbursement; approvers
+      // can create on behalf of another staff member.
+      allow create: if isAuthenticated() && (
+        isReimbursementOwner(request.resource.data) || canApprove()
+      );
 
       // Owner can update draft reimbursements; approvers can update any
       allow update: if isAuthenticated() && (
-        (resource.data.requesterId == request.auth.uid && resource.data.status == 'draft') ||
+        (isReimbursementOwner(resource.data) && resource.data.status == 'draft') ||
         canApprove()
       );
 
       // Owner can delete draft reimbursements; admin can delete any
       allow delete: if isAuthenticated() && (
-        (resource.data.requesterId == request.auth.uid && resource.data.status == 'draft') ||
+        (isReimbursementOwner(resource.data) && resource.data.status == 'draft') ||
         isAdmin()
       );
+    }
+
+    // ── Expense Claims ────────────────────────────────────────────────────
+    match /expense_claims/{claimId} {
+      // Owner can read their own claims; approvers can read all
+      allow read: if isAuthenticated() && (
+        resource.data.requesterId == request.auth.uid || canApprove()
+      );
+
+      // Any authenticated user can create their own claim
+      allow create: if isAuthenticated() &&
+        request.resource.data.requesterId == request.auth.uid;
+
+      // Owner cannot edit after submission (status is always 'pending' on create);
+      // approvers can update (approve / reject)
+      allow update: if isAuthenticated() && canApprove();
+
+      // Owner can delete pending claims; admin can delete any
+      allow delete: if isAuthenticated() && (
+        (resource.data.requesterId == request.auth.uid && resource.data.status == 'pending') ||
+        isAdmin()
+      );
+    }
+
+    // ── Surveys ───────────────────────────────────────────────────────────
+    // Survey definitions: anyone can read (needed for public fill screen);
+    // only admins can write.
+    match /surveys/{surveyId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Survey responses: anyone can create a response for an active survey;
+    // only admins can read or delete responses.
+    match /survey_responses/{responseId} {
+      allow create: if get(/databases/$(database)/documents/surveys/$(request.resource.data.surveyId)).data.isActive == true;
+      allow read, delete: if isAdmin();
     }
   }
 }

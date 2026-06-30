@@ -7,6 +7,7 @@ import 'package:printing/printing.dart';
 
 import '../models/annual_leave_request.dart';
 import '../utils/constants.dart';
+import 'pdf_signature_helper.dart';
 
 class AnnualLeavePdfService {
   pw.Font? _regularFont;
@@ -46,7 +47,78 @@ class AnnualLeavePdfService {
     );
   }
 
+  Future<Uint8List> buildAllPdf(List<AnnualLeaveRequest> requests) async {
+    final theme = await _getTheme();
+    final pdf = pw.Document(theme: theme);
+    final dateFormat = DateFormat('MMM dd, yyyy');
+    pw.ImageProvider? logoImage;
+
+    try {
+      final logoData = await rootBundle.load(AppConstants.companyLogo);
+      logoImage = pw.MemoryImage(logoData.buffer.asUint8List());
+    } catch (_) {}
+
+    final headers = ['Name', 'Department', 'Start Date', 'End Date', 'Days', 'Status'];
+    final rows = requests.map((r) => [
+      r.requesterName,
+      r.department,
+      dateFormat.format(r.startDate),
+      dateFormat.format(r.endDate),
+      r.totalDays.toString(),
+      r.status.toUpperCase(),
+    ]).toList();
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(24),
+        build: (context) => [
+          _buildHeader(logoImage),
+          pw.SizedBox(height: 10),
+          pw.Text(
+            'Annual Leave Requests — All',
+            style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 4),
+          pw.Text(
+            'Generated on: ${dateFormat.format(DateTime.now())}   •   Total: ${requests.length} request(s)',
+            style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600),
+          ),
+          pw.SizedBox(height: 14),
+          pw.TableHelper.fromTextArray(
+            headers: headers,
+            data: rows,
+            headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9),
+            cellStyle: const pw.TextStyle(fontSize: 9),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
+            cellAlignments: {
+              0: pw.Alignment.centerLeft,
+              1: pw.Alignment.centerLeft,
+              2: pw.Alignment.center,
+              3: pw.Alignment.center,
+              4: pw.Alignment.center,
+              5: pw.Alignment.center,
+            },
+            columnWidths: {
+              0: const pw.FlexColumnWidth(2.2),
+              1: const pw.FlexColumnWidth(1.8),
+              2: const pw.FlexColumnWidth(1.5),
+              3: const pw.FlexColumnWidth(1.5),
+              4: const pw.FlexColumnWidth(0.7),
+              5: const pw.FlexColumnWidth(1.3),
+            },
+            border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+            oddRowDecoration: const pw.BoxDecoration(color: PdfColors.grey100),
+          ),
+        ],
+      ),
+    );
+
+    return pdf.save();
+  }
+
   Future<Uint8List> buildPdf(AnnualLeaveRequest request) async {
+    await PdfSignatureHelper.load();
     final theme = await _getTheme();
     final pdf = pw.Document(theme: theme);
     final dateFormat = DateFormat('MMM dd, yyyy');
@@ -237,18 +309,20 @@ class AnnualLeavePdfService {
       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
       children: [
         _signatureBlock('Requester', requesterName),
-        _signatureBlock('Manager', managerName ?? ''),
+        _signatureBlock('Manager', managerName ?? '', showSignature: true),
       ],
     );
   }
 
-  pw.Widget _signatureBlock(String label, String name) {
+  pw.Widget _signatureBlock(String label, String name, {bool showSignature = false}) {
     return pw.Container(
       width: 220,
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          pw.SizedBox(height: 24),
+          showSignature
+              ? PdfSignatureHelper.slot(width: 100, height: 36)
+              : pw.SizedBox(height: 24),
           pw.Container(
             height: 1,
             color: PdfColors.grey600,

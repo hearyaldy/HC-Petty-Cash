@@ -39,6 +39,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
   double _totalEarnings = 0;
   int _pendingReports = 0;
   int _approvedReports = 0;
+  double _budgetHoursAvailable = 0;
   List<StudentTimesheet> _recentTimesheets = [];
   List<Map<String, dynamic>> _monthlyReports = [];
 
@@ -160,6 +161,29 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
       _approvedReports = _monthlyReports
           .where((report) => (report['status'] ?? '') == 'approved')
           .length;
+
+      // Budget hours available = language budget / this student's hourly rate
+      if (_profile != null &&
+          (_profile!.language?.isNotEmpty ?? false) &&
+          _profile!.hourlyRate > 0) {
+        try {
+          final year = DateTime.now().year;
+          final budgetDoc = await FirebaseFirestore.instance
+              .collection('student_labor_budgets')
+              .doc('$year')
+              .get();
+          if (budgetDoc.exists) {
+            final bd = budgetDoc.data()!;
+            final totalBudget = (bd['totalBudget'] as num?)?.toDouble() ?? 0;
+            final allocations =
+                bd['allocations'] as Map<String, dynamic>? ?? {};
+            final pct =
+                ((allocations[_profile!.language ?? '']) as num?)?.toDouble() ?? 0;
+            final langBudget = totalBudget * (pct / 100);
+            _budgetHoursAvailable = langBudget / _profile!.hourlyRate;
+          }
+        } catch (_) {}
+      }
 
       setState(() => _isLoading = false);
     } catch (e) {
@@ -403,6 +427,9 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
     final cs = Theme.of(context).colorScheme;
     final maxWidth = ResponsiveHelper.getMaxContentWidth(context);
     final hPad = ResponsiveHelper.getScreenPadding(context).horizontal / 2;
+    final isVolunteer =
+        Provider.of<AuthProvider>(context, listen: false).currentUser?.workerType ==
+            'volunteer';
 
     return PreferredSize(
       preferredSize: const Size.fromHeight(kToolbarHeight),
@@ -459,9 +486,9 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text(
-                            'Student Dashboard',
-                            style: TextStyle(
+                          Text(
+                            isVolunteer ? 'Volunteer Dashboard' : 'Student Dashboard',
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
@@ -689,6 +716,14 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
         gradient: [Colors.teal.shade400, Colors.teal.shade600],
         lightColor: Colors.teal.shade50,
       ),
+      if (_budgetHoursAvailable > 0)
+        _StatData(
+          title: 'Budget Hours (${_profile?.language ?? ''})',
+          value: '${_budgetHoursAvailable.toStringAsFixed(1)}h',
+          icon: Icons.timer_outlined,
+          gradient: [Colors.purple.shade400, Colors.purple.shade600],
+          lightColor: Colors.purple.shade50,
+        ),
     ];
 
     return LayoutBuilder(

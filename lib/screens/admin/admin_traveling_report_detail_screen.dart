@@ -8,6 +8,7 @@ import '../../services/firestore_service.dart';
 import '../../services/traveling_report_export_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/responsive_helper.dart';
+import '../../widgets/support_document_upload_dialog.dart';
 
 class AdminTravelingReportDetailScreen extends StatefulWidget {
   final String reportId;
@@ -65,6 +66,7 @@ class _AdminTravelingReportDetailScreenState
         await _firestoreService.approveTravelingReport(report.id, user.name);
 
         if (mounted) {
+          setState(() {});
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Report approved successfully'),
@@ -148,6 +150,7 @@ class _AdminTravelingReportDetailScreenState
         await _firestoreService.rejectTravelingReport(report.id, result);
 
         if (mounted) {
+          setState(() {});
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Report rejected'),
@@ -205,6 +208,7 @@ class _AdminTravelingReportDetailScreenState
         await _firestoreService.revertTravelingReportToDraft(report.id);
 
         if (mounted) {
+          setState(() {});
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Report reverted to draft successfully'),
@@ -268,7 +272,34 @@ class _AdminTravelingReportDetailScreenState
     }
   }
 
-  Widget _buildHeaderCard() {
+  void _showSupportDocument(TravelingReport report) {
+    if (report.supportDocumentUrls.isEmpty) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => SupportDocumentGallery(
+        documentUrls: report.supportDocumentUrls,
+        transactionReceiptNo: report.reportNumber,
+      ),
+    );
+  }
+
+  Future<void> _printSupportDocument(TravelingReport report) async {
+    if (report.supportDocumentUrls.isEmpty) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => SupportDocumentSelectionDialog(
+        documentUrls: report.supportDocumentUrls,
+        transactionReceiptNo: report.reportNumber,
+        description: report.purpose,
+        amount: report.perDiemTotal,
+      ),
+    );
+  }
+
+  Widget _buildHeaderCard([TravelingReport? report]) {
+    final status = report?.status;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -332,36 +363,38 @@ class _AdminTravelingReportDetailScreenState
                   }
                 },
                 itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'revert',
-                    child: Row(
-                      children: [
-                        Icon(Icons.restore, color: Colors.grey, size: 20),
-                        SizedBox(width: 12),
-                        Text('Revert to Draft'),
-                      ],
+                  if (status == 'submitted') ...[
+                    const PopupMenuItem(
+                      value: 'revert',
+                      child: Row(
+                        children: [
+                          Icon(Icons.restore, color: Colors.grey, size: 20),
+                          SizedBox(width: 12),
+                          Text('Revert to Draft'),
+                        ],
+                      ),
                     ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'approve',
-                    child: Row(
-                      children: [
-                        Icon(Icons.check_circle, color: Colors.green, size: 20),
-                        SizedBox(width: 12),
-                        Text('Approve'),
-                      ],
+                    const PopupMenuItem(
+                      value: 'approve',
+                      child: Row(
+                        children: [
+                          Icon(Icons.check_circle, color: Colors.green, size: 20),
+                          SizedBox(width: 12),
+                          Text('Approve'),
+                        ],
+                      ),
                     ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'reject',
-                    child: Row(
-                      children: [
-                        Icon(Icons.cancel, color: Colors.red, size: 20),
-                        SizedBox(width: 12),
-                        Text('Reject'),
-                      ],
+                    const PopupMenuItem(
+                      value: 'reject',
+                      child: Row(
+                        children: [
+                          Icon(Icons.cancel, color: Colors.red, size: 20),
+                          SizedBox(width: 12),
+                          Text('Reject'),
+                        ],
+                      ),
                     ),
-                  ),
+                  ],
                   const PopupMenuItem(
                     value: 'export',
                     child: Row(
@@ -516,13 +549,15 @@ class _AdminTravelingReportDetailScreenState
         ),
         child: Column(
           children: [
-            _buildHeaderCard(),
+            _buildHeaderCard(report),
             const SizedBox(height: 16),
             _buildReportHeader(report),
             _buildTravelingDetails(report),
             _buildMileageSection(report),
             _buildPerDiemSection(report),
             _buildSummarySection(report),
+            if (report.supportDocumentUrls.isNotEmpty)
+              _buildSupportDocumentsSection(report),
             if (report.rejectionReason != null) _buildRejectionReason(report),
             if (report.status == 'submitted') _buildApprovalSection(report),
             SizedBox(height: spacing),
@@ -1278,6 +1313,44 @@ class _AdminTravelingReportDetailScreenState
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSupportDocumentsSection(TravelingReport report) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Support Documents',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () => _showSupportDocument(report),
+                icon: const Icon(Icons.attach_file, size: 16),
+                label: Text('View Docs (${report.supportDocumentUrls.length})'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => _printSupportDocument(report),
+                icon: const Icon(Icons.print, size: 16),
+                label: const Text('Print Docs'),
+              ),
+            ],
           ),
         ],
       ),

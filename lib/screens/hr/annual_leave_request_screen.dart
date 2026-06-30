@@ -11,6 +11,7 @@ import '../../services/annual_leave_pdf_service.dart';
 import '../../services/salary_benefits_service.dart';
 import '../../services/staff_service.dart';
 import '../../utils/responsive_helper.dart';
+import '../../utils/print_options_dialog.dart';
 
 class AnnualLeaveRequestScreen extends StatefulWidget {
   const AnnualLeaveRequestScreen({super.key});
@@ -221,12 +222,14 @@ class _AnnualLeaveRequestScreenState extends State<AnnualLeaveRequestScreen> {
           _endDate = null;
         });
         await _loadLeaveBalance();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Leave request submitted'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Leave request submitted'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       }
     } on FirebaseException catch (e) {
       final message = e.code == 'permission-denied'
@@ -255,9 +258,232 @@ class _AnnualLeaveRequestScreenState extends State<AnnualLeaveRequestScreen> {
   }
 
   Future<void> _printRequest(AnnualLeaveRequest request) async {
-    final service = AnnualLeavePdfService();
-    final bytes = await service.buildPdf(request);
-    await Printing.layoutPdf(onLayout: (_) async => bytes);
+    await showPrintOptionsDialog(
+      context: context,
+      title: 'Print Leave Request',
+      onPrint: () async {
+        final service = AnnualLeavePdfService();
+        final bytes = await service.buildPdf(request);
+        await Printing.layoutPdf(onLayout: (_) async => bytes);
+      },
+    );
+  }
+
+  Future<void> _editRequest(AnnualLeaveRequest request) async {
+    final dateFormat = DateFormat('MMM dd, yyyy');
+    DateTime? editStart = request.startDate;
+    DateTime? editEnd = request.endDate;
+    final reasonController = TextEditingController(text: request.reason);
+    final formKey = GlobalKey<FormState>();
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          int? weekdays;
+          if (editStart != null && editEnd != null) {
+            weekdays = _countWeekdays(editStart!, editEnd!);
+          }
+
+          Future<void> pickStart() async {
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: editStart ?? DateTime.now(),
+              firstDate: DateTime.now().subtract(const Duration(days: 365)),
+              lastDate: DateTime.now().add(const Duration(days: 730)),
+            );
+            if (picked != null) {
+              setDialogState(() {
+                editStart = picked;
+                if (editEnd != null && editEnd!.isBefore(picked)) {
+                  editEnd = picked;
+                }
+              });
+            }
+          }
+
+          Future<void> pickEnd() async {
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: editEnd ?? editStart ?? DateTime.now(),
+              firstDate: DateTime.now().subtract(const Duration(days: 365)),
+              lastDate: DateTime.now().add(const Duration(days: 730)),
+            );
+            if (picked != null) {
+              setDialogState(() => editEnd = picked);
+            }
+          }
+
+          return AlertDialog(
+            title: const Text('Edit Leave Request'),
+            content: SingleChildScrollView(
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: pickStart,
+                      icon: const Icon(Icons.date_range),
+                      label: Text(
+                        editStart == null
+                            ? 'Start Date'
+                            : dateFormat.format(editStart!),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: editStart == null ? null : pickEnd,
+                      icon: const Icon(Icons.date_range),
+                      label: Text(
+                        editEnd == null
+                            ? 'End Date'
+                            : dateFormat.format(editEnd!),
+                      ),
+                    ),
+                    if (weekdays != null) ...[
+                      const SizedBox(height: 8),
+                      Text('Weekdays: $weekdays'),
+                    ],
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: reasonController,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'Reason',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty)
+                              ? 'Please enter a reason'
+                              : null,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (!formKey.currentState!.validate()) return;
+                  if (editStart == null || editEnd == null) return;
+                  final days = _countWeekdays(editStart!, editEnd!);
+                  final nav = Navigator.of(context);
+                  await FirebaseFirestore.instance
+                      .collection('annual_leave_requests')
+                      .doc(request.id)
+                      .update({
+                    'startDate': Timestamp.fromDate(editStart!),
+                    'endDate': Timestamp.fromDate(editEnd!),
+                    'totalDays': days,
+                    'reason': reasonController.text.trim(),
+                    'updatedAt': Timestamp.now(),
+                  });
+                  nav.pop();
+                  if (mounted) await _loadLeaveBalance();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Save'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    reasonController.dispose();
+  }
+
+  Future<void> _resubmitRequest(AnnualLeaveRequest request) async {
+    await FirebaseFirestore.instance
+        .collection('annual_leave_requests')
+        .doc(request.id)
+        .update({
+      'status': 'submitted',
+      'updatedAt': Timestamp.now(),
+    });
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Leave request resubmitted'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      await _loadLeaveBalance();
+    }
+  }
+
+  Future<void> _revertToDraft(AnnualLeaveRequest request) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Unsend Request'),
+        content: const Text(
+          'This will revert your request back to draft so you can edit or discard it. The request will no longer be visible to HR until you resubmit.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Unsend'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await FirebaseFirestore.instance
+        .collection('annual_leave_requests')
+        .doc(request.id)
+        .update({
+      'status': 'draft',
+      'updatedAt': Timestamp.now(),
+    });
+    if (mounted) await _loadLeaveBalance();
+  }
+
+  Future<void> _deleteRequest(AnnualLeaveRequest request) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Request'),
+        content: const Text(
+          'Are you sure you want to permanently delete this draft? This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await FirebaseFirestore.instance
+        .collection('annual_leave_requests')
+        .doc(request.id)
+        .delete();
+    if (mounted) await _loadLeaveBalance();
   }
 
   @override
@@ -483,7 +709,8 @@ class _AnnualLeaveRequestScreenState extends State<AnnualLeaveRequestScreen> {
                               overflow: TextOverflow.ellipsis,
                             ),
                             trailing: Wrap(
-                              spacing: 8,
+                              spacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
                                 Container(
                                   padding: const EdgeInsets.symmetric(
@@ -508,6 +735,81 @@ class _AnnualLeaveRequestScreenState extends State<AnnualLeaveRequestScreen> {
                                   onPressed: () => _printRequest(request),
                                   tooltip: 'Print',
                                 ),
+                                if (request.status == 'submitted' ||
+                                    request.status == 'draft')
+                                  PopupMenuButton<String>(
+                                    icon: const Icon(Icons.more_vert),
+                                    tooltip: 'Options',
+                                    onSelected: (value) {
+                                      if (value == 'edit') {
+                                        _editRequest(request);
+                                      } else if (value == 'unsend') {
+                                        _revertToDraft(request);
+                                      } else if (value == 'resubmit') {
+                                        _resubmitRequest(request);
+                                      } else if (value == 'delete') {
+                                        _deleteRequest(request);
+                                      }
+                                    },
+                                    itemBuilder: (_) {
+                                      final status = request.status;
+                                      return [
+                                        PopupMenuItem<String>(
+                                          value: 'edit',
+                                          child: Row(
+                                            children: const [
+                                              Icon(Icons.edit, size: 18),
+                                              SizedBox(width: 8),
+                                              Text('Edit'),
+                                            ],
+                                          ),
+                                        ),
+                                        if (status == 'submitted')
+                                          PopupMenuItem<String>(
+                                            value: 'unsend',
+                                            child: Row(
+                                              children: const [
+                                                Icon(Icons.undo, size: 18,
+                                                    color: Colors.orange),
+                                                SizedBox(width: 8),
+                                                Text('Unsend',
+                                                    style: TextStyle(
+                                                        color: Colors.orange)),
+                                              ],
+                                            ),
+                                          ),
+                                        if (status == 'draft') ...[
+                                          PopupMenuItem<String>(
+                                            value: 'resubmit',
+                                            child: Row(
+                                              children: const [
+                                                Icon(Icons.send, size: 18,
+                                                    color: Colors.teal),
+                                                SizedBox(width: 8),
+                                                Text('Resubmit',
+                                                    style: TextStyle(
+                                                        color: Colors.teal)),
+                                              ],
+                                            ),
+                                          ),
+                                          PopupMenuItem<String>(
+                                            value: 'delete',
+                                            child: Row(
+                                              children: const [
+                                                Icon(Icons.delete_outline,
+                                                    size: 18,
+                                                    color: Colors.red),
+                                                SizedBox(width: 8),
+                                                Text('Delete',
+                                                    style: TextStyle(
+                                                        color: Colors.red)),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ];
+                                    },
+                                  ),
                               ],
                             ),
                           ),

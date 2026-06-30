@@ -1351,11 +1351,25 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
         route: '/medical-reimbursement',
       ),
       _MenuItem(
+        title: 'Expense Claims',
+        subtitle: 'Staff expense reimbursement',
+        icon: Icons.receipt_long_outlined,
+        color: Colors.orange,
+        route: '/expense-claims',
+      ),
+      _MenuItem(
         title: 'Payment Vouchers',
         subtitle: 'Issue & track payments',
         icon: Icons.receipt,
         color: Colors.deepPurple,
         route: '/payment-vouchers',
+      ),
+      _MenuItem(
+        title: 'Production Budget',
+        subtitle: 'Annual budget by language',
+        icon: Icons.video_library_outlined,
+        color: Colors.teal,
+        route: '/finance/production-budget',
       ),
     ];
 
@@ -1516,6 +1530,11 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
         icon: Icons.shopping_cart_outlined,
         label: 'Purchase Req.',
         route: '/purchase-requisitions',
+      ),
+      (
+        icon: Icons.receipt_long_outlined,
+        label: 'Expense Claims',
+        route: '/expense-claims',
       ),
     ];
 

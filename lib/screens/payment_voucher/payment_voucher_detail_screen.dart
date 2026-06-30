@@ -8,6 +8,7 @@ import '../../models/payment_voucher.dart';
 import '../../services/payment_voucher_pdf_export_service.dart';
 import '../../utils/responsive_helper.dart';
 import '../../utils/constants.dart';
+import '../../utils/print_options_dialog.dart';
 
 class PaymentVoucherDetailScreen extends StatefulWidget {
   final String voucherId;
@@ -172,19 +173,25 @@ class _PaymentVoucherDetailScreenState
                     icon: Icons.print_outlined,
                     tooltip: 'Print',
                     onPressed: () async {
-                      final service = PaymentVoucherPdfExportService();
-                      try {
-                        await service.printVoucher(voucher);
-                      } catch (e) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Print failed: $e'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
-                      }
+                      await showPrintOptionsDialog(
+                        context: context,
+                        title: 'Print Payment Voucher',
+                        onPrint: () async {
+                          final service = PaymentVoucherPdfExportService();
+                          try {
+                            await service.printVoucher(voucher);
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Print failed: $e'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                      );
                     },
                   ),
                   const SizedBox(width: 8),

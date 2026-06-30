@@ -723,7 +723,10 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
       backgroundColor: Colors.grey[100],
       body: Column(
         children: [
-          header,
+          Padding(
+            padding: ResponsiveHelper.getScreenPadding(context),
+            child: ResponsiveContainer(child: header),
+          ),
           Expanded(
             child: content,
           ),
@@ -1194,6 +1197,32 @@ class _AddEditStaffScreenState extends State<AddEditStaffScreen> {
             ),
           ],
         ),
+        if (_employmentStatus == EmploymentStatus.terminated ||
+            _employmentStatus == EmploymentStatus.resigned) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange.shade300),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.storage_outlined, color: Colors.orange.shade700, size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Data Retention Notice: Records for resigned or terminated staff are retained for 7 years for audit and legal compliance. '
+                    'Access credentials will be deactivated. Contact the system administrator to request data deletion after the retention period.',
+                    style: TextStyle(fontSize: 12, color: Colors.orange.shade900, height: 1.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 16),
         Row(
           children: [

@@ -4,14 +4,17 @@ import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import '../../models/adcom_minutes.dart';
 import '../../models/cash_advance.dart';
 import '../../models/enums.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/cash_advance_provider.dart';
+import '../../services/adcom_minutes_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/cash_advance_pdf_service.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
+import '../../utils/print_options_dialog.dart';
 
 class CashAdvanceDetailScreen extends StatefulWidget {
   final String advanceId;
@@ -25,6 +28,7 @@ class CashAdvanceDetailScreen extends StatefulWidget {
 
 class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
   final FirestoreService _firestoreService = FirestoreService();
+  final AdcomMinutesService _minutesService = AdcomMinutesService();
   final _currencyFormat = NumberFormat.currency(
     symbol: AppConstants.currencySymbol,
     decimalDigits: 2,
@@ -33,6 +37,7 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
   final _dateTimeFormat = DateFormat('MMM dd, yyyy HH:mm');
 
   CashAdvance? _advance;
+  final Map<String, MinutesItem?> _liveMinutesItems = {};
   bool _isLoading = true;
 
   @override
@@ -41,12 +46,37 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
     _loadAdvance();
   }
 
+  String _referenceKey(String minutesId, String actionItemNumber) =>
+      '$minutesId|$actionItemNumber';
+
   Future<void> _loadAdvance() async {
     setState(() => _isLoading = true);
     try {
       final advance = await _firestoreService.getCashAdvance(widget.advanceId);
+      final liveItems = <String, MinutesItem?>{};
+      if (advance != null) {
+        final minutesCache = <String, AdcomMinutes?>{};
+        for (final ref in advance.meetingReferences) {
+          if (!minutesCache.containsKey(ref.minutesId)) {
+            minutesCache[ref.minutesId] =
+                await _minutesService.getMinutesById(ref.minutesId);
+          }
+          final resolvedMinutes = minutesCache[ref.minutesId];
+          if (resolvedMinutes != null) {
+            try {
+              liveItems[_referenceKey(ref.minutesId, ref.actionItemNumber)] =
+                  resolvedMinutes.minutesItems.firstWhere(
+                (m) => m.itemNumber == ref.actionItemNumber,
+              );
+            } catch (_) {}
+          }
+        }
+      }
       setState(() {
         _advance = advance;
+        _liveMinutesItems
+          ..clear()
+          ..addAll(liveItems);
         _isLoading = false;
       });
       if (advance != null && mounted) {
@@ -615,8 +645,14 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
   Future<void> _printRequest() async {
     final advance = _advance;
     if (advance == null) return;
-    final bytes = await CashAdvancePdfService().buildPdf(advance);
-    await Printing.layoutPdf(onLayout: (_) => bytes);
+    await showPrintOptionsDialog(
+      context: context,
+      title: 'Print Cash Advance',
+      onPrint: () async {
+        final bytes = await CashAdvancePdfService().buildPdf(advance);
+        await Printing.layoutPdf(onLayout: (_) => bytes);
+      },
+    );
   }
 
   Future<void> _refreshProviderCache() async {
@@ -728,7 +764,7 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
                                   const SizedBox(height: 16),
                                   _buildLinkedPRCard(),
                                 ],
-                                if (_advance!.linkedMinutesId != null) ...[
+                                if (_advance!.meetingReferences.isNotEmpty) ...[
                                   const SizedBox(height: 16),
                                   _buildLinkedMinutesCard(),
                                 ],
@@ -1600,6 +1636,8 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
   }
 
   Widget _buildLinkedMinutesCard() {
+    final references = _advance!.meetingReferences;
+
     return Card(
       elevation: 1,
       color: Colors.indigo.shade50,
@@ -1611,100 +1649,113 @@ class _CashAdvanceDetailScreenState extends State<CashAdvanceDetailScreen> {
           children: [
             _buildCardHeader(
               Icons.meeting_room_outlined,
-              'Meeting Reference',
+              'Meeting Reference${references.length > 1 ? 's' : ''}',
               color: Colors.indigo[700]!,
             ),
             const SizedBox(height: 16),
-            if (_advance!.linkedMinutesLabel != null)
-              _buildDetailRow('Minutes', _advance!.linkedMinutesLabel),
-            if (_advance!.linkedActionItemNumber != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: 140,
-                      child: Text(
-                        'Action Item',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    Wrap(
-                      spacing: 6,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.indigo.shade100,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.indigo.shade200),
-                          ),
-                          child: Text(
-                            _advance!.linkedActionItemNumber!,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.indigo[700],
-                            ),
-                          ),
-                        ),
-                        if (_advance!.linkedActionItemAction != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.teal.shade50,
-                              borderRadius: BorderRadius.circular(6),
-                              border:
-                                  Border.all(color: Colors.teal.shade200),
-                            ),
-                            child: Text(
-                              _advance!.linkedActionItemAction!,
-                              style: TextStyle(
-                                  fontSize: 12, color: Colors.teal[700]),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            if (_advance!.linkedActionItemTitle != null)
-              _buildDetailRow('Title', _advance!.linkedActionItemTitle),
-            if (_advance!.linkedActionItemDescription != null &&
-                _advance!.linkedActionItemDescription!.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: 140,
-                      child: Text(
-                        'Description',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: _buildFormattedText(
-                        _advance!.linkedActionItemDescription!,
-                        const TextStyle(fontWeight: FontWeight.w500),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            for (var i = 0; i < references.length; i++) ...[
+              if (i > 0) const Divider(height: 24),
+              _buildMeetingReferenceItem(references[i]),
+            ],
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildMeetingReferenceItem(CashAdvanceMeetingReference ref) {
+    // Prefer live data from the minutes document; fall back to stored snapshot.
+    final live = _liveMinutesItems[
+        _referenceKey(ref.minutesId, ref.actionItemNumber)];
+    final title = live?.title ?? ref.actionItemTitle;
+    final description = live?.description ?? ref.actionItemDescription;
+    final statusLabel = live?.status.displayName ?? ref.actionItemAction;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildDetailRow('Minutes', ref.minutesLabel),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 140,
+                child: Text(
+                  'Action Item',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              Wrap(
+                spacing: 6,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.indigo.shade100,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.indigo.shade200),
+                    ),
+                    child: Text(
+                      ref.actionItemNumber,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.indigo[700],
+                      ),
+                    ),
+                  ),
+                  if (statusLabel != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.teal.shade50,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.teal.shade200),
+                      ),
+                      child: Text(
+                        statusLabel,
+                        style: TextStyle(fontSize: 12, color: Colors.teal[700]),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        if (title != null) _buildDetailRow('Title', title),
+        if (description != null && description.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 140,
+                  child: Text(
+                    'Description',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: _buildFormattedText(
+                    description,
+                    const TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 

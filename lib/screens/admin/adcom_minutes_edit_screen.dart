@@ -140,6 +140,13 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
     });
 
     await _service.updateMinutes(updatedMinutes);
+
+    if (itemsChanged) {
+      await _service.propagateAllItemChanges(
+        updatedMinutes.id,
+        syncedMinutesItems.where((i) => !i.isNewItem).toList(),
+      );
+    }
   }
 
   List<MinutesItem> _syncMinutesItemsFromAgenda({
@@ -990,6 +997,14 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
     });
 
     await _service.updateMinutes(_minutes!);
+
+    await _service.propagateItemChanges(
+      minutesId: _minutes!.id,
+      itemNumber: updatedItem.itemNumber,
+      title: updatedItem.title,
+      description: updatedItem.description,
+      statusDisplayName: updatedItem.status.displayName,
+    );
   }
 
   List<MinutesItemStatus> _allowedStatusesFor(AgendaActionType actionType) {

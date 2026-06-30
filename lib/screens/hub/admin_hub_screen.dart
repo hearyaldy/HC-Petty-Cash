@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../../utils/ai_consent_helper.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
 import '../../widgets/app_drawer.dart';
@@ -51,6 +52,9 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
   void initState() {
     super.initState();
     _loadData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) AiConsentHelper.showIfNeeded(context);
+    });
   }
 
   Future<void> _loadData() async {
@@ -1190,6 +1194,11 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
         icon: Icons.account_balance_wallet_outlined,
         label: 'Cash Advance',
         route: '/cash-advances',
+      ),
+      (
+        icon: Icons.receipt_long_outlined,
+        label: 'Expense Claims',
+        route: '/expense-claims',
       ),
       if (canApprove)
         (

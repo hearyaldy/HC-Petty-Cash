@@ -6,10 +6,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/medical_bill_reimbursement_provider.dart';
 import '../../models/medical_bill_reimbursement.dart';
+import '../../models/enums.dart';
+import '../../models/staff.dart';
+import '../../services/medical_bill_reimbursement_service.dart';
+import '../../services/staff_service.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
 import '../../widgets/app_drawer.dart';
 import 'add_medical_reimbursement_dialog.dart';
+import 'medical_claims_summary_screen.dart';
 
 class _StatData {
   final String title;
@@ -78,13 +83,26 @@ class _MedicalReimbursementListScreenState
   Future<void> _saveViewMode(_ViewMode mode) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
-        _viewModePrefsKey, mode == _ViewMode.table ? 'table' : 'cards');
+      _viewModePrefsKey,
+      mode == _ViewMode.table ? 'table' : 'cards',
+    );
   }
 
   Future<void> _loadReimbursements() async {
-    final provider =
-        Provider.of<MedicalBillReimbursementProvider>(context, listen: false);
-    await provider.loadReimbursements();
+    final provider = Provider.of<MedicalBillReimbursementProvider>(
+      context,
+      listen: false,
+    );
+    final authProvider = context.read<AuthProvider>();
+    final currentUser = authProvider.currentUser;
+
+    if (currentUser == null) return;
+
+    if (authProvider.canViewAllReports()) {
+      await provider.loadReimbursements();
+    } else {
+      await provider.loadReimbursementsByUser(currentUser.id);
+    }
   }
 
   Color _getStatusColor(String status) {
@@ -122,7 +140,8 @@ class _MedicalReimbursementListScreenState
   }
 
   List<MedicalBillReimbursement> _filterReimbursements(
-      List<MedicalBillReimbursement> reimbursements) {
+    List<MedicalBillReimbursement> reimbursements,
+  ) {
     var filtered = reimbursements;
 
     // Filter by status
@@ -228,16 +247,19 @@ class _MedicalReimbursementListScreenState
                       ),
                       sliver: _viewMode == _ViewMode.table
                           ? SliverToBoxAdapter(
-                              child: _buildReimbursementTable(context, reimbursements),
+                              child: _buildReimbursementTable(
+                                context,
+                                reimbursements,
+                              ),
                             )
                           : SliverList(
-                              delegate: SliverChildBuilderDelegate(
-                                (context, index) {
-                                  final reimbursement = reimbursements[index];
-                                  return _buildReimbursementCard(reimbursement);
-                                },
-                                childCount: reimbursements.length,
-                              ),
+                              delegate: SliverChildBuilderDelegate((
+                                context,
+                                index,
+                              ) {
+                                final reimbursement = reimbursements[index];
+                                return _buildReimbursementCard(reimbursement);
+                              }, childCount: reimbursements.length),
                             ),
                     ),
                   const SliverToBoxAdapter(child: SizedBox(height: 80)),
@@ -331,13 +353,35 @@ class _MedicalReimbursementListScreenState
                       ),
                       const Spacer(),
                       IconButton(
-                        icon: const Icon(Icons.refresh, color: Colors.white, size: 20),
+                        icon: const Icon(
+                          Icons.bar_chart_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        tooltip: 'Claims Summary',
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const MedicalClaimsSummaryScreen(),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.refresh,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                         tooltip: 'Refresh',
                         onPressed: _loadReimbursements,
                       ),
                       Consumer<AuthProvider>(
                         builder: (context, auth, _) => IconButton(
-                          icon: const Icon(Icons.add_circle_outline, color: Colors.white, size: 20),
+                          icon: const Icon(
+                            Icons.add_circle_outline,
+                            color: Colors.white,
+                            size: 20,
+                          ),
                           tooltip: 'New Claim',
                           onPressed: () => _showAddReimbursementDialog(auth),
                         ),
@@ -388,18 +432,27 @@ class _MedicalReimbursementListScreenState
                 children: [
                   const Text(
                     'Medical Reimbursement',
-                    style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Submit and track medical expense claims',
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.72), fontSize: 12),
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.72),
+                      fontSize: 12,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Wrap(
                     spacing: 12,
                     runSpacing: 12,
-                    children: stats.map((s) => _buildBannerStat(s.$1, s.$2, compact: true)).toList(),
+                    children: stats
+                        .map((s) => _buildBannerStat(s.$1, s.$2, compact: true))
+                        .toList(),
                   ),
                 ],
               );
@@ -414,12 +467,19 @@ class _MedicalReimbursementListScreenState
                     children: [
                       const Text(
                         'Medical Reimbursement',
-                        style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Submit and track medical expense claims',
-                        style: TextStyle(color: Colors.white.withValues(alpha: 0.72), fontSize: 12),
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.72),
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),
@@ -457,7 +517,10 @@ class _MedicalReimbursementListScreenState
         Text(
           label,
           textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.70), fontSize: 10),
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.70),
+            fontSize: 10,
+          ),
         ),
       ],
     );
@@ -476,7 +539,9 @@ class _MedicalReimbursementListScreenState
   }
 
   Widget _buildStatCards(
-      BuildContext context, MedicalBillReimbursementProvider provider) {
+    BuildContext context,
+    MedicalBillReimbursementProvider provider,
+  ) {
     final stats = [
       _StatData(
         title: 'Total Claims',
@@ -668,8 +733,9 @@ class _MedicalReimbursementListScreenState
       child: Row(
         children: _statusOptions.map((status) {
           final isSelected = _selectedStatus == status;
-          final displayName =
-              status == 'all' ? 'All' : _getStatusDisplayName(status);
+          final displayName = status == 'all'
+              ? 'All'
+              : _getStatusDisplayName(status);
 
           return Padding(
             padding: const EdgeInsets.only(right: 8),
@@ -685,8 +751,9 @@ class _MedicalReimbursementListScreenState
               selectedColor: status == 'all'
                   ? Colors.teal.shade100
                   : _getStatusColor(status).withValues(alpha: 0.2),
-              checkmarkColor:
-                  status == 'all' ? Colors.teal : _getStatusColor(status),
+              checkmarkColor: status == 'all'
+                  ? Colors.teal
+                  : _getStatusColor(status),
               labelStyle: TextStyle(
                 color: isSelected
                     ? (status == 'all' ? Colors.teal : _getStatusColor(status))
@@ -707,6 +774,7 @@ class _MedicalReimbursementListScreenState
 
   Widget _buildReimbursementCard(MedicalBillReimbursement reimbursement) {
     final isDraft = reimbursement.status == 'draft';
+    final isAdmin = context.read<AuthProvider>().hasRole(UserRole.admin);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -772,13 +840,18 @@ class _MedicalReimbursementListScreenState
                       const SizedBox(width: 8),
                       PopupMenuButton<String>(
                         icon: Icon(Icons.more_vert, color: Colors.grey[600]),
-                        onSelected: (value) => _handleCardMenuAction(value, reimbursement),
+                        onSelected: (value) =>
+                            _handleCardMenuAction(value, reimbursement),
                         itemBuilder: (context) => [
                           const PopupMenuItem(
                             value: 'view',
                             child: Row(
                               children: [
-                                Icon(Icons.visibility, color: Colors.teal, size: 20),
+                                Icon(
+                                  Icons.visibility,
+                                  color: Colors.teal,
+                                  size: 20,
+                                ),
                                 SizedBox(width: 8),
                                 Text('View Details'),
                               ],
@@ -790,7 +863,11 @@ class _MedicalReimbursementListScreenState
                               value: 'edit',
                               child: Row(
                                 children: [
-                                  Icon(Icons.edit, color: Colors.blue, size: 20),
+                                  Icon(
+                                    Icons.edit,
+                                    color: Colors.blue,
+                                    size: 20,
+                                  ),
                                   SizedBox(width: 8),
                                   Text('Edit'),
                                 ],
@@ -800,9 +877,33 @@ class _MedicalReimbursementListScreenState
                               value: 'delete',
                               child: Row(
                                 children: [
-                                  Icon(Icons.delete, color: Colors.red, size: 20),
+                                  Icon(
+                                    Icons.delete,
+                                    color: Colors.red,
+                                    size: 20,
+                                  ),
                                   SizedBox(width: 8),
-                                  Text('Delete', style: TextStyle(color: Colors.red)),
+                                  Text(
+                                    'Delete',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                          if (isAdmin) ...[
+                            const PopupMenuDivider(),
+                            const PopupMenuItem(
+                              value: 'reassign',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.switch_account_outlined,
+                                    color: Colors.purple,
+                                    size: 20,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text('Reassign Requester'),
                                 ],
                               ),
                             ),
@@ -851,7 +952,9 @@ class _MedicalReimbursementListScreenState
                           ),
                         ),
                         Text(
-                          _currencyFormat.format(reimbursement.totalReimbursement),
+                          _currencyFormat.format(
+                            reimbursement.totalReimbursement,
+                          ),
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -881,10 +984,7 @@ class _MedicalReimbursementListScreenState
                       const SizedBox(width: 8),
                       Text(
                         '${reimbursement.claimItems.length} claim item${reimbursement.claimItems.length > 1 ? 's' : ''} • Total Bill: ${_currencyFormat.format(reimbursement.totalBill)}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                       ),
                     ],
                   ),
@@ -936,7 +1036,9 @@ class _MedicalReimbursementListScreenState
   }
 
   Widget _buildReimbursementTable(
-      BuildContext context, List<MedicalBillReimbursement> reimbursements) {
+    BuildContext context,
+    List<MedicalBillReimbursement> reimbursements,
+  ) {
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -956,6 +1058,9 @@ class _MedicalReimbursementListScreenState
           ],
           rows: reimbursements.map((reimbursement) {
             final isDraft = reimbursement.status == 'draft';
+            final isAdmin = context.read<AuthProvider>().hasRole(
+              UserRole.admin,
+            );
             return DataRow(
               onSelectChanged: (_) =>
                   context.push('/medical-reimbursement/${reimbursement.id}'),
@@ -965,29 +1070,41 @@ class _MedicalReimbursementListScreenState
                 DataCell(Text(reimbursement.department)),
                 DataCell(Text(_dateFormat.format(reimbursement.reportDate))),
                 DataCell(Text(_currencyFormat.format(reimbursement.totalBill))),
-                DataCell(Text(
-                  _currencyFormat.format(reimbursement.totalReimbursement),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.teal,
+                DataCell(
+                  Text(
+                    _currencyFormat.format(reimbursement.totalReimbursement),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.teal,
+                    ),
                   ),
-                )),
+                ),
                 DataCell(_buildStatusCell(reimbursement.status)),
                 DataCell(
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.visibility, color: Colors.teal, size: 20),
+                        icon: const Icon(
+                          Icons.visibility,
+                          color: Colors.teal,
+                          size: 20,
+                        ),
                         tooltip: 'View',
-                        onPressed: () => context.push('/medical-reimbursement/${reimbursement.id}'),
+                        onPressed: () => context.push(
+                          '/medical-reimbursement/${reimbursement.id}',
+                        ),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                       ),
                       if (isDraft) ...[
                         const SizedBox(width: 8),
                         IconButton(
-                          icon: const Icon(Icons.edit, color: Colors.blue, size: 20),
+                          icon: const Icon(
+                            Icons.edit,
+                            color: Colors.blue,
+                            size: 20,
+                          ),
                           tooltip: 'Edit',
                           onPressed: () => _editReimbursement(reimbursement),
                           padding: EdgeInsets.zero,
@@ -995,9 +1112,28 @@ class _MedicalReimbursementListScreenState
                         ),
                         const SizedBox(width: 8),
                         IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                          icon: const Icon(
+                            Icons.delete,
+                            color: Colors.red,
+                            size: 20,
+                          ),
                           tooltip: 'Delete',
                           onPressed: () => _deleteReimbursement(reimbursement),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                      if (isAdmin) ...[
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.switch_account_outlined,
+                            color: Colors.purple,
+                            size: 20,
+                          ),
+                          tooltip: 'Reassign Requester',
+                          onPressed: () =>
+                              _showReassignRequesterDialog(reimbursement),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                         ),
@@ -1036,9 +1172,8 @@ class _MedicalReimbursementListScreenState
   Future<void> _showAddReimbursementDialog(AuthProvider authProvider) async {
     final result = await showDialog<MedicalBillReimbursement>(
       context: context,
-      builder: (context) => AddMedicalReimbursementDialog(
-        user: authProvider.currentUser!,
-      ),
+      builder: (context) =>
+          AddMedicalReimbursementDialog(user: authProvider.currentUser!),
     );
 
     if (result != null && mounted) {
@@ -1046,7 +1181,10 @@ class _MedicalReimbursementListScreenState
     }
   }
 
-  void _handleCardMenuAction(String action, MedicalBillReimbursement reimbursement) {
+  void _handleCardMenuAction(
+    String action,
+    MedicalBillReimbursement reimbursement,
+  ) {
     switch (action) {
       case 'view':
         context.push('/medical-reimbursement/${reimbursement.id}');
@@ -1057,10 +1195,180 @@ class _MedicalReimbursementListScreenState
       case 'delete':
         _deleteReimbursement(reimbursement);
         break;
+      case 'reassign':
+        _showReassignRequesterDialog(reimbursement);
+        break;
     }
   }
 
-  Future<void> _editReimbursement(MedicalBillReimbursement reimbursement) async {
+  Future<void> _showReassignRequesterDialog(
+    MedicalBillReimbursement reimbursement,
+  ) async {
+    final staffService = StaffService();
+    final medicalService = MedicalBillReimbursementService();
+    Staff? selectedStaff;
+    final nameController = TextEditingController(
+      text: reimbursement.requesterName,
+    );
+    final focusNode = FocusNode();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(
+                Icons.switch_account_outlined,
+                color: Colors.purple,
+                size: 20,
+              ),
+              SizedBox(width: 8),
+              Text('Reassign Requester', style: TextStyle(fontSize: 15)),
+            ],
+          ),
+          content: SizedBox(
+            width: 380,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Claim: ${reimbursement.reportNumber}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Current requester: ${reimbursement.requesterName}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 16),
+                StreamBuilder<List<Staff>>(
+                  stream: staffService.getAllStaff(),
+                  builder: (context, snapshot) {
+                    final staffList = snapshot.data ?? [];
+                    return RawAutocomplete<Staff>(
+                      textEditingController: nameController,
+                      focusNode: focusNode,
+                      displayStringForOption: (s) => s.fullName,
+                      optionsBuilder: (value) {
+                        final q = value.text.trim().toLowerCase();
+                        if (q.isEmpty) return staffList.take(8);
+                        return staffList
+                            .where(
+                              (s) =>
+                                  s.fullName.toLowerCase().contains(q) ||
+                                  s.department.toLowerCase().contains(q) ||
+                                  s.employeeId.toLowerCase().contains(q),
+                            )
+                            .take(10);
+                      },
+                      onSelected: (s) => setDialogState(() {
+                        selectedStaff = s;
+                        nameController.text = s.fullName;
+                      }),
+                      fieldViewBuilder: (ctx, ctrl, fn, _) => TextFormField(
+                        controller: ctrl,
+                        focusNode: fn,
+                        decoration: const InputDecoration(
+                          labelText: 'Select staff member',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.person_search_outlined),
+                          suffixIcon: Icon(Icons.arrow_drop_down),
+                        ),
+                      ),
+                      optionsViewBuilder: (ctx, onSelected, options) => Align(
+                        alignment: Alignment.topLeft,
+                        child: Material(
+                          elevation: 6,
+                          borderRadius: BorderRadius.circular(8),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              maxWidth: 340,
+                              maxHeight: 240,
+                            ),
+                            child: ListView(
+                              padding: EdgeInsets.zero,
+                              shrinkWrap: true,
+                              children: options
+                                  .map(
+                                    (s) => ListTile(
+                                      dense: true,
+                                      leading: const Icon(Icons.badge_outlined),
+                                      title: Text(s.fullName),
+                                      subtitle: Text(
+                                        [
+                                          if (s.employeeId.isNotEmpty)
+                                            s.employeeId,
+                                          if (s.department.isNotEmpty)
+                                            s.department,
+                                        ].join(' · '),
+                                        style: const TextStyle(fontSize: 11),
+                                      ),
+                                      onTap: () => onSelected(s),
+                                    ),
+                                  )
+                                  .toList(),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: selectedStaff == null
+                  ? null
+                  : () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(backgroundColor: Colors.purple),
+              child: const Text('Reassign'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    nameController.dispose();
+    focusNode.dispose();
+
+    if (confirmed == true && selectedStaff != null && mounted) {
+      try {
+        await medicalService.reassignRequester(
+          reimbursement.id,
+          requesterId: selectedStaff!.userId ?? selectedStaff!.id,
+          requesterName: selectedStaff!.fullName,
+          department: selectedStaff!.department,
+        );
+        _loadReimbursements();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Reassigned to ${selectedStaff!.fullName}'),
+              backgroundColor: Colors.purple,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _editReimbursement(
+    MedicalBillReimbursement reimbursement,
+  ) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final result = await showDialog<MedicalBillReimbursement>(
       context: context,
@@ -1075,7 +1383,9 @@ class _MedicalReimbursementListScreenState
     }
   }
 
-  Future<void> _deleteReimbursement(MedicalBillReimbursement reimbursement) async {
+  Future<void> _deleteReimbursement(
+    MedicalBillReimbursement reimbursement,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -1098,7 +1408,10 @@ class _MedicalReimbursementListScreenState
     );
 
     if (confirmed == true && mounted) {
-      final provider = Provider.of<MedicalBillReimbursementProvider>(context, listen: false);
+      final provider = Provider.of<MedicalBillReimbursementProvider>(
+        context,
+        listen: false,
+      );
       await provider.deleteReimbursement(reimbursement.id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

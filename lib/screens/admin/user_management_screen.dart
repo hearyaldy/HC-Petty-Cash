@@ -570,6 +570,27 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     const SizedBox(height: 4),
                     Row(
                       children: [
+                        if (user.workerType == 'volunteer') ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.purple.shade400,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Text(
+                              'Volunteer',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
                         if (grade != null) ...[
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -800,6 +821,26 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                               ),
                             ),
                           ),
+                          if (user.workerType == 'volunteer')
+                            Container(
+                              margin: const EdgeInsets.only(right: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.purple.shade400,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Text(
+                                'Volunteer',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
                           if (profile?.grade != null)
                             Container(
                               padding: const EdgeInsets.symmetric(
@@ -2052,7 +2093,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Student: ${user.name}',
+                '${user.workerType == 'volunteer' ? 'Volunteer' : 'Student'}: ${user.name}',
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
@@ -2151,6 +2192,22 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     String? selectedLanguage = profile?.language;
     String? selectedRole = profile?.role;
     String? selectedGrade = profile?.grade;
+    final isVolunteer = user.workerType == 'volunteer';
+
+    final roles = [
+      'Video Editor',
+      'Producer',
+      'Content Creator',
+      'Language Editor',
+      'Other',
+    ];
+    // Backward compat: a previously saved free-text role won't match the
+    // fixed list above, so treat it as a custom "Other" value.
+    final customRoleController = TextEditingController();
+    if (selectedRole != null && !roles.contains(selectedRole)) {
+      customRoleController.text = selectedRole;
+      selectedRole = 'Other';
+    }
 
     final yearLevels = [
       '1st Year',
@@ -2167,13 +2224,6 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       'English',
       'Lao',
       'Vietnamese',
-      'Other',
-    ];
-    final roles = [
-      'Video Editor',
-      'Producer',
-      'Content Creator',
-      'Language Editor',
       'Other',
     ];
 
@@ -2199,8 +2249,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     ),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(
-                    Icons.school,
+                  child: Icon(
+                    isVolunteer ? Icons.volunteer_activism : Icons.school,
                     color: Colors.white,
                     size: 20,
                   ),
@@ -2210,9 +2260,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Edit Student Profile',
-                        style: TextStyle(fontSize: 18),
+                      Text(
+                        isVolunteer ? 'Edit Volunteer Profile' : 'Edit Student Profile',
+                        style: const TextStyle(fontSize: 18),
                       ),
                       Text(
                         user.name,
@@ -2235,24 +2285,26 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Student Number
-                    TextFormField(
-                      controller: studentNumberController,
-                      decoration: InputDecoration(
-                        labelText: 'Student Number *',
-                        hintText: 'e.g., 2024-12345',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                    if (!isVolunteer) ...[
+                      TextFormField(
+                        controller: studentNumberController,
+                        decoration: InputDecoration(
+                          labelText: 'Student Number *',
+                          hintText: 'e.g., 2024-12345',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          prefixIcon: const Icon(Icons.badge),
                         ),
-                        prefixIcon: const Icon(Icons.badge),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter student number';
+                          }
+                          return null;
+                        },
                       ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Please enter student number';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
+                      const SizedBox(height: 16),
+                    ],
                     // Phone Number
                     TextFormField(
                       controller: phoneNumberController,
@@ -2272,47 +2324,49 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 16),
-                    // Course
-                    TextFormField(
-                      controller: courseController,
-                      decoration: InputDecoration(
-                        labelText: 'Course/Program *',
-                        hintText: 'e.g., Computer Science',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                    if (!isVolunteer) ...[
+                      const SizedBox(height: 16),
+                      // Course
+                      TextFormField(
+                        controller: courseController,
+                        decoration: InputDecoration(
+                          labelText: 'Course/Program *',
+                          hintText: 'e.g., Computer Science',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          prefixIcon: const Icon(Icons.book),
                         ),
-                        prefixIcon: const Icon(Icons.book),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter course';
+                          }
+                          return null;
+                        },
                       ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Please enter course';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    // Year Level
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedYearLevel,
-                      decoration: InputDecoration(
-                        labelText: 'Year Level *',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                      const SizedBox(height: 16),
+                      // Year Level
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedYearLevel,
+                        decoration: InputDecoration(
+                          labelText: 'Year Level *',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          prefixIcon: const Icon(Icons.school_outlined),
                         ),
-                        prefixIcon: const Icon(Icons.school_outlined),
+                        items: yearLevels
+                            .map(
+                              (year) => DropdownMenuItem(
+                                value: year,
+                                child: Text(year),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) =>
+                            setState(() => selectedYearLevel = value!),
                       ),
-                      items: yearLevels
-                          .map(
-                            (year) => DropdownMenuItem(
-                              value: year,
-                              child: Text(year),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) =>
-                          setState(() => selectedYearLevel = value!),
-                    ),
+                    ],
                     const SizedBox(height: 16),
                     // Language
                     DropdownButtonFormField<String>(
@@ -2359,6 +2413,27 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       onChanged: (value) =>
                           setState(() => selectedRole = value),
                     ),
+                    if (selectedRole == 'Other') ...[
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: customRoleController,
+                        decoration: InputDecoration(
+                          labelText: 'Specify Role *',
+                          hintText: 'e.g., Photographer',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          prefixIcon: const Icon(Icons.edit_note),
+                        ),
+                        validator: (value) {
+                          if (selectedRole == 'Other' &&
+                              (value == null || value.trim().isEmpty)) {
+                            return 'Please specify the role';
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     // Grade
                     DropdownButtonFormField<String>(
@@ -2454,14 +2529,21 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     onTap: () async {
                       if (formKey.currentState!.validate()) {
                         Navigator.pop(context);
+                        final effectiveRole =
+                            selectedRole == 'Other' &&
+                                customRoleController.text.trim().isNotEmpty
+                            ? customRoleController.text.trim()
+                            : selectedRole;
                         await _updateStudentProfile(
                           user.id,
-                          studentNumber: studentNumberController.text.trim(),
+                          studentNumber: isVolunteer
+                              ? ''
+                              : studentNumberController.text.trim(),
                           phoneNumber: phoneNumberController.text.trim(),
-                          course: courseController.text.trim(),
-                          yearLevel: selectedYearLevel,
+                          course: isVolunteer ? '' : courseController.text.trim(),
+                          yearLevel: isVolunteer ? '' : selectedYearLevel,
                           language: selectedLanguage,
-                          role: selectedRole,
+                          role: effectiveRole,
                           grade: selectedGrade,
                           hourlyRate: calculatedRate > 0
                               ? calculatedRate

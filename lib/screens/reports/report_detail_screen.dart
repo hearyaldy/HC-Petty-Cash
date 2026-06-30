@@ -29,6 +29,8 @@ import '../../services/currency_conversion_pdf_service.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
 import '../../utils/icon_registry.dart';
+import '../../utils/print_options_dialog.dart';
+import '../../services/pdf_signature_helper.dart';
 
 enum TransactionSortOption {
   dateNewest,
@@ -383,7 +385,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               const SizedBox(height: 24),
               _buildReportHeader(report),
               const SizedBox(height: 24),
-              _buildFinancialSummary(report),
+              _buildFinancialSummary(report, transactions),
               const SizedBox(height: 32),
               _buildTransactionsList(transactions, report, authProvider),
             ],
@@ -705,8 +707,21 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     );
   }
 
-  Widget _buildFinancialSummary(PettyCashReport report) {
+  Widget _buildFinancialSummary(
+    PettyCashReport report,
+    List<Transaction> transactions,
+  ) {
     final cs = Theme.of(context).colorScheme;
+
+    // Compute live from in-memory transactions so the UI is always up-to-date
+    // even before Firestore persists the recalculated stored fields.
+    // This matches the PDF export logic which also derives values on-the-fly.
+    final liveTotalDisbursements =
+        transactions.fold<double>(0, (sum, t) => sum + t.amount);
+    final liveCashOnHand = report.openingBalance - liveTotalDisbursements;
+    final liveClosingBalance = liveCashOnHand;
+    final liveVariance = liveClosingBalance - report.openingBalance + liveTotalDisbursements;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -743,7 +758,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               Expanded(
                 child: _buildAmountCard(
                   'Total Disbursements',
-                  report.totalDisbursements,
+                  liveTotalDisbursements,
                   Colors.red,
                   Icons.money_off,
                 ),
@@ -756,7 +771,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               Expanded(
                 child: _buildAmountCard(
                   'Cash on Hand',
-                  report.cashOnHand,
+                  liveCashOnHand,
                   Colors.orange,
                   Icons.payments,
                 ),
@@ -765,14 +780,14 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               Expanded(
                 child: _buildAmountCard(
                   'Closing Balance',
-                  report.closingBalance,
+                  liveClosingBalance,
                   Colors.green,
                   Icons.account_balance,
                 ),
               ),
             ],
           ),
-          if (report.variance != 0) ...[
+          if (liveVariance != 0) ...[
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(16),
@@ -794,7 +809,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                         Text(
-                          '${AppConstants.currencySymbol}${report.variance.abs().toStringAsFixed(2)} ${report.variance > 0 ? 'over' : 'under'}',
+                          '${AppConstants.currencySymbol}${liveVariance.abs().toStringAsFixed(2)} ${liveVariance > 0 ? 'over' : 'under'}',
                         ),
                       ],
                     ),
@@ -1076,26 +1091,27 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   ],
                 ),
               ),
-            PopupMenuItem(
-              value: 'uploadDocument',
-              child: Row(
-                children: [
-                  Icon(
-                    transaction.supportDocumentUrl != null
-                        ? Icons.edit_document
-                        : Icons.upload_file,
-                    size: 18,
-                    color: Colors.orange,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    transaction.supportDocumentUrl != null
-                        ? 'Change Document'
-                        : 'Upload Document',
-                  ),
-                ],
+            if (authProvider.canUploadSupportDocument())
+              PopupMenuItem(
+                value: 'uploadDocument',
+                child: Row(
+                  children: [
+                    Icon(
+                      transaction.supportDocumentUrl != null
+                          ? Icons.edit_document
+                          : Icons.upload_file,
+                      size: 18,
+                      color: Colors.orange,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      transaction.supportDocumentUrl != null
+                          ? 'Change Document'
+                          : 'Upload Document',
+                    ),
+                  ],
+                ),
               ),
-            ),
             const PopupMenuDivider(),
             const PopupMenuItem(
               value: 'edit',
@@ -1264,6 +1280,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     final bool isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
     final hasDocument = transaction.supportDocumentUrl != null;
     final hasMultipleDocuments = transaction.supportDocumentUrls.length > 1;
+    final canUpload = context.read<AuthProvider>().canUploadSupportDocument();
+
+    final hasForeignExchange = transaction.foreignCurrency != null &&
+        transaction.foreignAmount != null &&
+        transaction.exchangeRate != null &&
+        transaction.exchangeRateDate != null;
 
     return PopupMenuButton<String>(
       onSelected: (value) {
@@ -1277,6 +1299,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           _printSingleSupportDocument(transaction, notes: notes);
         } else if (value == 'print_select') {
           _showPrintSupportDocumentDialog(transaction);
+        } else if (value == 'print_exchange_rate') {
+          _printExchangeRateDoc(transaction);
         }
       },
       offset: const Offset(0, 40),
@@ -1345,17 +1369,18 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               ],
             ),
           ),
-        const PopupMenuItem(
-          value: 'upload',
-          child: Row(
-            children: [
-              Icon(Icons.photo_library, size: 18, color: Colors.purple),
-              SizedBox(width: 8),
-              Text('Upload from Gallery'),
-            ],
+        if (canUpload)
+          const PopupMenuItem(
+            value: 'upload',
+            child: Row(
+              children: [
+                Icon(Icons.photo_library, size: 18, color: Colors.purple),
+                SizedBox(width: 8),
+                Text('Upload from Gallery'),
+              ],
+            ),
           ),
-        ),
-        if (isMobile)
+        if (canUpload && isMobile)
           const PopupMenuItem(
             value: 'camera',
             child: Row(
@@ -1363,6 +1388,17 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 Icon(Icons.camera_alt, size: 18, color: Colors.teal),
                 SizedBox(width: 8),
                 Text('Take Photo'),
+              ],
+            ),
+          ),
+        if (hasForeignExchange)
+          const PopupMenuItem(
+            value: 'print_exchange_rate',
+            child: Row(
+              children: [
+                Icon(Icons.currency_exchange, size: 18, color: Colors.indigo),
+                SizedBox(width: 8),
+                Text('Print Exchange Rate Doc'),
               ],
             ),
           ),
@@ -1451,6 +1487,49 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         amount: transaction.amount,
       ),
     );
+  }
+
+  /// Print the currency conversion support document for an existing transaction
+  /// that was saved with foreign exchange data.
+  Future<void> _printExchangeRateDoc(Transaction transaction) async {
+    if (transaction.foreignCurrency == null ||
+        transaction.foreignAmount == null ||
+        transaction.exchangeRate == null ||
+        transaction.exchangeRateDate == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Missing exchange rate information for this transaction'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      final thbAmount = transaction.foreignAmount! * transaction.exchangeRate!;
+      final convPdfService = CurrencyConversionPdfService();
+      await convPdfService.printConversionPage(
+        foreignCurrency: transaction.foreignCurrency!,
+        foreignAmount: transaction.foreignAmount!,
+        exchangeRate: transaction.exchangeRate!,
+        exchangeRateDate: transaction.exchangeRateDate!,
+        thbAmount: thbAmount,
+        receiptNo: transaction.receiptNo,
+        description: transaction.description,
+        transactionDate: transaction.date,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error printing exchange rate document: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _showPrintAllSupportDocumentsDialog(
@@ -2847,60 +2926,82 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     PettyCashReport report,
     List<Transaction> transactions,
   ) async {
-    try {
-      final pdfService = PdfExportService();
-      await pdfService.exportReport(report);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('PDF file exported successfully')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error exporting PDF: $e')));
-      }
-    }
+    await showPrintOptionsDialog(
+      context: context,
+      title: 'Print Report',
+      onPrint: () async {
+        try {
+          final pdfService = PdfExportService();
+          await pdfService.exportReport(report);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('PDF file exported successfully')),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error exporting PDF: $e')),
+            );
+          }
+        }
+      },
+    );
   }
 
   Future<void> _exportAdvanceSettlementPdf(
     PettyCashReport report,
     List<Transaction> transactions,
   ) async {
-    try {
-      final pdfService = PdfExportService();
-      await pdfService.exportAdvanceSettlementReport(
-        report,
-        transactions: transactions,
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Advance Settlement PDF exported successfully'),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error exporting Advance Settlement PDF: $e')),
-        );
-      }
-    }
+    await showPrintOptionsDialog(
+      context: context,
+      title: 'Print Advance Settlement',
+      onPrint: () async {
+        try {
+          final pdfService = PdfExportService();
+          await pdfService.exportAdvanceSettlementReport(
+            report,
+            transactions: transactions,
+          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Advance Settlement PDF exported successfully'),
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error exporting Advance Settlement PDF: $e')),
+            );
+          }
+        }
+      },
+    );
   }
 
   Future<void> _showEditReportDialog(
     PettyCashReport report,
     ReportProvider provider,
   ) async {
+    // Capture providers before the async gap to satisfy BuildContext safety rules.
+    final transactionProvider = context.read<TransactionProvider>();
+
     final updatedReport = await showDialog<PettyCashReport>(
       context: context,
       builder: (context) => EditPettyCashReportDialog(report: report),
     );
 
     if (updatedReport != null) {
-      await provider.updateReport(updatedReport);
+      // Recalculate financial totals with the updated opening balance so that
+      // cashOnHand, closingBalance, and totalDisbursements stay in sync.
+      final transactions = transactionProvider.transactions
+          .where((t) => t.reportId == report.id)
+          .toList();
+      final recalculated = updatedReport.calculateTotals(transactions);
+
+      await provider.updateReport(recalculated);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Report updated successfully')),
@@ -3126,6 +3227,21 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       }
     }
     PaymentMethod selectedPaymentMethod = transaction.paymentMethodEnum;
+
+    // Currency exchange variables — initialise from the saved transaction
+    bool hasCurrencyExchange = transaction.foreignCurrency != null;
+    String selectedForeignCurrency = transaction.foreignCurrency ?? 'MYR';
+    final foreignAmountController = TextEditingController(
+      text: transaction.foreignAmount?.toString() ?? '',
+    );
+    final exchangeRateController = TextEditingController(
+      text: transaction.exchangeRate != null
+          ? transaction.exchangeRate!.toStringAsFixed(4)
+          : '',
+    );
+    DateTime exchangeRateDate = transaction.exchangeRateDate ?? DateTime.now();
+    bool isFetchingRate = false;
+    String? exchangeRateNote;
 
     await showDialog(
       context: context,
@@ -3602,6 +3718,351 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                         }
                       },
                     ),
+                    const SizedBox(height: 16),
+
+                    // ── Currency Exchange Section ──────────────────────────
+                    Container(
+                      decoration: BoxDecoration(
+                        color: hasCurrencyExchange
+                            ? Colors.orange.withValues(alpha: 0.05)
+                            : Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: hasCurrencyExchange
+                              ? Colors.orange.shade300
+                              : Colors.grey.shade300,
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          // Toggle header
+                          InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () =>
+                                setState(() => hasCurrencyExchange = !hasCurrencyExchange),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 12),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.currency_exchange,
+                                    size: 20,
+                                    color: hasCurrencyExchange
+                                        ? Colors.orange.shade700
+                                        : Colors.grey,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      'Currency Exchange',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: hasCurrencyExchange
+                                            ? Colors.orange.shade700
+                                            : Colors.grey.shade700,
+                                      ),
+                                    ),
+                                  ),
+                                  Switch(
+                                    value: hasCurrencyExchange,
+                                    onChanged: (v) =>
+                                        setState(() => hasCurrencyExchange = v),
+                                    activeThumbColor: Colors.orange.shade700,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          if (hasCurrencyExchange) ...[
+                            const Divider(height: 1),
+                            Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Currency selector row
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        flex: 2,
+                                        child: DropdownButtonFormField<String>(
+                                          initialValue: selectedForeignCurrency,
+                                          decoration: const InputDecoration(
+                                            labelText: 'From Currency',
+                                            border: OutlineInputBorder(),
+                                            prefixIcon: Icon(Icons.flag),
+                                            contentPadding: EdgeInsets.symmetric(
+                                                horizontal: 12, vertical: 14),
+                                          ),
+                                          items: const [
+                                            DropdownMenuItem(
+                                                value: 'MYR',
+                                                child: Text('MYR (Ringgit)')),
+                                            DropdownMenuItem(
+                                                value: 'USD',
+                                                child: Text('USD (US Dollar)')),
+                                            DropdownMenuItem(
+                                                value: 'THB',
+                                                child: Text('THB (Thai Baht)')),
+                                          ],
+                                          onChanged: (v) {
+                                            if (v != null) {
+                                              setState(() =>
+                                                  selectedForeignCurrency = v);
+                                            }
+                                          },
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      const Icon(Icons.arrow_forward,
+                                          color: Colors.grey),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: InputDecorator(
+                                          decoration: const InputDecoration(
+                                            labelText: 'To',
+                                            border: OutlineInputBorder(),
+                                            contentPadding: EdgeInsets.symmetric(
+                                                horizontal: 12, vertical: 14),
+                                          ),
+                                          child: const Text('THB',
+                                              style: TextStyle(
+                                                  fontWeight: FontWeight.bold)),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+
+                                  // Foreign amount
+                                  TextField(
+                                    controller: foreignAmountController,
+                                    decoration: InputDecoration(
+                                      labelText:
+                                          'Amount in $selectedForeignCurrency',
+                                      border: const OutlineInputBorder(),
+                                      prefixIcon: const Icon(Icons.money),
+                                      prefixText:
+                                          '${_foreignCurrencySymbol(selectedForeignCurrency)} ',
+                                    ),
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                            decimal: true),
+                                    onChanged: (_) => setState(() {}),
+                                  ),
+                                  const SizedBox(height: 12),
+
+                                  // Rate date + AI Rate button
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: InkWell(
+                                          onTap: () async {
+                                            final d = await showDatePicker(
+                                              context: context,
+                                              initialDate: exchangeRateDate,
+                                              firstDate: DateTime(2020),
+                                              lastDate: DateTime.now(),
+                                            );
+                                            if (d != null) {
+                                              setState(
+                                                  () => exchangeRateDate = d);
+                                            }
+                                          },
+                                          child: InputDecorator(
+                                            decoration: const InputDecoration(
+                                              labelText: 'Rate Date',
+                                              border: OutlineInputBorder(),
+                                              prefixIcon:
+                                                  Icon(Icons.calendar_today),
+                                            ),
+                                            child: Text(
+                                              DateFormat('dd/MM/yyyy')
+                                                  .format(exchangeRateDate),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      SizedBox(
+                                        height: 56,
+                                        child: ElevatedButton.icon(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.indigo,
+                                            foregroundColor: Colors.white,
+                                            shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(8)),
+                                          ),
+                                          onPressed: isFetchingRate
+                                              ? null
+                                              : () async {
+                                                  setState(() =>
+                                                      isFetchingRate = true);
+                                                  final aiService =
+                                                      AITextService();
+                                                  final result = await aiService
+                                                      .getExchangeRate(
+                                                    fromCurrency:
+                                                        selectedForeignCurrency,
+                                                    date: exchangeRateDate,
+                                                  );
+                                                  setState(() {
+                                                    isFetchingRate = false;
+                                                    if (result.success &&
+                                                        result.rate != null) {
+                                                      exchangeRateController
+                                                              .text =
+                                                          result.rate!
+                                                              .toStringAsFixed(
+                                                                  4);
+                                                      exchangeRateNote =
+                                                          result.note;
+                                                    } else {
+                                                      ScaffoldMessenger.of(
+                                                              context)
+                                                          .showSnackBar(
+                                                        SnackBar(
+                                                          content: Text(
+                                                              result.error ??
+                                                                  'Failed to fetch rate'),
+                                                          backgroundColor:
+                                                              Colors.red,
+                                                        ),
+                                                      );
+                                                    }
+                                                  });
+                                                },
+                                          icon: isFetchingRate
+                                              ? const SizedBox(
+                                                  width: 16,
+                                                  height: 16,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                    color: Colors.white,
+                                                  ),
+                                                )
+                                              : const Icon(Icons.auto_awesome,
+                                                  size: 18),
+                                          label: const Text('AI Rate'),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+
+                                  // Exchange rate field
+                                  TextField(
+                                    controller: exchangeRateController,
+                                    decoration: InputDecoration(
+                                      labelText:
+                                          '1 $selectedForeignCurrency = ? THB',
+                                      border: const OutlineInputBorder(),
+                                      prefixIcon:
+                                          const Icon(Icons.swap_horiz),
+                                      helperText: exchangeRateNote,
+                                    ),
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                            decimal: true),
+                                    onChanged: (_) => setState(() {}),
+                                  ),
+
+                                  // Computed THB amount + print button
+                                  if (foreignAmountController.text.isNotEmpty &&
+                                      exchangeRateController
+                                          .text.isNotEmpty) ...[
+                                    const SizedBox(height: 12),
+                                    Builder(builder: (ctx) {
+                                      final foreign = double.tryParse(
+                                              foreignAmountController.text) ??
+                                          0;
+                                      final rate = double.tryParse(
+                                              exchangeRateController.text) ??
+                                          0;
+                                      final thb = foreign * rate;
+                                      return Container(
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: Colors.orange.shade50,
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          border: Border.all(
+                                              color: Colors.orange.shade200),
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  'Converted Amount (THB)',
+                                                  style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: Colors.grey[700]),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  '฿ ${thb.toStringAsFixed(2)}',
+                                                  style: const TextStyle(
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.orange,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            OutlinedButton.icon(
+                                              style: OutlinedButton.styleFrom(
+                                                foregroundColor:
+                                                    Colors.orange.shade700,
+                                                side: BorderSide(
+                                                    color:
+                                                        Colors.orange.shade300),
+                                              ),
+                                              onPressed: () async {
+                                                final convPdfService =
+                                                    CurrencyConversionPdfService();
+                                                await convPdfService
+                                                    .printConversionPage(
+                                                  foreignCurrency:
+                                                      selectedForeignCurrency,
+                                                  foreignAmount: foreign,
+                                                  exchangeRate: rate,
+                                                  exchangeRateDate:
+                                                      exchangeRateDate,
+                                                  thbAmount: thb,
+                                                  receiptNo:
+                                                      receiptNoController.text,
+                                                  description:
+                                                      descriptionController
+                                                          .text,
+                                                  transactionDate: selectedDate,
+                                                );
+                                              },
+                                              icon: const Icon(Icons.print,
+                                                  size: 16),
+                                              label: const Text(
+                                                  'Print Support Doc'),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -3652,7 +4113,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     );
                   }
 
-                  final updatedTransaction = transaction.copyWith(
+                  // Use the full Transaction constructor so nullable FX fields
+                  // can be explicitly cleared when the toggle is off.
+                  final updatedTransaction = Transaction(
+                    id: transaction.id,
+                    reportId: transaction.reportId,
+                    projectId: selectedProjectId,
                     date: selectedDate,
                     receiptNo: receiptNoController.text,
                     description: descriptionController.text,
@@ -3660,11 +4126,28 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     customCategory: customCategoryName,
                     amount: double.parse(amountController.text),
                     paymentMethod: selectedPaymentMethod.name,
-                    projectId: selectedProjectId,
+                    requestorId: transaction.requestorId,
+                    approverId: transaction.approverId,
+                    status: transaction.status,
                     paidTo: paidToController.text.isEmpty
                         ? null
                         : paidToController.text,
+                    attachmentUrls: transaction.attachmentUrls,
+                    supportDocumentUrl: transaction.supportDocumentUrl,
+                    supportDocumentUrls: transaction.supportDocumentUrls,
+                    approvalHistory: transaction.approvalHistory,
+                    createdAt: transaction.createdAt,
                     updatedAt: DateTime.now(),
+                    foreignCurrency:
+                        hasCurrencyExchange ? selectedForeignCurrency : null,
+                    foreignAmount: hasCurrencyExchange
+                        ? double.tryParse(foreignAmountController.text)
+                        : null,
+                    exchangeRate: hasCurrencyExchange
+                        ? double.tryParse(exchangeRateController.text)
+                        : null,
+                    exchangeRateDate:
+                        hasCurrencyExchange ? exchangeRateDate : null,
                   );
 
                   await transactionProvider.updateTransaction(updatedTransaction);
@@ -3762,6 +4245,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     PettyCashReport report,
     List<Transaction> transactions,
   ) async {
+    await showPrintOptionsDialog(
+      context: context,
+      title: 'Print Transactions',
+      onPrint: () async {
     final pdf = pw.Document();
     final dateFormat = DateFormat('MMM dd, yyyy');
     final currencyFormat = NumberFormat.currency(
@@ -3901,7 +4388,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       'Requested By:',
                       style: pw.TextStyle(font: boldTtf, fontSize: 10),
                     ),
-                    pw.SizedBox(height: 20),
+                    PdfSignatureHelper.slot(width: 100, height: 36),
                     pw.Container(
                       decoration: const pw.BoxDecoration(
                         border: pw.Border(
@@ -4236,6 +4723,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           ),
         ),
       ),
+    );
+      },
     );
   }
 

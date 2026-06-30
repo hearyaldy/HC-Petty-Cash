@@ -61,6 +61,7 @@ import 'screens/hr/my_hr_data_screen.dart';
 import 'screens/hr/hr_data_submissions_screen.dart';
 import 'screens/hr/annual_leave_request_screen.dart';
 import 'screens/hr/annual_leave_requests_screen.dart';
+import 'screens/hr/annual_leave_stats_screen.dart';
 import 'screens/profile/user_profile_screen.dart';
 import 'screens/income/income_reports_screen.dart';
 import 'screens/income/new_income_report_screen.dart';
@@ -76,6 +77,7 @@ import 'screens/inventory/equipment_detail_screen.dart';
 import 'screens/inventory/qr_scan_screen.dart';
 import 'screens/meetings/meetings_dashboard_screen.dart';
 import 'screens/meetings/meetings_list_screen.dart';
+import 'screens/meetings/minutes_search_screen.dart';
 import 'screens/meetings/new_meeting_screen.dart';
 import 'screens/meetings/edit_meeting_screen.dart';
 import 'screens/meetings/meeting_detail_screen.dart';
@@ -88,6 +90,8 @@ import 'screens/hub/admin_hub_screen.dart';
 import 'screens/hub/finance_dashboard_screen.dart';
 import 'screens/hub/finance_ai_report_screen.dart';
 import 'screens/hub/student_labor_dashboard_screen.dart';
+import 'screens/hub/student_labor_budget_screen.dart';
+import 'screens/hub/production_language_budget_screen.dart';
 import 'screens/hub/hr_dashboard_screen.dart';
 import 'screens/hub/inventory_dashboard_screen.dart';
 import 'screens/admin/adcom_agenda_list_screen.dart';
@@ -108,6 +112,10 @@ import 'screens/payment_voucher/payment_voucher_detail_screen.dart';
 import 'screens/payment_voucher/edit_payment_voucher_screen.dart';
 import 'screens/medical_reimbursement/medical_reimbursement_list_screen.dart';
 import 'screens/medical_reimbursement/medical_reimbursement_detail_screen.dart';
+import 'screens/expense_claim/expense_claims_list_screen.dart';
+import 'screens/expense_claim/new_expense_claim_screen.dart';
+import 'screens/expense_claim/expense_claim_detail_screen.dart';
+import 'providers/expense_claim_provider.dart';
 import 'screens/hub/media_dashboard_screen.dart';
 import 'screens/budget/budget_list_screen.dart';
 import 'screens/budget/budget_year_detail_screen.dart';
@@ -124,6 +132,12 @@ import 'screens/media/media_production_budget_screen.dart';
 import 'utils/constants.dart';
 import 'utils/logger.dart';
 import 'utils/responsive_theme.dart';
+import 'providers/survey_provider.dart';
+import 'screens/survey/survey_fill_screen.dart';
+import 'screens/survey/admin_surveys_screen.dart';
+import 'screens/survey/admin_survey_responses_screen.dart';
+import 'screens/survey/admin_survey_edit_screen.dart';
+import 'screens/privacy/privacy_policy_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -231,6 +245,8 @@ class MyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(create: (_) => PaymentVoucherProvider()),
         ChangeNotifierProvider(create: (_) => BudgetProvider()),
+        ChangeNotifierProvider(create: (_) => SurveyProvider()),
+        ChangeNotifierProvider(create: (_) => ExpenseClaimProvider()),
       ],
       child: Consumer2<AuthProvider, ThemeProvider>(
         builder: (context, authProvider, themeProvider, _) {
@@ -279,6 +295,8 @@ class MyApp extends StatelessWidget {
             currentPath.startsWith('/meeting-vote/') ||
             currentFragment.startsWith('/meeting-vote/') ||
             fullLocation.contains('/meeting-vote/');
+        final isPublicSurvey = currentPath.startsWith('/survey/');
+        final isPrivacyPolicy = currentPath == '/privacy-policy';
         final user = authProvider.currentUser;
 
         // Wait for auth bootstrap before deciding redirects, especially for
@@ -293,7 +311,9 @@ class MyApp extends StatelessWidget {
             !isLoggingIn &&
             !isRegistering &&
             !isOnboarding &&
-            !isPublicMeetingVote) {
+            !isPublicMeetingVote &&
+            !isPublicSurvey &&
+            !isPrivacyPolicy) {
           return '/';
         }
 
@@ -341,6 +361,10 @@ class MyApp extends StatelessWidget {
       },
       routes: [
         GoRoute(path: '/', builder: (context, state) => const LoginScreen()),
+        GoRoute(
+          path: '/privacy-policy',
+          builder: (context, state) => const PrivacyPolicyScreen(),
+        ),
         GoRoute(
           path: '/student-register',
           builder: (context, state) => const StudentRegistrationScreen(),
@@ -456,6 +480,14 @@ class MyApp extends StatelessWidget {
         GoRoute(
           path: '/student-labor-dashboard',
           builder: (context, state) => const StudentLaborDashboardScreen(),
+        ),
+        GoRoute(
+          path: '/student-labor/budget',
+          builder: (context, state) => const StudentLaborBudgetScreen(),
+        ),
+        GoRoute(
+          path: '/finance/production-budget',
+          builder: (context, state) => const ProductionLanguageBudgetScreen(),
         ),
         GoRoute(
           path: '/hr-dashboard',
@@ -615,6 +647,7 @@ class MyApp extends StatelessWidget {
             final queryUserId = state.uri.queryParameters['userId'];
             final queryUserName = state.uri.queryParameters['userName'];
             final queryUserEmail = state.uri.queryParameters['userEmail'];
+            final queryWorkerType = state.uri.queryParameters['workerType'];
 
             // Fallback to authProvider if query params not available
             final user = authProvider.currentUser;
@@ -623,6 +656,7 @@ class MyApp extends StatelessWidget {
             final userId = queryUserId ?? user?.id;
             final userName = queryUserName ?? user?.name;
             final userEmail = queryUserEmail ?? user?.email;
+            final workerType = queryWorkerType ?? user?.workerType ?? 'student';
 
             if (userId == null || userName == null || userEmail == null) {
               // If we still don't have user data, show loading
@@ -635,6 +669,7 @@ class MyApp extends StatelessWidget {
               userId: userId,
               userName: userName,
               userEmail: userEmail,
+              workerType: workerType,
             );
           },
         ),
@@ -745,6 +780,10 @@ class MyApp extends StatelessWidget {
           path: '/hr/leave-requests',
           builder: (context, state) => const AnnualLeaveRequestsScreen(),
         ),
+        GoRoute(
+          path: '/hr/leave-stats',
+          builder: (context, state) => const AnnualLeaveStatsScreen(),
+        ),
         // Purchase Requisition Routes
         GoRoute(
           path: '/purchase-requisitions',
@@ -813,6 +852,22 @@ class MyApp extends StatelessWidget {
             return MedicalReimbursementDetailScreen(
               reimbursementId: reimbursementId,
             );
+          },
+        ),
+        // Expense Claim Routes
+        GoRoute(
+          path: '/expense-claims',
+          builder: (context, state) => const ExpenseClaimsListScreen(),
+        ),
+        GoRoute(
+          path: '/expense-claims/new',
+          builder: (context, state) => const NewExpenseClaimScreen(),
+        ),
+        GoRoute(
+          path: '/expense-claims/:claimId',
+          builder: (context, state) {
+            final claimId = state.pathParameters['claimId']!;
+            return ExpenseClaimDetailScreen(claimId: claimId);
           },
         ),
         // Payment Voucher Routes
@@ -910,6 +965,10 @@ class MyApp extends StatelessWidget {
         GoRoute(
           path: '/meetings/committee-members',
           builder: (context, state) => const MeetingMembersScreen(),
+        ),
+        GoRoute(
+          path: '/meetings/minutes/search',
+          builder: (context, state) => const MinutesSearchScreen(),
         ),
         GoRoute(
           path: '/meetings/:meetingId/agenda/edit',
@@ -1018,6 +1077,27 @@ class MyApp extends StatelessWidget {
             final id = state.pathParameters['id']!;
             return MeetingTemplateEditScreen(templateId: id);
           },
+        ),
+        GoRoute(
+          path: '/survey/:id',
+          builder: (context, state) =>
+              SurveyFillScreen(surveyId: state.pathParameters['id']!),
+        ),
+        GoRoute(
+          path: '/admin/surveys',
+          builder: (context, state) => const AdminSurveysScreen(),
+        ),
+        GoRoute(
+          path: '/admin/surveys/:id/responses',
+          builder: (context, state) => AdminSurveyResponsesScreen(
+            surveyId: state.pathParameters['id']!,
+          ),
+        ),
+        GoRoute(
+          path: '/admin/surveys/:id/edit',
+          builder: (context, state) => AdminSurveyEditScreen(
+            surveyId: state.pathParameters['id']!,
+          ),
         ),
       ],
     );

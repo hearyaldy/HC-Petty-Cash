@@ -22,12 +22,7 @@ class CashAdvanceService {
     List<String>? supportDocumentUrls,
     List<CashAdvanceItem>? items,
     String? purchaseRequisitionId,
-    String? linkedMinutesId,
-    String? linkedMinutesLabel,
-    String? linkedActionItemNumber,
-    String? linkedActionItemTitle,
-    String? linkedActionItemDescription,
-    String? linkedActionItemAction,
+    List<CashAdvanceMeetingReference>? meetingReferences,
   }) async {
     try {
       final requestNumber = _firestoreService.generateCashAdvanceNumber();
@@ -51,12 +46,7 @@ class CashAdvanceService {
         notes: notes,
         supportDocumentUrls: supportDocumentUrls,
         purchaseRequisitionId: purchaseRequisitionId,
-        linkedMinutesId: linkedMinutesId,
-        linkedMinutesLabel: linkedMinutesLabel,
-        linkedActionItemNumber: linkedActionItemNumber,
-        linkedActionItemTitle: linkedActionItemTitle,
-        linkedActionItemDescription: linkedActionItemDescription,
-        linkedActionItemAction: linkedActionItemAction,
+        meetingReferences: meetingReferences,
       );
 
       await _firestoreService.saveCashAdvance(advance);

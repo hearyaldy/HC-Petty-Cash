@@ -276,6 +276,7 @@ class _AnnualLeaveRequestsScreenState extends State<AnnualLeaveRequestsScreen> {
     if (confirmed != true) return;
     final reason = controller.text.trim();
     if (reason.isEmpty) return;
+    if (!mounted) return;
 
     final authProvider = context.read<AuthProvider>();
     final user = authProvider.currentUser;
@@ -293,9 +294,100 @@ class _AnnualLeaveRequestsScreenState extends State<AnnualLeaveRequestsScreen> {
     });
   }
 
+  Future<void> _revertToSubmitted(AnnualLeaveRequest request) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Revert to Submitted'),
+        content: const Text(
+          'This will clear the approval/rejection and set the request back to submitted. Continue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Revert'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await FirebaseFirestore.instance
+        .collection('annual_leave_requests')
+        .doc(request.id)
+        .update({
+      'status': 'submitted',
+      'approvedBy': null,
+      'approvedAt': null,
+      'rejectionReason': null,
+      'updatedAt': Timestamp.now(),
+    });
+  }
+
+  Future<void> _deleteRequest(AnnualLeaveRequest request) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Request'),
+        content: const Text(
+          'Are you sure you want to permanently delete this leave request?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await FirebaseFirestore.instance
+        .collection('annual_leave_requests')
+        .doc(request.id)
+        .delete();
+  }
+
   Future<void> _printRequest(AnnualLeaveRequest request) async {
     final service = AnnualLeavePdfService();
     final bytes = await service.buildPdf(request);
+    await Printing.layoutPdf(onLayout: (_) async => bytes);
+  }
+
+  Future<void> _printAllRequests() async {
+    final snapshot = await FirebaseFirestore.instance
+        .collection('annual_leave_requests')
+        .orderBy('createdAt', descending: true)
+        .get();
+    final requests = snapshot.docs
+        .map((doc) => AnnualLeaveRequest.fromFirestore(doc))
+        .toList();
+
+    if (requests.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No requests to print')),
+        );
+      }
+      return;
+    }
+
+    final service = AnnualLeavePdfService();
+    final bytes = await service.buildAllPdf(requests);
     await Printing.layoutPdf(onLayout: (_) async => bytes);
   }
 
@@ -547,6 +639,22 @@ class _AnnualLeaveRequestsScreenState extends State<AnnualLeaveRequestsScreen> {
                                       onPressed: () => _printRequest(request),
                                       tooltip: 'Print',
                                     ),
+                                    if (request.status == 'approved' ||
+                                        request.status == 'rejected')
+                                      IconButton(
+                                        icon: const Icon(Icons.undo),
+                                        onPressed: () =>
+                                            _revertToSubmitted(request),
+                                        tooltip: 'Revert to Submitted',
+                                      ),
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.delete_outline,
+                                        color: Colors.red,
+                                      ),
+                                      onPressed: () => _deleteRequest(request),
+                                      tooltip: 'Delete',
+                                    ),
                                     if (isPending) ...[
                                       const SizedBox(width: 8),
                                       ElevatedButton(
@@ -631,6 +739,18 @@ class _AnnualLeaveRequestsScreenState extends State<AnnualLeaveRequestsScreen> {
               ),
               Row(
                 children: [
+                  _buildHeaderActionButton(
+                    icon: Icons.bar_chart,
+                    tooltip: 'Leave Statistics',
+                    onPressed: () => context.push('/hr/leave-stats'),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildHeaderActionButton(
+                    icon: Icons.print,
+                    tooltip: 'Print All Requests',
+                    onPressed: _printAllRequests,
+                  ),
+                  const SizedBox(width: 8),
                   _buildHeaderActionButton(
                     icon: Icons.manage_search,
                     tooltip: 'Backfill Staff Info',

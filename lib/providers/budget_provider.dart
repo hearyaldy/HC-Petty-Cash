@@ -13,6 +13,7 @@ class BudgetProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool _isLoadingActuals = false;
   String? _error;
+  final Set<String> _pendingAddKeys = {};
 
   List<BudgetYear> get years => _years;
   List<BudgetLineItem> get lineItems => _lineItems;
@@ -21,6 +22,29 @@ class BudgetProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isLoadingActuals => _isLoadingActuals;
   String? get error => _error;
+
+  String _addKey({
+    required String budgetYearId,
+    required String scheduleCode,
+    required String sectionTitle,
+    required String sectionType,
+    required String name,
+    required double budgetAmount,
+    String? linkedTransactionCategory,
+    String? linkedReportType,
+  }) {
+    String clean(String value) => value.trim().toLowerCase();
+    return [
+      budgetYearId,
+      clean(scheduleCode),
+      clean(sectionTitle),
+      clean(sectionType),
+      clean(name),
+      budgetAmount.toStringAsFixed(2),
+      linkedTransactionCategory ?? '',
+      linkedReportType ?? '',
+    ].join('|');
+  }
 
   // ── Grouped by section ────────────────────────────────────────────────────
 
@@ -33,36 +57,44 @@ class BudgetProvider extends ChangeNotifier {
     return grouped.entries.map((e) {
       final title = e.value.first.sectionTitle;
       return BudgetSection(
-          code: e.key, title: title, type: type, items: e.value);
-    }).toList()
-      ..sort((a, b) => a.code.compareTo(b.code));
+        code: e.key,
+        title: title,
+        type: type,
+        items: e.value,
+      );
+    }).toList()..sort((a, b) => a.code.compareTo(b.code));
   }
 
-  // ── Summary totals ────────────────────────────────────────────────────────
+  // ── Summary totals ─────────────────────────────────────────────────────────
+  // Appropriations are treated as income (funds received from conference/union).
 
   double get totalIncomeBudget => _lineItems
-      .where((i) => i.sectionType == 'income')
+      .where(
+        (i) => i.sectionType == 'income' || i.sectionType == 'appropriation',
+      )
       .fold(0, (s, i) => s + i.budgetAmount);
 
   double get totalExpenseBudget => _lineItems
       .where((i) => i.sectionType == 'expense')
       .fold(0, (s, i) => s + i.budgetAmount);
 
+  double get totalOperatingIncomeBudget => _lineItems
+      .where((i) => i.sectionType == 'income')
+      .fold(0, (s, i) => s + i.budgetAmount);
+
   double get totalAppropriationBudget => _lineItems
       .where((i) => i.sectionType == 'appropriation')
       .fold(0, (s, i) => s + i.budgetAmount);
 
-  double get totalIncomeActual =>
-      _lineItems.where((i) => i.sectionType == 'income').fold(
-            0,
-            (s, i) => s + (_actuals[i.id] ?? 0),
-          );
+  double get totalIncomeActual => _lineItems
+      .where(
+        (i) => i.sectionType == 'income' || i.sectionType == 'appropriation',
+      )
+      .fold(0, (s, i) => s + (_actuals[i.id] ?? 0));
 
-  double get totalExpenseActual =>
-      _lineItems.where((i) => i.sectionType == 'expense').fold(
-            0,
-            (s, i) => s + (_actuals[i.id] ?? 0),
-          );
+  double get totalExpenseActual => _lineItems
+      .where((i) => i.sectionType == 'expense')
+      .fold(0, (s, i) => s + (_actuals[i.id] ?? 0));
 
   // ── Load ──────────────────────────────────────────────────────────────────
 
@@ -84,12 +116,15 @@ class BudgetProvider extends ChangeNotifier {
     _actuals = {};
     notifyListeners();
 
+    bool firstLoad = true;
     _service.lineItemsStream(year.id).listen((data) {
       _lineItems = data;
       notifyListeners();
+      if (firstLoad && data.isNotEmpty) {
+        firstLoad = false;
+        _refreshActuals(year);
+      }
     });
-
-    await _refreshActuals(year);
   }
 
   Future<void> _refreshActuals(BudgetYear year) async {
@@ -134,8 +169,41 @@ class BudgetProvider extends ChangeNotifier {
   // ── Update ────────────────────────────────────────────────────────────────
 
   Future<void> updateLineItem(BudgetLineItem item) async {
-    await _service.updateLineItem(
-        item.copyWith(updatedAt: DateTime.now()));
+    final updated = item.copyWith(updatedAt: DateTime.now());
+    await _service.updateLineItem(updated);
+    // Update in-memory so actuals recalculate with the new linked category
+    _lineItems = _lineItems
+        .map((i) => i.id == updated.id ? updated : i)
+        .toList();
+    await _refreshActuals(_selectedYear!);
+  }
+
+  Future<void> updateSection({
+    required String currentScheduleCode,
+    required String scheduleCode,
+    required String sectionTitle,
+    required String sectionType,
+  }) async {
+    if (_selectedYear == null) return;
+    await _service.updateSection(
+      budgetYearId: _selectedYear!.id,
+      currentScheduleCode: currentScheduleCode,
+      scheduleCode: scheduleCode,
+      sectionTitle: sectionTitle,
+      sectionType: sectionType,
+    );
+    _lineItems = _lineItems
+        .map(
+          (item) => item.scheduleCode == currentScheduleCode
+              ? item.copyWith(
+                  scheduleCode: scheduleCode,
+                  sectionTitle: sectionTitle,
+                  sectionType: sectionType,
+                  updatedAt: DateTime.now(),
+                )
+              : item,
+        )
+        .toList();
     await _refreshActuals(_selectedYear!);
   }
 
@@ -149,11 +217,7 @@ class BudgetProvider extends ChangeNotifier {
     String? linkedReportType,
   }) async {
     if (_selectedYear == null) return;
-    final maxOrder = _lineItems.isEmpty
-        ? 0
-        : _lineItems.map((i) => i.sortOrder).reduce((a, b) => a > b ? a : b) +
-            1;
-    await _service.addLineItem(
+    final addKey = _addKey(
       budgetYearId: _selectedYear!.id,
       scheduleCode: scheduleCode,
       sectionTitle: sectionTitle,
@@ -162,12 +226,65 @@ class BudgetProvider extends ChangeNotifier {
       budgetAmount: budgetAmount,
       linkedTransactionCategory: linkedTransactionCategory,
       linkedReportType: linkedReportType,
-      sortOrder: maxOrder,
     );
+    if (_pendingAddKeys.contains(addKey)) {
+      return;
+    }
+    _pendingAddKeys.add(addKey);
+    final maxOrder = _lineItems.isEmpty
+        ? 0
+        : _lineItems.map((i) => i.sortOrder).reduce((a, b) => a > b ? a : b) +
+              1;
+    try {
+      final item = await _service.addLineItem(
+        budgetYearId: _selectedYear!.id,
+        scheduleCode: scheduleCode,
+        sectionTitle: sectionTitle,
+        sectionType: sectionType,
+        name: name,
+        budgetAmount: budgetAmount,
+        linkedTransactionCategory: linkedTransactionCategory,
+        linkedReportType: linkedReportType,
+        sortOrder: maxOrder,
+      );
+      if (!_lineItems.any((existing) => existing.id == item.id)) {
+        _lineItems = [..._lineItems, item]
+          ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+      }
+      notifyListeners();
+      await _refreshActuals(_selectedYear!);
+    } finally {
+      _pendingAddKeys.remove(addKey);
+    }
   }
 
   Future<void> deleteLineItem(String id) async {
+    if (_selectedYear == null) return;
     await _service.deleteLineItem(id);
+    _lineItems = _lineItems.where((item) => item.id != id).toList();
+    _actuals.remove(id);
+    notifyListeners();
+    await _refreshActuals(_selectedYear!);
+  }
+
+  Future<void> deleteSection(String scheduleCode) async {
+    if (_selectedYear == null) return;
+    await _service.deleteSection(
+      budgetYearId: _selectedYear!.id,
+      scheduleCode: scheduleCode,
+    );
+    final deletedIds = _lineItems
+        .where((item) => item.scheduleCode == scheduleCode)
+        .map((item) => item.id)
+        .toSet();
+    _lineItems = _lineItems
+        .where((item) => item.scheduleCode != scheduleCode)
+        .toList();
+    for (final id in deletedIds) {
+      _actuals.remove(id);
+    }
+    notifyListeners();
+    await _refreshActuals(_selectedYear!);
   }
 
   Future<void> approveYear(String userId) async {

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:barcode/barcode.dart';
 import 'package:pdf/pdf.dart';
@@ -13,6 +14,7 @@ import '../models/income_report.dart';
 import '../models/enums.dart';
 import '../utils/constants.dart';
 import 'firestore_service.dart';
+import 'pdf_signature_helper.dart';
 
 /// Enum for equipment fields that can be included in the print export
 enum EquipmentPrintField {
@@ -1051,7 +1053,7 @@ class PdfExportService {
   Future<String> exportReport(PettyCashReport report) async {
     final pdf = await _createPdfDocument();
     final dateFormat = DateFormat('MMM dd, yyyy');
-    final currencyFormat = NumberFormat.currency(symbol: '\$');
+    final currencyFormat = NumberFormat.currency(symbol: '${AppConstants.currencySymbol} ');
 
     // Load logo
     pw.ImageProvider? logoImage;
@@ -1063,11 +1065,15 @@ class PdfExportService {
     } catch (e) {
       // Logo loading failed, will use fallback
     }
+    await PdfSignatureHelper.load();
 
     // Get transactions
-    final transactions = await FirestoreService().getTransactionsByReportId(
+    final rawTransactions = await FirestoreService().getTransactionsByReportId(
       report.id,
     );
+    // Sort oldest → newest so PDF rows match chronological order
+    final transactions = [...rawTransactions]
+      ..sort((a, b) => a.date.compareTo(b.date));
 
     pdf.addPage(
       pw.MultiPage(
@@ -1079,21 +1085,44 @@ class PdfExportService {
           _buildInfoSection(report, dateFormat),
           pw.SizedBox(height: 20),
 
-          // Opening Balance
-          pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-            children: [
-              pw.Text(
-                'Opening Balance:',
-                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+          // Opening Balance — highlighted box
+          pw.Container(
+            width: double.infinity,
+            padding: const pw.EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 10,
+            ),
+            decoration: pw.BoxDecoration(
+              color: PdfColor(0.86, 0.93, 1.0),
+              border: pw.Border.all(
+                color: PdfColor(0.18, 0.52, 0.80),
+                width: 1.5,
               ),
-              pw.Text(
-                currencyFormat.format(report.openingBalance),
-                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-              ),
-            ],
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+            ),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(
+                  'Opening Balance',
+                  style: pw.TextStyle(
+                    fontWeight: pw.FontWeight.bold,
+                    fontSize: 12,
+                    color: PdfColor(0.10, 0.35, 0.60),
+                  ),
+                ),
+                pw.Text(
+                  currencyFormat.format(report.openingBalance),
+                  style: pw.TextStyle(
+                    fontWeight: pw.FontWeight.bold,
+                    fontSize: 13,
+                    color: PdfColor(0.10, 0.35, 0.60),
+                  ),
+                ),
+              ],
+            ),
           ),
-          pw.SizedBox(height: 20),
+          pw.SizedBox(height: 16),
 
           // Transactions Table (auto-paginates)
           pw.Text(
@@ -1131,15 +1160,23 @@ class PdfExportService {
       ),
     );
 
-    // Save file
+    final pdfBytes = await pdf.save();
+
+    if (kIsWeb) {
+      // Web: open browser print dialog instead of saving to file
+      await Printing.layoutPdf(
+        onLayout: (_) async => pdfBytes,
+        name: '${report.reportNumber}.pdf',
+      );
+      return '';
+    }
+
+    // Mobile / desktop: save to local file
     final directory = await getApplicationDocumentsDirectory();
     final fileName =
         '${report.reportNumber}_${DateTime.now().millisecondsSinceEpoch}.pdf';
     final filePath = '${directory.path}/$fileName';
-
-    final file = File(filePath);
-    await file.writeAsBytes(await pdf.save());
-
+    await File(filePath).writeAsBytes(pdfBytes);
     return filePath;
   }
 
@@ -1161,6 +1198,7 @@ class PdfExportService {
     } catch (_) {
       // Logo loading failed, continue without logo
     }
+    await PdfSignatureHelper.load();
 
     final sourceTransactions =
         transactions ??
@@ -1209,14 +1247,23 @@ class PdfExportService {
       ),
     );
 
+    final pdfBytes = await pdf.save();
+
+    if (kIsWeb) {
+      // Web: open browser print dialog instead of saving to file
+      await Printing.layoutPdf(
+        onLayout: (_) async => pdfBytes,
+        name: '${report.reportNumber}_advance_settlement.pdf',
+      );
+      return '';
+    }
+
+    // Mobile / desktop: save to local file
     final directory = await getApplicationDocumentsDirectory();
     final fileName =
         '${report.reportNumber}_advance_settlement_${DateTime.now().millisecondsSinceEpoch}.pdf';
     final filePath = '${directory.path}/$fileName';
-
-    final file = File(filePath);
-    await file.writeAsBytes(await pdf.save());
-
+    await File(filePath).writeAsBytes(pdfBytes);
     return filePath;
   }
 
@@ -1537,7 +1584,7 @@ class PdfExportService {
 
   pw.Widget _buildInfoSection(PettyCashReport report, DateFormat dateFormat) {
     return pw.Container(
-      padding: const pw.EdgeInsets.all(16),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: pw.BoxDecoration(
         border: pw.Border.all(color: PdfColors.grey300),
         borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
@@ -1560,20 +1607,48 @@ class PdfExportService {
 
   pw.Widget _buildInfoRow(String label, String value) {
     return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(vertical: 4),
+      padding: const pw.EdgeInsets.symmetric(vertical: 2),
       child: pw.Row(
         children: [
           pw.SizedBox(
-            width: 120,
+            width: 110,
             child: pw.Text(
               label,
-              style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              style: pw.TextStyle(
+                fontWeight: pw.FontWeight.bold,
+                fontSize: 10,
+              ),
             ),
           ),
-          pw.Expanded(child: pw.Text(value)),
+          pw.Expanded(
+            child: pw.Text(value, style: const pw.TextStyle(fontSize: 10)),
+          ),
         ],
       ),
     );
+  }
+
+  /// Inserts a hyphen line-break inside any word that exceeds [maxLen]
+  /// characters so the pdf renderer can fit it within the column width.
+  /// Word-boundary wrapping (softWrap) handles normal spaces; this handles
+  /// long unbroken tokens like serial numbers, URLs, or compound words.
+  String _breakLongWords(String text, {int maxLen = 25}) {
+    return text.split(' ').map((word) {
+      if (word.length <= maxLen) return word;
+      final buffer = StringBuffer();
+      var i = 0;
+      while (i < word.length) {
+        final end = i + maxLen;
+        if (end < word.length) {
+          buffer.write(word.substring(i, end));
+          buffer.write('-\n');
+        } else {
+          buffer.write(word.substring(i));
+        }
+        i = end;
+      }
+      return buffer.toString();
+    }).join(' ');
   }
 
   pw.Widget _buildTransactionsTable(
@@ -1581,63 +1656,76 @@ class PdfExportService {
     DateFormat dateFormat,
     NumberFormat currencyFormat,
   ) {
-    final rows = transactions
-        .map(
-          (transaction) => [
-            dateFormat.format(transaction.date),
-            transaction.receiptNo,
-            transaction.description,
-            transaction.categoryDisplayName,
-            currencyFormat.format(transaction.amount),
-          ],
-        )
-        .toList();
-
-    return pw.ListView.builder(
-      itemCount: rows.length + 1,
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return _buildTransactionRow(const [
-            'Date',
-            'Receipt No',
-            'Description',
-            'Category',
-            'Amount',
-          ], isHeader: true);
-        }
-
-        return _buildTransactionRow(rows[index - 1]);
-      },
+    const cellPadding = pw.EdgeInsets.symmetric(vertical: 6, horizontal: 8);
+    final headerStyle = pw.TextStyle(
+      fontWeight: pw.FontWeight.bold,
+      fontSize: 10,
     );
-  }
-
-  pw.Widget _buildTransactionRow(List<String> cells, {bool isHeader = false}) {
-    final styles = pw.TextStyle(
-      fontWeight: isHeader ? pw.FontWeight.bold : pw.FontWeight.normal,
-      fontSize: isHeader ? 10 : 9,
+    final cellStyle = pw.TextStyle(
+      fontWeight: pw.FontWeight.normal,
+      fontSize: 9,
     );
 
-    return pw.Container(
-      decoration: pw.BoxDecoration(
-        color: isHeader ? PdfColors.grey300 : null,
-        border: pw.Border.all(color: PdfColors.grey300),
-      ),
-      padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-      child: pw.Row(
-        children: [
-          pw.Expanded(flex: 15, child: pw.Text(cells[0], style: styles)),
-          pw.Expanded(flex: 15, child: pw.Text(cells[1], style: styles)),
-          pw.Expanded(flex: 30, child: pw.Text(cells[2], style: styles)),
-          pw.Expanded(flex: 20, child: pw.Text(cells[3], style: styles)),
-          pw.Expanded(
-            flex: 15,
-            child: pw.Align(
-              alignment: pw.Alignment.centerRight,
-              child: pw.Text(cells[4], style: styles),
-            ),
+    pw.Widget headerCell(String text, {bool rightAlign = false}) =>
+        pw.Padding(
+          padding: cellPadding,
+          child: pw.Text(
+            text,
+            style: headerStyle,
+            textAlign: rightAlign ? pw.TextAlign.right : pw.TextAlign.left,
           ),
-        ],
-      ),
+        );
+
+    pw.Widget dataCell(
+      String text, {
+      bool rightAlign = false,
+      bool wrap = false,
+    }) =>
+        pw.Padding(
+          padding: cellPadding,
+          child: pw.Text(
+            text,
+            style: cellStyle,
+            textAlign: rightAlign ? pw.TextAlign.right : pw.TextAlign.left,
+            softWrap: wrap,
+            overflow: pw.TextOverflow.clip,
+          ),
+        );
+
+    return pw.Table(
+      border: pw.TableBorder.all(color: PdfColors.grey300),
+      columnWidths: const {
+        0: pw.FlexColumnWidth(2.0),   // Date
+        1: pw.FlexColumnWidth(1.5),   // Receipt No
+        2: pw.FlexColumnWidth(4.5),   // Description — widest, wraps
+        3: pw.FlexColumnWidth(2.5),   // Category
+        4: pw.FlexColumnWidth(1.5),   // Amount
+      },
+      children: [
+        // Header row
+        pw.TableRow(
+          decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+          children: [
+            headerCell('Date'),
+            headerCell('Receipt No'),
+            headerCell('Description'),
+            headerCell('Category'),
+            headerCell('Amount', rightAlign: true),
+          ],
+        ),
+        // Data rows
+        ...transactions.map(
+          (t) => pw.TableRow(
+            children: [
+              dataCell(dateFormat.format(t.date)),
+              dataCell(t.receiptNo),
+              dataCell(_breakLongWords(t.description), wrap: true),
+              dataCell(_breakLongWords(t.categoryDisplayName), wrap: true),
+              dataCell(currencyFormat.format(t.amount), rightAlign: true),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -1705,7 +1793,9 @@ class PdfExportService {
         ),
         pw.SizedBox(height: 12),
         pw.Text(
-          'PETTY CASH REPORT',
+          report.reportType == 'advance_settlement'
+              ? 'ADVANCE SETTLEMENT'
+              : 'PETTY CASH REPORT',
           style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
         ),
         pw.SizedBox(height: 6),
@@ -1834,7 +1924,7 @@ class PdfExportService {
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
         children: [
-          _buildSignatureBox('Requested By:', '(Pr. Heary Healdy Sairin)'),
+          _buildSignatureBox('Requested By:', '(Pr. Heary Healdy Sairin)', showSignature: true),
           _buildSignatureBox('Approved By:', ''),
           _buildApprovedByBox(),
         ],
@@ -1842,7 +1932,7 @@ class PdfExportService {
     );
   }
 
-  pw.Widget _buildSignatureBox(String title, String subtitle) {
+  pw.Widget _buildSignatureBox(String title, String subtitle, {bool showSignature = false}) {
     return pw.Container(
       width: 150,
       child: pw.Column(
@@ -1852,7 +1942,9 @@ class PdfExportService {
             title,
             style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
           ),
-          pw.SizedBox(height: 20),
+          showSignature
+              ? PdfSignatureHelper.slot(width: 100, height: 36)
+              : pw.SizedBox(height: 20),
           pw.Container(
             decoration: const pw.BoxDecoration(
               border: pw.Border(bottom: pw.BorderSide(color: PdfColors.black)),

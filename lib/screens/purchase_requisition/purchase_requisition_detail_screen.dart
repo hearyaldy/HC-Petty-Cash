@@ -14,6 +14,7 @@ import '../../widgets/edit_purchase_requisition_dialog.dart';
 import '../../widgets/purchase_requisition_item_dialog.dart';
 import '../../widgets/support_document_upload_dialog.dart';
 import '../../utils/responsive_helper.dart';
+import '../../utils/print_options_dialog.dart';
 
 class PurchaseRequisitionDetailScreen extends StatefulWidget {
   final String requisitionId;
@@ -357,21 +358,27 @@ class _PurchaseRequisitionDetailScreenState
   }
 
   Future<void> _printRequisition(PurchaseRequisition requisition) async {
-    try {
-      final items = await _firestoreService.getPurchaseRequisitionItems(
-        requisition.id,
-      );
-      await _exportService.printPurchaseRequisition(requisition, items);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error printing requisition: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
+    await showPrintOptionsDialog(
+      context: context,
+      title: 'Print Purchase Requisition',
+      onPrint: () async {
+        try {
+          final items = await _firestoreService.getPurchaseRequisitionItems(
+            requisition.id,
+          );
+          await _exportService.printPurchaseRequisition(requisition, items);
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error printing requisition: $e'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      },
+    );
   }
 
   final _minutesService = AdcomMinutesService();
@@ -2454,19 +2461,20 @@ class _PurchaseRequisitionDetailScreenState
             ),
             const SizedBox(height: 12),
           ],
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () => _showSupportDocumentUploadDialog(requisition),
-              icon: const Icon(Icons.upload_file, size: 18),
-              label: const Text('Upload Support Documents'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue.shade600,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
+          if (context.read<AuthProvider>().canUploadSupportDocument())
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => _showSupportDocumentUploadDialog(requisition),
+                icon: const Icon(Icons.upload_file, size: 18),
+                label: const Text('Upload Support Documents'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue.shade600,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
               ),
             ),
-          ),
         ],
       ),
     );

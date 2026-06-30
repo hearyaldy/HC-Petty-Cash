@@ -1,8 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../models/adcom_minutes.dart';
+import '../../models/cash_advance.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/cash_advance_provider.dart';
 import '../../services/adcom_minutes_service.dart';
@@ -41,13 +44,8 @@ class _NewCashAdvanceScreenState extends State<NewCashAdvanceScreen> {
   bool _isLoading = false;
   bool _isEditing = false;
 
-  // Meeting minutes reference
-  String? _linkedMinutesId;
-  String? _linkedMinutesLabel;
-  String? _linkedActionItemNumber;
-  String? _linkedActionItemTitle;
-  String? _linkedActionItemDescription;
-  String? _linkedActionItemAction;
+  // Meeting minutes references (multiple action items, any meeting)
+  final List<CashAdvanceMeetingReference> _meetingReferences = [];
 
   final _minutesService = AdcomMinutesService();
   final _dateFormat = DateFormat('MMM dd, yyyy');
@@ -89,12 +87,9 @@ class _NewCashAdvanceScreenState extends State<NewCashAdvanceScreen> {
           _departmentController.text = advance.department;
           _requestDate = advance.requestDate;
           _requiredByDate = advance.requiredByDate;
-          _linkedMinutesId = advance.linkedMinutesId;
-          _linkedMinutesLabel = advance.linkedMinutesLabel;
-          _linkedActionItemNumber = advance.linkedActionItemNumber;
-          _linkedActionItemTitle = advance.linkedActionItemTitle;
-          _linkedActionItemDescription = advance.linkedActionItemDescription;
-          _linkedActionItemAction = advance.linkedActionItemAction;
+          _meetingReferences
+            ..clear()
+            ..addAll(advance.meetingReferences);
           _isLoading = false;
         });
       } else if (mounted) {
@@ -284,14 +279,24 @@ class _NewCashAdvanceScreenState extends State<NewCashAdvanceScreen> {
 
     final dateStr =
         DateFormat('MMM dd, yyyy').format(selectedMinutes.meetingDate);
+    final reference = CashAdvanceMeetingReference(
+      minutesId: selectedMinutes.id,
+      minutesLabel: 'ADCOM – $dateStr',
+      actionItemNumber: selectedItem.itemNumber,
+      actionItemTitle: selectedItem.title,
+      actionItemDescription: selectedItem.description,
+      actionItemAction: selectedItem.status.displayName,
+    );
     setState(() {
-      _linkedMinutesId = selectedMinutes.id;
-      _linkedMinutesLabel = 'ADCOM – $dateStr';
-      _linkedActionItemNumber = selectedItem.itemNumber;
-      _linkedActionItemTitle = selectedItem.title;
-      _linkedActionItemDescription = selectedItem.description;
-      _linkedActionItemAction = selectedItem.status.displayName;
+      _meetingReferences.removeWhere((r) =>
+          r.minutesId == reference.minutesId &&
+          r.actionItemNumber == reference.actionItemNumber);
+      _meetingReferences.add(reference);
     });
+  }
+
+  void _removeMeetingReference(CashAdvanceMeetingReference reference) {
+    setState(() => _meetingReferences.remove(reference));
   }
 
   Future<void> _save() async {
@@ -320,12 +325,7 @@ class _NewCashAdvanceScreenState extends State<NewCashAdvanceScreen> {
             notes: _notesController.text.trim().isEmpty
                 ? null
                 : _notesController.text.trim(),
-            linkedMinutesId: _linkedMinutesId,
-            linkedMinutesLabel: _linkedMinutesLabel,
-            linkedActionItemNumber: _linkedActionItemNumber,
-            linkedActionItemTitle: _linkedActionItemTitle,
-            linkedActionItemDescription: _linkedActionItemDescription,
-            linkedActionItemAction: _linkedActionItemAction,
+            meetingReferences: List.of(_meetingReferences),
             updatedAt: DateTime.now(),
           );
           final success = await provider.updateAdvance(updated);
@@ -354,12 +354,7 @@ class _NewCashAdvanceScreenState extends State<NewCashAdvanceScreen> {
               ? null
               : _notesController.text.trim(),
           purchaseRequisitionId: widget.purchaseRequisitionId,
-          linkedMinutesId: _linkedMinutesId,
-          linkedMinutesLabel: _linkedMinutesLabel,
-          linkedActionItemNumber: _linkedActionItemNumber,
-          linkedActionItemTitle: _linkedActionItemTitle,
-          linkedActionItemDescription: _linkedActionItemDescription,
-          linkedActionItemAction: _linkedActionItemAction,
+          meetingReferences: List.of(_meetingReferences),
         );
 
         if (advance != null && widget.purchaseRequisitionId != null) {
@@ -509,9 +504,7 @@ class _NewCashAdvanceScreenState extends State<NewCashAdvanceScreen> {
                               _buildSectionCard(
                                 title: 'Meeting Reference (optional)',
                                 icon: Icons.meeting_room_outlined,
-                                children: [
-                                  _buildMinutesReferenceTile(),
-                                ],
+                                children: _buildMeetingReferenceTiles(),
                               ),
                               const SizedBox(height: 24),
                               SizedBox(
@@ -691,139 +684,146 @@ class _NewCashAdvanceScreenState extends State<NewCashAdvanceScreen> {
     );
   }
 
-  Widget _buildMinutesReferenceTile() {
-    final hasReference = _linkedMinutesId != null;
+  List<Widget> _buildMeetingReferenceTiles() {
+    if (_meetingReferences.isEmpty) {
+      return [_buildAddReferenceTile()];
+    }
+    return [
+      for (final ref in _meetingReferences) ...[
+        _buildMeetingReferenceCard(ref),
+        const SizedBox(height: 10),
+      ],
+      _buildAddReferenceTile(),
+    ];
+  }
+
+  Widget _buildAddReferenceTile() {
     return InkWell(
       onTap: _pickMinutesReference,
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
-          border: Border.all(
-            color: hasReference ? Colors.indigo.shade300 : Colors.grey.shade400,
-          ),
+          border: Border.all(color: Colors.grey.shade400),
           borderRadius: BorderRadius.circular(12),
-          color: hasReference ? Colors.indigo.shade50 : null,
         ),
         child: Row(
           children: [
-            Icon(
-              Icons.article_outlined,
-              color: hasReference ? Colors.indigo : Colors.grey[500],
-              size: 20,
-            ),
+            Icon(Icons.add_circle_outline, color: Colors.indigo[400], size: 20),
             const SizedBox(width: 12),
             Expanded(
-              child: hasReference
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _linkedMinutesLabel!,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.indigo[600],
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.indigo.shade100,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                _linkedActionItemNumber!,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.indigo[700],
-                                ),
-                              ),
-                            ),
-                            if (_linkedActionItemAction != null) ...[
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.teal.shade50,
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(
-                                      color: Colors.teal.shade200),
-                                ),
-                                child: Text(
-                                  _linkedActionItemAction!,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.teal[700],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                        if (_linkedActionItemTitle != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            _linkedActionItemTitle!,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                        if (_linkedActionItemDescription != null &&
-                            _linkedActionItemDescription!.isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            _linkedActionItemDescription!,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                                fontSize: 12, color: Colors.grey[600]),
-                          ),
-                        ],
-                      ],
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Link to Meeting Minutes',
-                          style: TextStyle(
-                              fontSize: 15, color: Colors.grey[500]),
-                        ),
-                        Text(
-                          'Tap to select minutes & action item',
-                          style: TextStyle(
-                              fontSize: 12, color: Colors.grey[400]),
-                        ),
-                      ],
-                    ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _meetingReferences.isEmpty
+                        ? 'Link to Meeting Minutes'
+                        : 'Add Another Action Item',
+                    style: TextStyle(fontSize: 15, color: Colors.grey[600]),
+                  ),
+                  Text(
+                    'Tap to select minutes & action item',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                  ),
+                ],
+              ),
             ),
-            if (hasReference)
-              IconButton(
-                icon: const Icon(Icons.clear, size: 18),
-                color: Colors.grey[500],
-                constraints: const BoxConstraints(),
-                padding: const EdgeInsets.all(4),
-                onPressed: () => setState(() {
-                  _linkedMinutesId = null;
-                  _linkedMinutesLabel = null;
-                  _linkedActionItemNumber = null;
-                  _linkedActionItemTitle = null;
-                  _linkedActionItemDescription = null;
-                  _linkedActionItemAction = null;
-                }),
-              )
-            else
-              Icon(Icons.chevron_right, color: Colors.grey[400], size: 20),
+            Icon(Icons.chevron_right, color: Colors.grey[400], size: 20),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildMeetingReferenceCard(CashAdvanceMeetingReference ref) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.indigo.shade300),
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.indigo.shade50,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.article_outlined, color: Colors.indigo, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  ref.minutesLabel,
+                  style: TextStyle(fontSize: 12, color: Colors.indigo[600]),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.indigo.shade100,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        ref.actionItemNumber,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.indigo[700],
+                        ),
+                      ),
+                    ),
+                    if (ref.actionItemAction != null) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.teal.shade50,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.teal.shade200),
+                        ),
+                        child: Text(
+                          ref.actionItemAction!,
+                          style: TextStyle(fontSize: 11, color: Colors.teal[700]),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                if (ref.actionItemTitle != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    ref.actionItemTitle!,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+                if (ref.actionItemDescription != null &&
+                    ref.actionItemDescription!.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    _plainText(ref.actionItemDescription!),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.clear, size: 18),
+            color: Colors.grey[500],
+            constraints: const BoxConstraints(),
+            padding: const EdgeInsets.all(4),
+            onPressed: () => _removeMeetingReference(ref),
+          ),
+        ],
       ),
     );
   }
@@ -874,5 +874,19 @@ class _NewCashAdvanceScreenState extends State<NewCashAdvanceScreen> {
         ),
       ),
     );
+  }
+
+  String _plainText(String text) {
+    if (text.startsWith('[')) {
+      try {
+        final List<dynamic> ops = jsonDecode(text) as List;
+        return ops
+            .where((op) => op is Map && op['insert'] is String)
+            .map((op) => op['insert'] as String)
+            .join()
+            .trim();
+      } catch (_) {}
+    }
+    return text;
   }
 }

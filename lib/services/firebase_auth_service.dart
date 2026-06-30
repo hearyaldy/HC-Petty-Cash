@@ -95,6 +95,7 @@ class FirebaseAuthService {
     required String name,
     required UserRole role,
     required String department,
+    String workerType = 'student',
   }) async {
     _isAuthOperationInProgress = true;
     _authOperationStartTime = DateTime.now();
@@ -121,6 +122,7 @@ class FirebaseAuthService {
         name: sanitizedName,
         email: sanitizedEmail,
         role: role.name,
+        workerType: workerType,
         department: sanitizedDepartment,
         createdAt: DateTime.now(),
       );
@@ -263,6 +265,11 @@ class FirebaseAuthService {
   bool canManageUsers() => _currentUser?.roleEnum == UserRole.admin;
 
   bool canCreateReports() => _currentUser != null;
+
+  bool canUploadSupportDocument() {
+    if (_currentUser == null) return false;
+    return _currentUser!.roleEnum != UserRole.studentWorker;
+  }
 
   bool canCreatePurchaseRequisitions() {
     if (_currentUser == null) return false;

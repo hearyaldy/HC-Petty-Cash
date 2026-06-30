@@ -7,12 +7,14 @@ class StudentOnboardingScreen extends StatefulWidget {
   final String userId;
   final String userName;
   final String userEmail;
+  final String workerType;
 
   const StudentOnboardingScreen({
     super.key,
     required this.userId,
     required this.userName,
     required this.userEmail,
+    this.workerType = 'student',
   });
 
   @override
@@ -29,6 +31,8 @@ class _StudentOnboardingScreenState extends State<StudentOnboardingScreen> {
   String? _selectedLanguage;
   String? _selectedRole;
   bool _isSubmitting = false;
+
+  bool get _isVolunteer => widget.workerType == 'volunteer';
 
   final List<String> _yearLevels = [
     '1st Year',
@@ -73,10 +77,10 @@ class _StudentOnboardingScreenState extends State<StudentOnboardingScreen> {
     try {
       final profile = StudentProfile(
         userId: widget.userId,
-        studentNumber: _studentNumberController.text.trim(),
+        studentNumber: _isVolunteer ? '' : _studentNumberController.text.trim(),
         phoneNumber: _phoneNumberController.text.trim(),
-        course: _courseController.text.trim(),
-        yearLevel: _selectedYearLevel,
+        course: _isVolunteer ? '' : _courseController.text.trim(),
+        yearLevel: _isVolunteer ? '' : _selectedYearLevel,
         language: _selectedLanguage,
         role: _selectedRole,
         hourlyRate: 0.0, // Will be set by admin
@@ -161,16 +165,18 @@ class _StudentOnboardingScreenState extends State<StudentOnboardingScreen> {
                             color: Colors.white.withValues(alpha: 0.2),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(
-                            Icons.school,
+                          child: Icon(
+                            _isVolunteer
+                                ? Icons.volunteer_activism
+                                : Icons.school,
                             size: 64,
                             color: Colors.white,
                           ),
                         ),
                         const SizedBox(height: 16),
-                        const Text(
-                          'Welcome, Student!',
-                          style: TextStyle(
+                        Text(
+                          _isVolunteer ? 'Welcome, Volunteer!' : 'Welcome, Student!',
+                          style: const TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
@@ -234,24 +240,26 @@ class _StudentOnboardingScreenState extends State<StudentOnboardingScreen> {
                           ),
                           const SizedBox(height: 24),
                           // Student Number
-                          TextFormField(
-                            controller: _studentNumberController,
-                            decoration: InputDecoration(
-                              labelText: 'Student Number *',
-                              hintText: 'e.g., 2024-12345',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
+                          if (!_isVolunteer) ...[
+                            TextFormField(
+                              controller: _studentNumberController,
+                              decoration: InputDecoration(
+                                labelText: 'Student Number *',
+                                hintText: 'e.g., 2024-12345',
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                prefixIcon: const Icon(Icons.badge),
                               ),
-                              prefixIcon: const Icon(Icons.badge),
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) {
+                                  return 'Please enter your student number';
+                                }
+                                return null;
+                              },
                             ),
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Please enter your student number';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
+                            const SizedBox(height: 16),
+                          ],
                           // Phone Number
                           TextFormField(
                             controller: _phoneNumberController,
@@ -271,46 +279,48 @@ class _StudentOnboardingScreenState extends State<StudentOnboardingScreen> {
                               return null;
                             },
                           ),
-                          const SizedBox(height: 16),
-                          // Course
-                          TextFormField(
-                            controller: _courseController,
-                            decoration: InputDecoration(
-                              labelText: 'Course/Program *',
-                              hintText: 'e.g., Computer Science',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
+                          if (!_isVolunteer) ...[
+                            const SizedBox(height: 16),
+                            // Course
+                            TextFormField(
+                              controller: _courseController,
+                              decoration: InputDecoration(
+                                labelText: 'Course/Program *',
+                                hintText: 'e.g., Computer Science',
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                prefixIcon: const Icon(Icons.book),
                               ),
-                              prefixIcon: const Icon(Icons.book),
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) {
+                                  return 'Please enter your course';
+                                }
+                                return null;
+                              },
                             ),
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Please enter your course';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          // Year Level
-                          DropdownButtonFormField<String>(
-                            initialValue: _selectedYearLevel,
-                            decoration: InputDecoration(
-                              labelText: 'Year Level *',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
+                            const SizedBox(height: 16),
+                            // Year Level
+                            DropdownButtonFormField<String>(
+                              initialValue: _selectedYearLevel,
+                              decoration: InputDecoration(
+                                labelText: 'Year Level *',
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                prefixIcon: const Icon(Icons.school_outlined),
                               ),
-                              prefixIcon: const Icon(Icons.school_outlined),
+                              items: _yearLevels.map((year) {
+                                return DropdownMenuItem(
+                                  value: year,
+                                  child: Text(year),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                setState(() => _selectedYearLevel = value!);
+                              },
                             ),
-                            items: _yearLevels.map((year) {
-                              return DropdownMenuItem(
-                                value: year,
-                                child: Text(year),
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              setState(() => _selectedYearLevel = value!);
-                            },
-                          ),
+                          ],
                           const SizedBox(height: 16),
                           // Language
                           DropdownButtonFormField<String>(
