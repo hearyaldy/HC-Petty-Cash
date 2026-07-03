@@ -23,6 +23,10 @@ service cloud.firestore {
       return isAuthenticated() && getUserRole() == 'finance';
     }
 
+    function isWebManager() {
+      return isAuthenticated() && getUserRole() == 'webManager';
+    }
+
     function canApprove() {
       return isManager() || isFinance() || isAdmin();
     }
@@ -998,6 +1002,14 @@ service cloud.firestore {
     match /survey_responses/{responseId} {
       allow create: if get(/databases/$(database)/documents/surveys/$(request.resource.data.surveyId)).data.isActive == true;
       allow read, delete: if isAdmin();
+    }
+
+    // ── Site config ──────────────────────────────────────────────────────
+    // Public landing page content: anyone can read (fetched client-side by
+    // the static landing page); only admins and the webManager role can write.
+    match /site_config/{docId} {
+      allow read: if true;
+      allow write: if isAdmin() || isWebManager();
     }
   }
 }

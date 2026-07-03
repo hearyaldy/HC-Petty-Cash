@@ -14,6 +14,7 @@ class AppDrawer extends StatelessWidget {
     final isAdmin = authProvider.canManageUsers();
     final canApprove = authProvider.canApprove();
     final isStudentWorker = user?.roleEnum == UserRole.studentWorker;
+    final isWebManager = user?.roleEnum == UserRole.webManager;
     final hasMeetingsAccess = isAdmin || (user?.sectionPermissions.meetingsView ?? false);
 
     return Drawer(
@@ -25,7 +26,7 @@ class AppDrawer extends StatelessWidget {
               padding: const EdgeInsets.only(top: 8, bottom: 16),
               children: [
                 // ── Dashboard ───────────────────────────────────────────
-                if (!isStudentWorker)
+                if (!isStudentWorker && !isWebManager)
                   _buildNavItem(
                     context,
                     icon: Icons.dashboard_rounded,
@@ -34,7 +35,28 @@ class AppDrawer extends StatelessWidget {
                     color: const Color(0xFF2563EB),
                   ),
 
-                if (!isStudentWorker) ...[
+                // ── Web Manager ───────────────────────────────────────
+                if (isWebManager)
+                  _buildNavItem(
+                    context,
+                    icon: Icons.web_rounded,
+                    title: 'Landing Page',
+                    route: '/admin/landing-page',
+                    color: const Color(0xFF2563EB),
+                  ),
+
+                if (isAdmin)
+                  _buildSection(
+                    context,
+                    icon: Icons.web_rounded,
+                    title: 'Website',
+                    color: const Color(0xFF2563EB),
+                    items: [
+                      _NavItem(Icons.web_rounded, 'Landing Page', '/admin/landing-page'),
+                    ],
+                  ),
+
+                if (!isStudentWorker && !isWebManager) ...[
                   const SizedBox(height: 4),
 
                   // ── Finance ─────────────────────────────────────────

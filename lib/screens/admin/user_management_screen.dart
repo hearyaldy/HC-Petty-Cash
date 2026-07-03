@@ -1212,6 +1212,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         return [Colors.green.shade400, Colors.green.shade600];
       case 'studentWorker':
         return [Colors.orange.shade400, Colors.orange.shade600];
+      case 'webManager':
+        return [Colors.indigo.shade400, Colors.indigo.shade600];
       default:
         return [Colors.grey.shade400, Colors.grey.shade600];
     }
@@ -1229,6 +1231,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         return Colors.green;
       case 'studentWorker':
         return Colors.orange;
+      case 'webManager':
+        return Colors.indigo;
       default:
         return Colors.grey;
     }
@@ -1264,6 +1268,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           'finance',
           'admin',
           'studentWorker',
+          'webManager',
         ];
         return validRoles.contains(role) ? role : 'requester';
     }
@@ -1442,6 +1447,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                         value: 'studentWorker',
                         child: Text('Student Worker'),
                       ),
+                      DropdownMenuItem(
+                        value: 'webManager',
+                        child: Text('Web Manager'),
+                      ),
                     ],
                     onChanged: (value) {
                       setState(() {
@@ -1619,6 +1628,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                         DropdownMenuItem(
                           value: 'studentWorker',
                           child: Text('Student Worker'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'webManager',
+                          child: Text('Web Manager'),
                         ),
                       ],
                       onChanged: (value) {

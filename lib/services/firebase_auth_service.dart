@@ -264,6 +264,10 @@ class FirebaseAuthService {
 
   bool canManageUsers() => _currentUser?.roleEnum == UserRole.admin;
 
+  bool canManageLandingPage() =>
+      _currentUser?.roleEnum == UserRole.admin ||
+      _currentUser?.roleEnum == UserRole.webManager;
+
   bool canCreateReports() => _currentUser != null;
 
   bool canUploadSupportDocument() {

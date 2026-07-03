@@ -103,6 +103,7 @@ import 'screens/admin/adcom_minutes_edit_screen.dart';
 import 'screens/admin/adcom_minutes_view_screen.dart';
 import 'screens/admin/meeting_template_list_screen.dart';
 import 'screens/admin/meeting_template_edit_screen.dart';
+import 'screens/admin/landing_page_management_screen.dart';
 import 'providers/income_report_provider.dart';
 import 'providers/media_production_provider.dart';
 import 'providers/cash_advance_provider.dart';
@@ -290,7 +291,7 @@ class MyApp extends StatelessWidget {
         final currentPath = state.uri.path;
         final currentFragment = state.uri.fragment;
         final fullLocation = state.uri.toString();
-        final isLoggingIn = currentPath == '/';
+        final isLoggingIn = currentPath == '/' || currentPath == '/login';
         final isRegistering = currentPath == '/student-register';
         final isOnboarding = currentPath.startsWith('/student-onboarding');
         final isPublicMeetingVote =
@@ -334,6 +335,9 @@ class MyApp extends StatelessWidget {
             }
             return '/student-dashboard';
           }
+          if (user?.role == 'webManager') {
+            return '/admin/landing-page';
+          }
           return '/admin-hub';
         }
 
@@ -359,10 +363,23 @@ class MyApp extends StatelessWidget {
           }
         }
 
+        // Web managers can only access the landing page editor
+        if (user?.role == 'webManager') {
+          final webManagerRoutes = ['/admin/landing-page', '/settings'];
+          if (!webManagerRoutes.any((route) => currentPath.startsWith(route))) {
+            return '/admin/landing-page';
+          }
+        }
+
         return null;
       },
       routes: [
         GoRoute(path: '/', builder: (context, state) => const LoginScreen()),
+        GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+        GoRoute(
+          path: '/admin/landing-page',
+          builder: (context, state) => const LandingPageManagementScreen(),
+        ),
         GoRoute(
           path: '/privacy-policy',
           builder: (context, state) => const PrivacyPolicyScreen(),

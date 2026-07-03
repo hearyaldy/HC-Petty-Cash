@@ -5,7 +5,8 @@ enum UserRole {
   manager,
   finance,
   admin,
-  studentWorker;
+  studentWorker,
+  webManager;
 
   String get displayName {
     switch (this) {
@@ -19,6 +20,8 @@ enum UserRole {
         return 'Admin';
       case UserRole.studentWorker:
         return 'Student Worker';
+      case UserRole.webManager:
+        return 'Web Manager';
     }
   }
 }

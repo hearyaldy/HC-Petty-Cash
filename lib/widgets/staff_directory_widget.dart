@@ -316,6 +316,8 @@ class _StaffDirectoryWidgetState extends State<StaffDirectoryWidget> {
         return Colors.blue;
       case UserRole.studentWorker:
         return Colors.cyan;
+      case UserRole.webManager:
+        return Colors.indigo;
     }
   }
 

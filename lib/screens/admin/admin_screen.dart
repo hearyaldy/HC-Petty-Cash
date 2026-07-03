@@ -799,6 +799,8 @@ class _AdminScreenState extends State<AdminScreen> {
         return Colors.orange;
       case UserRole.studentWorker:
         return Colors.deepOrange;
+      case UserRole.webManager:
+        return Colors.indigo;
     }
   }
 
