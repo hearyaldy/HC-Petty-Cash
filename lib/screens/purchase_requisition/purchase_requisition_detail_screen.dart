@@ -9,6 +9,7 @@ import '../../models/adcom_minutes.dart';
 import '../../services/firestore_service.dart';
 import '../../services/adcom_minutes_service.dart';
 import '../../services/purchase_requisition_pdf_export_service.dart';
+import '../../services/currency_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/edit_purchase_requisition_dialog.dart';
 import '../../widgets/purchase_requisition_item_dialog.dart';
@@ -34,6 +35,20 @@ class _PurchaseRequisitionDetailScreenState
   final FirestoreService _firestoreService = FirestoreService();
   final PurchaseRequisitionPdfExportService _exportService =
       PurchaseRequisitionPdfExportService();
+  double? _usdRate;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUsdRate();
+  }
+
+  Future<void> _fetchUsdRate() async {
+    final rate = await CurrencyService().getUsdToThbRate();
+    if (mounted && rate != null) {
+      setState(() => _usdRate = rate);
+    }
+  }
 
   Future<void> _editRequisition(PurchaseRequisition requisition) async {
     if (requisition.status != 'draft') {
@@ -2000,6 +2015,17 @@ class _PurchaseRequisitionDetailScreenState
                     color: Colors.white,
                   ),
                 ),
+                if (_usdRate != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    '≈ \$${currencyFormat.format(requisition.totalAmount / _usdRate!)}',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white.withValues(alpha: 0.85),
+                    ),
+                  ),
+                ],
               ],
             )
           : Row(
@@ -2030,13 +2056,29 @@ class _PurchaseRequisitionDetailScreenState
                     ),
                   ],
                 ),
-                Text(
-                  '฿${currencyFormat.format(requisition.totalAmount)}',
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '฿${currencyFormat.format(requisition.totalAmount)}',
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    if (_usdRate != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        '≈ \$${currencyFormat.format(requisition.totalAmount / _usdRate!)}',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white.withValues(alpha: 0.85),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),

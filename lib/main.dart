@@ -53,6 +53,8 @@ import 'screens/traveling/traveling_reports_screen.dart';
 import 'screens/traveling/traveling_report_detail_screen.dart';
 import 'screens/admin/admin_traveling_reports_screen.dart';
 import 'screens/admin/admin_traveling_report_detail_screen.dart';
+import 'screens/transportation/transportation_requests_screen.dart';
+import 'screens/transportation/transportation_request_detail_screen.dart';
 import 'screens/admin/admin_income_reports_screen.dart';
 import 'screens/hr/employee_onboarding_screen.dart';
 import 'screens/hr/hr_data_submission_screen.dart';
@@ -713,6 +715,18 @@ class MyApp extends StatelessWidget {
           builder: (context, state) {
             final reportId = state.pathParameters['reportId']!;
             return TravelingReportDetailScreen(reportId: reportId);
+          },
+        ),
+        // Transportation Request Routes
+        GoRoute(
+          path: '/transportation-requests',
+          builder: (context, state) => const TransportationRequestsScreen(),
+        ),
+        GoRoute(
+          path: '/transportation-requests/:requestId',
+          builder: (context, state) {
+            final requestId = state.pathParameters['requestId']!;
+            return TransportationRequestDetailScreen(requestId: requestId);
           },
         ),
         GoRoute(

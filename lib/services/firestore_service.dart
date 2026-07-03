@@ -11,6 +11,7 @@ import '../models/traveling_per_diem_entry.dart';
 import '../models/income_report.dart';
 import '../models/purchase_requisition.dart';
 import '../models/cash_advance.dart';
+import '../models/transportation_request.dart';
 import '../utils/logger.dart';
 
 class FirestoreService {
@@ -40,6 +41,18 @@ class FirestoreService {
   CollectionReference<Map<String, dynamic>>
   get _purchaseRequisitionItemsCollection =>
       _firestore.collection('purchase_requisition_items');
+  CollectionReference<Map<String, dynamic>>
+  get _transportationRequestsCollection =>
+      _firestore.collection('transportation_requests');
+  CollectionReference<Map<String, dynamic>>
+  get _transportationMileageEntriesCollection =>
+      _firestore.collection('transportation_mileage_entries');
+  CollectionReference<Map<String, dynamic>>
+  get _transportationPerDiemEntriesCollection =>
+      _firestore.collection('transportation_per_diem_entries');
+  CollectionReference<Map<String, dynamic>>
+  get _transportationHotelEntriesCollection =>
+      _firestore.collection('transportation_hotel_entries');
   CollectionReference<Map<String, dynamic>> get _cashAdvancesCollection =>
       _firestore.collection('cash_advances');
 
@@ -960,6 +973,338 @@ class FirestoreService {
       });
     } catch (e) {
       AppLogger.severe('Error recalculating traveling report totals: $e');
+      rethrow;
+    }
+  }
+
+  // ===== TRANSPORTATION REQUEST OPERATIONS =====
+
+  String generateTransportationRequestNumber() {
+    final now = DateTime.now();
+    final dateStr = DateFormat('yyyyMMdd').format(now);
+    final uuid = const Uuid().v4().substring(0, 3).toUpperCase();
+    return 'TRQ-$dateStr-$uuid';
+  }
+
+  Future<TransportationRequest?> getTransportationRequest(
+    String requestId,
+  ) async {
+    try {
+      final doc = await _transportationRequestsCollection.doc(requestId).get();
+      return doc.exists ? TransportationRequest.fromFirestore(doc) : null;
+    } catch (e) {
+      AppLogger.severe('Error getting transportation request: $e');
+      rethrow;
+    }
+  }
+
+  Stream<TransportationRequest?> transportationRequestStream(
+    String requestId,
+  ) {
+    return _transportationRequestsCollection.doc(requestId).snapshots().map(
+          (doc) => doc.exists ? TransportationRequest.fromFirestore(doc) : null,
+        );
+  }
+
+  Stream<List<TransportationRequest>> transportationRequestsStream() {
+    return _transportationRequestsCollection
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => TransportationRequest.fromFirestore(doc))
+              .toList(),
+        );
+  }
+
+  Stream<List<TransportationRequest>> transportationRequestsByRequesterIdStream(
+    String requesterId,
+  ) {
+    return _transportationRequestsCollection
+        .where('requesterId', isEqualTo: requesterId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => TransportationRequest.fromFirestore(doc))
+              .toList(),
+        );
+  }
+
+  Future<void> saveTransportationRequest(TransportationRequest request) async {
+    try {
+      await _transportationRequestsCollection
+          .doc(request.id)
+          .set(request.toFirestore());
+    } catch (e) {
+      AppLogger.severe('Error saving transportation request: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateTransportationRequest(
+    TransportationRequest request,
+  ) async {
+    try {
+      await _transportationRequestsCollection
+          .doc(request.id)
+          .update(request.toFirestore());
+    } catch (e) {
+      AppLogger.severe('Error updating transportation request: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteTransportationRequest(String requestId) async {
+    try {
+      final batch = _firestore.batch();
+
+      final mileageSnapshot = await _transportationMileageEntriesCollection
+          .where('requestId', isEqualTo: requestId)
+          .get();
+      for (final doc in mileageSnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+
+      final perDiemSnapshot = await _transportationPerDiemEntriesCollection
+          .where('requestId', isEqualTo: requestId)
+          .get();
+      for (final doc in perDiemSnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+
+      final hotelSnapshot = await _transportationHotelEntriesCollection
+          .where('requestId', isEqualTo: requestId)
+          .get();
+      for (final doc in hotelSnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+
+      batch.delete(_transportationRequestsCollection.doc(requestId));
+      await batch.commit();
+    } catch (e) {
+      AppLogger.severe('Error deleting transportation request: $e');
+      rethrow;
+    }
+  }
+
+  // ----- Mileage entries -----
+
+  Stream<List<TransportationMileageEntry>> transportationMileageEntriesStream(
+    String requestId,
+  ) {
+    return _transportationMileageEntriesCollection
+        .where('requestId', isEqualTo: requestId)
+        .orderBy('date', descending: false)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => TransportationMileageEntry.fromFirestore(doc))
+              .toList(),
+        );
+  }
+
+  Future<void> saveTransportationMileageEntry(
+    TransportationMileageEntry entry,
+  ) async {
+    try {
+      await _transportationMileageEntriesCollection
+          .doc(entry.id)
+          .set(entry.toFirestore());
+      await _recalculateTransportationRequestTotals(entry.requestId);
+    } catch (e) {
+      AppLogger.severe('Error saving transportation mileage entry: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateTransportationMileageEntry(
+    TransportationMileageEntry entry,
+  ) async {
+    try {
+      await _transportationMileageEntriesCollection
+          .doc(entry.id)
+          .update(entry.toFirestore());
+      await _recalculateTransportationRequestTotals(entry.requestId);
+    } catch (e) {
+      AppLogger.severe('Error updating transportation mileage entry: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteTransportationMileageEntry(
+    String entryId,
+    String requestId,
+  ) async {
+    try {
+      await _transportationMileageEntriesCollection.doc(entryId).delete();
+      await _recalculateTransportationRequestTotals(requestId);
+    } catch (e) {
+      AppLogger.severe('Error deleting transportation mileage entry: $e');
+      rethrow;
+    }
+  }
+
+  // ----- Per diem entries -----
+
+  Stream<List<TransportationPerDiemEntry>> transportationPerDiemEntriesStream(
+    String requestId,
+  ) {
+    return _transportationPerDiemEntriesCollection
+        .where('requestId', isEqualTo: requestId)
+        .orderBy('date', descending: false)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => TransportationPerDiemEntry.fromFirestore(doc))
+              .toList(),
+        );
+  }
+
+  Future<void> saveTransportationPerDiemEntry(
+    TransportationPerDiemEntry entry,
+  ) async {
+    try {
+      await _transportationPerDiemEntriesCollection
+          .doc(entry.id)
+          .set(entry.toFirestore());
+      await _recalculateTransportationRequestTotals(entry.requestId);
+    } catch (e) {
+      AppLogger.severe('Error saving transportation per diem entry: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateTransportationPerDiemEntry(
+    TransportationPerDiemEntry entry,
+  ) async {
+    try {
+      await _transportationPerDiemEntriesCollection
+          .doc(entry.id)
+          .update(entry.toFirestore());
+      await _recalculateTransportationRequestTotals(entry.requestId);
+    } catch (e) {
+      AppLogger.severe('Error updating transportation per diem entry: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteTransportationPerDiemEntry(
+    String entryId,
+    String requestId,
+  ) async {
+    try {
+      await _transportationPerDiemEntriesCollection.doc(entryId).delete();
+      await _recalculateTransportationRequestTotals(requestId);
+    } catch (e) {
+      AppLogger.severe('Error deleting transportation per diem entry: $e');
+      rethrow;
+    }
+  }
+
+  // ----- Hotel entries -----
+
+  Stream<List<TransportationHotelEntry>> transportationHotelEntriesStream(
+    String requestId,
+  ) {
+    return _transportationHotelEntriesCollection
+        .where('requestId', isEqualTo: requestId)
+        .orderBy('date', descending: false)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => TransportationHotelEntry.fromFirestore(doc))
+              .toList(),
+        );
+  }
+
+  Future<void> saveTransportationHotelEntry(
+    TransportationHotelEntry entry,
+  ) async {
+    try {
+      await _transportationHotelEntriesCollection
+          .doc(entry.id)
+          .set(entry.toFirestore());
+      await _recalculateTransportationRequestTotals(entry.requestId);
+    } catch (e) {
+      AppLogger.severe('Error saving transportation hotel entry: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateTransportationHotelEntry(
+    TransportationHotelEntry entry,
+  ) async {
+    try {
+      await _transportationHotelEntriesCollection
+          .doc(entry.id)
+          .update(entry.toFirestore());
+      await _recalculateTransportationRequestTotals(entry.requestId);
+    } catch (e) {
+      AppLogger.severe('Error updating transportation hotel entry: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteTransportationHotelEntry(
+    String entryId,
+    String requestId,
+  ) async {
+    try {
+      await _transportationHotelEntriesCollection.doc(entryId).delete();
+      await _recalculateTransportationRequestTotals(requestId);
+    } catch (e) {
+      AppLogger.severe('Error deleting transportation hotel entry: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> _recalculateTransportationRequestTotals(
+    String requestId,
+  ) async {
+    try {
+      final mileageSnapshot = await _transportationMileageEntriesCollection
+          .where('requestId', isEqualTo: requestId)
+          .get();
+      final mileageEntries = mileageSnapshot.docs
+          .map((doc) => TransportationMileageEntry.fromFirestore(doc))
+          .toList();
+      final totalKm = mileageEntries.fold<double>(
+        0.0,
+        (total, entry) => total + entry.totalKm,
+      );
+      final totalMileageAmount = mileageEntries.fold<double>(
+        0.0,
+        (total, entry) => total + entry.amount,
+      );
+
+      final perDiemSnapshot = await _transportationPerDiemEntriesCollection
+          .where('requestId', isEqualTo: requestId)
+          .get();
+      final totalPerDiemAmount = perDiemSnapshot.docs
+          .map((doc) => TransportationPerDiemEntry.fromFirestore(doc))
+          .fold<double>(0.0, (total, entry) => total + entry.amount);
+
+      final hotelSnapshot = await _transportationHotelEntriesCollection
+          .where('requestId', isEqualTo: requestId)
+          .get();
+      final totalHotelAmount = hotelSnapshot.docs
+          .map((doc) => TransportationHotelEntry.fromFirestore(doc))
+          .fold<double>(0.0, (total, entry) => total + entry.amount);
+
+      final grandTotal =
+          totalMileageAmount + totalPerDiemAmount + totalHotelAmount;
+
+      await _transportationRequestsCollection.doc(requestId).update({
+        'totalKm': totalKm,
+        'totalMileageAmount': totalMileageAmount,
+        'totalPerDiemAmount': totalPerDiemAmount,
+        'totalHotelAmount': totalHotelAmount,
+        'grandTotal': grandTotal,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      AppLogger.severe('Error recalculating transportation request totals: $e');
       rethrow;
     }
   }

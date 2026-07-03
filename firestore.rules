@@ -465,6 +465,106 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/purchase_requisitions/$(resource.data.requisitionId)).data.status == 'draft';
     }
 
+    // Transportation Requests collection (sent to SEUM, no internal approval workflow)
+    match /transportation_requests/{requestId} {
+      // Owners can read their own requests, HR/Admin can read all
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.requesterId ||
+        isAdmin() ||
+        isManager() ||
+        isFinance()
+      );
+
+      // Any authenticated user can create requests
+      allow create: if isAuthenticated();
+
+      // Owners can update their own requests, admin can update any
+      allow update: if isAuthenticated() && (
+        resource.data.requesterId == request.auth.uid || isAdmin()
+      );
+
+      // Owners can delete their own requests, admin can delete any
+      allow delete: if isAuthenticated() && (
+        resource.data.requesterId == request.auth.uid || isAdmin()
+      );
+    }
+
+    // Transportation Request entry collections (mileage / per diem / hotel)
+    match /transportation_mileage_entries/{entryId} {
+      allow read: if isAuthenticated() &&
+        exists(/databases/$(database)/documents/transportation_requests/$(resource.data.requestId)) &&
+        (
+          get(/databases/$(database)/documents/transportation_requests/$(resource.data.requestId)).data.requesterId == request.auth.uid ||
+          isAdmin() ||
+          isManager() ||
+          isFinance()
+        );
+
+      allow create: if isAuthenticated()
+        && exists(/databases/$(database)/documents/transportation_requests/$(request.resource.data.requestId))
+        && (
+          get(/databases/$(database)/documents/transportation_requests/$(request.resource.data.requestId)).data.requesterId == request.auth.uid
+          || isAdmin()
+        );
+
+      allow update, delete: if isAuthenticated()
+        && exists(/databases/$(database)/documents/transportation_requests/$(resource.data.requestId))
+        && (
+          get(/databases/$(database)/documents/transportation_requests/$(resource.data.requestId)).data.requesterId == request.auth.uid
+          || isAdmin()
+        );
+    }
+
+    match /transportation_per_diem_entries/{entryId} {
+      allow read: if isAuthenticated() &&
+        exists(/databases/$(database)/documents/transportation_requests/$(resource.data.requestId)) &&
+        (
+          get(/databases/$(database)/documents/transportation_requests/$(resource.data.requestId)).data.requesterId == request.auth.uid ||
+          isAdmin() ||
+          isManager() ||
+          isFinance()
+        );
+
+      allow create: if isAuthenticated()
+        && exists(/databases/$(database)/documents/transportation_requests/$(request.resource.data.requestId))
+        && (
+          get(/databases/$(database)/documents/transportation_requests/$(request.resource.data.requestId)).data.requesterId == request.auth.uid
+          || isAdmin()
+        );
+
+      allow update, delete: if isAuthenticated()
+        && exists(/databases/$(database)/documents/transportation_requests/$(resource.data.requestId))
+        && (
+          get(/databases/$(database)/documents/transportation_requests/$(resource.data.requestId)).data.requesterId == request.auth.uid
+          || isAdmin()
+        );
+    }
+
+    match /transportation_hotel_entries/{entryId} {
+      allow read: if isAuthenticated() &&
+        exists(/databases/$(database)/documents/transportation_requests/$(resource.data.requestId)) &&
+        (
+          get(/databases/$(database)/documents/transportation_requests/$(resource.data.requestId)).data.requesterId == request.auth.uid ||
+          isAdmin() ||
+          isManager() ||
+          isFinance()
+        );
+
+      allow create: if isAuthenticated()
+        && exists(/databases/$(database)/documents/transportation_requests/$(request.resource.data.requestId))
+        && (
+          get(/databases/$(database)/documents/transportation_requests/$(request.resource.data.requestId)).data.requesterId == request.auth.uid
+          || isAdmin()
+        );
+
+      allow update, delete: if isAuthenticated()
+        && exists(/databases/$(database)/documents/transportation_requests/$(resource.data.requestId))
+        && (
+          get(/databases/$(database)/documents/transportation_requests/$(resource.data.requestId)).data.requesterId == request.auth.uid
+          || isAdmin()
+        );
+    }
+
     // Staff collection - HR records
     match /staff/{staffId} {
       // All authenticated users can read staff records (for salary/benefits management, directory, etc.)

@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import '../models/purchase_requisition.dart';
 import '../utils/constants.dart';
 import '../utils/logger.dart';
+import 'currency_service.dart';
 import 'pdf_signature_helper.dart';
 
 class PurchaseRequisitionPdfExportService {
@@ -62,6 +63,7 @@ class PurchaseRequisitionPdfExportService {
 
     // Check if any item exceeds threshold
     final hasHighValueItems = items.any((item) => item.totalPrice > 20000);
+    final usdRate = await CurrencyService().getUsdToThbRate();
 
     pdf.addPage(
       pw.MultiPage(
@@ -79,7 +81,7 @@ class PurchaseRequisitionPdfExportService {
           pw.SizedBox(height: 20),
           _buildItemsTable(items, currencyFormat),
           pw.SizedBox(height: 16),
-          _buildTotalSection(requisition, currencyFormat),
+          _buildTotalSection(requisition, currencyFormat, usdRate),
           if (requisition.linkedMinutesId != null) ...[
             pw.SizedBox(height: 16),
             _buildMeetingReferenceSection(requisition),
@@ -355,13 +357,17 @@ class PurchaseRequisitionPdfExportService {
                   _buildTableCell('${item.itemNo}'),
                   _buildTableCell(item.description, align: pw.TextAlign.left),
                   _buildTableCell('${item.quantity}'),
-                  _buildTableCell(
+                  _buildPriceCell(
                     currencyFormat.format(item.unitPrice),
-                    align: pw.TextAlign.right,
+                    item.usdUnitPrice != null
+                        ? currencyFormat.format(item.usdUnitPrice)
+                        : null,
                   ),
-                  _buildTableCell(
+                  _buildPriceCell(
                     currencyFormat.format(item.totalPrice),
-                    align: pw.TextAlign.right,
+                    item.totalUsd != null
+                        ? currencyFormat.format(item.totalUsd)
+                        : null,
                   ),
                   _buildTableCell(item.remark ?? '-'),
                 ],
@@ -405,9 +411,32 @@ class PurchaseRequisitionPdfExportService {
     );
   }
 
+  pw.Widget _buildPriceCell(String thbText, String? usdText) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.all(6),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.end,
+        children: [
+          pw.Text(
+            thbText,
+            style: const pw.TextStyle(fontSize: 9),
+            textAlign: pw.TextAlign.right,
+          ),
+          if (usdText != null)
+            pw.Text(
+              '\$$usdText',
+              style: pw.TextStyle(fontSize: 7, color: PdfColors.grey600),
+              textAlign: pw.TextAlign.right,
+            ),
+        ],
+      ),
+    );
+  }
+
   pw.Widget _buildTotalSection(
     PurchaseRequisition requisition,
     NumberFormat currencyFormat,
+    double? usdRate,
   ) {
     return pw.Container(
       alignment: pw.Alignment.centerRight,
@@ -418,23 +447,44 @@ class PurchaseRequisitionPdfExportService {
           border: pw.Border.all(color: PdfColors.grey600, width: 1.5),
           borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
         ),
-        child: pw.Row(
-          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.stretch,
           children: [
-            pw.Text(
-              'TOTAL:',
-              style: pw.TextStyle(
-                fontSize: 12,
-                fontWeight: pw.FontWeight.bold,
-              ),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(
+                  'TOTAL:',
+                  style: pw.TextStyle(
+                    fontSize: 12,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.Text(
+                  '${currencyFormat.format(requisition.totalAmount)} Baht',
+                  style: pw.TextStyle(
+                    fontSize: 14,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
-            pw.Text(
-              '${currencyFormat.format(requisition.totalAmount)} Baht',
-              style: pw.TextStyle(
-                fontSize: 14,
-                fontWeight: pw.FontWeight.bold,
+            if (usdRate != null) ...[
+              pw.SizedBox(height: 4),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.end,
+                children: [
+                  pw.Text(
+                    '~ \$${currencyFormat.format(requisition.totalAmount / usdRate)} USD',
+                    style: pw.TextStyle(
+                      fontSize: 13,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.grey700,
+                    ),
+                  ),
+                ],
               ),
-            ),
+            ],
           ],
         ),
       ),

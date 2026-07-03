@@ -383,6 +383,11 @@ class _TravelingReportsScreenState extends State<TravelingReportsScreen> {
                         onPressed: () => context.push('/admin/traveling-reports'),
                       ),
                       IconButton(
+                        icon: const Icon(Icons.directions_car_filled, color: Colors.white, size: 20),
+                        tooltip: 'Transportation Request',
+                        onPressed: () => context.push('/transportation-requests'),
+                      ),
+                      IconButton(
                         icon: const Icon(Icons.add_circle_outline, color: Colors.white, size: 20),
                         tooltip: 'New Report',
                         onPressed: _createNewReport,

@@ -251,6 +251,108 @@ extension TravelLocationExtension on String {
   }
 }
 
+enum VehicleType {
+  personalVehicle,
+  van,
+  pickupTruck,
+  taxi;
+
+  String get displayName {
+    switch (this) {
+      case VehicleType.personalVehicle:
+        return 'Personal Vehicle';
+      case VehicleType.van:
+        return 'Van';
+      case VehicleType.pickupTruck:
+        return 'Small Pickup / 4x4 Pickup Truck';
+      case VehicleType.taxi:
+        return 'Taxi';
+    }
+  }
+
+  /// Taxi fares are flat-rate by destination airport, not per-km.
+  bool get isFlatRate => this == VehicleType.taxi;
+
+  double get ratePerKm {
+    switch (this) {
+      case VehicleType.personalVehicle:
+        return 5.0; // 5 Baht per KM
+      case VehicleType.van:
+        return 7.0; // 7 Baht per KM
+      case VehicleType.pickupTruck:
+        return 5.0; // 5 Baht per KM
+      case VehicleType.taxi:
+        return 0.0; // Not applicable — see TaxiAirport.flatRate
+    }
+  }
+}
+
+extension VehicleTypeExtension on String {
+  String get vehicleTypeDisplayName {
+    final type = VehicleType.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => VehicleType.personalVehicle,
+    );
+    return type.displayName;
+  }
+
+  VehicleType toVehicleType() {
+    return VehicleType.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => VehicleType.personalVehicle,
+    );
+  }
+
+  double get ratePerKm {
+    return toVehicleType().ratePerKm;
+  }
+}
+
+// Fixed taxi fares to/from major Thailand airports
+enum TaxiAirport {
+  suvarnabhumi,
+  donMueang;
+
+  String get displayName {
+    switch (this) {
+      case TaxiAirport.suvarnabhumi:
+        return 'Suvarnabhumi Airport (BKK)';
+      case TaxiAirport.donMueang:
+        return 'Don Mueang Airport (DMK)';
+    }
+  }
+
+  double get flatRate {
+    switch (this) {
+      case TaxiAirport.suvarnabhumi:
+        return 1800.0; // Baht
+      case TaxiAirport.donMueang:
+        return 1600.0; // Baht
+    }
+  }
+}
+
+extension TaxiAirportExtension on String {
+  String get taxiAirportDisplayName {
+    final airport = TaxiAirport.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => TaxiAirport.suvarnabhumi,
+    );
+    return airport.displayName;
+  }
+
+  TaxiAirport toTaxiAirport() {
+    return TaxiAirport.values.firstWhere(
+      (e) => e.name == this,
+      orElse: () => TaxiAirport.suvarnabhumi,
+    );
+  }
+
+  double get taxiFlatRate {
+    return toTaxiAirport().flatRate;
+  }
+}
+
 // Employment-related enums for Staff model
 enum EmploymentType {
   fullTime,

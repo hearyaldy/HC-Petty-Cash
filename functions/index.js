@@ -184,6 +184,106 @@ exports.sendStyledMeetingInvitation = functions.https.onRequest(
   },
 );
 
+exports.sendEmailWithAttachment = functions.https.onRequest(
+  async (req, res) => {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+
+    if (req.method === 'OPTIONS') {
+      res.status(204).send('');
+      return;
+    }
+
+    if (req.method !== 'POST') {
+      res.status(405).json({ error: 'Method not allowed' });
+      return;
+    }
+
+    try {
+      const authHeader = req.headers.authorization || '';
+      if (!authHeader.startsWith('Bearer ')) {
+        res.status(401).json({ error: 'Missing Firebase auth token' });
+        return;
+      }
+
+      const firebaseToken = authHeader.substring('Bearer '.length);
+      await admin.auth().verifyIdToken(firebaseToken);
+
+      const payload =
+        typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
+      const recipientEmail = String(payload.recipientEmail || '').trim();
+      const recipientName = String(payload.recipientName || '').trim();
+      const subject = String(payload.subject || '').trim();
+      const htmlBody = String(payload.htmlBody || '').trim();
+      const attachmentBase64 = String(payload.attachmentBase64 || '').trim();
+      const attachmentName = String(payload.attachmentName || '').trim();
+
+      if (!recipientEmail || !subject || !htmlBody) {
+        res.status(400).json({
+          error: 'recipientEmail, subject, and htmlBody are required',
+        });
+        return;
+      }
+
+      const graphAccessToken = await getMicrosoftGraphAccessToken();
+      const senderUserId = getMicrosoftEmailConfig().senderUserId;
+      const sendMailResponse = await fetch(
+        `${GRAPH_API_BASE}/users/${encodeURIComponent(senderUserId)}/sendMail`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${graphAccessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: {
+              subject,
+              body: {
+                contentType: 'HTML',
+                content: htmlBody,
+              },
+              toRecipients: [
+                {
+                  emailAddress: {
+                    address: recipientEmail,
+                    ...(recipientName ? { name: recipientName } : {}),
+                  },
+                },
+              ],
+              ...(attachmentBase64 && attachmentName
+                ? {
+                    attachments: [
+                      {
+                        '@odata.type': '#microsoft.graph.fileAttachment',
+                        name: attachmentName,
+                        contentType: 'application/pdf',
+                        contentBytes: attachmentBase64,
+                      },
+                    ],
+                  }
+                : {}),
+            },
+            saveToSentItems: true,
+          }),
+        },
+      );
+
+      if (!sendMailResponse.ok) {
+        const errorText = await sendMailResponse.text();
+        res.status(500).json({
+          error: `Microsoft Graph sendMail failed: ${sendMailResponse.status} ${errorText}`,
+        });
+        return;
+      }
+
+      res.status(200).json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: error?.message || String(error) });
+    }
+  },
+);
+
 function getMicrosoftEmailConfig() {
   const tenantId =
     process.env.MICROSOFT_TENANT_ID ||
