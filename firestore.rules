@@ -23,10 +23,6 @@ service cloud.firestore {
       return isAuthenticated() && getUserRole() == 'finance';
     }
 
-    function isWebManager() {
-      return isAuthenticated() && getUserRole() == 'webManager';
-    }
-
     function canApprove() {
       return isManager() || isFinance() || isAdmin();
     }
@@ -93,9 +89,10 @@ service cloud.firestore {
       // Anyone authenticated can read user profiles (for display names, etc.)
       allow read: if isAuthenticated();
 
-      // Users can update their own profile (except role field)
+      // Users can update their own profile (except role and sectionPermissions,
+      // which gate privileged actions elsewhere and must not be self-editable)
       allow update: if isOwner(userId) &&
-        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']));
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'sectionPermissions']));
 
       // Allow authenticated users to create their own user document
       // This is needed because when admin creates a user via Firebase Auth,
@@ -226,14 +223,19 @@ service cloud.firestore {
 
     // Student timesheets collection
     match /student_timesheets/{timesheetId} {
-      // Students can read their own timesheets, admins can read all
-      allow read: if isAuthenticated();
+      // Students can read their own timesheets, admins/managers/finance can read all
+      allow read: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid || isAdmin() || isManager() || isFinance()
+      );
 
       // Students can create their own timesheets
-      allow create: if isAuthenticated();
+      allow create: if isAuthenticated() &&
+        request.resource.data.studentId == request.auth.uid;
 
       // Students can update their own timesheets (draft status), admins can update any
-      allow update: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid || isAdmin()
+      );
 
       // Students can delete their own timesheets, admins can delete any
       allow delete: if isAuthenticated() && (
@@ -243,14 +245,19 @@ service cloud.firestore {
 
     // Student monthly reports collection
     match /student_monthly_reports/{reportId} {
-      // Students can read their own reports, admins can read all
-      allow read: if isAuthenticated();
+      // Students can read their own reports, admins/managers/finance can read all
+      allow read: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid || isAdmin() || isManager() || isFinance()
+      );
 
       // Students can create their own monthly reports
-      allow create: if isAuthenticated();
+      allow create: if isAuthenticated() &&
+        request.resource.data.studentId == request.auth.uid;
 
       // Students can update their own draft reports, admins can update any
-      allow update: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid || isAdmin()
+      );
 
       // Students can delete their own reports, admins can delete any
       allow delete: if isAuthenticated() && (
@@ -429,15 +436,15 @@ service cloud.firestore {
       // Any authenticated user can create requisitions
       allow create: if isAuthenticated();
 
-      // Users can update draft requisitions, approvers can update submitted requisitions
+      // Owner can update their own draft requisitions, approvers can update submitted requisitions
       allow update: if isAuthenticated() && (
-        resource.data.status == 'draft' ||
+        (resource.data.requesterId == request.auth.uid && resource.data.status == 'draft') ||
         canApprove()
       );
 
-      // Users can delete draft requisitions, admin can delete any
+      // Owner can delete their own draft requisitions, admin can delete any
       allow delete: if isAuthenticated() && (
-        resource.data.status == 'draft' || isAdmin()
+        (resource.data.requesterId == request.auth.uid && resource.data.status == 'draft') || isAdmin()
       );
     }
 
@@ -453,19 +460,22 @@ service cloud.firestore {
           isFinance()
         );
 
-      // Create only if the parent requisition is draft
+      // Create only if the parent requisition is draft and caller owns it
       allow create: if isAuthenticated()
         && exists(/databases/$(database)/documents/purchase_requisitions/$(request.resource.data.requisitionId))
+        && get(/databases/$(database)/documents/purchase_requisitions/$(request.resource.data.requisitionId)).data.requesterId == request.auth.uid
         && get(/databases/$(database)/documents/purchase_requisitions/$(request.resource.data.requisitionId)).data.status == 'draft';
 
-      // Update only if the parent requisition is draft
+      // Update only if the parent requisition is draft and caller owns it
       allow update: if isAuthenticated()
         && exists(/databases/$(database)/documents/purchase_requisitions/$(resource.data.requisitionId))
+        && get(/databases/$(database)/documents/purchase_requisitions/$(resource.data.requisitionId)).data.requesterId == request.auth.uid
         && get(/databases/$(database)/documents/purchase_requisitions/$(resource.data.requisitionId)).data.status == 'draft';
 
-      // Delete only if the parent requisition is draft
+      // Delete only if the parent requisition is draft and caller owns it
       allow delete: if isAuthenticated()
         && exists(/databases/$(database)/documents/purchase_requisitions/$(resource.data.requisitionId))
+        && get(/databases/$(database)/documents/purchase_requisitions/$(resource.data.requisitionId)).data.requesterId == request.auth.uid
         && get(/databases/$(database)/documents/purchase_requisitions/$(resource.data.requisitionId)).data.status == 'draft';
     }
 
@@ -571,7 +581,9 @@ service cloud.firestore {
 
     // Staff collection - HR records
     match /staff/{staffId} {
-      // All authenticated users can read staff records (for salary/benefits management, directory, etc.)
+      // All authenticated users can read staff records (for salary/benefits
+      // management, directory, etc.) — bank/salary/ID fields are NOT stored
+      // here; they live in the private/financial subdocument below.
       allow read: if isAuthenticated();
 
       // Users can create their own staff record (when submitting HR data)
@@ -586,6 +598,13 @@ service cloud.firestore {
       // Users can delete their own staff record, admins can delete any
       allow delete: if isAuthenticated() &&
         (resource.data.userId == request.auth.uid || isAdmin());
+
+      // Financial/identity fields (bank account, salary, tax ID, national
+      // ID, passport, etc.) — only the staff member themself or an admin
+      // may read or write this subdocument.
+      match /private/{docId} {
+        allow read, write: if isAdmin() || isStaffOwner(staffId);
+      }
     }
 
     // Staff Documents collection
@@ -611,8 +630,8 @@ service cloud.firestore {
 
     // Salary Benefits collection
     match /salary_benefits/{salaryBenefitsId} {
-      // All authenticated users can read salary benefits records
-      allow read: if isAuthenticated();
+      // Only the staff member the record belongs to, or an admin, can read it
+      allow read: if isAdmin() || isStaffOwner(resource.data.staffId);
 
       // Only admins can create, update, or delete salary benefits records
       allow create, update, delete: if isAdmin();
@@ -929,6 +948,30 @@ service cloud.firestore {
       );
     }
 
+    // Internal Debit Notes collection
+    match /internal_debit_notes/{noteId} {
+      // Owners and approvers can read
+      allow read: if isAuthenticated() && (
+        resource.data.createdById == request.auth.uid || canApprove()
+      );
+
+      // Any authenticated user can create their own debit note
+      allow create: if isAuthenticated() &&
+        request.resource.data.createdById == request.auth.uid;
+
+      // Owner can update draft notes; approvers can update any
+      allow update: if isAuthenticated() && (
+        (resource.data.createdById == request.auth.uid && resource.data.status == 'draft') ||
+        canApprove()
+      );
+
+      // Owner can delete draft notes; admin can delete any
+      allow delete: if isAuthenticated() && (
+        (resource.data.createdById == request.auth.uid && resource.data.status == 'draft') ||
+        isAdmin()
+      );
+    }
+
     // Budget Years collection — admin only
     match /budgetYears/{yearId} {
       allow read: if isAdmin();
@@ -1002,14 +1045,6 @@ service cloud.firestore {
     match /survey_responses/{responseId} {
       allow create: if get(/databases/$(database)/documents/surveys/$(request.resource.data.surveyId)).data.isActive == true;
       allow read, delete: if isAdmin();
-    }
-
-    // ── Site config ──────────────────────────────────────────────────────
-    // Public landing page content: anyone can read (fetched client-side by
-    // the static landing page); only admins and the webManager role can write.
-    match /site_config/{docId} {
-      allow read: if true;
-      allow write: if isAdmin() || isWebManager();
     }
   }
 }

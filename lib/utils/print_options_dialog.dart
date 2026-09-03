@@ -18,6 +18,7 @@ Future<void> showPrintOptionsDialog({
   required BuildContext context,
   required Future<void> Function() onPrint,
   String title = 'Print Options',
+  Widget? extraContent,
 }) async {
   // Ensure the signature is loaded so hasSignature reflects reality
   await PdfSignatureHelper.load();
@@ -40,7 +41,8 @@ Future<void> showPrintOptionsDialog({
             ),
           ],
         ),
-        content: Column(
+        content: SingleChildScrollView(
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -79,7 +81,12 @@ Future<void> showPrintOptionsDialog({
                 ),
               ),
             ),
+            if (extraContent != null) ...[
+              const SizedBox(height: 12),
+              extraContent,
+            ],
           ],
+          ),
         ),
         actions: [
           TextButton(

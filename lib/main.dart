@@ -103,7 +103,6 @@ import 'screens/admin/adcom_minutes_edit_screen.dart';
 import 'screens/admin/adcom_minutes_view_screen.dart';
 import 'screens/admin/meeting_template_list_screen.dart';
 import 'screens/admin/meeting_template_edit_screen.dart';
-import 'screens/admin/landing_page_management_screen.dart';
 import 'providers/income_report_provider.dart';
 import 'providers/media_production_provider.dart';
 import 'providers/cash_advance_provider.dart';
@@ -119,6 +118,11 @@ import 'screens/expense_claim/expense_claims_list_screen.dart';
 import 'screens/expense_claim/new_expense_claim_screen.dart';
 import 'screens/expense_claim/expense_claim_detail_screen.dart';
 import 'providers/expense_claim_provider.dart';
+import 'providers/internal_debit_note_provider.dart';
+import 'screens/internal_debit_note/internal_debit_notes_screen.dart';
+import 'screens/internal_debit_note/new_internal_debit_note_screen.dart';
+import 'screens/internal_debit_note/internal_debit_note_detail_screen.dart';
+import 'screens/internal_debit_note/edit_internal_debit_note_screen.dart';
 import 'screens/hub/media_dashboard_screen.dart';
 import 'screens/budget/budget_list_screen.dart';
 import 'screens/budget/budget_year_detail_screen.dart';
@@ -250,6 +254,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => BudgetProvider()),
         ChangeNotifierProvider(create: (_) => SurveyProvider()),
         ChangeNotifierProvider(create: (_) => ExpenseClaimProvider()),
+        ChangeNotifierProvider(create: (_) => InternalDebitNoteProvider()),
       ],
       child: Consumer2<AuthProvider, ThemeProvider>(
         builder: (context, authProvider, themeProvider, _) {
@@ -335,9 +340,6 @@ class MyApp extends StatelessWidget {
             }
             return '/student-dashboard';
           }
-          if (user?.role == 'webManager') {
-            return '/admin/landing-page';
-          }
           return '/admin-hub';
         }
 
@@ -363,12 +365,12 @@ class MyApp extends StatelessWidget {
           }
         }
 
-        // Web managers can only access the landing page editor
-        if (user?.role == 'webManager') {
-          final webManagerRoutes = ['/admin/landing-page', '/settings'];
-          if (!webManagerRoutes.any((route) => currentPath.startsWith(route))) {
-            return '/admin/landing-page';
-          }
+        // Staff records and salary/benefits screens hold sensitive HR/
+        // financial data — restrict to admins only.
+        final staffOrSalaryRoutes = ['/admin/staff', '/admin/salary-benefits'];
+        if (user?.role != 'admin' &&
+            staffOrSalaryRoutes.any((route) => currentPath.startsWith(route))) {
+          return '/admin-hub';
         }
 
         return null;
@@ -376,10 +378,6 @@ class MyApp extends StatelessWidget {
       routes: [
         GoRoute(path: '/', builder: (context, state) => const LoginScreen()),
         GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
-        GoRoute(
-          path: '/admin/landing-page',
-          builder: (context, state) => const LandingPageManagementScreen(),
-        ),
         GoRoute(
           path: '/privacy-policy',
           builder: (context, state) => const PrivacyPolicyScreen(),
@@ -922,6 +920,29 @@ class MyApp extends StatelessWidget {
           builder: (context, state) {
             final voucherId = state.pathParameters['voucherId']!;
             return EditPaymentVoucherScreen(voucherId: voucherId);
+          },
+        ),
+        // Internal Debit Note Routes
+        GoRoute(
+          path: '/internal-debit-notes',
+          builder: (context, state) => const InternalDebitNotesScreen(),
+        ),
+        GoRoute(
+          path: '/internal-debit-notes/new',
+          builder: (context, state) => const NewInternalDebitNoteScreen(),
+        ),
+        GoRoute(
+          path: '/internal-debit-notes/:noteId',
+          builder: (context, state) {
+            final noteId = state.pathParameters['noteId']!;
+            return InternalDebitNoteDetailScreen(noteId: noteId);
+          },
+        ),
+        GoRoute(
+          path: '/internal-debit-notes/:noteId/edit',
+          builder: (context, state) {
+            final noteId = state.pathParameters['noteId']!;
+            return EditInternalDebitNoteScreen(noteId: noteId);
           },
         ),
         // Equipment Inventory Routes

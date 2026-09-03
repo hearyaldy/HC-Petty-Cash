@@ -875,6 +875,7 @@ class _CashAdvancesScreenState extends State<CashAdvancesScreen> {
           columns: const [
             DataColumn(label: Text('Request No.')),
             DataColumn(label: Text('Requester')),
+            DataColumn(label: Text('Purpose')),
             DataColumn(label: Text('Department')),
             DataColumn(label: Text('Date')),
             DataColumn(label: Text('Amount')),
@@ -887,6 +888,16 @@ class _CashAdvancesScreenState extends State<CashAdvancesScreen> {
               cells: [
                 DataCell(Text(advance.requestNumber)),
                 DataCell(Text(advance.requesterName)),
+                DataCell(
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 220),
+                    child: Text(
+                      advance.purpose,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
                 DataCell(Text(advance.department)),
                 DataCell(Text(_dateFormat.format(advance.requestDate))),
                 DataCell(Text(_currencyFormat.format(advance.requestedAmount))),
@@ -966,6 +977,7 @@ class _CashAdvancesScreenState extends State<CashAdvancesScreen> {
                   headers: const [
                     'Request No.',
                     'Requester',
+                    'Purpose',
                     'Department',
                     'Date',
                     'Amount',
@@ -976,6 +988,7 @@ class _CashAdvancesScreenState extends State<CashAdvancesScreen> {
                         (a) => [
                           a.requestNumber,
                           a.requesterName,
+                          a.purpose,
                           a.department,
                           _dateFormat.format(a.requestDate),
                           currency.format(a.requestedAmount),
@@ -992,10 +1005,11 @@ class _CashAdvancesScreenState extends State<CashAdvancesScreen> {
                   columnWidths: {
                     0: const pw.FlexColumnWidth(2),
                     1: const pw.FlexColumnWidth(2),
-                    2: const pw.FlexColumnWidth(2),
-                    3: const pw.FlexColumnWidth(1.5),
+                    2: const pw.FlexColumnWidth(2.5),
+                    3: const pw.FlexColumnWidth(2),
                     4: const pw.FlexColumnWidth(1.5),
                     5: const pw.FlexColumnWidth(1.5),
+                    6: const pw.FlexColumnWidth(1.5),
                   },
                 ),
               ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../providers/auth_provider.dart';
 import '../models/enums.dart';
 
@@ -14,7 +15,6 @@ class AppDrawer extends StatelessWidget {
     final isAdmin = authProvider.canManageUsers();
     final canApprove = authProvider.canApprove();
     final isStudentWorker = user?.roleEnum == UserRole.studentWorker;
-    final isWebManager = user?.roleEnum == UserRole.webManager;
     final hasMeetingsAccess = isAdmin || (user?.sectionPermissions.meetingsView ?? false);
 
     return Drawer(
@@ -26,7 +26,7 @@ class AppDrawer extends StatelessWidget {
               padding: const EdgeInsets.only(top: 8, bottom: 16),
               children: [
                 // ── Dashboard ───────────────────────────────────────────
-                if (!isStudentWorker && !isWebManager)
+                if (!isStudentWorker)
                   _buildNavItem(
                     context,
                     icon: Icons.dashboard_rounded,
@@ -35,28 +35,7 @@ class AppDrawer extends StatelessWidget {
                     color: const Color(0xFF2563EB),
                   ),
 
-                // ── Web Manager ───────────────────────────────────────
-                if (isWebManager)
-                  _buildNavItem(
-                    context,
-                    icon: Icons.web_rounded,
-                    title: 'Landing Page',
-                    route: '/admin/landing-page',
-                    color: const Color(0xFF2563EB),
-                  ),
-
-                if (isAdmin)
-                  _buildSection(
-                    context,
-                    icon: Icons.web_rounded,
-                    title: 'Website',
-                    color: const Color(0xFF2563EB),
-                    items: [
-                      _NavItem(Icons.web_rounded, 'Landing Page', '/admin/landing-page'),
-                    ],
-                  ),
-
-                if (!isStudentWorker && !isWebManager) ...[
+                if (!isStudentWorker) ...[
                   const SizedBox(height: 4),
 
                   // ── Finance ─────────────────────────────────────────
@@ -73,6 +52,7 @@ class AppDrawer extends StatelessWidget {
                       _NavItem(Icons.shopping_cart_outlined, 'Purchase Requisitions', '/purchase-requisitions'),
                       _NavItem(Icons.account_balance_wallet_outlined, 'Cash Advances', '/cash-advances'),
                       _NavItem(Icons.receipt_long_outlined, 'Expense Claims', '/expense-claims'),
+                      _NavItem(Icons.compare_arrows_outlined, 'Internal Debit Notes', '/internal-debit-notes'),
                       if (canApprove)
                         _NavItem(Icons.pending_actions, 'Pending Approvals', '/approvals', badge: true),
                       if (canApprove)
@@ -222,6 +202,13 @@ class AppDrawer extends StatelessWidget {
                 const Divider(height: 24),
 
                 // ── Account ─────────────────────────────────────────
+                _buildExternalLinkItem(
+                  context,
+                  icon: Icons.public,
+                  title: 'View Public Site',
+                  url: 'https://hopechannel.asia/',
+                  color: Colors.grey,
+                ),
                 _buildNavItem(
                   context,
                   icon: Icons.settings_outlined,
@@ -374,6 +361,41 @@ class AppDrawer extends StatelessWidget {
         onTap: () {
           Navigator.pop(context);
           context.push(route);
+        },
+      ),
+    );
+  }
+
+  // ── External link (opens outside the app, e.g. the public landing page) ──
+
+  Widget _buildExternalLinkItem(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String url,
+    required Color color,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      child: ListTile(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        leading: Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 17, color: color),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+        ),
+        trailing: Icon(Icons.open_in_new, size: 15, color: Colors.grey.shade400),
+        onTap: () {
+          Navigator.pop(context);
+          launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
         },
       ),
     );

@@ -1,3 +1,4 @@
+import 'dart:async' show unawaited;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
@@ -31,6 +32,8 @@ import '../../utils/responsive_helper.dart';
 import '../../utils/icon_registry.dart';
 import '../../utils/print_options_dialog.dart';
 import '../../services/pdf_signature_helper.dart';
+import '../../widgets/currency_conversion_option.dart';
+import '../../widgets/foreign_amount_field.dart';
 
 enum TransactionSortOption {
   dateNewest,
@@ -715,12 +718,27 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
     // Compute live from in-memory transactions so the UI is always up-to-date
     // even before Firestore persists the recalculated stored fields.
-    // This matches the PDF export logic which also derives values on-the-fly.
+    // Only approved/processed transactions count toward the balance — this
+    // matches PettyCashReport.calculateTotals() (the value actually saved to
+    // Firestore and shown on the Reports List screen), so a report with a
+    // pending or rejected transaction doesn't show a different balance here
+    // than everywhere else in the app.
+    final settledTransactions = transactions.where((t) =>
+        t.status == TransactionStatus.approved.name ||
+        t.status == TransactionStatus.processed.name);
     final liveTotalDisbursements =
-        transactions.fold<double>(0, (sum, t) => sum + t.amount);
+        settledTransactions.fold<double>(0, (sum, t) => sum + t.amount);
     final liveCashOnHand = report.openingBalance - liveTotalDisbursements;
     final liveClosingBalance = liveCashOnHand;
     final liveVariance = liveClosingBalance - report.openingBalance + liveTotalDisbursements;
+
+    // Second-currency tallies when the advance was sent in a foreign currency
+    final fxRate =
+        report.hasForeignOpeningBalance ? report.openingExchangeRate : null;
+    final fxCode = report.openingBalanceCurrency;
+    String? fx(double thbAmount) => fxRate == null
+        ? null
+        : '≈ $fxCode ${(thbAmount / fxRate).toStringAsFixed(2)}';
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -752,6 +770,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   report.openingBalance,
                   Theme.of(context).colorScheme.primary,
                   Icons.account_balance_wallet,
+                  subtitle: fx(report.openingBalance),
                 ),
               ),
               const SizedBox(width: 16),
@@ -761,6 +780,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   liveTotalDisbursements,
                   Colors.red,
                   Icons.money_off,
+                  subtitle: fx(liveTotalDisbursements),
                 ),
               ),
             ],
@@ -774,6 +794,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   liveCashOnHand,
                   Colors.orange,
                   Icons.payments,
+                  subtitle: fx(liveCashOnHand),
                 ),
               ),
               const SizedBox(width: 16),
@@ -783,6 +804,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   liveClosingBalance,
                   Colors.green,
                   Icons.account_balance,
+                  subtitle: fx(liveClosingBalance),
                 ),
               ),
             ],
@@ -827,8 +849,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     String label,
     double amount,
     Color color,
-    IconData icon,
-  ) {
+    IconData icon, {
+    String? subtitle,
+  }) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -870,9 +893,36 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               color: color,
             ),
           ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: color.withValues(alpha: 0.75),
+              ),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  /// Formats a THB amount, appending the report's foreign-currency
+  /// equivalent (e.g. "฿8,190.00 (MYR 1,000.00)") when one is recorded.
+  String _formatWithForeign(
+    PettyCashReport report,
+    double thbAmount,
+    NumberFormat currencyFormat,
+  ) {
+    if (!report.hasForeignOpeningBalance) {
+      return currencyFormat.format(thbAmount);
+    }
+    final converted = thbAmount / report.openingExchangeRate!;
+    return '${currencyFormat.format(thbAmount)}  '
+        '(${report.openingBalanceCurrency} '
+        '${NumberFormat('#,##0.00').format(converted)})';
   }
 
   Widget _buildTransactionsList(
@@ -1042,9 +1092,27 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   }) {
     final isMobile = ResponsiveHelper.isMobile(context);
 
-    final amountText = Text(
-      '${AppConstants.currencySymbol}${transaction.amount.toStringAsFixed(2)}',
-      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+    final foreignRate =
+        report.hasForeignOpeningBalance ? report.openingExchangeRate : null;
+    final amountText = Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '${AppConstants.currencySymbol}${transaction.amount.toStringAsFixed(2)}',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+        if (foreignRate != null)
+          Text(
+            '≈ ${report.openingBalanceCurrency} '
+            '${(transaction.amount / foreignRate).toStringAsFixed(2)}',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.teal.shade700,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+      ],
     );
 
     final actions = Wrap(
@@ -1077,6 +1145,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               _showSupportDocumentPreview(transaction);
             } else if (value == 'uploadDocument') {
               _showSupportDocumentUploadDialog(transaction);
+            } else if (value == 'move') {
+              await _showMoveTransactionDialog(transaction, report);
             }
           },
           itemBuilder: (context) => [
@@ -1120,6 +1190,16 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   Icon(Icons.edit, size: 18),
                   SizedBox(width: 8),
                   Text('Edit'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'move',
+              child: Row(
+                children: [
+                  Icon(Icons.drive_file_move_outline, size: 18, color: Colors.indigo),
+                  SizedBox(width: 8),
+                  Text('Move to Report'),
                 ],
               ),
             ),
@@ -2168,6 +2248,16 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                             },
                           ),
 
+                          // Foreign-currency entry using the report's rate
+                          if (report.hasForeignOpeningBalance) ...[
+                            const SizedBox(height: 16),
+                            ForeignAmountField(
+                              thbController: amountController,
+                              currencyCode: report.openingBalanceCurrency!,
+                              rate: report.openingExchangeRate!,
+                            ),
+                          ],
+
                           // Show reimbursement calculation for medical claims
                           if (isMedicalClaim && totalBill > 0) ...[
                             const SizedBox(height: 12),
@@ -2837,6 +2927,15 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                         ? '${descriptionController.text} [Total Bill: ${AppConstants.currencySymbol}${double.parse(amountController.text).toStringAsFixed(2)}]'
                                         : descriptionController.text;
 
+                                    // Capture providers before closing the dialog
+                                    final reportProvider =
+                                        context.read<ReportProvider>();
+                                    final projectReportProvider =
+                                        context.read<ProjectReportProvider>();
+
+                                    // The provider adds to the in-memory list
+                                    // immediately, so the screen updates as
+                                    // soon as the write completes.
                                     await transactionProvider.createTransaction(
                                       reportId: report.id,
                                       projectId: selectedProjectId,
@@ -2855,19 +2954,14 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                       exchangeRateDate: hasCurrencyExchange ? exchangeRateDate : null,
                                     );
 
-                                    if (!context.mounted) return;
-                                    // Reload transactions, reports, and project reports to update the UI
-                                    await Future.wait([
-                                      context
-                                          .read<TransactionProvider>()
-                                          .loadTransactions(),
-                                      context
-                                          .read<ReportProvider>()
-                                          .loadReports(),
-                                      context
-                                          .read<ProjectReportProvider>()
+                                    // Full refresh in the background to
+                                    // reconcile with Firestore
+                                    unawaited(Future.wait([
+                                      transactionProvider.loadTransactions(),
+                                      reportProvider.loadReports(),
+                                      projectReportProvider
                                           .loadProjectReports(),
-                                    ]);
+                                    ]));
 
                                     if (context.mounted) {
                                       Navigator.of(context).pop();
@@ -2953,15 +3047,30 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     PettyCashReport report,
     List<Transaction> transactions,
   ) async {
+    // Default to the currency/rate recorded on the report (e.g. the advance
+    // was transferred to Malaysia in MYR); fall back to a live-rate MYR option.
+    final conversionOption = report.hasForeignOpeningBalance
+        ? CurrencyConversionOption(
+            enabled: true,
+            currencyCode: report.openingBalanceCurrency!,
+            rate: report.openingExchangeRate,
+          )
+        : CurrencyConversionOption();
     await showPrintOptionsDialog(
       context: context,
       title: 'Print Advance Settlement',
+      extraContent: CurrencyConversionOptionTile(option: conversionOption),
       onPrint: () async {
         try {
           final pdfService = PdfExportService();
+          final useConversion =
+              conversionOption.enabled && conversionOption.rate != null;
           await pdfService.exportAdvanceSettlementReport(
             report,
             transactions: transactions,
+            conversionCurrency:
+                useConversion ? conversionOption.currencyCode : null,
+            conversionRate: useConversion ? conversionOption.rate : null,
           );
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -3181,6 +3290,15 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   }
 
   Future<void> _showEditTransactionDialog(Transaction transaction) async {
+    // Resolve the parent report for its foreign-currency settings
+    final parentReport = context
+        .read<ReportProvider>()
+        .reports
+        .cast<PettyCashReport?>()
+        .firstWhere(
+          (r) => r?.id == transaction.reportId,
+          orElse: () => null,
+        );
     final amountController = TextEditingController(
       text: transaction.amount.toString(),
     );
@@ -3506,6 +3624,17 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       keyboardType: TextInputType.number,
                       onChanged: isMedicalClaim ? (value) => setState(() {}) : null,
                     ),
+
+                    // Foreign-currency entry using the report's rate
+                    if (parentReport != null &&
+                        parentReport.hasForeignOpeningBalance) ...[
+                      const SizedBox(height: 16),
+                      ForeignAmountField(
+                        thbController: amountController,
+                        currencyCode: parentReport.openingBalanceCurrency!,
+                        rate: parentReport.openingExchangeRate!,
+                      ),
+                    ],
 
                     // Show reimbursement calculation for medical claims
                     if (isMedicalClaim && totalBill > 0) ...[
@@ -4150,15 +4279,15 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                         hasCurrencyExchange ? exchangeRateDate : null,
                   );
 
-                  await transactionProvider.updateTransaction(updatedTransaction);
-
                   if (!context.mounted) return;
-                  // Reload transactions, reports, and project reports to update the UI
-                  await Future.wait([
-                    context.read<TransactionProvider>().loadTransactions(),
-                    context.read<ReportProvider>().loadReports(),
-                    context.read<ProjectReportProvider>().loadProjectReports(),
-                  ]);
+                  // Capture providers before closing the dialog
+                  final reportProvider = context.read<ReportProvider>();
+                  final projectReportProvider =
+                      context.read<ProjectReportProvider>();
+
+                  // The provider patches the in-memory list immediately, so
+                  // the screen updates as soon as the write completes.
+                  await transactionProvider.updateTransaction(updatedTransaction);
 
                   if (context.mounted) {
                     Navigator.of(context).pop();
@@ -4168,6 +4297,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       ),
                     );
                   }
+                  // Full refresh in the background to reconcile with Firestore
+                  unawaited(Future.wait([
+                    transactionProvider.loadTransactions(),
+                    reportProvider.loadReports(),
+                    projectReportProvider.loadProjectReports(),
+                  ]));
                 },
                 child: const Text('Save'),
               ),
@@ -4241,6 +4376,142 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     }
   }
 
+  Future<void> _showMoveTransactionDialog(
+    Transaction transaction,
+    PettyCashReport currentReport,
+  ) async {
+    final reportProvider = context.read<ReportProvider>();
+    if (reportProvider.reports.isEmpty) {
+      await reportProvider.loadReports();
+    }
+    if (!mounted) return;
+
+    final candidates = reportProvider.reports
+        .where((r) =>
+            r.id != currentReport.id && r.status != ReportStatus.closed.name)
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    String query = '';
+
+    final selected = await showDialog<PettyCashReport>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final filtered = candidates.where((r) {
+            if (query.isEmpty) return true;
+            final q = query.toLowerCase();
+            return r.reportNumber.toLowerCase().contains(q) ||
+                r.department.toLowerCase().contains(q);
+          }).toList();
+
+          return AlertDialog(
+            title: const Text('Move to Report'),
+            content: SizedBox(
+              width: 420,
+              height: 420,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Moving "${transaction.description}" '
+                    '(${AppConstants.currencySymbol}${transaction.amount.toStringAsFixed(2)}) '
+                    'out of ${currentReport.reportNumber}.',
+                    style: TextStyle(color: Colors.grey[700], fontSize: 13),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    decoration: const InputDecoration(
+                      labelText: 'Search reports',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    onChanged: (value) =>
+                        setDialogState(() => query = value.trim()),
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: filtered.isEmpty
+                        ? Center(
+                            child: Text(
+                              candidates.isEmpty
+                                  ? 'No other open reports available'
+                                  : 'No matching reports',
+                              style: TextStyle(color: Colors.grey[600]),
+                            ),
+                          )
+                        : ListView.separated(
+                            itemCount: filtered.length,
+                            separatorBuilder: (context, index) =>
+                                const Divider(height: 1),
+                            itemBuilder: (context, index) {
+                              final r = filtered[index];
+                              return ListTile(
+                                dense: true,
+                                title: Text(
+                                  r.reportNumber,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600),
+                                ),
+                                subtitle: Text(
+                                  '${r.reportType == 'advance_settlement' ? 'Advance Settlement' : 'Petty Cash'} • ${r.department}',
+                                ),
+                                onTap: () =>
+                                    Navigator.of(context).pop(r),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (selected == null || !mounted) return;
+
+    try {
+      final transactionProvider = context.read<TransactionProvider>();
+      await transactionProvider.moveTransactionToReport(
+        transaction,
+        selected.id,
+      );
+
+      if (!mounted) return;
+      await Future.wait([
+        context.read<TransactionProvider>().loadTransactions(),
+        context.read<ReportProvider>().loadReports(),
+      ]);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Moved to ${selected.reportNumber}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error moving transaction: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _printTransactionsTable(
     PettyCashReport report,
     List<Transaction> transactions,
@@ -4276,6 +4547,15 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       // Logo loading failed, will use fallback
     }
 
+    // Only approved/processed transactions count toward the balance shown in
+    // the summary box — matches PettyCashReport.calculateTotals() (the value
+    // saved to Firestore and shown on the Reports List screen).
+    final settledTransactions = transactions
+        .where((t) =>
+            t.status == TransactionStatus.approved.name ||
+            t.status == TransactionStatus.processed.name)
+        .toList();
+
     // Define constants for pagination
     const maxRowsSinglePage = 25; // Leave room for summary/signature
     final needsSummaryPage = transactions.length > maxRowsSinglePage;
@@ -4303,6 +4583,21 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             ),
             child: pw.Column(
               children: [
+                if (report.hasForeignOpeningBalance)
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.end,
+                    children: [
+                      pw.Text(
+                        'Exchange rate: 1 ${report.openingBalanceCurrency} = '
+                        '${NumberFormat('#,##0.0000').format(report.openingExchangeRate)} THB',
+                        style: pw.TextStyle(
+                          font: ttf,
+                          fontSize: 8,
+                          color: PdfColors.grey700,
+                        ),
+                      ),
+                    ],
+                  ),
                 pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
@@ -4311,7 +4606,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       style: pw.TextStyle(font: ttf, fontSize: 10),
                     ),
                     pw.Text(
-                      currencyFormat.format(report.openingBalance),
+                      _formatWithForeign(report, report.openingBalance,
+                          currencyFormat),
                       style: pw.TextStyle(font: ttf, fontSize: 10),
                     ),
                   ],
@@ -4325,11 +4621,13 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       style: pw.TextStyle(font: ttf, fontSize: 10),
                     ),
                     pw.Text(
-                      currencyFormat.format(
-                        transactions.fold<double>(
+                      _formatWithForeign(
+                        report,
+                        settledTransactions.fold<double>(
                           0,
                           (sum, t) => sum + t.amount,
                         ),
+                        currencyFormat,
                       ),
                       style: pw.TextStyle(font: ttf, fontSize: 10),
                     ),
@@ -4347,12 +4645,14 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                           style: pw.TextStyle(font: boldTtf, fontSize: 11),
                         ),
                         pw.Text(
-                          currencyFormat.format(
+                          _formatWithForeign(
+                            report,
                             report.openingBalance -
-                                transactions.fold<double>(
+                                settledTransactions.fold<double>(
                                   0,
                                   (sum, t) => sum + t.amount,
                                 ),
+                            currencyFormat,
                           ),
                           style: pw.TextStyle(font: boldTtf, fontSize: 11),
                         ),
@@ -4360,7 +4660,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     ),
                     pw.SizedBox(height: 4),
                     pw.Text(
-                      '(${_convertToWords(report.openingBalance - transactions.fold<double>(0, (sum, t) => sum + t.amount))})',
+                      '(${_convertToWords(report.openingBalance - settledTransactions.fold<double>(0, (sum, t) => sum + t.amount))})',
                       style: pw.TextStyle(
                         font: ttf,
                         fontSize: 9,
@@ -4461,6 +4761,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       0,
       (sum, t) => sum + t.amount,
     );
+    final pdfFxRate =
+        report.hasForeignOpeningBalance ? report.openingExchangeRate : null;
+    final pdfFxCode = report.openingBalanceCurrency;
+    final fxNumFormat = NumberFormat('#,##0.00');
     final List<List<dynamic>> tableRows = transactions
         .map<List<dynamic>>(
           (transaction) => [
@@ -4469,6 +4773,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             transaction.description,
             transaction.categoryDisplayName,
             currencyFormat.format(transaction.amount),
+            if (pdfFxRate != null)
+              fxNumFormat.format(transaction.amount / pdfFxRate),
             transaction.paymentMethodEnum.displayName,
             transaction.statusEnum.displayName,
           ],
@@ -4481,6 +4787,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       '',
       'Total',
       currencyFormat.format(totalAmount),
+      if (pdfFxRate != null) fxNumFormat.format(totalAmount / pdfFxRate),
       '',
       '',
     ]);
@@ -4597,12 +4904,13 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           ),
           pw.SizedBox(height: 12),
           pw.Table.fromTextArray(
-            headers: const [
+            headers: [
               'Date',
               'Receipt No',
               'Description',
               'Category',
-              'Amount',
+              pdfFxRate != null ? 'Amount (THB)' : 'Amount',
+              if (pdfFxRate != null) 'Amount ($pdfFxCode)',
               'Payment',
               'Status',
             ],
@@ -4612,18 +4920,28 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             headerStyle: pw.TextStyle(font: boldTtf, fontSize: 9),
             cellStyle: pw.TextStyle(font: ttf, fontSize: 8),
             cellAlignment: pw.Alignment.centerLeft,
-            cellAlignments: {4: pw.Alignment.centerRight},
+            cellAlignments: {
+              4: pw.Alignment.centerRight,
+              if (pdfFxRate != null) 5: pw.Alignment.centerRight,
+            },
             cellDecoration: (index, data, rowNum) => rowNum == totalRowNum
                 ? pw.BoxDecoration(color: PdfColors.grey200)
                 : const pw.BoxDecoration(),
             columnWidths: {
               0: const pw.FlexColumnWidth(1),
               1: const pw.FlexColumnWidth(1),
-              2: const pw.FlexColumnWidth(2.5),
+              2: pw.FlexColumnWidth(pdfFxRate != null ? 2.0 : 2.5),
               3: const pw.FlexColumnWidth(1.5),
               4: const pw.FlexColumnWidth(1),
-              5: const pw.FlexColumnWidth(1.5),
-              6: const pw.FlexColumnWidth(1),
+              if (pdfFxRate != null) 5: const pw.FlexColumnWidth(1),
+              if (pdfFxRate != null)
+                6: const pw.FlexColumnWidth(1.5)
+              else
+                5: const pw.FlexColumnWidth(1.5),
+              if (pdfFxRate != null)
+                7: const pw.FlexColumnWidth(1)
+              else
+                6: const pw.FlexColumnWidth(1),
             },
           ),
           pw.SizedBox(height: 8),

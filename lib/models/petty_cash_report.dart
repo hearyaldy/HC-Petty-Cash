@@ -13,7 +13,12 @@ class PettyCashReport {
   final String department;
   final String custodianId;
   final String custodianName;
-  final double openingBalance;
+  final double openingBalance; // Always in THB (converted when foreign)
+  // Optional foreign-currency opening balance. When the advance was taken in
+  // another currency, openingBalance = openingBalanceForeign × openingExchangeRate.
+  final String? openingBalanceCurrency; // e.g. 'MYR'; null/'THB' = entered in THB
+  final double? openingBalanceForeign; // amount in openingBalanceCurrency
+  final double? openingExchangeRate; // THB per 1 unit of openingBalanceCurrency
   final double closingBalance;
   final double totalDisbursements;
   final double cashOnHand;
@@ -38,6 +43,9 @@ class PettyCashReport {
     required this.custodianId,
     required this.custodianName,
     required this.openingBalance,
+    this.openingBalanceCurrency,
+    this.openingBalanceForeign,
+    this.openingExchangeRate,
     this.closingBalance = 0,
     this.totalDisbursements = 0,
     this.cashOnHand = 0,
@@ -50,6 +58,14 @@ class PettyCashReport {
     this.cashAdvanceId,
     this.purchaseRequisitionId,
   });
+
+  // True when the opening balance was entered in a foreign currency
+  bool get hasForeignOpeningBalance =>
+      openingBalanceCurrency != null &&
+      openingBalanceCurrency != 'THB' &&
+      openingBalanceForeign != null &&
+      openingExchangeRate != null &&
+      openingExchangeRate! > 0;
 
   // Get ReportStatus enum from string
   ReportStatus get statusEnum => ReportStatus.values.firstWhere(
@@ -98,6 +114,9 @@ class PettyCashReport {
       'custodianId': custodianId,
       'custodianName': custodianName,
       'openingBalance': openingBalance,
+      'openingBalanceCurrency': openingBalanceCurrency,
+      'openingBalanceForeign': openingBalanceForeign,
+      'openingExchangeRate': openingExchangeRate,
       'closingBalance': closingBalance,
       'totalDisbursements': totalDisbursements,
       'cashOnHand': cashOnHand,
@@ -129,6 +148,10 @@ class PettyCashReport {
       custodianId: data['custodianId'] as String,
       custodianName: data['custodianName'] as String,
       openingBalance: (data['openingBalance'] as num).toDouble(),
+      openingBalanceCurrency: data['openingBalanceCurrency'] as String?,
+      openingBalanceForeign:
+          (data['openingBalanceForeign'] as num?)?.toDouble(),
+      openingExchangeRate: (data['openingExchangeRate'] as num?)?.toDouble(),
       closingBalance: (data['closingBalance'] as num).toDouble(),
       totalDisbursements: (data['totalDisbursements'] as num).toDouble(),
       cashOnHand: (data['cashOnHand'] as num).toDouble(),
@@ -159,6 +182,9 @@ class PettyCashReport {
       'custodianId': custodianId,
       'custodianName': custodianName,
       'openingBalance': openingBalance,
+      'openingBalanceCurrency': openingBalanceCurrency,
+      'openingBalanceForeign': openingBalanceForeign,
+      'openingExchangeRate': openingExchangeRate,
       'closingBalance': closingBalance,
       'totalDisbursements': totalDisbursements,
       'cashOnHand': cashOnHand,
@@ -189,6 +215,10 @@ class PettyCashReport {
       custodianId: json['custodianId'] as String,
       custodianName: json['custodianName'] as String,
       openingBalance: (json['openingBalance'] as num).toDouble(),
+      openingBalanceCurrency: json['openingBalanceCurrency'] as String?,
+      openingBalanceForeign:
+          (json['openingBalanceForeign'] as num?)?.toDouble(),
+      openingExchangeRate: (json['openingExchangeRate'] as num?)?.toDouble(),
       closingBalance: (json['closingBalance'] as num?)?.toDouble() ?? 0,
       totalDisbursements:
           (json['totalDisbursements'] as num?)?.toDouble() ?? 0,
@@ -218,6 +248,10 @@ class PettyCashReport {
     String? custodianId,
     String? custodianName,
     double? openingBalance,
+    String? openingBalanceCurrency,
+    double? openingBalanceForeign,
+    double? openingExchangeRate,
+    bool clearOpeningCurrency = false,
     double? closingBalance,
     double? totalDisbursements,
     double? cashOnHand,
@@ -241,6 +275,15 @@ class PettyCashReport {
       custodianId: custodianId ?? this.custodianId,
       custodianName: custodianName ?? this.custodianName,
       openingBalance: openingBalance ?? this.openingBalance,
+      openingBalanceCurrency: clearOpeningCurrency
+          ? null
+          : openingBalanceCurrency ?? this.openingBalanceCurrency,
+      openingBalanceForeign: clearOpeningCurrency
+          ? null
+          : openingBalanceForeign ?? this.openingBalanceForeign,
+      openingExchangeRate: clearOpeningCurrency
+          ? null
+          : openingExchangeRate ?? this.openingExchangeRate,
       closingBalance: closingBalance ?? this.closingBalance,
       totalDisbursements: totalDisbursements ?? this.totalDisbursements,
       cashOnHand: cashOnHand ?? this.cashOnHand,

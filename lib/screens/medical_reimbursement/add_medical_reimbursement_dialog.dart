@@ -66,6 +66,16 @@ class _AddMedicalReimbursementDialogState
         _selectedRequester = null;
       }
     });
+    // Select all text on focus so approvers can immediately type over the
+    // pre-filled name to search for a different staff member.
+    _requesterFocusNode.addListener(() {
+      if (_requesterFocusNode.hasFocus) {
+        _requesterNameController.selection = TextSelection(
+          baseOffset: 0,
+          extentOffset: _requesterNameController.text.length,
+        );
+      }
+    });
 
     if (widget.existingReimbursement != null) {
       final existing = widget.existingReimbursement!;
@@ -829,7 +839,7 @@ class _AddMedicalReimbursementDialogState
               : ListView.separated(
                   shrinkWrap: true,
                   itemCount: minutesList.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final m = minutesList[index];
                     final dateStr = DateFormat('MMM dd, yyyy').format(m.meetingDate);
@@ -880,7 +890,7 @@ class _AddMedicalReimbursementDialogState
                 : ListView.separated(
                     shrinkWrap: true,
                     itemCount: items.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    separatorBuilder: (_, _) => const Divider(height: 1),
                     itemBuilder: (context, index) {
                       final item = items[index];
                       return ListTile(

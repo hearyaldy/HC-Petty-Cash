@@ -75,6 +75,24 @@ class PdfExportService {
   pw.Font? _boldFont;
   pw.ThemeData? _pdfTheme;
 
+  /// Sorts transactions chronologically, breaking ties (same date) by the
+  /// numeric portion of the receipt number so rows like 001, 002, 003
+  /// print in order instead of following raw Firestore fetch order.
+  static int _compareByDateAndReceipt(Transaction a, Transaction b) {
+    // Compare calendar day only — `date` often carries a time-of-day
+    // component (e.g. DateTime.now() at entry time), which made same-day
+    // transactions rarely compare equal and skip the receiptNo tiebreak.
+    final aDay = DateTime(a.date.year, a.date.month, a.date.day);
+    final bDay = DateTime(b.date.year, b.date.month, b.date.day);
+    final dateComparison = aDay.compareTo(bDay);
+    if (dateComparison != 0) return dateComparison;
+
+    final aNumber = int.tryParse(a.receiptNo.replaceAll(RegExp(r'[^0-9]'), ''));
+    final bNumber = int.tryParse(b.receiptNo.replaceAll(RegExp(r'[^0-9]'), ''));
+    if (aNumber != null && bNumber != null) return aNumber.compareTo(bNumber);
+    return a.receiptNo.compareTo(b.receiptNo);
+  }
+
   Future<pw.ThemeData> _getPdfTheme() async {
     if (_pdfTheme != null) return _pdfTheme!;
     pw.Font? regular;
@@ -1072,8 +1090,7 @@ class PdfExportService {
       report.id,
     );
     // Sort oldest → newest so PDF rows match chronological order
-    final transactions = [...rawTransactions]
-      ..sort((a, b) => a.date.compareTo(b.date));
+    final transactions = [...rawTransactions]..sort(_compareByDateAndReceipt);
 
     pdf.addPage(
       pw.MultiPage(
@@ -1112,7 +1129,11 @@ class PdfExportService {
                   ),
                 ),
                 pw.Text(
-                  currencyFormat.format(report.openingBalance),
+                  report.hasForeignOpeningBalance
+                      ? '${currencyFormat.format(report.openingBalance)}  '
+                          '(${report.openingBalanceCurrency} '
+                          '${NumberFormat('#,##0.00').format(report.openingBalanceForeign)})'
+                      : currencyFormat.format(report.openingBalance),
                   style: pw.TextStyle(
                     fontWeight: pw.FontWeight.bold,
                     fontSize: 13,
@@ -1130,7 +1151,17 @@ class PdfExportService {
             style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
           ),
           pw.SizedBox(height: 10),
-          _buildTransactionsTable(transactions, dateFormat, currencyFormat),
+          _buildTransactionsTable(
+            transactions,
+            dateFormat,
+            currencyFormat,
+            fxCode: report.hasForeignOpeningBalance
+                ? report.openingBalanceCurrency
+                : null,
+            fxRate: report.hasForeignOpeningBalance
+                ? report.openingExchangeRate
+                : null,
+          ),
           pw.SizedBox(height: 15),
 
           // Summary and Signature Section combined to stay together
@@ -1180,9 +1211,13 @@ class PdfExportService {
     return filePath;
   }
 
+  /// [conversionCurrency] (e.g. 'MYR') and [conversionRate] (THB per 1 unit
+  /// of that currency) add a converted-amounts box to the settlement form.
   Future<String> exportAdvanceSettlementReport(
     PettyCashReport report, {
     List<Transaction>? transactions,
+    String? conversionCurrency,
+    double? conversionRate,
   }) async {
     final pdf = await _createPdfDocument();
     final currencyFormat = NumberFormat('#,##0.00');
@@ -1204,7 +1239,7 @@ class PdfExportService {
         transactions ??
         await FirestoreService().getTransactionsByReportId(report.id);
     final sortedTransactions = [...sourceTransactions]
-      ..sort((a, b) => a.date.compareTo(b.date));
+      ..sort(_compareByDateAndReceipt);
 
     final approvedOrProcessed = sortedTransactions
         .where(
@@ -1243,6 +1278,9 @@ class PdfExportService {
           dateFormat: dateFormat,
           currencyFormat: currencyFormat,
           hasMoreRows: effectiveTransactions.length > 20,
+          conversionCurrency:
+              conversionRate != null ? conversionCurrency : null,
+          conversionRate: conversionRate,
         ),
       ),
     );
@@ -1277,8 +1315,13 @@ class PdfExportService {
     required DateFormat dateFormat,
     required NumberFormat currencyFormat,
     required bool hasMoreRows,
+    String? conversionCurrency,
+    double? conversionRate,
   }) {
     final advanceDate = report.advanceTakenDate ?? report.periodStart;
+    final showConversion = conversionCurrency != null &&
+        conversionRate != null &&
+        conversionRate > 0;
 
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -1369,7 +1412,24 @@ class PdfExportService {
           style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
         ),
         pw.SizedBox(height: 2),
-        _buildAdvanceSettlementTable(rows, totalAmount, currencyFormat),
+        _buildAdvanceSettlementTable(
+          rows,
+          totalAmount,
+          currencyFormat,
+          // Give up a few blank filler rows to make room for the box below.
+          fillerRowTarget: showConversion ? 16 : 20,
+        ),
+        if (showConversion) ...[
+          pw.SizedBox(height: 6),
+          _buildConversionBox(
+            report: report,
+            totalAmount: totalAmount,
+            currencyCode: conversionCurrency,
+            rate: conversionRate,
+            currencyFormat: currencyFormat,
+            dateFormat: dateFormat,
+          ),
+        ],
         pw.SizedBox(height: 10),
         pw.Row(
           children: [
@@ -1480,11 +1540,91 @@ class PdfExportService {
     );
   }
 
+  pw.Widget _buildConversionBox({
+    required PettyCashReport report,
+    required double totalAmount,
+    required String currencyCode,
+    required double rate,
+    required NumberFormat currencyFormat,
+    required DateFormat dateFormat,
+  }) {
+    final advanceAmount = report.openingBalance;
+    final availableBalance = advanceAmount - totalAmount;
+    final hasAdvance = advanceAmount > 0;
+
+    pw.Widget row(String label, double thbAmount, {bool bold = false}) {
+      return pw.Padding(
+        padding: const pw.EdgeInsets.symmetric(vertical: 1.5),
+        child: pw.Row(
+          children: [
+            pw.Expanded(
+              child: pw.Text(
+                label,
+                style: pw.TextStyle(
+                  fontSize: 9,
+                  fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+                ),
+              ),
+            ),
+            pw.SizedBox(
+              width: 100,
+              child: pw.Text(
+                'THB ${currencyFormat.format(thbAmount)}',
+                style: pw.TextStyle(
+                  fontSize: 9,
+                  fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+                ),
+                textAlign: pw.TextAlign.right,
+              ),
+            ),
+            pw.SizedBox(
+              width: 100,
+              child: pw.Text(
+                '$currencyCode ${currencyFormat.format(thbAmount / rate)}',
+                style: pw.TextStyle(
+                  fontSize: 9,
+                  fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+                ),
+                textAlign: pw.TextAlign.right,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return pw.Container(
+      width: double.infinity,
+      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: pw.BoxDecoration(
+        color: PdfColors.grey100,
+        border: pw.Border.all(color: PdfColors.grey700, width: 0.5),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            'CURRENCY CONVERSION ($currencyCode)   —   '
+            'Rate: 1 $currencyCode = ${NumberFormat('#,##0.0000').format(rate)} THB '
+            '(as of ${dateFormat.format(DateTime.now())})',
+            style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 3),
+          if (hasAdvance) row('Advance Amount', advanceAmount),
+          row('Total Spent', totalAmount),
+          if (hasAdvance)
+            row('Available Balance', availableBalance, bold: true),
+        ],
+      ),
+    );
+  }
+
   pw.Widget _buildAdvanceSettlementTable(
     List<Transaction> rows,
     double totalAmount,
-    NumberFormat currencyFormat,
-  ) {
+    NumberFormat currencyFormat, {
+    int fillerRowTarget = 20,
+  }) {
     const tableBorder = pw.TableBorder(
       left: pw.BorderSide(color: PdfColors.black, width: 0.5),
       right: pw.BorderSide(color: PdfColors.black, width: 0.5),
@@ -1496,7 +1636,9 @@ class PdfExportService {
 
     final bodyRows = <pw.TableRow>[];
 
-    for (var i = 0; i < 20; i++) {
+    final rowCount =
+        rows.length > fillerRowTarget ? rows.length : fillerRowTarget;
+    for (var i = 0; i < rowCount; i++) {
       if (i < rows.length) {
         final tx = rows[i];
         bodyRows.add(
@@ -1654,8 +1796,11 @@ class PdfExportService {
   pw.Widget _buildTransactionsTable(
     List<Transaction> transactions,
     DateFormat dateFormat,
-    NumberFormat currencyFormat,
-  ) {
+    NumberFormat currencyFormat, {
+    String? fxCode,
+    double? fxRate,
+  }) {
+    final showFx = fxCode != null && fxRate != null && fxRate > 0;
     const cellPadding = pw.EdgeInsets.symmetric(vertical: 6, horizontal: 8);
     final headerStyle = pw.TextStyle(
       fontWeight: pw.FontWeight.bold,
@@ -1694,12 +1839,13 @@ class PdfExportService {
 
     return pw.Table(
       border: pw.TableBorder.all(color: PdfColors.grey300),
-      columnWidths: const {
-        0: pw.FlexColumnWidth(2.0),   // Date
-        1: pw.FlexColumnWidth(1.5),   // Receipt No
-        2: pw.FlexColumnWidth(4.5),   // Description — widest, wraps
-        3: pw.FlexColumnWidth(2.5),   // Category
-        4: pw.FlexColumnWidth(1.5),   // Amount
+      columnWidths: {
+        0: const pw.FlexColumnWidth(2.0),   // Date
+        1: const pw.FlexColumnWidth(1.5),   // Receipt No
+        2: pw.FlexColumnWidth(showFx ? 3.5 : 4.5), // Description — widest, wraps
+        3: const pw.FlexColumnWidth(2.5),   // Category
+        4: const pw.FlexColumnWidth(1.5),   // Amount
+        if (showFx) 5: const pw.FlexColumnWidth(1.5), // Foreign amount
       },
       children: [
         // Header row
@@ -1710,7 +1856,8 @@ class PdfExportService {
             headerCell('Receipt No'),
             headerCell('Description'),
             headerCell('Category'),
-            headerCell('Amount', rightAlign: true),
+            headerCell('Amount (THB)', rightAlign: true),
+            if (showFx) headerCell('Amount ($fxCode)', rightAlign: true),
           ],
         ),
         // Data rows
@@ -1722,6 +1869,11 @@ class PdfExportService {
               dataCell(_breakLongWords(t.description), wrap: true),
               dataCell(_breakLongWords(t.categoryDisplayName), wrap: true),
               dataCell(currencyFormat.format(t.amount), rightAlign: true),
+              if (showFx)
+                dataCell(
+                  NumberFormat('#,##0.00').format(t.amount / fxRate),
+                  rightAlign: true,
+                ),
             ],
           ),
         ),
@@ -1832,6 +1984,14 @@ class PdfExportService {
     PettyCashReport report,
     NumberFormat currencyFormat,
   ) {
+    final fxRate =
+        report.hasForeignOpeningBalance ? report.openingExchangeRate : null;
+    final fxCode = report.openingBalanceCurrency;
+    String fmt(double thb) => fxRate == null
+        ? currencyFormat.format(thb)
+        : '${currencyFormat.format(thb)}  '
+            '($fxCode ${NumberFormat('#,##0.00').format(thb / fxRate)})';
+
     return pw.Container(
       padding: const pw.EdgeInsets.all(16),
       decoration: pw.BoxDecoration(
@@ -1841,13 +2001,30 @@ class PdfExportService {
       ),
       child: pw.Column(
         children: [
+          if (fxRate != null)
+            pw.Padding(
+              padding: const pw.EdgeInsets.only(bottom: 4),
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.end,
+                children: [
+                  pw.Text(
+                    'Exchange rate: 1 $fxCode = '
+                    '${NumberFormat('#,##0.0000').format(fxRate)} THB',
+                    style: const pw.TextStyle(
+                      fontSize: 8,
+                      color: PdfColors.grey700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           _buildSummaryRow(
             'Opening Balance:',
-            currencyFormat.format(report.openingBalance),
+            fmt(report.openingBalance),
           ),
           _buildSummaryRow(
             'Total Disbursements:',
-            currencyFormat.format(report.totalDisbursements),
+            fmt(report.totalDisbursements),
           ),
           pw.Divider(),
           pw.Column(
@@ -1855,9 +2032,7 @@ class PdfExportService {
             children: [
               _buildSummaryRow(
                 'Balance:',
-                currencyFormat.format(
-                  report.openingBalance - report.totalDisbursements,
-                ),
+                fmt(report.openingBalance - report.totalDisbursements),
                 isBold: true,
               ),
               pw.Padding(
@@ -1875,11 +2050,11 @@ class PdfExportService {
           pw.SizedBox(height: 8),
           _buildSummaryRow(
             'Cash on Hand:',
-            currencyFormat.format(report.cashOnHand),
+            fmt(report.cashOnHand),
           ),
           _buildSummaryRow(
             'Closing Balance:',
-            currencyFormat.format(report.closingBalance),
+            fmt(report.closingBalance),
           ),
           _buildSummaryRow('Variance:', currencyFormat.format(report.variance)),
         ],

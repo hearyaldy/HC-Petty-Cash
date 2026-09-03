@@ -1365,6 +1365,13 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
         route: '/payment-vouchers',
       ),
       _MenuItem(
+        title: 'Internal Debit Notes',
+        subtitle: 'Intercompany charge-backs',
+        icon: Icons.compare_arrows_outlined,
+        color: Colors.brown,
+        route: '/internal-debit-notes',
+      ),
+      _MenuItem(
         title: 'Production Budget',
         subtitle: 'Annual budget by language',
         icon: Icons.video_library_outlined,
@@ -1525,6 +1532,11 @@ class _FinanceDashboardScreenState extends State<FinanceDashboardScreen> {
         icon: Icons.add_card,
         label: 'New Voucher',
         route: '/payment-vouchers/new',
+      ),
+      (
+        icon: Icons.compare_arrows_outlined,
+        label: 'Debit Note',
+        route: '/internal-debit-notes/new',
       ),
       (
         icon: Icons.shopping_cart_outlined,

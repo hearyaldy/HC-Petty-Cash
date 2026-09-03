@@ -44,7 +44,33 @@
       "Bash(dart analyze:*)",
       "Bash(git -C /Users/hearyhealdysairin/Documents/Flutter/hc_financial/hc_finannce_report log --oneline -5)",
       "Bash(flutter analyze *)",
-      "Bash(flutter build *)"
+      "Bash(flutter build *)",
+      "Bash(grep -n \"≈ \\\\\\\\\\\\\\\\\\\\$\" lib/screens/purchase_requisition/purchase_requisition_detail_screen.dart lib/services/purchase_requisition_pdf_export_service.dart)",
+      "Bash(firebase deploy *)",
+      "Bash(textutil -convert txt -stdout \"assets/documents/Transportation Request Form-update.docx\")",
+      "Bash(node -c index.js)",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 -c \"import json; json.load\\(open\\('firestore.indexes.json'\\)\\); print\\('JSON OK'\\)\")",
+      "Bash(firebase firestore:indexes)",
+      "Bash(gcloud firestore *)",
+      "Bash(flutter test *)",
+      "Bash(grep -n '\\\\$flightBlock' lib/screens/transportation/transportation_request_detail_screen.dart)",
+      "Bash(find /Users/hearyhealdysairin/Documents/Flutter/hc_financial -iname \"index.html\" 2>/dev/null)",
+      "Read(//Users/hearyhealdysairin/Documents/Flutter/hc_financial/**)",
+      "Bash(echo \"exit:$?\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(xargs -I{} echo {})",
+      "Bash(python3 -c \"import json; json.load\\(open\\('/Users/hearyhealdysairin/Documents/Flutter/hc_financial/hc_finannce_report/firebase.json'\\)\\); print\\('JSON OK'\\)\")",
+      "Bash(firebase emulators:start --only hosting)",
+      "Skill(run)",
+      "Skill(run:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://127.0.0.1:5002/)",
+      "Bash(npx --yes playwright --version)",
+      "Read(//Users/hearyhealdysairin/Library/Caches/**)"
+    ],
+    "additionalDirectories": [
+      "/Users/hearyhealdysairin/Downloads"
     ]
   }
 }

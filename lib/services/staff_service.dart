@@ -12,6 +12,44 @@ class StaffService {
   static const String collectionName = 'staff';
   static const String documentsCollectionName = 'staff_documents';
 
+  // Financial/identity fields that must NOT live on the broadly-readable
+  // top-level staff document. They're stored instead in a
+  // staff/{staffId}/private/financial subdocument, readable only by the
+  // staff member themself or an admin (see firestore.rules).
+  static const List<String> _privateFieldKeys = [
+    'bankAccountNumber',
+    'bankName',
+    'taxId',
+    'monthlySalary',
+    'currentSalaryBenefitsId',
+    'allowances',
+    'tithePercentage',
+    'titheAmount',
+    'socialSecurityAmount',
+    'providentFundPercentage',
+    'providentFundAmount',
+    'approvalLimit',
+    'nationalIdNumber',
+    'passportNumber',
+  ];
+
+  DocumentReference<Map<String, dynamic>> _privateDocRef(String staffId) =>
+      _firestore
+          .collection(collectionName)
+          .doc(staffId)
+          .collection('private')
+          .doc('financial');
+
+  // Pops the private field keys out of [fullMap] (mutating it) and returns
+  // them as a separate map to be written to the private subdocument.
+  Map<String, dynamic> _extractPrivateFields(Map<String, dynamic> fullMap) {
+    final private = <String, dynamic>{};
+    for (final key in _privateFieldKeys) {
+      private[key] = fullMap.remove(key);
+    }
+    return private;
+  }
+
   // Create a new staff record
   Future<String> createStaff(Staff staff) async {
     try {
@@ -24,9 +62,15 @@ class StaffService {
       // Create a copy of the staff with the generated employee ID
       final staffWithId = staff.copyWith(employeeId: employeeId);
 
-      final docRef = await _firestore
-          .collection(collectionName)
-          .add(staffWithId.toFirestore());
+      final docRef = _firestore.collection(collectionName).doc();
+      final fullMap = staffWithId.toFirestore();
+      final privateMap = _extractPrivateFields(fullMap);
+
+      final batch = _firestore.batch();
+      batch.set(docRef, fullMap);
+      batch.set(_privateDocRef(docRef.id), privateMap);
+      await batch.commit();
+
       return docRef.id;
     } catch (e) {
       throw Exception('Failed to create staff record: $e');
@@ -62,10 +106,13 @@ class StaffService {
   // Update existing staff record
   Future<void> updateStaff(Staff staff) async {
     try {
-      await _firestore
-          .collection(collectionName)
-          .doc(staff.id)
-          .update(staff.toFirestore());
+      final fullMap = staff.toFirestore();
+      final privateMap = _extractPrivateFields(fullMap);
+
+      final batch = _firestore.batch();
+      batch.update(_firestore.collection(collectionName).doc(staff.id), fullMap);
+      batch.set(_privateDocRef(staff.id), privateMap, SetOptions(merge: true));
+      await batch.commit();
     } catch (e) {
       throw Exception('Failed to update staff record: $e');
     }
@@ -98,23 +145,48 @@ class StaffService {
       // Delete all documents
       await deleteAllStaffDocuments(staffId);
 
+      await _privateDocRef(staffId).delete();
       await _firestore.collection(collectionName).doc(staffId).delete();
     } catch (e) {
       throw Exception('Failed to delete staff record: $e');
     }
   }
 
-  // Get staff by ID
+  // Get staff by ID (includes private/financial fields — only call this for
+  // a single record the caller is authorized to see in full; the list/stream
+  // methods below intentionally omit private fields)
   Future<Staff?> getStaffById(String staffId) async {
     try {
       final doc = await _firestore
           .collection(collectionName)
           .doc(staffId)
           .get();
-      if (doc.exists) {
-        return Staff.fromFirestore(doc);
+      if (!doc.exists) return null;
+
+      var staff = Staff.fromFirestore(doc);
+      final privateDoc = await _privateDocRef(staffId).get();
+      if (privateDoc.exists) {
+        final p = privateDoc.data()!;
+        staff = staff.copyWith(
+          bankAccountNumber: p['bankAccountNumber'] as String?,
+          bankName: p['bankName'] as String?,
+          taxId: p['taxId'] as String?,
+          monthlySalary: (p['monthlySalary'] as num?)?.toDouble(),
+          currentSalaryBenefitsId: p['currentSalaryBenefitsId'] as String?,
+          allowances: (p['allowances'] as num?)?.toDouble(),
+          tithePercentage: (p['tithePercentage'] as num?)?.toDouble(),
+          titheAmount: (p['titheAmount'] as num?)?.toDouble(),
+          socialSecurityAmount: (p['socialSecurityAmount'] as num?)
+              ?.toDouble(),
+          providentFundPercentage: (p['providentFundPercentage'] as num?)
+              ?.toDouble(),
+          providentFundAmount: (p['providentFundAmount'] as num?)?.toDouble(),
+          approvalLimit: (p['approvalLimit'] as num?)?.toDouble(),
+          nationalIdNumber: p['nationalIdNumber'] as String?,
+          passportNumber: p['passportNumber'] as String?,
+        );
       }
-      return null;
+      return staff;
     } catch (e) {
       throw Exception('Failed to get staff record: $e');
     }

@@ -144,10 +144,14 @@ class _HrDataSubmissionScreenState extends State<HrDataSubmissionScreen> {
               .limit(1)
               .get();
           if (byEmail.docs.isNotEmpty) {
-            _applyStaffPrefill(byEmail.docs.first.data());
+            _applyStaffPrefill(
+              await _withPrivateStaffFields(byEmail.docs.first),
+            );
           }
         } else {
-          _applyStaffPrefill(staffSnapshot.docs.first.data());
+          _applyStaffPrefill(
+            await _withPrivateStaffFields(staffSnapshot.docs.first),
+          );
         }
       }
 
@@ -248,6 +252,25 @@ class _HrDataSubmissionScreenState extends State<HrDataSubmissionScreen> {
     if (_existingPhotoUrl == null && data['photoUrl'] != null) {
       _existingPhotoUrl = data['photoUrl'] as String?;
     }
+  }
+
+  /// Sensitive fields (bank/tax/ID numbers etc.) live in a `private/financial`
+  /// subdocument, not on the staff doc itself. Merge it in for prefill —
+  /// safe here since this is always the caller's own staff record.
+  Future<Map<String, dynamic>> _withPrivateStaffFields(
+    QueryDocumentSnapshot<Map<String, dynamic>> staffDoc,
+  ) async {
+    final data = Map<String, dynamic>.from(staffDoc.data());
+    final privateDoc = await FirebaseFirestore.instance
+        .collection('staff')
+        .doc(staffDoc.id)
+        .collection('private')
+        .doc('financial')
+        .get();
+    if (privateDoc.exists) {
+      data.addAll(privateDoc.data() ?? {});
+    }
+    return data;
   }
 
   void _applyStaffPrefill(Map<String, dynamic> staffData) {

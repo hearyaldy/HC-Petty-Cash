@@ -449,6 +449,7 @@ class _TransportationRequestDetailScreenState
           .showSnackBar(const SnackBar(content: Text('Sending email...')));
 
       await _emailService.sendEmailWithAttachment(
+        requestId: request.id,
         recipientEmail: recipientEmail,
         subject: subject,
         htmlBody: htmlBody,

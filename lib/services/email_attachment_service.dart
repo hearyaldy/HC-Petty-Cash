@@ -13,6 +13,7 @@ class EmailAttachmentService {
       );
 
   Future<void> sendEmailWithAttachment({
+    required String requestId,
     required String recipientEmail,
     String? recipientName,
     required String subject,
@@ -33,6 +34,7 @@ class EmailAttachmentService {
         'Content-Type': 'application/json',
       },
       body: jsonEncode({
+        'requestId': requestId,
         'recipientEmail': recipientEmail,
         'recipientName': recipientName,
         'subject': subject,

@@ -781,9 +781,50 @@ class FirestoreService {
       await _travelingReportsCollection
           .doc(report.id)
           .update(report.toFirestore());
+
+      // Per diem entries snapshot the member count and meal rate at entry
+      // time, so bring any stale ones back in sync with the report.
+      await _recomputeTravelingPerDiemEntries(report);
     } catch (e) {
       AppLogger.severe('Error updating traveling report: $e');
       rethrow;
+    }
+  }
+
+  /// Rebuilds per diem entry amounts from the report's current meal rate and
+  /// member count. Only stale entries are rewritten; report totals are
+  /// refreshed when anything changed.
+  Future<void> _recomputeTravelingPerDiemEntries(TravelingReport report) async {
+    final entries = await getPerDiemEntriesByReport(report.id);
+    if (entries.isEmpty) return;
+
+    final mealRate = report.travelLocationEnum.perDiemRate;
+    var changed = false;
+    for (final entry in entries) {
+      final updated = TravelingPerDiemEntry.create(
+        id: entry.id,
+        reportId: entry.reportId,
+        date: entry.date,
+        hasBreakfast: entry.hasBreakfast,
+        hasLunch: entry.hasLunch,
+        hasSupper: entry.hasSupper,
+        hasIncidentMeal: entry.hasIncidentMeal,
+        notes: entry.notes,
+        mealRate: mealRate,
+        totalMembers: report.totalMembers,
+      ).copyWith(createdAt: entry.createdAt, updatedAt: DateTime.now());
+
+      if (updated.dailyTotal == entry.dailyTotal &&
+          updated.dailyTotalAllMembers == entry.dailyTotalAllMembers) {
+        continue; // already in sync
+      }
+      await _travelingPerDiemEntriesCollection
+          .doc(entry.id)
+          .update(updated.toFirestore());
+      changed = true;
+    }
+    if (changed) {
+      await _recalculateTravelingReportTotals(report.id);
     }
   }
 

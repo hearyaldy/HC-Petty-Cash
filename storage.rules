@@ -5,20 +5,39 @@ service firebase.storage {
 
     // Helper function to check if user is admin
     function isAdmin() {
-      return request.auth != null && 
+      return request.auth != null &&
         firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
-    
+
     // Helper function to check if user owns this staff record
     function isStaffOwner(staffId) {
       return request.auth != null &&
         firestore.get(/databases/(default)/documents/staff/$(staffId)).data.userId == request.auth.uid;
     }
 
-    // Staff photos - admins can write, all authenticated users can read
+    // Helper function to check if user owns the transaction these files are
+    // attached to. Also covers the profile-photo flow, which reuses this
+    // path with transactionId set to the uploader's own uid.
+    function isTransactionOwner(transactionId) {
+      return request.auth != null && (
+        request.auth.uid == transactionId ||
+        (
+          firestore.exists(/databases/(default)/documents/transactions/$(transactionId)) &&
+          firestore.get(/databases/(default)/documents/transactions/$(transactionId)).data.requestorId == request.auth.uid
+        )
+      );
+    }
+
+    // Staff photos - admin-managed, one file per staff record
     match /staff_photos/{fileName} {
       allow read: if request.auth != null;
       allow write: if isAdmin();
+    }
+
+    // Staff photos - self-service upload during HR onboarding
+    match /staff_photos/{userId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin() || (request.auth != null && request.auth.uid == userId);
     }
 
     // Staff documents - admins can write to any, staff can write to their own folder
@@ -26,13 +45,34 @@ service firebase.storage {
       allow read: if request.auth != null;
       // Allow write if admin OR if user owns this staff record (staff.userId == auth.uid)
       allow write: if request.auth != null && (
-        isAdmin() || 
+        isAdmin() ||
         isStaffOwner(staffId)
       );
     }
 
-    // General files - allow all authenticated users
-    match /{allPaths=**} {
+    // Transaction attachments (vouchers, expense receipts, profile photos
+    // uploaded via the same helper) - readable by all authenticated users
+    // (transactions themselves are broadly readable per firestore.rules),
+    // writable only by the owner or an admin.
+    match /attachments/{transactionId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin() || isTransactionOwner(transactionId);
+    }
+
+    // Support documents attached to a transaction
+    match /support_documents/{transactionId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin() || isTransactionOwner(transactionId);
+    }
+
+    // User profile photos - owner-only write, readable by all authenticated users
+    match /user_photos/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && fileName == request.auth.uid + '.jpg';
+    }
+
+    // Equipment/inventory photos - shared org assets, no per-user ownership
+    match /equipment/{fileName} {
       allow read, write: if request.auth != null;
     }
   }

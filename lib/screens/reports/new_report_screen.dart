@@ -11,6 +11,7 @@ import '../../models/enums.dart';
 import '../../models/purchase_requisition.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
+import '../../widgets/opening_balance_currency_fields.dart';
 
 class NewReportScreen extends StatefulWidget {
   const NewReportScreen({
@@ -33,6 +34,7 @@ class _NewReportScreenState extends State<NewReportScreen> {
   final _reportNameController = TextEditingController();
   final _companyNameController = TextEditingController();
   final _openingBalanceController = TextEditingController();
+  final _obCurrency = OpeningBalanceCurrencyState();
   final _notesController = TextEditingController();
   final _purposeController = TextEditingController();
   DateTime? _advanceTakenDate;
@@ -279,6 +281,11 @@ class _NewReportScreenState extends State<NewReportScreen> {
                               }
                               return null;
                             },
+                          ),
+                          OpeningBalanceCurrencyFields(
+                            thbController: _openingBalanceController,
+                            state: _obCurrency,
+                            onChanged: () => setState(() {}),
                           ),
                         ],
                       ),
@@ -550,6 +557,11 @@ class _NewReportScreenState extends State<NewReportScreen> {
         reportName: _reportNameController.text,
         custodian: user,
         openingBalance: double.parse(_openingBalanceController.text),
+        openingBalanceCurrency:
+            _obCurrency.isForeign ? _obCurrency.currencyCode : null,
+        openingBalanceForeign:
+            _obCurrency.isForeign ? _obCurrency.foreignAmount : null,
+        openingExchangeRate: _obCurrency.isForeign ? _obCurrency.rate : null,
         reportType: _reportType,
         purpose: _reportType == 'advance_settlement'
             ? _purposeController.text.trim()

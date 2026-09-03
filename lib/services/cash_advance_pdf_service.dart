@@ -260,7 +260,7 @@ class CashAdvancePdfService {
             ...advance.items.asMap().entries.map((entry) => pw.TableRow(
               children: [
                 _tableCell('${entry.key + 1}'),
-                _tableCell(entry.value.name, align: pw.TextAlign.left),
+                _descriptionCell(entry.value.name, entry.value.notes),
                 _tableCell(entry.value.quantity.toString()),
                 _tableCell(currency.format(entry.value.unitPrice), align: pw.TextAlign.right),
                 _tableCell(currency.format(entry.value.total), align: pw.TextAlign.right),
@@ -275,6 +275,26 @@ class CashAdvancePdfService {
           ],
         ),
       ],
+    );
+  }
+
+  pw.Widget _descriptionCell(String name, String? notes) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.all(6),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(name, style: const pw.TextStyle(fontSize: 9)),
+          if (notes != null && notes.isNotEmpty)
+            pw.Padding(
+              padding: const pw.EdgeInsets.only(top: 2),
+              child: pw.Text(
+                notes,
+                style: pw.TextStyle(fontSize: 8, color: PdfColors.grey600, fontStyle: pw.FontStyle.italic),
+              ),
+            ),
+        ],
+      ),
     );
   }
 

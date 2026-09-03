@@ -151,10 +151,6 @@ class AuthProvider extends ChangeNotifier {
     return _authService.canManageUsers();
   }
 
-  bool canManageLandingPage() {
-    return _authService.canManageLandingPage();
-  }
-
   bool canCreateReports() {
     return _authService.canCreateReports();
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
@@ -1218,9 +1219,18 @@ class _FinanceAiReportScreenState extends State<FinanceAiReportScreen> {
             totalOutflow: 0,
           );
 
+      final idToken =
+          await firebase_auth.FirebaseAuth.instance.currentUser?.getIdToken();
+      if (idToken == null) {
+        throw Exception('You must be signed in to use the AI report.');
+      }
+
       final response = await http.post(
         uri,
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $idToken',
+        },
         body: jsonEncode(body),
       );
 

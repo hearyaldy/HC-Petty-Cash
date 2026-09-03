@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/petty_cash_report.dart';
+import 'opening_balance_currency_fields.dart';
 
 class EditPettyCashReportDialog extends StatefulWidget {
   final PettyCashReport report;
@@ -25,6 +26,7 @@ class _EditPettyCashReportDialogState extends State<EditPettyCashReportDialog> {
   DateTime? _advanceTakenDate;
   late DateTime _periodStart;
   late DateTime _periodEnd;
+  late OpeningBalanceCurrencyState _obCurrency;
 
   @override
   void initState() {
@@ -33,6 +35,13 @@ class _EditPettyCashReportDialogState extends State<EditPettyCashReportDialog> {
         TextEditingController(text: widget.report.department);
     _openingBalanceController =
         TextEditingController(text: widget.report.openingBalance.toString());
+    _obCurrency = OpeningBalanceCurrencyState(
+      currencyCode: widget.report.hasForeignOpeningBalance
+          ? widget.report.openingBalanceCurrency!
+          : 'THB',
+      rate: widget.report.openingExchangeRate,
+      foreignAmount: widget.report.openingBalanceForeign,
+    );
     _companyNameController =
         TextEditingController(text: widget.report.companyName ?? '');
     _notesController = TextEditingController(text: widget.report.notes ?? '');
@@ -75,6 +84,12 @@ class _EditPettyCashReportDialogState extends State<EditPettyCashReportDialog> {
       final updatedReport = widget.report.copyWith(
         department: _departmentController.text.trim(),
         openingBalance: double.parse(_openingBalanceController.text.trim()),
+        clearOpeningCurrency: !_obCurrency.isForeign,
+        openingBalanceCurrency:
+            _obCurrency.isForeign ? _obCurrency.currencyCode : null,
+        openingBalanceForeign:
+            _obCurrency.isForeign ? _obCurrency.foreignAmount : null,
+        openingExchangeRate: _obCurrency.isForeign ? _obCurrency.rate : null,
         companyName: _companyNameController.text.trim().isEmpty
             ? null
             : _companyNameController.text.trim(),
@@ -103,7 +118,8 @@ class _EditPettyCashReportDialogState extends State<EditPettyCashReportDialog> {
         padding: const EdgeInsets.all(24),
         child: Form(
           key: _formKey,
-          child: Column(
+          child: SingleChildScrollView(
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -167,6 +183,11 @@ class _EditPettyCashReportDialogState extends State<EditPettyCashReportDialog> {
                   }
                   return null;
                 },
+              ),
+              OpeningBalanceCurrencyFields(
+                thbController: _openingBalanceController,
+                state: _obCurrency,
+                onChanged: () => setState(() {}),
               ),
               const SizedBox(height: 16),
 
@@ -286,6 +307,7 @@ class _EditPettyCashReportDialogState extends State<EditPettyCashReportDialog> {
                 ],
               ),
             ],
+            ),
           ),
         ),
       ),

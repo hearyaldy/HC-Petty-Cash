@@ -125,15 +125,17 @@ class TransactionProvider extends ChangeNotifier {
 
     try {
       await _firestoreService.saveTransaction(transaction);
-      await loadTransactionsByReportId(reportId);
-      // Update financial summary for the report
+      // Add to the in-memory list right away so watching screens update
+      // immediately, without waiting for the full refetch below.
+      _transactions.insert(0, transaction);
+      _isLoading = false;
+      notifyListeners();
+      // Keep the stored report totals in sync (server-side bookkeeping)
       await _updateReportFinancialSummary(reportId);
       // Update project report if transaction is linked to a project
       if (projectId != null) {
         await _updateProjectReportFinancialSummary(projectId);
       }
-      _isLoading = false;
-      notifyListeners();
     } catch (e) {
       _errorMessage = 'Failed to save transaction: ${e.toString()}';
       AppLogger.severe('Error saving transaction: $e');
@@ -157,15 +159,20 @@ class TransactionProvider extends ChangeNotifier {
     try {
       final updated = transaction.copyWith(updatedAt: DateTime.now());
       await _firestoreService.updateTransaction(updated);
-      await loadTransactionsByReportId(transaction.reportId);
-      // Update financial summary for the report
+      // Patch the in-memory list right away so watching screens update
+      // immediately, without waiting for the full refetch below.
+      final index = _transactions.indexWhere((t) => t.id == updated.id);
+      if (index != -1) {
+        _transactions[index] = updated;
+      }
+      _isLoading = false;
+      notifyListeners();
+      // Keep the stored report totals in sync (server-side bookkeeping)
       await _updateReportFinancialSummary(transaction.reportId);
       // Update project report if transaction is linked to a project
       if (transaction.projectId != null) {
         await _updateProjectReportFinancialSummary(transaction.projectId!);
       }
-      _isLoading = false;
-      notifyListeners();
     } catch (e) {
       _errorMessage = 'Failed to update transaction: ${e.toString()}';
       AppLogger.severe('Error updating transaction: $e');
@@ -205,6 +212,56 @@ class TransactionProvider extends ChangeNotifier {
     } catch (e) {
       _errorMessage = 'Failed to delete transaction: ${e.toString()}';
       AppLogger.severe('Error deleting transaction: $e');
+      _isLoading = false;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  /// Moves a transaction to a different report, reassigning it the next
+  /// receipt number in the destination report and resequencing the numbers
+  /// left behind in the source report, so both reports' numbering stays
+  /// contiguous.
+  Future<void> moveTransactionToReport(
+    Transaction transaction,
+    String newReportId,
+  ) async {
+    if (transaction.reportId == newReportId) return;
+
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    final oldReportId = transaction.reportId;
+
+    try {
+      final destinationTransactions =
+          await _firestoreService.getTransactionsByReportId(newReportId);
+      final receiptNumbers = destinationTransactions
+          .map((t) => int.tryParse(t.receiptNo) ?? 0)
+          .where((n) => n > 0)
+          .toList();
+      final nextReceiptNumber = receiptNumbers.isEmpty
+          ? 1
+          : receiptNumbers.reduce((a, b) => a > b ? a : b) + 1;
+
+      final moved = transaction.copyWith(
+        reportId: newReportId,
+        receiptNo: nextReceiptNumber.toString().padLeft(3, '0'),
+        updatedAt: DateTime.now(),
+      );
+      await _firestoreService.updateTransaction(moved);
+
+      await _resequenceReceiptNumbers(oldReportId);
+      await _updateReportFinancialSummary(oldReportId);
+      await _updateReportFinancialSummary(newReportId);
+
+      _transactions.removeWhere((t) => t.id == transaction.id);
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _errorMessage = 'Failed to move transaction: ${e.toString()}';
+      AppLogger.severe('Error moving transaction: $e');
       _isLoading = false;
       notifyListeners();
       rethrow;

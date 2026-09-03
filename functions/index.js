@@ -1,3 +1,4 @@
+// Deploy marker: forces redeploy to pick up rotated functions.config() secrets (2026-09-01)
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const dotenv = require('dotenv');
@@ -12,7 +13,7 @@ const GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0';
 
 exports.financeAiReport = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Headers', 'Content-Type');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
 
   if (req.method === 'OPTIONS') {
@@ -22,6 +23,18 @@ exports.financeAiReport = functions.https.onRequest(async (req, res) => {
 
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
+
+  const authHeader = req.headers.authorization || '';
+  if (!authHeader.startsWith('Bearer ')) {
+    res.status(401).json({ error: 'Missing Firebase auth token' });
+    return;
+  }
+  try {
+    await admin.auth().verifyIdToken(authHeader.substring('Bearer '.length));
+  } catch (error) {
+    res.status(401).json({ error: 'Invalid Firebase auth token' });
     return;
   }
 
@@ -208,10 +221,11 @@ exports.sendEmailWithAttachment = functions.https.onRequest(
       }
 
       const firebaseToken = authHeader.substring('Bearer '.length);
-      await admin.auth().verifyIdToken(firebaseToken);
+      const decodedToken = await admin.auth().verifyIdToken(firebaseToken);
 
       const payload =
         typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
+      const requestId = String(payload.requestId || '').trim();
       const recipientEmail = String(payload.recipientEmail || '').trim();
       const recipientName = String(payload.recipientName || '').trim();
       const subject = String(payload.subject || '').trim();
@@ -219,9 +233,40 @@ exports.sendEmailWithAttachment = functions.https.onRequest(
       const attachmentBase64 = String(payload.attachmentBase64 || '').trim();
       const attachmentName = String(payload.attachmentName || '').trim();
 
-      if (!recipientEmail || !subject || !htmlBody) {
+      if (!requestId || !recipientEmail || !subject || !htmlBody) {
         res.status(400).json({
-          error: 'recipientEmail, subject, and htmlBody are required',
+          error: 'requestId, recipientEmail, subject, and htmlBody are required',
+        });
+        return;
+      }
+
+      // Mirror the transportation_requests Firestore read rule: only the
+      // request's owner, or an admin/manager/finance user, may email it.
+      const requestDoc = await admin
+        .firestore()
+        .collection('transportation_requests')
+        .doc(requestId)
+        .get();
+
+      if (!requestDoc.exists) {
+        res.status(404).json({ error: 'Transportation request not found' });
+        return;
+      }
+
+      const userDoc = await admin
+        .firestore()
+        .collection('users')
+        .doc(decodedToken.uid)
+        .get();
+      const userData = userDoc.exists ? userDoc.data() || {} : {};
+      const role = userData.role;
+      const isOwner = requestDoc.data().requesterId === decodedToken.uid;
+      const isPrivileged =
+        role === 'admin' || role === 'manager' || role === 'finance';
+
+      if (!isOwner && !isPrivileged) {
+        res.status(403).json({
+          error: 'You do not have permission to email this request',
         });
         return;
       }
