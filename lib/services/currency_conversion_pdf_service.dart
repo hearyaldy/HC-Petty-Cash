@@ -77,6 +77,11 @@ class CurrencyConversionPdfService {
     final pdf = pw.Document();
     final dateFormat = DateFormat('dd MMM yyyy');
     final numFormat = NumberFormat('#,##0.00');
+    // The exchange rate itself needs more precision than money amounts —
+    // several supported currencies (VND, IDR, LAK, KHR, MMK) convert to
+    // well under ฿0.01 per unit, so formatting the rate with numFormat's
+    // 2 decimal places rounds all of them down to a misleading "0.00".
+    final rateFormat = NumberFormat('#,##0.0000');
 
     final theme = pw.ThemeData.withFont(
       base: _regular!,
@@ -166,7 +171,7 @@ class CurrencyConversionPdfService {
                   _row('Foreign Currency', foreignCurrency, bold: true),
                   _row('Original Amount', '$currencySymbol ${numFormat.format(foreignAmount)}', bold: true),
                   _row('Exchange Rate Date', dateFormat.format(exchangeRateDate)),
-                  _row('Exchange Rate', '1 $foreignCurrency = $thbSymbol ${numFormat.format(exchangeRate)}'),
+                  _row('Exchange Rate', '1 $foreignCurrency = $thbSymbol ${rateFormat.format(exchangeRate)}'),
                 ],
               ),
             ),
@@ -213,7 +218,7 @@ class CurrencyConversionPdfService {
                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
               ),
               child: pw.Text(
-                'Formula: $currencySymbol ${numFormat.format(foreignAmount)} × ${numFormat.format(exchangeRate)} = $thbSymbol ${numFormat.format(thbAmount)}',
+                'Formula: $currencySymbol ${numFormat.format(foreignAmount)} × ${rateFormat.format(exchangeRate)} = $thbSymbol ${numFormat.format(thbAmount)}',
                 // Explicitly set font so the PDF library does NOT fall back to
                 // Helvetica-Oblique (which has no Unicode / Thai support).
                 style: pw.TextStyle(
