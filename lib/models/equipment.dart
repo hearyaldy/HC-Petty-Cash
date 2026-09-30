@@ -164,6 +164,53 @@ class EquipmentCheckout {
   }
 }
 
+/// A single "who changed this item and when" entry, written by
+/// EquipmentService.updateEquipment on every save from the full Add/Edit
+/// screen, the Quick Edit dialog, or a CSV/XLSX re-import merge.
+class EquipmentEditLog {
+  final String id;
+  final String equipmentId;
+  final String editedBy; // User ID
+  final String editedByName;
+  final DateTime editedAt;
+  final List<String> changedFields;
+
+  EquipmentEditLog({
+    required this.id,
+    required this.equipmentId,
+    required this.editedBy,
+    required this.editedByName,
+    required this.editedAt,
+    this.changedFields = const [],
+  });
+
+  factory EquipmentEditLog.fromFirestore(
+    firestore.DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final data = doc.data()!;
+    return EquipmentEditLog(
+      id: doc.id,
+      equipmentId: data['equipmentId'] ?? '',
+      editedBy: data['editedBy'] ?? '',
+      editedByName: data['editedByName'] ?? 'Unknown',
+      editedAt: data['editedAt'] is firestore.Timestamp
+          ? (data['editedAt'] as firestore.Timestamp).toDate()
+          : DateTime.now(),
+      changedFields: List<String>.from(data['changedFields'] ?? []),
+    );
+  }
+
+  Map<String, dynamic> toFirestore() {
+    return {
+      'equipmentId': equipmentId,
+      'editedBy': editedBy,
+      'editedByName': editedByName,
+      'editedAt': firestore.Timestamp.fromDate(editedAt),
+      'changedFields': changedFields,
+    };
+  }
+}
+
 /// Main Equipment model
 class Equipment {
   final String id;

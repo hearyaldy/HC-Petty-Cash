@@ -1715,6 +1715,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
     final authProvider = context.read<AuthProvider>();
     final userId = authProvider.currentUser?.id;
+    final userName = authProvider.currentUser?.name;
 
     for (final item in plan) {
       try {
@@ -1732,7 +1733,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
             continue;
           }
           final equipment = _mergeEquipment(item.match!, item.row);
-          await _equipmentService.updateEquipment(equipment);
+          await _equipmentService.updateEquipment(
+            equipment,
+            editedBy: userId,
+            editedByName: userName != null ? '$userName (import)' : null,
+          );
           updated++;
         }
       } catch (e) {

@@ -39,7 +39,7 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _loadUsers();
   }
 
@@ -187,6 +187,7 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
                               tabs: const [
                                 Tab(icon: Icon(Icons.info), text: 'Details'),
                                 Tab(icon: Icon(Icons.history), text: 'History'),
+                                Tab(icon: Icon(Icons.edit_note), text: 'Edit Log'),
                               ],
                             ),
                           ),
@@ -215,6 +216,7 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
                         ),
                       ),
                       _buildHistoryTab(equipment),
+                      _buildEditHistoryTab(equipment),
                     ],
                   ),
                 ),
@@ -1460,6 +1462,123 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
     );
   }
 
+  Widget _buildEditHistoryTab(Equipment equipment) {
+    return StreamBuilder<List<EquipmentEditLog>>(
+      stream: _equipmentService.getEditHistory(equipment.id),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final logs = snapshot.data ?? [];
+
+        if (logs.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.edit_note, size: 64, color: Colors.grey.shade400),
+                const SizedBox(height: 16),
+                Text(
+                  'No edits recorded yet',
+                  style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 900),
+            child: ListView.builder(
+              padding: ResponsiveHelper.getScreenPadding(context),
+              itemCount: logs.length,
+              itemBuilder: (context, index) {
+                return _buildEditLogItem(logs[index]);
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildEditLogItem(EquipmentEditLog log) {
+    final dateFormat = DateFormat('dd MMM yyyy HH:mm');
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CircleAvatar(
+              backgroundColor: Colors.purple.shade100,
+              child: Icon(Icons.edit, color: Colors.purple.shade700, size: 18),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Edited by: ${log.editedByName}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Date: ${dateFormat.format(log.editedAt)}',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                  if (log.changedFields.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: log.changedFields
+                          .map(
+                            (field) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.purple.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.purple.shade200),
+                              ),
+                              child: Text(
+                                field,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.purple.shade700,
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showCheckoutDialog(Equipment equipment) {
     final authProvider = context.read<AuthProvider>();
     final user = authProvider.currentUser;
@@ -2458,7 +2577,13 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
                                       createdBy: equipment.createdBy,
                                     );
 
-                                    await _equipmentService.updateEquipment(updatedEquipment);
+                                    final currentUser =
+                                        context.read<AuthProvider>().currentUser;
+                                    await _equipmentService.updateEquipment(
+                                      updatedEquipment,
+                                      editedBy: currentUser?.id,
+                                      editedByName: currentUser?.name,
+                                    );
 
                                     if (mounted) {
                                       Navigator.pop(dialogContext);

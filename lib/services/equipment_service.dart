@@ -12,6 +12,55 @@ class EquipmentService {
 
   static const String equipmentCollection = 'equipment';
   static const String checkoutsCollection = 'equipment_checkouts';
+  static const String editHistoryCollection = 'equipment_edit_history';
+
+  // Firestore key -> human-readable label, for the edit-history diff.
+  // updatedAt/createdAt/createdBy are deliberately excluded — they're not
+  // something a user "changed", and updatedAt would always show up as
+  // different, defeating the point of a diff.
+  static const Map<String, String> _diffableFieldLabels = {
+    'name': 'Name',
+    'description': 'Description',
+    'category': 'Category',
+    'brand': 'Brand',
+    'model': 'Model',
+    'serialNumber': 'Serial Number',
+    'assetTag': 'Asset Tag',
+    'assetCode': 'Asset Code',
+    'accountingPeriod': 'Accounting Period',
+    'location': 'Location',
+    'status': 'Status',
+    'condition': 'Condition',
+    'purchasePrice': 'Purchase Price',
+    'purchaseDate': 'Purchase Date',
+    'purchaseYear': 'Purchase Year',
+    'supplier': 'Supplier',
+    'warrantyExpiry': 'Warranty Expiry',
+    'photoUrl': 'Photo',
+    'notes': 'Notes',
+    'organizationId': 'Organization',
+    'assignedToId': 'Assigned To',
+    'currentHolderName': 'Current Holder',
+    'quantity': 'Quantity',
+    'unitCost': 'Unit Cost',
+    'depreciationPercentage': 'Depreciation %',
+    'monthsDepreciated': 'Months Depreciated',
+  };
+
+  /// Field labels for every key in [_diffableFieldLabels] whose value
+  /// differs between [before] and [after].
+  List<String> _diffChangedFields(
+    Map<String, dynamic> before,
+    Map<String, dynamic> after,
+  ) {
+    final changed = <String>[];
+    _diffableFieldLabels.forEach((key, label) {
+      if (before[key] != after[key]) {
+        changed.add(label);
+      }
+    });
+    return changed;
+  }
 
   // In-memory cache
   List<Equipment>? _cachedEquipment;
@@ -53,19 +102,66 @@ class EquipmentService {
     }
   }
 
-  /// Update existing equipment
-  Future<void> updateEquipment(Equipment equipment) async {
+  /// Update existing equipment. When [editedBy]/[editedByName] are given,
+  /// also writes an EquipmentEditLog recording who changed which fields —
+  /// this is the single choke point all three edit surfaces (full
+  /// Add/Edit screen, Quick Edit dialog, CSV/XLSX re-import merge) go
+  /// through, so hooking history in here covers every edit path at once.
+  Future<void> updateEquipment(
+    Equipment equipment, {
+    String? editedBy,
+    String? editedByName,
+  }) async {
     try {
-      await _firestore
-          .collection(equipmentCollection)
-          .doc(equipment.id)
-          .update(equipment.toFirestore());
+      final docRef = _firestore.collection(equipmentCollection).doc(equipment.id);
+
+      // Only pay for the extra read when history is actually wanted.
+      Map<String, dynamic>? previousData;
+      if (editedBy != null && editedBy.isNotEmpty) {
+        final existingDoc = await docRef.get();
+        previousData = existingDoc.data();
+      }
+
+      await docRef.update(equipment.toFirestore());
       invalidateCache(); // Invalidate cache after update
       debugPrint('Debug: Updated equipment: ${equipment.id}');
+
+      if (editedBy != null && editedBy.isNotEmpty && previousData != null) {
+        final changedFields = _diffChangedFields(
+          previousData,
+          equipment.toFirestore(),
+        );
+        if (changedFields.isNotEmpty) {
+          await _firestore.collection(editHistoryCollection).add(
+                EquipmentEditLog(
+                  id: '',
+                  equipmentId: equipment.id,
+                  editedBy: editedBy,
+                  editedByName: editedByName ?? 'Unknown',
+                  editedAt: DateTime.now(),
+                  changedFields: changedFields,
+                ).toFirestore(),
+              );
+        }
+      }
     } catch (e) {
       debugPrint('Error updating equipment: $e');
       rethrow;
     }
+  }
+
+  /// Stream edit history for an equipment item, newest first.
+  Stream<List<EquipmentEditLog>> getEditHistory(String equipmentId) {
+    return _firestore
+        .collection(editHistoryCollection)
+        .where('equipmentId', isEqualTo: equipmentId)
+        .orderBy('editedAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => EquipmentEditLog.fromFirestore(doc))
+              .toList(),
+        );
   }
 
   /// Delete equipment

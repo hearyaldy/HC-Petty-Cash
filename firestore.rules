@@ -746,6 +746,19 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Equipment Edit History collection (who edited which fields, and when)
+    match /equipment_edit_history/{editLogId} {
+      // All authenticated users can read edit history
+      allow read: if isAuthenticated();
+
+      // All authenticated users can create edit-log entries (written
+      // automatically by EquipmentService.updateEquipment)
+      allow create: if isAuthenticated();
+
+      // Edit history is an append-only audit trail — never editable/deletable
+      allow update, delete: if false;
+    }
+
     // Equipment History collection (for tracking checkout/return history)
     match /equipment_history/{historyId} {
       // All authenticated users can read equipment history

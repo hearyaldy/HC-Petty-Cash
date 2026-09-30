@@ -433,6 +433,20 @@
       ]
     },
     {
+      "collectionGroup": "equipment_edit_history",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "equipmentId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "editedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "meetings",
       "queryScope": "COLLECTION",
       "fields": [

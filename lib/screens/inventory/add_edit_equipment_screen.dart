@@ -279,7 +279,11 @@ class _AddEditEquipmentScreenState extends State<AddEditEquipmentScreen> {
       );
 
       if (_isEditing) {
-        await _equipmentService.updateEquipment(equipment);
+        await _equipmentService.updateEquipment(
+          equipment,
+          editedBy: user?.id,
+          editedByName: user?.name,
+        );
       } else {
         await _equipmentService.createEquipment(equipment);
       }
