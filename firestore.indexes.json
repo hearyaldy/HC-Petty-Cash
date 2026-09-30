@@ -549,6 +549,34 @@
       ]
     },
     {
+      "collectionGroup": "media_episodes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "productionId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "episodeNumber",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "media_episodes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "seasonId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "episodeNumber",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "media_period_reports",
       "queryScope": "COLLECTION",
       "fields": [
@@ -860,6 +888,20 @@
         },
         {
           "fieldPath": "date",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "boards",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "memberIds",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "archived",
           "order": "ASCENDING"
         }
       ]

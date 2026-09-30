@@ -42,6 +42,21 @@ class AdcomMinutesService {
     return null;
   }
 
+  /// Stream minutes by agenda ID, so callers (e.g. the meeting detail
+  /// screen) see status/content changes live instead of only at load time.
+  Stream<AdcomMinutes?> streamMinutesByAgendaId(String agendaId) {
+    return _firestore
+        .collection(_collection)
+        .where('agendaId', isEqualTo: agendaId)
+        .limit(1)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs.isNotEmpty
+              ? AdcomMinutes.fromFirestore(snapshot.docs.first)
+              : null,
+        );
+  }
+
   /// Create minutes from an agenda
   Future<String> createMinutesFromAgenda(AdcomAgenda agenda) async {
     // Check if minutes already exist for this agenda

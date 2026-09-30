@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 import '../../models/adcom_agenda.dart';
 import '../../models/staff.dart';
 import '../../services/adcom_agenda_service.dart';
 import '../../services/adcom_minutes_service.dart';
+import '../../services/agenda_ai_service.dart';
 import '../../services/staff_service.dart';
-import '../../services/ai_text_service.dart';
+import '../../services/ai_text_service.dart' show SpellCheckResult;
 import '../../utils/responsive_helper.dart';
 
 class AdcomAgendaEditScreen extends StatefulWidget {
@@ -45,7 +47,23 @@ class _AdcomAgendaEditScreenState extends State<AdcomAgendaEditScreen> {
   Future<void> _loadAgenda() async {
     setState(() => _isLoading = true);
     try {
-      final agenda = await _service.getAgendaById(widget.agendaId);
+      var agenda = await _service.getAgendaById(widget.agendaId);
+
+      // Older agenda items were created with a positional id
+      // ('item_<count-at-add-time>'), which collides whenever an item is
+      // deleted and a new one is later added at the same list length —
+      // and a duplicate id breaks the agenda list's ValueKey, causing a
+      // "Multiple widgets used the same GlobalKey" crash. New items now
+      // always get a real unique id, but agendas saved before that fix
+      // can still carry a collision, so repair it once on load.
+      if (agenda != null) {
+        final dedupedItems = _dedupeAgendaItemIds(agenda.agendaItems);
+        if (!identical(dedupedItems, agenda.agendaItems)) {
+          agenda = agenda.copyWith(agendaItems: dedupedItems);
+          await _service.updateAgenda(agenda);
+        }
+      }
+
       setState(() {
         _agenda = agenda;
         _isLoading = false;
@@ -62,6 +80,29 @@ class _AdcomAgendaEditScreenState extends State<AdcomAgendaEditScreen> {
         ).showSnackBar(SnackBar(content: Text('Error loading agenda: $e')));
       }
     }
+  }
+
+  /// Returns [items] unchanged if every id is already unique and non-empty,
+  /// otherwise returns a copy with a fresh unique id assigned to each item
+  /// that collided with (or was missing an id shared with) an earlier one.
+  /// Only the `id` field changes — title, description, order, itemNumber
+  /// and attachments are all preserved as-is.
+  List<AgendaItem> _dedupeAgendaItemIds(List<AgendaItem> items) {
+    final seenIds = <String>{};
+    var changed = false;
+    final result = <AgendaItem>[];
+    for (final item in items) {
+      if (item.id.isEmpty || seenIds.contains(item.id)) {
+        changed = true;
+        final newId = const Uuid().v4();
+        seenIds.add(newId);
+        result.add(item.copyWith(id: newId));
+      } else {
+        seenIds.add(item.id);
+        result.add(item);
+      }
+    }
+    return changed ? result : items;
   }
 
   @override
@@ -1020,12 +1061,36 @@ class _AdcomAgendaEditScreenState extends State<AdcomAgendaEditScreen> {
 
     if (result != null) {
       try {
+        final newMeetingDate = result['date'] as DateTime;
+        final newOrganization = result['organization'] as String;
+        final newStartingSeq = result['startingSequence'] as int;
+
+        // itemNumber is cached per item, not derived live, so it goes
+        // stale for every existing item whenever the date, starting
+        // sequence, or organization changes here. Regenerate all of them
+        // now, the same way removeAgendaItem/reorderAgendaItems already do.
+        final renumberedItems = _agenda!.agendaItems
+            .asMap()
+            .entries
+            .map(
+              (e) => e.value.copyWith(
+                order: e.key,
+                itemNumber: AdcomAgenda.generateItemNumber(
+                  newMeetingDate,
+                  newStartingSeq + e.key,
+                  organization: newOrganization,
+                ),
+              ),
+            )
+            .toList();
+
         final updatedAgenda = _agenda!.copyWith(
-          meetingDate: result['date'],
+          meetingDate: newMeetingDate,
           meetingTime: result['time'],
           location: result['location'],
-          organization: result['organization'],
-          startingItemSequence: result['startingSequence'],
+          organization: newOrganization,
+          startingItemSequence: newStartingSeq,
+          agendaItems: renumberedItems,
         );
         await _service.updateAgenda(updatedAgenda);
         await _loadAgenda();
@@ -1865,7 +1930,7 @@ class _EditAgendaItemDialogState extends State<_EditAgendaItemDialog> {
   late quill.QuillController _quillController;
   late AgendaActionType _actionType;
   late List<String> _attachments;
-  final AITextService _aiService = AITextService();
+  final AgendaAiService _aiService = AgendaAiService();
   bool _isProcessingAI = false;
 
   final UndoHistoryController _titleUndoController = UndoHistoryController();
@@ -2555,7 +2620,7 @@ class _EditAgendaItemDialogState extends State<_EditAgendaItemDialog> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'Set AI_API_KEY in .env to enable spell check and text enhancement',
+                                'Sign in to enable AI spell check and text enhancement',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.purple.shade700,
@@ -2706,7 +2771,7 @@ class _EditAgendaItemDialogState extends State<_EditAgendaItemDialog> {
                       Navigator.pop(
                         context,
                         AgendaItem(
-                          id: widget.item?.id ?? 'item_${widget.order}',
+                          id: widget.item?.id ?? const Uuid().v4(),
                           itemNumber: widget.itemNumber,
                           title: _titleController.text.trim(),
                           actionType: _actionType,

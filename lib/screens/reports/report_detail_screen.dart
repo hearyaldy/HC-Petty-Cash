@@ -25,7 +25,7 @@ import '../../widgets/edit_petty_cash_report_dialog.dart';
 import '../../widgets/paid_to_field.dart';
 import '../../widgets/support_document_upload_dialog.dart';
 import '../../services/settings_service.dart';
-import '../../services/ai_text_service.dart';
+import '../../services/exchange_rate_ai_service.dart';
 import '../../services/currency_conversion_pdf_service.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
@@ -1092,6 +1092,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   }) {
     final isMobile = ResponsiveHelper.isMobile(context);
 
+    final hasTransactionForeign =
+        transaction.foreignCurrency != null && transaction.foreignAmount != null;
     final foreignRate =
         report.hasForeignOpeningBalance ? report.openingExchangeRate : null;
     final amountText = Column(
@@ -1102,7 +1104,21 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           '${AppConstants.currencySymbol}${transaction.amount.toStringAsFixed(2)}',
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
-        if (foreignRate != null)
+        if (hasTransactionForeign)
+          // The currency actually entered for this transaction (from the
+          // Add/Edit Transaction currency dialog) takes priority over the
+          // report's opening-balance currency below — they can differ, e.g.
+          // an advance taken in MYR with one expense paid in VND.
+          Text(
+            '≈ ${transaction.foreignCurrency} '
+            '${transaction.foreignAmount!.toStringAsFixed(2)}',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.teal.shade700,
+              fontWeight: FontWeight.w600,
+            ),
+          )
+        else if (foreignRate != null)
           Text(
             '≈ ${report.openingBalanceCurrency} '
             '${(transaction.amount / foreignRate).toStringAsFixed(2)}',
@@ -1762,6 +1778,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       case 'MYR': return 'RM';
       case 'USD': return '\$';
       case 'THB': return '฿';
+      case 'VND': return '₫';
       default: return code;
     }
   }
@@ -2400,6 +2417,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                                       value: 'THB',
                                                       child: Text(
                                                           'THB (Thai Baht)')),
+                                                  DropdownMenuItem(
+                                                      value: 'VND',
+                                                      child: Text(
+                                                          'VND (Vietnamese Dong)')),
                                                 ],
                                                 onChanged: (v) {
                                                   if (v != null) {
@@ -2526,7 +2547,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                                             isFetchingRate =
                                                                 true);
                                                         final aiService =
-                                                            AITextService();
+                                                            ExchangeRateAiService();
                                                         final result =
                                                             await aiService
                                                                 .getExchangeRate(
@@ -3935,6 +3956,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                             DropdownMenuItem(
                                                 value: 'THB',
                                                 child: Text('THB (Thai Baht)')),
+                                            DropdownMenuItem(
+                                                value: 'VND',
+                                                child: Text('VND (Vietnamese Dong)')),
                                           ],
                                           onChanged: (v) {
                                             if (v != null) {
@@ -4031,7 +4055,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                                   setState(() =>
                                                       isFetchingRate = true);
                                                   final aiService =
-                                                      AITextService();
+                                                      ExchangeRateAiService();
                                                   final result = await aiService
                                                       .getExchangeRate(
                                                     fromCurrency:
@@ -4765,6 +4789,36 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         report.hasForeignOpeningBalance ? report.openingExchangeRate : null;
     final pdfFxCode = report.openingBalanceCurrency;
     final fxNumFormat = NumberFormat('#,##0.00');
+    // The transaction's own foreign currency (set in the Add/Edit
+    // Transaction currency dialog) takes priority over the report-wide
+    // conversion column below — they can differ, e.g. an advance taken in
+    // MYR with one expense paid in VND.
+    pw.Widget buildAmountCell(Transaction transaction) {
+      final hasOwnForeign =
+          transaction.foreignCurrency != null && transaction.foreignAmount != null;
+      if (!hasOwnForeign) {
+        return pw.Text(
+          currencyFormat.format(transaction.amount),
+          style: pw.TextStyle(font: ttf, fontSize: 8),
+        );
+      }
+      return pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.end,
+        mainAxisSize: pw.MainAxisSize.min,
+        children: [
+          pw.Text(
+            currencyFormat.format(transaction.amount),
+            style: pw.TextStyle(font: ttf, fontSize: 8),
+          ),
+          pw.Text(
+            '≈ ${transaction.foreignCurrency} '
+            '${fxNumFormat.format(transaction.foreignAmount)}',
+            style: pw.TextStyle(font: ttf, fontSize: 6, color: PdfColors.teal700),
+          ),
+        ],
+      );
+    }
+
     final List<List<dynamic>> tableRows = transactions
         .map<List<dynamic>>(
           (transaction) => [
@@ -4772,7 +4826,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             transaction.receiptNo,
             transaction.description,
             transaction.categoryDisplayName,
-            currencyFormat.format(transaction.amount),
+            buildAmountCell(transaction),
             if (pdfFxRate != null)
               fxNumFormat.format(transaction.amount / pdfFxRate),
             transaction.paymentMethodEnum.displayName,

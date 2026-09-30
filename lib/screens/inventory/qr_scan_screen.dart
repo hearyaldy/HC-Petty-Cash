@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:go_router/go_router.dart';
@@ -13,50 +15,75 @@ class QrScanScreen extends StatefulWidget {
   State<QrScanScreen> createState() => _QrScanScreenState();
 }
 
-class _QrScanScreenState extends State<QrScanScreen> {
-  MobileScannerController? _controller;
+class _QrScanScreenState extends State<QrScanScreen> with WidgetsBindingObserver {
+  late final MobileScannerController _controller;
   final EquipmentService _equipmentService = EquipmentService();
   bool _isHandling = false;
   bool _torchEnabled = false;
   bool _frontCamera = false;
-  bool _isInitializing = true;
-  String? _errorMessage;
   final _manualInputController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _initializeCamera();
+    WidgetsBinding.instance.addObserver(this);
+    // autoStart defaults to true: the MobileScanner widget below starts
+    // this controller itself once it has actually mounted and attached to
+    // it. The previous version called controller.start() manually from
+    // here, before that widget existed — every call failed with
+    // MobileScannerException(controllerNotAttached, ...) because there was
+    // nothing yet for it to attach to. Letting the widget own its own
+    // startup (tracked via _controller's own ValueListenable below) avoids
+    // that chicken-and-egg deadlock entirely.
+    _controller = MobileScannerController(
+      detectionSpeed: DetectionSpeed.normal,
+      facing: CameraFacing.back,
+    );
   }
 
-  Future<void> _initializeCamera() async {
-    try {
-      _controller = MobileScannerController(
-        detectionSpeed: DetectionSpeed.normal,
-        facing: CameraFacing.back,
-      );
-      await _controller!.start();
-      if (mounted) {
-        setState(() {
-          _isInitializing = false;
-          _errorMessage = null;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isInitializing = false;
-          _errorMessage = 'Failed to start camera: $e';
-        });
-      }
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // The camera has real-world side effects (the phone's camera-in-use
+    // indicator, battery drain) that shouldn't persist once this screen
+    // isn't the thing on screen — backgrounding the browser tab/app should
+    // release it just like leaving the page does, and bring it back when
+    // the user returns rather than leaving it dark.
+    if (!_controller.value.isInitialized) return;
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      unawaited(_controller.stop());
+    } else if (state == AppLifecycleState.resumed && mounted) {
+      unawaited(_retryStart());
     }
   }
 
   @override
   void dispose() {
-    _controller?.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    // Explicitly stop before dispose rather than relying on dispose alone
+    // to release the camera — stop() directly tells the platform layer to
+    // release the stream immediately, instead of it happening as a side
+    // effect of teardown, which matters most for the web camera-in-use
+    // indicator lingering visibly after navigating away.
+    unawaited(_controller.stop());
+    _controller.dispose();
     _manualInputController.dispose();
     super.dispose();
+  }
+
+  Future<void> _retryStart() async {
+    try {
+      await _controller.start().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => throw Exception(
+          'Camera did not respond — check that camera permission was '
+          'granted, and that you\'re not opening this in an in-app '
+          'browser (e.g. from Facebook/Messenger/WhatsApp).',
+        ),
+      );
+    } catch (_) {
+      // _controller.value.error already reflects the failure — the
+      // ValueListenableBuilder below re-renders from that automatically.
+    }
   }
 
   Future<void> _handleScan(String rawValue) async {
@@ -79,6 +106,7 @@ class _QrScanScreenState extends State<QrScanScreen> {
             final id = uri.pathSegments[idIndex + 1];
             if (id.isNotEmpty) {
               if (!mounted) return;
+              unawaited(_controller.stop());
               context.go('/inventory/$id');
               return;
             }
@@ -140,6 +168,7 @@ class _QrScanScreenState extends State<QrScanScreen> {
         return;
       }
 
+      unawaited(_controller.stop());
       context.go('/inventory/${match.id}');
     } catch (e) {
       if (mounted) {
@@ -199,33 +228,45 @@ class _QrScanScreenState extends State<QrScanScreen> {
 
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Column(
-        children: [
-          Padding(
-            padding: EdgeInsets.only(
-              top: MediaQuery.of(context).padding.top + 8,
-              left: 16,
-              right: 16,
-              bottom: 8,
-            ),
-            child: _buildHeaderCard(),
-          ),
-          Expanded(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: isMobile ? double.infinity : 640,
+      body: ValueListenableBuilder<MobileScannerState>(
+        valueListenable: _controller,
+        builder: (context, state, child) {
+          return Column(
+            children: [
+              Padding(
+                padding: EdgeInsets.only(
+                  top: MediaQuery.of(context).padding.top + 8,
+                  left: 16,
+                  right: 16,
+                  bottom: 8,
                 ),
-                child: _buildBody(),
+                child: _buildHeaderCard(state),
               ),
-            ),
-          ),
-        ],
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: isMobile ? double.infinity : 640,
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: _buildBody(state),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildHeaderCard() {
+  Widget _buildHeaderCard(MobileScannerState state) {
+    final isRunning = state.isRunning;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -241,7 +282,10 @@ class _QrScanScreenState extends State<QrScanScreen> {
           Row(
             children: [
               InkWell(
-                onTap: () => context.pop(),
+                onTap: () {
+                  unawaited(_controller.stop());
+                  context.pop();
+                },
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
                   padding: const EdgeInsets.all(8),
@@ -265,11 +309,11 @@ class _QrScanScreenState extends State<QrScanScreen> {
                   child: const Icon(Icons.keyboard, color: Colors.white, size: 20),
                 ),
               ),
-              if (_controller != null && !_isInitializing) ...[
+              if (isRunning) ...[
                 const SizedBox(width: 8),
                 InkWell(
                   onTap: () async {
-                    await _controller!.toggleTorch();
+                    await _controller.toggleTorch();
                     setState(() => _torchEnabled = !_torchEnabled);
                   },
                   borderRadius: BorderRadius.circular(8),
@@ -289,7 +333,7 @@ class _QrScanScreenState extends State<QrScanScreen> {
                 const SizedBox(width: 8),
                 InkWell(
                   onTap: () async {
-                    await _controller!.switchCamera();
+                    await _controller.switchCamera();
                     setState(() => _frontCamera = !_frontCamera);
                   },
                   borderRadius: BorderRadius.circular(8),
@@ -351,79 +395,22 @@ class _QrScanScreenState extends State<QrScanScreen> {
     );
   }
 
-  Widget _buildBody() {
-    // Show loading state
-    if (_isInitializing) {
-      return Container(
-        color: Colors.black,
-        child: const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(color: Colors.white),
-              SizedBox(height: 16),
-              Text(
-                'Initializing camera...',
-                style: TextStyle(color: Colors.white),
-              ),
-            ],
-          ),
-        ),
-      );
+  Widget _buildBody(MobileScannerState state) {
+    if (state.error != null) {
+      return _buildErrorView(state.error!);
     }
 
-    // Show error state with manual input option
-    if (_errorMessage != null || _controller == null) {
-      return Container(
-        color: Colors.black,
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.camera_alt_outlined,
-              size: 64,
-              color: Colors.white54,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              _errorMessage ?? 'Camera not available',
-              style: const TextStyle(color: Colors.white),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _showManualInputDialog,
-              icon: const Icon(Icons.keyboard),
-              label: const Text('Enter Code Manually'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.purple,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextButton.icon(
-              onPressed: _initializeCamera,
-              icon: const Icon(Icons.refresh, color: Colors.white70),
-              label: const Text(
-                'Try Again',
-                style: TextStyle(color: Colors.white70),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
+    final isReady = state.isInitialized && !state.isStarting;
 
-    // Show camera scanner
+    // MobileScanner is what actually attaches to _controller and (via
+    // autoStart) starts it — it has to be built unconditionally here, not
+    // gated behind isReady, or nothing would ever trigger that attachment
+    // and isReady would never become true in the first place. The loading
+    // spinner below is an overlay on top of it, not a replacement for it.
     return Stack(
       children: [
         MobileScanner(
-          controller: _controller!,
+          controller: _controller,
           onDetect: (capture) {
             final barcodes = capture.barcodes;
             if (barcodes.isEmpty) return;
@@ -431,94 +418,190 @@ class _QrScanScreenState extends State<QrScanScreen> {
             if (rawValue == null) return;
             _handleScan(rawValue);
           },
-          errorBuilder: (context, error) {
-            return Container(
-              color: Colors.black,
-              alignment: Alignment.center,
-              padding: const EdgeInsets.all(24),
+          errorBuilder: (context, error) => _buildErrorView(error),
+        ),
+        // Visual guide only — purely decorative, doesn't restrict where
+        // mobile_scanner actually looks for a code within the frame.
+        if (isReady)
+          Center(
+            child: SizedBox(
+              width: 260,
+              height: 260,
+              child: CustomPaint(painter: _ScanFramePainter()),
+            ),
+          ),
+        if (!isReady)
+          Container(
+            color: Colors.black,
+            child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
-                    Icons.error_outline,
-                    size: 48,
-                    color: Colors.red,
-                  ),
+                  const CircularProgressIndicator(color: Colors.white),
                   const SizedBox(height: 16),
-                  Text(
-                    'Camera error: ${error.errorCode.name}',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white),
+                  const Text(
+                    'Initializing camera...',
+                    style: TextStyle(color: Colors.white),
                   ),
-                  if (error.errorDetails != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      error.errorDetails!.message ?? '',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.white70, fontSize: 12),
-                    ),
-                  ],
                   const SizedBox(height: 24),
-                  ElevatedButton.icon(
+                  // Camera permission prompts can hang on some mobile
+                  // browsers (see the timeout in _retryStart) — this button
+                  // is the only way out until that resolves one way or the
+                  // other.
+                  TextButton.icon(
                     onPressed: _showManualInputDialog,
-                    icon: const Icon(Icons.keyboard),
-                    label: const Text('Enter Code Manually'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.purple,
-                      foregroundColor: Colors.white,
+                    icon: const Icon(Icons.keyboard, color: Colors.white70),
+                    label: const Text(
+                      'Enter code manually instead',
+                      style: TextStyle(color: Colors.white70),
                     ),
                   ),
                 ],
               ),
-            );
-          },
-        ),
-        // Bottom instruction bar
-        Align(
-          alignment: Alignment.bottomCenter,
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            color: Colors.black.withValues(alpha: 0.6),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Point the camera at the QR code',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white),
-                ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: _showManualInputDialog,
-                  child: const Text(
-                    'Or enter code manually',
-                    style: TextStyle(color: Colors.white70, fontSize: 12),
-                  ),
-                ),
-              ],
             ),
           ),
-        ),
-        // Web notice
-        if (kIsWeb)
+        if (isReady) ...[
+          // Bottom instruction bar
           Align(
-            alignment: Alignment.topCenter,
+            alignment: Alignment.bottomCenter,
             child: Container(
-              margin: const EdgeInsets.all(12),
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.6),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Text(
-                'Camera access requires HTTPS and user permission.\nIf camera doesn\'t work, use manual input.',
-                style: TextStyle(color: Colors.white, fontSize: 12),
-                textAlign: TextAlign.center,
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              color: Colors.black.withValues(alpha: 0.6),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Position the code within the frame',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: _showManualInputDialog,
+                    child: const Text(
+                      'Or enter code manually',
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
+          // Web notice
+          if (kIsWeb)
+            Align(
+              alignment: Alignment.topCenter,
+              child: Container(
+                margin: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'Camera access requires HTTPS and user permission.\nIf camera doesn\'t work, use manual input.',
+                  style: TextStyle(color: Colors.white, fontSize: 12),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+        ],
       ],
     );
   }
+
+  Widget _buildErrorView(MobileScannerException error) {
+    return Container(
+      color: Colors.black,
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.error_outline,
+            size: 48,
+            color: Colors.red,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Camera error: ${error.errorCode.name}',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white),
+          ),
+          if (error.errorDetails?.message != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              error.errorDetails!.message!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ],
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: _showManualInputDialog,
+            icon: const Icon(Icons.keyboard),
+            label: const Text('Enter Code Manually'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.purple,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 12,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextButton.icon(
+            onPressed: _retryStart,
+            icon: const Icon(Icons.refresh, color: Colors.white70),
+            label: const Text(
+              'Try Again',
+              style: TextStyle(color: Colors.white70),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Draws four L-shaped corner brackets as a viewfinder-style guide for
+/// where to hold the QR code or barcode. Purely visual — mobile_scanner
+/// still looks for codes anywhere in the camera feed, not just inside this
+/// box.
+class _ScanFramePainter extends CustomPainter {
+  static const _cornerLength = 28.0;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 4
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final path = Path()
+      // Top-left
+      ..moveTo(0, _cornerLength)
+      ..lineTo(0, 0)
+      ..lineTo(_cornerLength, 0)
+      // Top-right
+      ..moveTo(size.width - _cornerLength, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width, _cornerLength)
+      // Bottom-right
+      ..moveTo(size.width, size.height - _cornerLength)
+      ..lineTo(size.width, size.height)
+      ..lineTo(size.width - _cornerLength, size.height)
+      // Bottom-left
+      ..moveTo(_cornerLength, size.height)
+      ..lineTo(0, size.height)
+      ..lineTo(0, size.height - _cornerLength);
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

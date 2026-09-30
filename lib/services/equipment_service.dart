@@ -235,6 +235,45 @@ class EquipmentService {
     }
   }
 
+  /// Rename a location string across every equipment item that currently
+  /// has it — used by the Location Abbreviations sheet's edit action, so
+  /// fixing a typo/inconsistent spelling doesn't require opening each
+  /// item individually. Returns how many items were updated.
+  Future<int> renameLocation(String oldLocation, String newLocation) async {
+    try {
+      final snapshot = await _firestore
+          .collection(equipmentCollection)
+          .where('location', isEqualTo: oldLocation)
+          .get();
+
+      if (snapshot.docs.isEmpty) return 0;
+
+      // Firestore batches cap at 500 writes — chunk defensively even
+      // though a single location is unlikely to have that many items.
+      const chunkSize = 450;
+      for (var i = 0; i < snapshot.docs.length; i += chunkSize) {
+        final chunk = snapshot.docs.skip(i).take(chunkSize);
+        final batch = _firestore.batch();
+        for (final doc in chunk) {
+          batch.update(doc.reference, {
+            'location': newLocation,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        }
+        await batch.commit();
+      }
+
+      invalidateCache();
+      debugPrint(
+        'Debug: Renamed location "$oldLocation" -> "$newLocation" on ${snapshot.docs.length} items',
+      );
+      return snapshot.docs.length;
+    } catch (e) {
+      debugPrint('Error renaming location: $e');
+      rethrow;
+    }
+  }
+
   /// Assign all existing equipment without organization to a default organization
   Future<int> assignUnassignedEquipment(
     String organizationId,
@@ -489,13 +528,32 @@ class EquipmentService {
   }) async {
     try {
       // Update checkout record
-      await _firestore.collection(checkoutsCollection).doc(checkoutId).update({
+      final checkoutUpdate = <String, dynamic>{
         'returnedAt': FieldValue.serverTimestamp(),
         'returnedBy': returnedBy,
         'returnedByName': returnedByName,
         'conditionAtReturn': conditionAtReturn.name,
-        if (notes != null) 'notes': FieldValue.arrayUnion([notes]),
-      });
+      };
+      if (notes != null && notes.trim().isNotEmpty) {
+        // EquipmentCheckout.notes is a plain String (see
+        // EquipmentCheckout.toFirestore), not an array — the checkout
+        // record may already hold a string from checkOutEquipment above,
+        // and FieldValue.arrayUnion on a non-array field throws. Append
+        // as a string instead, same fix as markForMaintenance/
+        // retireEquipment's notes handling.
+        final existingDoc = await _firestore
+            .collection(checkoutsCollection)
+            .doc(checkoutId)
+            .get();
+        final existingNotes = existingDoc.data()?['notes'] as String?;
+        checkoutUpdate['notes'] = (existingNotes == null || existingNotes.isEmpty)
+            ? notes.trim()
+            : '$existingNotes\n$notes'.trim();
+      }
+      await _firestore
+          .collection(checkoutsCollection)
+          .doc(checkoutId)
+          .update(checkoutUpdate);
 
       // Update equipment status
       await _firestore.collection(equipmentCollection).doc(equipmentId).update({
@@ -609,13 +667,27 @@ class EquipmentService {
   /// Mark equipment for maintenance
   Future<void> markForMaintenance(String equipmentId, String? reason) async {
     try {
-      await _firestore.collection(equipmentCollection).doc(equipmentId).update({
+      final update = <String, dynamic>{
         'status': EquipmentStatus.maintenance.name,
-        'notes': reason != null
-            ? FieldValue.arrayUnion(['Maintenance: $reason'])
-            : null,
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      };
+      // notes is modeled and persisted as a plain String everywhere else
+      // (Equipment.toFirestore/fromFirestore) — FieldValue.arrayUnion
+      // here would either throw (field already a string) or silently
+      // corrupt it into an array. Append as a string instead, and only
+      // touch notes at all when there's actually a reason to record,
+      // rather than wiping any existing notes with 'notes': null.
+      if (reason != null && reason.trim().isNotEmpty) {
+        final existing = await getEquipmentById(equipmentId);
+        final existingNotes = existing?.notes;
+        update['notes'] = (existingNotes == null || existingNotes.isEmpty)
+            ? 'Maintenance: $reason'
+            : '$existingNotes\nMaintenance: $reason';
+      }
+      await _firestore
+          .collection(equipmentCollection)
+          .doc(equipmentId)
+          .update(update);
       invalidateCache();
       debugPrint('Debug: Equipment $equipmentId marked for maintenance');
     } catch (e) {
@@ -646,13 +718,23 @@ class EquipmentService {
   /// Retire equipment
   Future<void> retireEquipment(String equipmentId, String? reason) async {
     try {
-      await _firestore.collection(equipmentCollection).doc(equipmentId).update({
+      final update = <String, dynamic>{
         'status': EquipmentStatus.retired.name,
-        'notes': reason != null
-            ? FieldValue.arrayUnion(['Retired: $reason'])
-            : null,
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      };
+      // Same reasoning as markForMaintenance above: notes is a String,
+      // not an array, and a null reason shouldn't wipe existing notes.
+      if (reason != null && reason.trim().isNotEmpty) {
+        final existing = await getEquipmentById(equipmentId);
+        final existingNotes = existing?.notes;
+        update['notes'] = (existingNotes == null || existingNotes.isEmpty)
+            ? 'Retired: $reason'
+            : '$existingNotes\nRetired: $reason';
+      }
+      await _firestore
+          .collection(equipmentCollection)
+          .doc(equipmentId)
+          .update(update);
       invalidateCache();
       debugPrint('Debug: Equipment $equipmentId retired');
     } catch (e) {

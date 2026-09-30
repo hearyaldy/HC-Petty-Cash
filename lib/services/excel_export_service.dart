@@ -2,12 +2,112 @@ import 'dart:io';
 import 'package:excel/excel.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
+import '../models/equipment.dart';
 import '../models/petty_cash_report.dart';
 import '../models/enums.dart';
 import '../utils/constants.dart';
 import 'firestore_service.dart';
 
 class ExcelExportService {
+  /// Builds an .xlsx workbook of the given equipment list and returns its
+  /// encoded bytes. Column headers match InventoryImportService's
+  /// canonical field names so an exported file can be re-imported as-is.
+  /// Pure byte-building, no file I/O — callers download/save the bytes
+  /// via utils/binary_file_downloader.dart (web-safe; dart:io here can't
+  /// run on the web build this app actually ships).
+  List<int> exportEquipmentList(List<Equipment> equipment) {
+    final excel = Excel.createExcel();
+    final Sheet sheet = excel['Inventory'];
+    if (excel.sheets.containsKey('Sheet1')) {
+      excel.delete('Sheet1');
+    }
+
+    final dateFormat = DateFormat('yyyy-MM-dd');
+
+    const headers = [
+      'name',
+      'description',
+      'category',
+      'brand',
+      'model',
+      'serialNumber',
+      'assetTag',
+      'assetCode',
+      'accountingPeriod',
+      'location',
+      'status',
+      'condition',
+      'purchasePrice',
+      'purchaseDate',
+      'purchaseYear',
+      'supplier',
+      'warrantyExpiry',
+      'notes',
+      'assignedToName',
+      'currentHolderName',
+      'quantity',
+      'unitCost',
+      'depreciationPercentage',
+      'monthsDepreciated',
+      'assetAgeYears',
+      'organizationName',
+    ];
+
+    for (var col = 0; col < headers.length; col++) {
+      _setCellValue(sheet, col, 0, headers[col]);
+      _styleCell(sheet, col, 0, bold: true, backgroundColor: 'FF4A148C');
+      _setTextColor(sheet, col, 0, 'FFFFFFFF');
+    }
+
+    for (var row = 0; row < equipment.length; row++) {
+      final item = equipment[row];
+      final rowIndex = row + 1;
+      final values = [
+        item.name,
+        item.description ?? '',
+        item.category,
+        item.brand ?? '',
+        item.model ?? '',
+        item.serialNumber ?? '',
+        item.assetTag ?? '',
+        item.assetCode ?? '',
+        item.accountingPeriod ?? '',
+        item.location ?? '',
+        item.status.name,
+        item.condition.name,
+        item.purchasePrice?.toString() ?? '',
+        item.purchaseDate != null ? dateFormat.format(item.purchaseDate!) : '',
+        item.purchaseYear?.toString() ?? '',
+        item.supplier ?? '',
+        item.warrantyExpiry != null
+            ? dateFormat.format(item.warrantyExpiry!)
+            : '',
+        item.notes ?? '',
+        item.assignedToName ?? '',
+        item.currentHolderName ?? '',
+        item.quantity.toString(),
+        item.unitCost?.toString() ?? '',
+        item.depreciationPercentage?.toString() ?? '',
+        item.monthsDepreciated?.toString() ?? '',
+        item.assetAgeYears?.toString() ?? '',
+        item.organizationName ?? '',
+      ];
+      for (var col = 0; col < values.length; col++) {
+        _setCellValue(sheet, col, rowIndex, values[col]);
+      }
+    }
+
+    for (var col = 0; col < headers.length; col++) {
+      sheet.setColumnWidth(col, 18);
+    }
+
+    final bytes = excel.encode();
+    if (bytes == null) {
+      throw Exception('Failed to encode Excel file');
+    }
+    return bytes;
+  }
+
   Future<String> exportReport(PettyCashReport report) async {
     final excel = Excel.createExcel();
     final Sheet sheet = excel['Petty Cash Report'];

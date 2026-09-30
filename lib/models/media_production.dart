@@ -27,6 +27,9 @@ class MediaProduction {
   final String? category;
   final List<String> customCategories;
 
+  // Social sync (Apify)
+  final String? facebookPageUrl; // Facebook Page URL to sync engagement from
+
   // Staff assignments
   final String createdById;
   final String createdByName;
@@ -59,6 +62,7 @@ class MediaProduction {
     this.durationMinutes,
     this.category,
     this.customCategories = const [],
+    this.facebookPageUrl,
     required this.createdById,
     required this.createdByName,
     this.teamMemberIds = const [],
@@ -101,6 +105,7 @@ class MediaProduction {
       'durationMinutes': durationMinutes,
       'category': category,
       'customCategories': customCategories,
+      'facebookPageUrl': facebookPageUrl,
       'createdById': createdById,
       'createdByName': createdByName,
       'teamMemberIds': teamMemberIds,
@@ -143,6 +148,7 @@ class MediaProduction {
               ?.map((e) => e.toString())
               .toList() ??
           [],
+      facebookPageUrl: data['facebookPageUrl'] as String?,
       createdById: data['createdById'] as String? ?? '',
       createdByName: data['createdByName'] as String? ?? 'Unknown',
       teamMemberIds: (data['teamMemberIds'] as List<dynamic>?)
@@ -192,6 +198,7 @@ class MediaProduction {
               ?.map((e) => e.toString())
               .toList() ??
           [],
+      facebookPageUrl: map['facebookPageUrl'] as String?,
       createdById: map['createdById'] as String? ?? '',
       createdByName: map['createdByName'] as String? ?? 'Unknown',
       teamMemberIds: (map['teamMemberIds'] as List<dynamic>?)
@@ -238,6 +245,7 @@ class MediaProduction {
       'durationMinutes': durationMinutes,
       'category': category,
       'customCategories': customCategories,
+      'facebookPageUrl': facebookPageUrl,
       'createdById': createdById,
       'createdByName': createdByName,
       'teamMemberIds': teamMemberIds,
@@ -266,6 +274,7 @@ class MediaProduction {
     int? durationMinutes,
     String? category,
     List<String>? customCategories,
+    String? facebookPageUrl,
     List<String>? teamMemberIds,
     List<String>? teamMemberNames,
     DateTime? updatedAt,
@@ -290,6 +299,7 @@ class MediaProduction {
       durationMinutes: durationMinutes ?? this.durationMinutes,
       category: category ?? this.category,
       customCategories: customCategories ?? this.customCategories,
+      facebookPageUrl: facebookPageUrl ?? this.facebookPageUrl,
       createdById: createdById,
       createdByName: createdByName,
       teamMemberIds: teamMemberIds ?? this.teamMemberIds,

@@ -282,6 +282,9 @@ class CurrencyConversionPdfService {
       case 'MYR': return 'RM';
       case 'USD': return '\$';
       case 'THB': return '฿';
+      // No 'VND' case: the bundled NotoSansThai PDF font (see _loadFonts
+      // above) doesn't include the ₫ glyph (U+20AB) — falls through to the
+      // 'VND' code text below, which the font does support.
       default: return code;
     }
   }

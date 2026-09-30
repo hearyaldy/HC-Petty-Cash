@@ -44,12 +44,19 @@ class MediaProductionService {
   /// Create a new media production
   Future<String> createProduction(MediaProduction production) async {
     try {
-      final docRef = await _firestore
+      // Use .doc(production.id) rather than .add() — callers already
+      // generate production.id client-side (see MediaProductionProvider)
+      // and every other method here (update/get/delete) looks the
+      // production up by that same id. .add() would assign a different,
+      // Firestore-generated document id, leaving the id the caller holds
+      // pointing at a document that doesn't exist.
+      await _firestore
           .collection(productionsCollection)
-          .add(production.toFirestore());
+          .doc(production.id)
+          .set(production.toFirestore());
       invalidateCache();
-      debugPrint('Debug: Created media production: ${docRef.id}');
-      return docRef.id;
+      debugPrint('Debug: Created media production: ${production.id}');
+      return production.id;
     } catch (e) {
       debugPrint('Error creating media production: $e');
       rethrow;

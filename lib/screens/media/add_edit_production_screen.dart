@@ -32,6 +32,7 @@ class _AddEditProductionScreenState extends State<AddEditProductionScreen> {
   final _yearController = TextEditingController();
   final _thumbnailUrlController = TextEditingController();
   final _newUrlController = TextEditingController();
+  final _facebookPageUrlController = TextEditingController();
   final _durationController = TextEditingController();
   final _newCategoryController = TextEditingController();
 
@@ -151,6 +152,7 @@ class _AddEditProductionScreenState extends State<AddEditProductionScreen> {
           _yearController.text =
               production.productionYear != null ? production.productionYear!.toString() : '';
           _thumbnailUrlController.text = production.thumbnailUrl ?? '';
+          _facebookPageUrlController.text = production.facebookPageUrl ?? '';
           _durationController.text =
               production.durationMinutes != null
                   ? _formatDurationInput(production.durationMinutes!)
@@ -219,6 +221,9 @@ class _AddEditProductionScreenState extends State<AddEditProductionScreen> {
       final thumbnailUrl = _thumbnailUrlController.text.trim().isEmpty
           ? null
           : _thumbnailUrlController.text.trim();
+      final facebookPageUrl = _facebookPageUrlController.text.trim().isEmpty
+          ? null
+          : _facebookPageUrlController.text.trim();
       final durationMinutes = _parseDurationMinutes(_durationController.text.trim());
       final staffById = {
         for (final staff in _allStaff) staff.id: staff,
@@ -250,6 +255,7 @@ class _AddEditProductionScreenState extends State<AddEditProductionScreen> {
           durationMinutes: durationMinutes,
           category: _selectedCategory,
           customCategories: List<String>.from(_customCategories),
+          facebookPageUrl: facebookPageUrl,
           teamMemberIds: selectedStaffIds,
           teamMemberNames: selectedStaffNames,
           notes: _notesController.text.trim().isEmpty
@@ -285,6 +291,7 @@ class _AddEditProductionScreenState extends State<AddEditProductionScreen> {
           durationMinutes: durationMinutes,
           category: _selectedCategory,
           customCategories: List<String>.from(_customCategories),
+          facebookPageUrl: facebookPageUrl,
           teamMemberIds: selectedStaffIds,
           teamMemberNames: selectedStaffNames,
           createdById: user.id,
@@ -296,9 +303,9 @@ class _AddEditProductionScreenState extends State<AddEditProductionScreen> {
 
         if (production != null && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Production created successfully')),
+            const SnackBar(content: Text('Production created — continue in the Planning tab')),
           );
-          context.pop();
+          context.pushReplacement('/media/productions/${production.id}');
         }
       }
     } catch (e) {
@@ -321,6 +328,7 @@ class _AddEditProductionScreenState extends State<AddEditProductionScreen> {
     _yearController.dispose();
     _thumbnailUrlController.dispose();
     _newUrlController.dispose();
+    _facebookPageUrlController.dispose();
     _durationController.dispose();
     _newCategoryController.dispose();
     super.dispose();
@@ -1018,6 +1026,33 @@ class _AddEditProductionScreenState extends State<AddEditProductionScreen> {
                     .toList(),
               ),
             ],
+            const Divider(height: 32),
+            Row(
+              children: [
+                Icon(Icons.facebook, color: Colors.blue.shade700),
+                const SizedBox(width: 8),
+                const Text(
+                  'Facebook Page (for engagement sync)',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Set the Page URL to enable "Sync from Facebook" on the production detail screen.',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _facebookPageUrlController,
+              decoration: const InputDecoration(
+                labelText: 'Facebook Page URL',
+                hintText: 'https://www.facebook.com/yourpage',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.link),
+              ),
+              keyboardType: TextInputType.url,
+            ),
           ],
         ),
       ),

@@ -1,12 +1,17 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
+import '../../models/adcom_minutes.dart';
+import '../../models/cash_advance.dart' show CashAdvanceMeetingReference;
 import '../../models/enums.dart';
 import '../../models/expense_claim.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/expense_claim_provider.dart';
+import '../../services/adcom_minutes_service.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
 import '../../widgets/support_document_upload_dialog.dart';
@@ -26,6 +31,10 @@ class _NewExpenseClaimScreenState extends State<NewExpenseClaimScreen> {
 
   final List<_LineItemForm> _items = [];
   bool _submitting = false;
+
+  // Meeting minutes references (multiple action items, any meeting)
+  final List<CashAdvanceMeetingReference> _meetingReferences = [];
+  final _minutesService = AdcomMinutesService();
 
   final _currencyFormat = NumberFormat.currency(
     symbol: AppConstants.currencySymbol,
@@ -63,6 +72,181 @@ class _NewExpenseClaimScreenState extends State<NewExpenseClaimScreen> {
 
   double get _total =>
       _items.fold(0.0, (acc, item) => acc + (item.parsedAmount ?? 0.0));
+
+  Future<void> _pickMinutesReference() async {
+    // Step 1 – pick a minutes document
+    List<AdcomMinutes> minutesList = [];
+    try {
+      minutesList = await _minutesService.getMinutes().first;
+    } catch (_) {}
+    if (!mounted) return;
+
+    final AdcomMinutes? selectedMinutes = await showDialog<AdcomMinutes>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Select Meeting Minutes'),
+        contentPadding: const EdgeInsets.fromLTRB(0, 12, 0, 0),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: minutesList.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Text('No meeting minutes found.'),
+                )
+              : ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: minutesList.length,
+                  separatorBuilder: (_, _) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final m = minutesList[index];
+                    final dateStr =
+                        DateFormat('MMM dd, yyyy').format(m.meetingDate);
+                    return ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.deepOrange.shade50,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.article_outlined,
+                            size: 20, color: Colors.deepOrange.shade600),
+                      ),
+                      title: Text('ADCOM – $dateStr',
+                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: Text(m.location,
+                          style: TextStyle(
+                              fontSize: 12, color: Colors.grey[600])),
+                      trailing: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: m.status == 'finalized'
+                              ? Colors.green.shade50
+                              : Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: m.status == 'finalized'
+                                ? Colors.green.shade200
+                                : Colors.orange.shade200,
+                          ),
+                        ),
+                        child: Text(
+                          m.status.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: m.status == 'finalized'
+                                ? Colors.green[700]
+                                : Colors.orange[700],
+                          ),
+                        ),
+                      ),
+                      onTap: () => Navigator.pop(context, m),
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+
+    if (selectedMinutes == null || !mounted) return;
+
+    // Step 2 – pick an action item from that minutes
+    final MinutesItem? selectedItem = await showDialog<MinutesItem>(
+      context: context,
+      builder: (context) {
+        final items = selectedMinutes.minutesItems;
+        final dateStr =
+            DateFormat('MMM dd, yyyy').format(selectedMinutes.meetingDate);
+        return AlertDialog(
+          title: Text('ADCOM – $dateStr'),
+          contentPadding: const EdgeInsets.fromLTRB(0, 12, 0, 0),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: items.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Text('No action items in this minutes.'),
+                  )
+                : ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: items.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      return ListTile(
+                        leading: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.deepOrange.shade50,
+                            borderRadius: BorderRadius.circular(6),
+                            border:
+                                Border.all(color: Colors.deepOrange.shade200),
+                          ),
+                          child: Text(
+                            item.itemNumber,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.deepOrange.shade700,
+                            ),
+                          ),
+                        ),
+                        title: Text(item.title,
+                            style: const TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w600)),
+                        subtitle: item.resolution != null
+                            ? Text(item.resolution!,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                    fontSize: 11, color: Colors.grey[600]))
+                            : null,
+                        onTap: () => Navigator.pop(context, item),
+                      );
+                    },
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Back'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (selectedItem == null || !mounted) return;
+
+    final dateStr =
+        DateFormat('MMM dd, yyyy').format(selectedMinutes.meetingDate);
+    final reference = CashAdvanceMeetingReference(
+      minutesId: selectedMinutes.id,
+      minutesLabel: 'ADCOM – $dateStr',
+      actionItemNumber: selectedItem.itemNumber,
+      actionItemTitle: selectedItem.title,
+      actionItemDescription: selectedItem.description,
+      actionItemAction: selectedItem.status.displayName,
+    );
+    setState(() {
+      _meetingReferences.removeWhere((r) =>
+          r.minutesId == reference.minutesId &&
+          r.actionItemNumber == reference.actionItemNumber);
+      _meetingReferences.add(reference);
+    });
+  }
+
+  void _removeMeetingReference(CashAdvanceMeetingReference reference) {
+    setState(() => _meetingReferences.remove(reference));
+  }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
@@ -109,6 +293,7 @@ class _NewExpenseClaimScreenState extends State<NewExpenseClaimScreen> {
       purpose: _purposeCtrl.text.trim(),
       department: user.department,
       items: lineItems,
+      meetingReferences: List.of(_meetingReferences),
       notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
     );
 
@@ -237,6 +422,10 @@ class _NewExpenseClaimScreenState extends State<NewExpenseClaimScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 20),
+                _sectionHeader(theme, 'Meeting Reference (optional)'),
+                const SizedBox(height: 8),
+                ..._buildMeetingReferenceTiles(),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _notesCtrl,
@@ -270,6 +459,165 @@ class _NewExpenseClaimScreenState extends State<NewExpenseClaimScreen> {
         ),
       ),
     );
+  }
+
+  List<Widget> _buildMeetingReferenceTiles() {
+    if (_meetingReferences.isEmpty) {
+      return [_buildAddReferenceTile()];
+    }
+    return [
+      for (final ref in _meetingReferences) ...[
+        _buildMeetingReferenceCard(ref),
+        const SizedBox(height: 10),
+      ],
+      _buildAddReferenceTile(),
+    ];
+  }
+
+  Widget _buildAddReferenceTile() {
+    return InkWell(
+      onTap: _pickMinutesReference,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade400),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.add_circle_outline,
+                color: Colors.deepOrange[400], size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _meetingReferences.isEmpty
+                        ? 'Link to Meeting Minutes'
+                        : 'Add Another Action Item',
+                    style: TextStyle(fontSize: 15, color: Colors.grey[600]),
+                  ),
+                  Text(
+                    'Tap to select minutes & action item',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: Colors.grey[400], size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMeetingReferenceCard(CashAdvanceMeetingReference ref) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.deepOrange.shade300),
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.deepOrange.shade50,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.article_outlined, color: Colors.deepOrange, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  ref.minutesLabel,
+                  style: TextStyle(fontSize: 12, color: Colors.deepOrange[600]),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.deepOrange.shade100,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        ref.actionItemNumber,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.deepOrange[700],
+                        ),
+                      ),
+                    ),
+                    if (ref.actionItemAction != null) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.teal.shade50,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.teal.shade200),
+                        ),
+                        child: Text(
+                          ref.actionItemAction!,
+                          style: TextStyle(fontSize: 11, color: Colors.teal[700]),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                if (ref.actionItemTitle != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    ref.actionItemTitle!,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+                if (ref.actionItemDescription != null &&
+                    ref.actionItemDescription!.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    _plainText(ref.actionItemDescription!),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.clear, size: 18),
+            color: Colors.grey[500],
+            constraints: const BoxConstraints(),
+            padding: const EdgeInsets.all(4),
+            onPressed: () => _removeMeetingReference(ref),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _plainText(String text) {
+    if (text.startsWith('[')) {
+      try {
+        final List<dynamic> ops = jsonDecode(text) as List;
+        return ops
+            .where((op) => op is Map && op['insert'] is String)
+            .map((op) => op['insert'] as String)
+            .join()
+            .trim();
+      } catch (_) {}
+    }
+    return text;
   }
 
   Widget _sectionHeader(ThemeData theme, String text) {

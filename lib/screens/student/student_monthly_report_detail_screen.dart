@@ -2709,6 +2709,12 @@ class _StudentMonthlyReportDetailScreenState
     int taskProgress = 0;
     TaskStatus selectedTaskStatus = TaskStatus.inProgress;
     final notesController = TextEditingController();
+    // Guards the write below from firing twice — the dialog used to stay
+    // open and fully clickable through both awaited Firestore calls with no
+    // loading feedback, so an impatient tap (or a web double-click) created
+    // a second identical timesheet before the first one finished and closed
+    // the dialog. This is how duplicate same-date/time entries piled up.
+    bool isSaving = false;
 
     await showDialog(
       context: context,
@@ -3088,11 +3094,11 @@ class _StudentMonthlyReportDetailScreenState
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: isSaving ? null : () => Navigator.pop(context),
                 child: const Text('Cancel'),
               ),
               ElevatedButton(
-                onPressed: () async {
+                onPressed: isSaving ? null : () async {
                   // Validate required fields
                   if (selectedDate == null ||
                       startTime == null ||
@@ -3160,66 +3166,87 @@ class _StudentMonthlyReportDetailScreenState
                     return;
                   }
 
-                  // Create timesheet entry
-                  final timesheetRef = FirebaseFirestore.instance
-                      .collection('student_timesheets')
-                      .doc();
+                  setDialogState(() => isSaving = true);
 
-                  final hourlyRate = _reportData?['hourlyRate'] ?? 0.0;
-                  final timesheet = StudentTimesheet(
-                    id: timesheetRef.id,
-                    studentId: _reportData!['studentId'],
-                    studentName: _reportData!['studentName'],
-                    studentEmail: _reportData!['studentEmail'],
-                    department: _reportData!['department'] ?? '',
-                    studentNumber: _reportData!['studentNumber'] ?? '',
-                    date: selectedDate!,
-                    startTime: start,
-                    endTime: end,
-                    totalHours: hours,
-                    hourlyRate: hourlyRate,
-                    totalAmount: hours * hourlyRate,
-                    status: 'draft',
-                    task: taskTitleController.text
-                        .trim(), // For backward compatibility
-                    taskType: selectedTaskType.value,
-                    customTaskType: selectedTaskType == TaskType.other
-                        ? customTaskTypeController.text.trim()
-                        : null,
-                    taskTitle: taskTitleController.text.trim(),
-                    taskDescription: taskDescriptionController.text.isNotEmpty
-                        ? taskDescriptionController.text.trim()
-                        : null,
-                    taskProgress: taskProgress,
-                    taskStatus: selectedTaskStatus.value,
-                    notes: notesController.text.isNotEmpty
-                        ? notesController.text
-                        : null,
-                    createdAt: DateTime.now(),
-                    reportId: widget.reportId,
-                    reportMonth: widget.month,
-                  );
+                  try {
+                    // Create timesheet entry
+                    final timesheetRef = FirebaseFirestore.instance
+                        .collection('student_timesheets')
+                        .doc();
 
-                  await timesheetRef.set(timesheet.toFirestore());
+                    final hourlyRate = _reportData?['hourlyRate'] ?? 0.0;
+                    final timesheet = StudentTimesheet(
+                      id: timesheetRef.id,
+                      studentId: _reportData!['studentId'],
+                      studentName: _reportData!['studentName'],
+                      studentEmail: _reportData!['studentEmail'],
+                      department: _reportData!['department'] ?? '',
+                      studentNumber: _reportData!['studentNumber'] ?? '',
+                      date: selectedDate!,
+                      startTime: start,
+                      endTime: end,
+                      totalHours: hours,
+                      hourlyRate: hourlyRate,
+                      totalAmount: hours * hourlyRate,
+                      status: 'draft',
+                      task: taskTitleController.text
+                          .trim(), // For backward compatibility
+                      taskType: selectedTaskType.value,
+                      customTaskType: selectedTaskType == TaskType.other
+                          ? customTaskTypeController.text.trim()
+                          : null,
+                      taskTitle: taskTitleController.text.trim(),
+                      taskDescription: taskDescriptionController.text.isNotEmpty
+                          ? taskDescriptionController.text.trim()
+                          : null,
+                      taskProgress: taskProgress,
+                      taskStatus: selectedTaskStatus.value,
+                      notes: notesController.text.isNotEmpty
+                          ? notesController.text
+                          : null,
+                      createdAt: DateTime.now(),
+                      reportId: widget.reportId,
+                      reportMonth: widget.month,
+                    );
 
-                  // Update report totals
-                  await _updateReportTotals();
+                    await timesheetRef.set(timesheet.toFirestore());
 
-                  Navigator.pop(context);
-                  _loadReportDetails();
+                    // Update report totals
+                    await _updateReportTotals();
 
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Time entry added successfully'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
+                    if (!context.mounted) return;
+                    Navigator.pop(context);
+                    _loadReportDetails();
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Time entry added successfully'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  } catch (e) {
+                    setDialogState(() => isSaving = false);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error adding time entry: $e')),
+                      );
+                    }
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.orange.shade600,
                   foregroundColor: Colors.white,
                 ),
-                child: const Text('Add Entry'),
+                child: isSaving
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('Add Entry'),
               ),
             ],
           );

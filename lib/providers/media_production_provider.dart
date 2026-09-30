@@ -7,10 +7,12 @@ import '../models/media_engagement.dart';
 import '../models/enums.dart';
 import '../services/media_production_service.dart';
 import '../services/media_engagement_service.dart';
+import '../services/media_engagement_sync_service.dart';
 
 class MediaProductionProvider extends ChangeNotifier {
   final MediaProductionService _productionService = MediaProductionService();
   final MediaEngagementService _engagementService = MediaEngagementService();
+  final MediaEngagementSyncService _engagementSyncService = MediaEngagementSyncService();
   final Uuid _uuid = const Uuid();
 
   List<MediaProduction> _productions = [];
@@ -103,6 +105,18 @@ class MediaProductionProvider extends ChangeNotifier {
   Future<void> loadProductionWithDetails(String productionId) async {
     _isLoading = true;
     _error = null;
+    // Switching to a different production — drop the old one immediately
+    // so the detail screen shows its loading spinner instead of a flash
+    // of the previous production's data while the new one fetches.
+    // Reloading the *same* production (e.g. pull-to-refresh) keeps the
+    // existing data on screen until the refresh completes.
+    if (_currentProduction?.id != productionId) {
+      _currentProduction = null;
+      _currentSeasons = [];
+      _currentEpisodes = [];
+      _currentEngagements = [];
+      _currentEngagementStats = null;
+    }
     notifyListeners();
 
     try {
@@ -159,6 +173,7 @@ class MediaProductionProvider extends ChangeNotifier {
     int? durationMinutes,
     String? category,
     List<String>? customCategories,
+    String? facebookPageUrl,
     required String createdById,
     required String createdByName,
     List<String>? teamMemberIds,
@@ -188,6 +203,7 @@ class MediaProductionProvider extends ChangeNotifier {
         durationMinutes: durationMinutes,
         category: category,
         customCategories: customCategories ?? [],
+        facebookPageUrl: facebookPageUrl,
         createdById: createdById,
         createdByName: createdByName,
         teamMemberIds: teamMemberIds ?? [],
@@ -509,6 +525,47 @@ class MediaProductionProvider extends ChangeNotifier {
     } catch (e) {
       _error = 'Failed to add engagement: $e';
       debugPrint(_error);
+      return null;
+    }
+  }
+
+  /// Sync engagement from the production's Facebook Page via Apify and
+  /// save the aggregated totals as a new engagement record, reusing
+  /// [addEngagement] so the write path stays identical to a manual entry.
+  Future<MediaEngagement?> syncFacebookEngagement({
+    required String productionId,
+    required String enteredById,
+    required String enteredByName,
+  }) async {
+    final pageUrl = _currentProduction?.facebookPageUrl;
+    if (pageUrl == null || pageUrl.isEmpty) {
+      _error = 'No Facebook Page URL is set for this production.';
+      notifyListeners();
+      return null;
+    }
+
+    try {
+      final result = await _engagementSyncService.syncFacebookPage(productionId: productionId);
+      final now = DateTime.now();
+
+      return await addEngagement(
+        productionId: productionId,
+        platform: MediaPlatform.facebook.name,
+        recordedDate: now,
+        periodStart: result.earliestPostDate ?? now,
+        periodEnd: now,
+        views: result.views,
+        likes: result.likes,
+        comments: result.comments,
+        shares: result.shares,
+        enteredById: enteredById,
+        enteredByName: enteredByName,
+        notes: 'Synced via Apify (Facebook Posts Scraper) — ${result.postCount} posts',
+      );
+    } catch (e) {
+      _error = 'Failed to sync Facebook engagement: $e';
+      debugPrint(_error);
+      notifyListeners();
       return null;
     }
   }

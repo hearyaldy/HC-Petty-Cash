@@ -69,7 +69,7 @@ class AppDrawer extends StatelessWidget {
                       color: const Color(0xFF4F46E5),
                       items: [
                         _NavItem(Icons.dashboard_outlined, 'Meetings Dashboard', '/meetings-dashboard'),
-                        _NavItem(Icons.list, 'All Meetings', '/meetings'),
+                        _NavItem(Icons.list, 'All Meetings', '/meetings/list'),
                         _NavItem(Icons.checklist, 'Action Items', '/meetings/action-items'),
                       ],
                     ),
@@ -97,6 +97,15 @@ class AppDrawer extends StatelessWidget {
                     items: [
                       _NavItem(Icons.inventory_2_outlined, 'Equipment Inventory', '/inventory'),
                     ],
+                  ),
+
+                  // ── Boards ──────────────────────────────────────────
+                  _buildNavItem(
+                    context,
+                    icon: Icons.dashboard_customize_outlined,
+                    title: 'HC Task Board',
+                    route: '/boards',
+                    color: const Color(0xFF0D9488),
                   ),
 
                   // ── Admin-only sections ─────────────────────────────

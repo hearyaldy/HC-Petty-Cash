@@ -39,6 +39,22 @@
         "function": "financeAiReport"
       },
       {
+        "source": "/api/media-planning-ai",
+        "function": "mediaPlanningAi"
+      },
+      {
+        "source": "/api/media-engagement-sync",
+        "function": "mediaEngagementSync"
+      },
+      {
+        "source": "/api/exchange-rate-ai",
+        "function": "exchangeRateAi"
+      },
+      {
+        "source": "/api/agenda-ai",
+        "function": "agendaAi"
+      },
+      {
         "source": "/reset-password",
         "destination": "/reset-password.html"
       },

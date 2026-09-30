@@ -220,7 +220,6 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
                 ),
               ],
             ),
-          floatingActionButton: _buildActionButton(equipment),
         );
       },
     );
@@ -553,17 +552,32 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
   }
 
 
-  Widget? _buildActionButton(Equipment equipment) {
+  /// Check Out / Check In as a full-width button inside the body's
+  /// content column, alongside the rest of the equipment details —
+  /// previously a Scaffold-level floatingActionButton, which sat outside
+  /// the ConstrainedBox(maxWidth: 900) the rest of the content is
+  /// centered in and could end up detached from it on wide layouts.
+  Widget? _buildCheckInOutButton(Equipment equipment) {
     final authProvider = context.watch<AuthProvider>();
     final user = authProvider.currentUser;
     final canCheckout = authProvider.canCheckoutInventory();
 
     if (equipment.status == EquipmentStatus.available && canCheckout) {
-      return FloatingActionButton.extended(
-        onPressed: () => _showCheckoutDialog(equipment),
-        icon: const Icon(Icons.output),
-        label: const Text('Check Out'),
-        backgroundColor: Colors.orange,
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: () => _showCheckoutDialog(equipment),
+          icon: const Icon(Icons.output),
+          label: const Text('Check Out'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.orange,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
       );
     } else if (equipment.status == EquipmentStatus.checkedOut) {
       // Only the person who checked it out or users with checkout permission can check it in
@@ -571,11 +585,21 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
           canCheckout ||
           equipment.currentHolderId == user?.id;
       if (canCheckIn) {
-        return FloatingActionButton.extended(
-          onPressed: () => _showCheckInDialog(equipment),
-          icon: const Icon(Icons.input),
-          label: const Text('Check In'),
-          backgroundColor: Colors.green,
+        return SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: () => _showCheckInDialog(equipment),
+            icon: const Icon(Icons.input),
+            label: const Text('Check In'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
         );
       }
     }
@@ -587,10 +611,15 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
     NumberFormat currencyFormat,
     DateFormat dateFormat,
   ) {
+    final checkInOutButton = _buildCheckInOutButton(equipment);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildHeaderCard(equipment, currencyFormat),
+        if (checkInOutButton != null) ...[
+          const SizedBox(height: 16),
+          checkInOutButton,
+        ],
         const SizedBox(height: 16),
         if (equipment.isCheckedOut)
           _buildCurrentCheckoutCard(equipment, dateFormat),
@@ -1713,7 +1742,16 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
     String? photoUrl = equipment.photoUrl;
     final dateFormat = DateFormat('dd MMM yyyy');
     final currentYear = DateTime.now().year;
-    final years = List.generate(30, (i) => currentYear - i);
+    // DropdownButtonFormField asserts its initialValue is present in items —
+    // equipment older than 30 years, or a bad/future year from a CSV
+    // import, would otherwise crash this dialog on open.
+    final existingYear = purchaseYear ?? purchaseDate?.year;
+    final years =
+        (<int>{
+              for (var i = 0; i < 30; i++) currentYear - i,
+              if (existingYear != null) existingYear,
+            }.toList()
+            ..sort((a, b) => b.compareTo(a)));
     final availableUserIds = _availableUsers.map((user) => user.id).toSet();
     final hasAssignedUser = assignedToId != null && availableUserIds.contains(assignedToId);
     final categories = [
@@ -2116,7 +2154,14 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
                                     if (picked != null) {
                                       setDialogState(() {
                                         purchaseDate = picked;
-                                        purchaseYear ??= picked.year;
+                                        // Unconditional, not ??= — Asset
+                                        // Age and the sticker tag prefer
+                                        // purchaseDate over purchaseYear
+                                        // whenever both are set, so a
+                                        // stale year left over from a
+                                        // previous edit must be replaced,
+                                        // not just filled in when absent.
+                                        purchaseYear = picked.year;
                                       });
                                     }
                                   },
@@ -2157,6 +2202,16 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
                                   onChanged: (value) {
                                     setDialogState(() {
                                       purchaseYear = value;
+                                      // Same reasoning as the date picker
+                                      // above, mirrored: clear a now-
+                                      // inconsistent date so the freshly
+                                      // picked year actually takes effect
+                                      // instead of being silently
+                                      // overridden by the old date.
+                                      if (value != null &&
+                                          purchaseDate?.year != value) {
+                                        purchaseDate = null;
+                                      }
                                     });
                                   },
                                 ),

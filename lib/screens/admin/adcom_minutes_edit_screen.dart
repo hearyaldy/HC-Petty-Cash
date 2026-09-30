@@ -4,6 +4,7 @@ import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 import '../../models/adcom_agenda.dart';
 import '../../models/adcom_minutes.dart';
 import '../../services/adcom_agenda_service.dart';
@@ -44,7 +45,22 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
   Future<void> _loadMinutes() async {
     setState(() => _isLoading = true);
     try {
-      final minutes = await _service.getMinutesById(widget.minutesId);
+      var minutes = await _service.getMinutesById(widget.minutesId);
+
+      // MinutesItem.fromAgendaItem copies the agenda item's id verbatim,
+      // so minutes created from an agenda that already had a duplicate id
+      // (see AdcomAgendaEditScreen's positional-id bug) inherit the same
+      // collision independently. That breaks this screen's own
+      // ReorderableListView, keyed by ValueKey(item.id), with "Multiple
+      // widgets used the same GlobalKey". Repair it here too, once.
+      if (minutes != null) {
+        final dedupedItems = _dedupeMinutesItemIds(minutes.minutesItems);
+        if (!identical(dedupedItems, minutes.minutesItems)) {
+          minutes = minutes.copyWith(minutesItems: dedupedItems);
+          await _service.updateMinutes(minutes);
+        }
+      }
+
       _agendaSubscription?.cancel();
       AdcomAgenda? agenda;
       if (minutes != null && minutes.agendaId.isNotEmpty) {
@@ -74,6 +90,27 @@ class _AdcomMinutesEditScreenState extends State<AdcomMinutesEditScreen> {
         ).showSnackBar(SnackBar(content: Text('Error loading minutes: $e')));
       }
     }
+  }
+
+  /// Returns [items] unchanged if every id is already unique and non-empty,
+  /// otherwise returns a copy with a fresh unique id assigned to each item
+  /// that collided with (or was missing an id shared with) an earlier one.
+  List<MinutesItem> _dedupeMinutesItemIds(List<MinutesItem> items) {
+    final seenIds = <String>{};
+    var changed = false;
+    final result = <MinutesItem>[];
+    for (final item in items) {
+      if (item.id.isEmpty || seenIds.contains(item.id)) {
+        changed = true;
+        final newId = const Uuid().v4();
+        seenIds.add(newId);
+        result.add(item.copyWith(id: newId));
+      } else {
+        seenIds.add(item.id);
+        result.add(item);
+      }
+    }
+    return changed ? result : items;
   }
 
   @override

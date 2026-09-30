@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../models/cash_advance.dart' show CashAdvanceMeetingReference;
 import '../models/expense_claim.dart';
 import '../models/user.dart';
 import '../services/expense_claim_service.dart';
@@ -84,6 +85,7 @@ class ExpenseClaimProvider extends ChangeNotifier {
     required String purpose,
     required String department,
     required List<ExpenseLineItem> items,
+    List<CashAdvanceMeetingReference>? meetingReferences,
     String? notes,
   }) async {
     _isLoading = true;
@@ -96,6 +98,7 @@ class ExpenseClaimProvider extends ChangeNotifier {
         purpose: purpose,
         department: department,
         items: items,
+        meetingReferences: meetingReferences,
         notes: notes,
       );
       _claims.insert(0, claim);

@@ -1648,7 +1648,13 @@ class PdfExportService {
               _cell(tx.description),
               _cell('1', align: pw.TextAlign.center),
               _cell('', align: pw.TextAlign.right),
-              _cell(currencyFormat.format(tx.amount), align: pw.TextAlign.right),
+              _cell(
+                currencyFormat.format(tx.amount),
+                align: pw.TextAlign.right,
+                subText: (tx.foreignCurrency != null && tx.foreignAmount != null)
+                    ? '≈ ${tx.foreignCurrency} ${NumberFormat('#,##0.00').format(tx.foreignAmount)}'
+                    : null,
+              ),
             ],
           ),
         );
@@ -1709,17 +1715,38 @@ class PdfExportService {
     String text, {
     bool bold = false,
     pw.TextAlign align = pw.TextAlign.left,
+    String? subText,
   }) {
+    final mainText = pw.Text(
+      text,
+      style: pw.TextStyle(
+        fontSize: 9,
+        fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+      ),
+      textAlign: align,
+      maxLines: 2,
+    );
+    if (subText == null) {
+      return pw.Padding(
+        padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+        child: mainText,
+      );
+    }
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3),
-      child: pw.Text(
-        text,
-        style: pw.TextStyle(
-          fontSize: 9,
-          fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
-        ),
-        textAlign: align,
-        maxLines: 2,
+      child: pw.Column(
+        crossAxisAlignment: align == pw.TextAlign.right
+            ? pw.CrossAxisAlignment.end
+            : pw.CrossAxisAlignment.start,
+        mainAxisSize: pw.MainAxisSize.min,
+        children: [
+          mainText,
+          pw.Text(
+            subText,
+            style: pw.TextStyle(fontSize: 6.5, color: PdfColors.teal700),
+            textAlign: align,
+          ),
+        ],
       ),
     );
   }
@@ -1825,17 +1852,35 @@ class PdfExportService {
       String text, {
       bool rightAlign = false,
       bool wrap = false,
-    }) =>
-        pw.Padding(
-          padding: cellPadding,
-          child: pw.Text(
-            text,
-            style: cellStyle,
-            textAlign: rightAlign ? pw.TextAlign.right : pw.TextAlign.left,
-            softWrap: wrap,
-            overflow: pw.TextOverflow.clip,
-          ),
-        );
+      String? subText,
+    }) {
+      final mainText = pw.Text(
+        text,
+        style: cellStyle,
+        textAlign: rightAlign ? pw.TextAlign.right : pw.TextAlign.left,
+        softWrap: wrap,
+        overflow: pw.TextOverflow.clip,
+      );
+      if (subText == null) {
+        return pw.Padding(padding: cellPadding, child: mainText);
+      }
+      return pw.Padding(
+        padding: cellPadding,
+        child: pw.Column(
+          crossAxisAlignment:
+              rightAlign ? pw.CrossAxisAlignment.end : pw.CrossAxisAlignment.start,
+          mainAxisSize: pw.MainAxisSize.min,
+          children: [
+            mainText,
+            pw.Text(
+              subText,
+              style: pw.TextStyle(fontSize: 7, color: PdfColors.teal700),
+              textAlign: rightAlign ? pw.TextAlign.right : pw.TextAlign.left,
+            ),
+          ],
+        ),
+      );
+    }
 
     return pw.Table(
       border: pw.TableBorder.all(color: PdfColors.grey300),
@@ -1868,7 +1913,17 @@ class PdfExportService {
               dataCell(t.receiptNo),
               dataCell(_breakLongWords(t.description), wrap: true),
               dataCell(_breakLongWords(t.categoryDisplayName), wrap: true),
-              dataCell(currencyFormat.format(t.amount), rightAlign: true),
+              dataCell(
+                currencyFormat.format(t.amount),
+                rightAlign: true,
+                // The transaction's own foreign currency (set in the
+                // Add/Edit Transaction currency dialog) takes priority over
+                // the report-wide fx column — they can differ, e.g. an
+                // advance taken in MYR with one expense paid in VND.
+                subText: (t.foreignCurrency != null && t.foreignAmount != null)
+                    ? '≈ ${t.foreignCurrency} ${NumberFormat('#,##0.00').format(t.foreignAmount)}'
+                    : null,
+              ),
               if (showFx)
                 dataCell(
                   NumberFormat('#,##0.00').format(t.amount / fxRate),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -48,6 +49,8 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen>
   MeetingMinutes? _minutes;
   List<MeetingActionItem> _actionItems = [];
   bool _isLoading = true;
+  StreamSubscription<adcom.AdcomAgenda?>? _adcomAgendaSubscription;
+  StreamSubscription<AdcomMinutes?>? _adcomMinutesSubscription;
 
   @override
   void initState() {
@@ -88,6 +91,8 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen>
   @override
   void dispose() {
     _tabController.dispose();
+    _adcomAgendaSubscription?.cancel();
+    _adcomMinutesSubscription?.cancel();
     super.dispose();
   }
 
@@ -96,20 +101,35 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen>
     try {
       final meeting = await _meetingService.getMeeting(widget.meetingId);
       MeetingMinutes? minutes;
-      adcom.AdcomAgenda? adcomAgenda;
-      AdcomMinutes? adcomMinutes;
+
+      _adcomAgendaSubscription?.cancel();
+      _adcomMinutesSubscription?.cancel();
+      _adcomMinutesSubscription = null;
 
       if (meeting != null) {
         minutes = await _meetingService.getMinutesByMeetingId(meeting.id);
         if (meeting.agendaId != null) {
-          adcomAgenda = await _adcomAgendaService.getAgendaById(
-            meeting.agendaId!,
-          );
-          if (adcomAgenda != null) {
-            adcomMinutes = await _adcomMinutesService.getMinutesByAgendaId(
-              adcomAgenda.id,
-            );
-          }
+          // Streamed rather than fetched once, so a status change made
+          // elsewhere (e.g. finalizing the agenda in the agenda editor)
+          // shows up here immediately instead of only on the next full
+          // reload of this screen — this screen's State can otherwise
+          // stay alive (and stale) across a push/return navigation.
+          _adcomAgendaSubscription = _adcomAgendaService
+              .streamAgendaById(meeting.agendaId!)
+              .listen((updatedAgenda) {
+                if (!mounted) return;
+                setState(() => _adcomAgenda = updatedAgenda);
+
+                if (updatedAgenda != null &&
+                    _adcomMinutesSubscription == null) {
+                  _adcomMinutesSubscription = _adcomMinutesService
+                      .streamMinutesByAgendaId(updatedAgenda.id)
+                      .listen((updatedMinutes) {
+                        if (!mounted) return;
+                        setState(() => _adcomMinutes = updatedMinutes);
+                      });
+                }
+              });
         }
       }
 
@@ -125,8 +145,6 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen>
       if (mounted) {
         setState(() {
           _meeting = meeting;
-          _adcomAgenda = adcomAgenda;
-          _adcomMinutes = adcomMinutes;
           _minutes = minutes;
           _isLoading = false;
         });
@@ -1659,11 +1677,7 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen>
                   if (_meeting!.location != null)
                     _buildInfoRow(Icons.room, 'Physical', _meeting!.location!),
                   if (_meeting!.virtualLink != null)
-                    _buildInfoRow(
-                      Icons.videocam,
-                      'Virtual',
-                      _meeting!.virtualLink!,
-                    ),
+                    _buildVirtualLinkRow(_meeting!.virtualLink!),
                 ]),
               if (_meeting!.location != null || _meeting!.virtualLink != null)
                 const SizedBox(height: 16),
@@ -1792,6 +1806,85 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen>
         ],
       ),
     );
+  }
+
+  /// The virtual meeting link used to just be plain text inside
+  /// _buildInfoRow — showed the URL, but nothing happened when you tapped
+  /// it. Makes it an actual tappable link plus a "Join" button, same
+  /// launchUrl pattern already used for the voting page link below.
+  Widget _buildVirtualLinkRow(String url) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.videocam, size: 18, color: Colors.grey[500]),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Virtual',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                ),
+                InkWell(
+                  onTap: () => _openMeetingLink(url),
+                  child: Text(
+                    url,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.blue.shade700,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          TextButton.icon(
+            onPressed: () => _openMeetingLink(url),
+            icon: const Icon(Icons.open_in_new, size: 16),
+            label: const Text('Join'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openMeetingLink(String url) async {
+    // Meeting links are entered free-text (edit_meeting_screen.dart /
+    // new_meeting_screen.dart) with no format validation, so a saved value
+    // like "meet.google.com/abc-defg" without a scheme fails to launch —
+    // Uri.parse would treat it as a relative path, not a web address.
+    final normalized = url.startsWith('http://') || url.startsWith('https://')
+        ? url
+        : 'https://$url';
+
+    final uri = Uri.tryParse(normalized);
+    if (uri == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('This meeting link looks invalid: $url')),
+        );
+      }
+      return;
+    }
+
+    try {
+      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open the meeting link: $url')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open the meeting link: $e')),
+        );
+      }
+    }
   }
 
   Widget _buildMembersCard() {

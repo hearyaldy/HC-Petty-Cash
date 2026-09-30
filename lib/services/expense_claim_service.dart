@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
+import '../models/cash_advance.dart' show CashAdvanceMeetingReference;
 import '../models/expense_claim.dart';
 import '../models/user.dart';
 import '../utils/logger.dart';
@@ -59,6 +60,7 @@ class ExpenseClaimService {
     required String purpose,
     required String department,
     required List<ExpenseLineItem> items,
+    List<CashAdvanceMeetingReference>? meetingReferences,
     String? notes,
   }) async {
     try {
@@ -73,6 +75,7 @@ class ExpenseClaimService {
         requesterName: requester.name,
         department: department,
         items: items,
+        meetingReferences: meetingReferences,
         status: 'pending',
         createdAt: now,
         notes: notes,

@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../models/cash_advance.dart' show CashAdvanceMeetingReference;
 import '../../models/enums.dart';
 import '../../models/expense_claim.dart';
 import '../../providers/auth_provider.dart';
@@ -245,6 +248,10 @@ class _ExpenseClaimDetailScreenState extends State<ExpenseClaimDetailScreen> {
                     _buildInfoCard(claim, theme),
                     const SizedBox(height: 16),
                     _buildLineItemsSection(context, claim, theme),
+                    if (claim.meetingReferences.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      _buildMeetingReferenceCard(claim, theme),
+                    ],
                     if (claim.notes != null && claim.notes!.isNotEmpty) ...[
                       const SizedBox(height: 16),
                       _buildNotesCard(claim, theme),
@@ -514,6 +521,115 @@ class _ExpenseClaimDetailScreenState extends State<ExpenseClaimDetailScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildMeetingReferenceCard(ExpenseClaim claim, ThemeData theme) {
+    final references = claim.meetingReferences;
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Meeting Reference${references.length > 1 ? 's' : ''}',
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: Colors.deepOrange.shade700,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            for (var i = 0; i < references.length; i++) ...[
+              if (i > 0) const Divider(height: 20),
+              _buildMeetingReferenceItem(references[i], theme),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMeetingReferenceItem(
+      CashAdvanceMeetingReference ref, ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(ref.minutesLabel,
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: Colors.deepOrange.shade600)),
+        const SizedBox(height: 4),
+        Wrap(
+          spacing: 6,
+          runSpacing: 4,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.deepOrange.shade100,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                ref.actionItemNumber,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.deepOrange[700],
+                ),
+              ),
+            ),
+            if (ref.actionItemAction != null)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.teal.shade50,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.teal.shade200),
+                ),
+                child: Text(
+                  ref.actionItemAction!,
+                  style: TextStyle(fontSize: 11, color: Colors.teal[700]),
+                ),
+              ),
+          ],
+        ),
+        if (ref.actionItemTitle != null) ...[
+          const SizedBox(height: 6),
+          Text(ref.actionItemTitle!,
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(fontWeight: FontWeight.w600)),
+        ],
+        if (ref.actionItemDescription != null &&
+            ref.actionItemDescription!.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Text(
+            _plainText(ref.actionItemDescription!),
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: Colors.grey[600]),
+          ),
+        ],
+      ],
+    );
+  }
+
+  String _plainText(String text) {
+    if (text.startsWith('[')) {
+      try {
+        final List<dynamic> ops = jsonDecode(text) as List;
+        return ops
+            .where((op) => op is Map && op['insert'] is String)
+            .map((op) => op['insert'] as String)
+            .join()
+            .trim();
+      } catch (_) {}
+    }
+    return text;
   }
 
   Widget _buildNotesCard(ExpenseClaim claim, ThemeData theme) {

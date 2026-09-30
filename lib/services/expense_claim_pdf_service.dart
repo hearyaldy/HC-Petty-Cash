@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:intl/intl.dart';
@@ -64,6 +65,10 @@ class ExpenseClaimPdfService {
           _buildItemsTable(claim, dateFormat, currency),
           pw.SizedBox(height: 16),
           _buildTotalSection(claim, currency),
+          if (claim.meetingReferences.isNotEmpty) ...[
+            pw.SizedBox(height: 16),
+            _buildMeetingReferenceSection(claim),
+          ],
           if (claim.notes != null && claim.notes!.isNotEmpty) ...[
             pw.SizedBox(height: 16),
             _buildNotesSection(claim.notes!),
@@ -379,6 +384,90 @@ class ExpenseClaimPdfService {
         ),
       ),
     );
+  }
+
+  // ── Meeting reference ────────────────────────────────────────────────────────
+
+  pw.Widget _buildMeetingReferenceSection(ExpenseClaim claim) {
+    final references = claim.meetingReferences;
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(12),
+      decoration: pw.BoxDecoration(
+        color: PdfColors.deepOrange50,
+        border: pw.Border.all(color: PdfColors.deepOrange200),
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            'Meeting Reference${references.length > 1 ? 's' : ''}',
+            style: pw.TextStyle(
+                fontSize: 11,
+                fontWeight: pw.FontWeight.bold,
+                color: PdfColors.deepOrange800),
+          ),
+          pw.SizedBox(height: 8),
+          for (var i = 0; i < references.length; i++) ...[
+            if (i > 0) pw.SizedBox(height: 8),
+            _refRow('Minutes', references[i].minutesLabel),
+            _refRow('Action Item', references[i].actionItemNumber,
+                bold: true),
+            if (references[i].actionItemAction != null)
+              _refRow('Action Type', references[i].actionItemAction!,
+                  bold: true),
+            if (references[i].actionItemTitle != null)
+              _refRow('Title', references[i].actionItemTitle!, bold: true),
+            if (references[i].actionItemDescription != null &&
+                references[i].actionItemDescription!.isNotEmpty)
+              _refRow('Description',
+                  _stripMarkup(references[i].actionItemDescription!)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _refRow(String label, String value, {bool bold = false}) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 4),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.SizedBox(
+            width: 90,
+            child: pw.Text('$label:',
+                style: pw.TextStyle(
+                    fontSize: 9,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.grey700)),
+          ),
+          pw.Expanded(
+            child: pw.Text(
+              value,
+              style: pw.TextStyle(
+                  fontSize: 9,
+                  fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _stripMarkup(String text) {
+    if (text.startsWith('[')) {
+      try {
+        final ops = jsonDecode(text) as List;
+        return ops
+            .whereType<Map>()
+            .map((op) => op['insert'])
+            .whereType<String>()
+            .join()
+            .trim();
+      } catch (_) {}
+    }
+    return text;
   }
 
   // ── Notes ─────────────────────────────────────────────────────────────────────

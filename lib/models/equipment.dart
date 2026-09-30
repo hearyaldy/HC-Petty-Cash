@@ -257,12 +257,19 @@ class Equipment {
     return null;
   }
 
-  /// Calculate asset age in months from purchase date
+  /// Calculate asset age in months from purchase date or purchase year
   int? get assetAgeMonths {
+    final now = DateTime.now();
     if (purchaseDate != null) {
-      final now = DateTime.now();
       return (now.year - purchaseDate!.year) * 12 +
           (now.month - purchaseDate!.month);
+    }
+    // Mirrors assetAgeYears' fallback — without this, totalDepreciation
+    // (which falls back to assetAgeMonths when monthsDepreciated isn't
+    // set) silently went null for any equipment with only a Purchase
+    // Year on file, even though assetAgeYears itself displayed fine.
+    if (purchaseYear != null) {
+      return (now.year - purchaseYear!) * 12;
     }
     return null;
   }
@@ -329,6 +336,12 @@ class Equipment {
     final normalizedLocation = _abbreviateLocation(loc);
     return '$code-$normalizedLocation-$year';
   }
+
+  /// The abbreviation a raw location string collapses to on a sticker tag
+  /// (see [buildStickerTag]). Exposed so screens can show staff what code
+  /// a location will produce without needing to inspect an actual item.
+  static String abbreviateLocation(String location) =>
+      _abbreviateLocation(location);
 
   static String _abbreviateLocation(String location) {
     final firstWordMatch = RegExp(r'[A-Za-z]+').firstMatch(location);

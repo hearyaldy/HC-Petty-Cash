@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'cash_advance.dart' show CashAdvanceMeetingReference;
 import 'enums.dart';
 
 class ExpenseClaim {
@@ -14,6 +15,9 @@ class ExpenseClaim {
 
   // Line items
   final List<ExpenseLineItem> items;
+
+  // Meeting minutes references (multiple action items, any meeting)
+  final List<CashAdvanceMeetingReference> meetingReferences;
 
   // Computed total (sum of items)
   double get totalAmount =>
@@ -43,6 +47,7 @@ class ExpenseClaim {
     required this.requesterName,
     required this.department,
     List<ExpenseLineItem>? items,
+    List<CashAdvanceMeetingReference>? meetingReferences,
     this.status = 'pending',
     required this.createdAt,
     this.updatedAt,
@@ -51,7 +56,8 @@ class ExpenseClaim {
     this.approverName,
     this.rejectionReason,
     this.notes,
-  }) : items = items ?? [];
+  })  : items = items ?? [],
+        meetingReferences = meetingReferences ?? [];
 
   ExpenseClaimStatus get statusEnum => status.toExpenseClaimStatus();
 
@@ -68,6 +74,8 @@ class ExpenseClaim {
       'requesterName': requesterName,
       'department': department,
       'items': items.map((i) => i.toMap()).toList(),
+      'meetingReferences':
+          meetingReferences.map((ref) => ref.toMap()).toList(),
       'status': status,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
@@ -106,6 +114,10 @@ class ExpenseClaim {
               ?.map((e) => ExpenseLineItem.fromMap(e))
               .toList() ??
           [],
+      meetingReferences: (data['meetingReferences'] as List<dynamic>?)
+              ?.map((ref) => CashAdvanceMeetingReference.fromMap(ref))
+              .toList() ??
+          [],
       status: data['status'] ?? 'pending',
       createdAt: parseTs(data['createdAt'], now),
       updatedAt: parseTsOpt(data['updatedAt']),
@@ -126,6 +138,7 @@ class ExpenseClaim {
     String? requesterName,
     String? department,
     List<ExpenseLineItem>? items,
+    List<CashAdvanceMeetingReference>? meetingReferences,
     String? status,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -144,6 +157,7 @@ class ExpenseClaim {
       requesterName: requesterName ?? this.requesterName,
       department: department ?? this.department,
       items: items ?? this.items,
+      meetingReferences: meetingReferences ?? this.meetingReferences,
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

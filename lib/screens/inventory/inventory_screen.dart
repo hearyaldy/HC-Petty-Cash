@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:barcode_widget/barcode_widget.dart';
 import 'package:go_router/go_router.dart';
@@ -10,11 +11,14 @@ import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/equipment.dart';
 import '../../services/equipment_service.dart';
+import '../../services/excel_export_service.dart';
 import '../../services/inventory_import_service.dart';
 import '../../services/pdf_export_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/dashboard_section.dart';
+import '../../utils/binary_file_downloader.dart';
 import '../../utils/responsive_helper.dart';
+import 'location_abbreviations_screen.dart';
 
 enum ViewType { card, table, list }
 enum ImportAction { create, update, skip }
@@ -238,6 +242,59 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   String _getFilterKey() {
     return '$_selectedCategory|$_selectedStatus|$_selectedCondition|$_selectedLocation|$_searchQuery|$_showPrintReady';
+  }
+
+  /// Exports the currently filtered equipment list to .xlsx — mirrors
+  /// _showPrintDialog's use of _filterEquipment so "Export to Excel"
+  /// exports exactly what's visible under the active filters, not the
+  /// full unfiltered inventory.
+  Future<void> _exportToExcel() async {
+    final filteredEquipment = _filterEquipment(_equipment);
+
+    if (filteredEquipment.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No equipment to export'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    try {
+      final bytes = ExcelExportService().exportEquipmentList(
+        filteredEquipment,
+      );
+      final filename =
+          'Inventory_${DateTime.now().millisecondsSinceEpoch}.xlsx';
+      final savedPath = await downloadBytesFile(
+        bytes,
+        filename,
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              kIsWeb
+                  ? 'Exported ${filteredEquipment.length} equipment item${filteredEquipment.length == 1 ? '' : 's'}'
+                  : 'Saved to $savedPath',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error exporting to Excel: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   /// Show print field selection dialog
@@ -1302,7 +1359,36 @@ class _InventoryScreenState extends State<InventoryScreen> {
     if (result == null || result.files.isEmpty) return;
 
     final file = result.files.first;
+    final importService = InventoryImportService();
 
+    // An .xlsx with more than one sheet (e.g. a combined "Depreciation
+    // Table" + "Uncapitalization" asset register export) would otherwise
+    // silently import whichever sheet happens to come first — ask which
+    // one to use instead of guessing.
+    String? sheetName;
+    if ((file.extension ?? '').toLowerCase() == 'xlsx' && file.bytes != null) {
+      final sheets = importService.listXlsxSheets(file.bytes!);
+      if (sheets.length > 1) {
+        if (!mounted) return;
+        sheetName = await showDialog<String>(
+          context: context,
+          builder: (_) => SimpleDialog(
+            title: const Text('Which sheet do you want to import?'),
+            children: sheets
+                .map(
+                  (name) => SimpleDialogOption(
+                    onPressed: () => Navigator.pop(context, name),
+                    child: Text(name),
+                  ),
+                )
+                .toList(),
+          ),
+        );
+        if (sheetName == null) return; // cancelled
+      }
+    }
+
+    if (!mounted) return;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1316,7 +1402,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
     InventoryImportResult parsed;
     try {
-      parsed = await InventoryImportService().parseFile(file);
+      parsed = await importService.parseFile(file, sheetName: sheetName);
     } catch (e) {
       if (mounted) Navigator.pop(context);
       if (mounted) {
@@ -1406,6 +1492,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
         action = ImportAction.skip;
         reason = reason ?? 'Missing name for new item';
       }
+      // Asset registers commonly end with a "Totals" / "Grand Total" summary
+      // row carrying just a sum in the amount column — without this guard
+      // it would import as a bogus equipment item named after that label.
+      const summaryLabels = {'total', 'totals', 'subtotal', 'grand total'};
+      if (summaryLabels.contains(assetCode)) {
+        action = ImportAction.skip;
+        reason = 'Summary row, not an asset';
+      }
 
       plan.add(
         _ImportPlanItem(
@@ -1465,6 +1559,56 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             .toList(),
                       ),
                     ),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        const Text('Set all to:', style: TextStyle(fontSize: 13)),
+                        const SizedBox(width: 8),
+                        Wrap(
+                          spacing: 6,
+                          children: [
+                            ActionChip(
+                              label: const Text('Create'),
+                              onPressed: !canAdd
+                                  ? null
+                                  : () => setDialogState(() {
+                                        // Only rows with no existing match —
+                                        // forcing Create on an already-matched
+                                        // row would create a duplicate of
+                                        // something that already exists.
+                                        for (final item in plan) {
+                                          if (item.match == null) {
+                                            item.action = ImportAction.create;
+                                          }
+                                        }
+                                      }),
+                            ),
+                            ActionChip(
+                              label: const Text('Update'),
+                              onPressed: !canEdit
+                                  ? null
+                                  : () => setDialogState(() {
+                                        for (final item in plan) {
+                                          if (item.match != null) {
+                                            item.action = ImportAction.update;
+                                          }
+                                        }
+                                      }),
+                            ),
+                            ActionChip(
+                              label: const Text('Skip'),
+                              onPressed: () => setDialogState(() {
+                                for (final item in plan) {
+                                  item.action = ImportAction.skip;
+                                }
+                              }),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                   Expanded(
                     child: ListView.separated(
                       itemCount: plan.length,
@@ -1472,14 +1616,25 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       itemBuilder: (context, index) {
                         final item = plan[index];
                         final row = item.row;
-                        final displayName = row.name ?? item.match?.name ?? '(Unnamed)';
+                        // row.name is only populated when the source file has
+                        // a dedicated "name" column — falling straight to
+                        // item.match?.name (null for anything new) is why
+                        // every new row showed up as "(Unnamed)" with no way
+                        // to tell which physical item it actually was.
+                        final displayName = row.name ??
+                            row.description ??
+                            item.match?.name ??
+                            row.assetCode ??
+                            '(Unnamed)';
                         final subtitle = item.matchReason ?? (item.match != null ? 'Matched' : 'New item');
+                        final codeSuffix =
+                            row.assetCode != null ? ' • ${row.assetCode}' : '';
 
                         return ListTile(
                           contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                           title: Text(displayName, maxLines: 1, overflow: TextOverflow.ellipsis),
                           subtitle: Text(
-                            'Row ${row.index} • $subtitle',
+                            'Row ${row.index}$codeSuffix • $subtitle',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -1607,7 +1762,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final purchaseYear = parseInt(row.purchaseYear) ?? purchaseDate?.year;
     return Equipment(
       id: '',
-      name: row.name ?? row.assetCode ?? 'Unnamed Equipment',
+      // Some asset registers (e.g. the org's own "Uncapitalization" export)
+      // have no separate "Asset Name" column — only a description. Falling
+      // straight to assetCode there would name every new item after its
+      // code (e.g. "U00001") instead of anything recognizable.
+      name: row.name ?? row.description ?? row.assetCode ?? 'Unnamed Equipment',
       description: row.description,
       category: row.category ?? 'Other',
       brand: row.brand,
@@ -1643,9 +1802,29 @@ class _InventoryScreenState extends State<InventoryScreen> {
     String? pickString(String? value) =>
         value != null && value.trim().isNotEmpty ? value.trim() : null;
 
-    final purchaseDate = parseDate(row.purchaseDate) ?? existing.purchaseDate;
-    final purchaseYear =
-        parseInt(row.purchaseYear) ?? purchaseDate?.year ?? existing.purchaseYear;
+    // assetAgeYears/itemStickerTag always prefer purchaseDate over
+    // purchaseYear when both are set, so a re-import row that only
+    // supplies a new Purchase Year (no Purchase Date column) must not
+    // silently keep the old, now-inconsistent purchaseDate — that stale
+    // date would keep overriding the freshly imported year, same bug as
+    // the interactive edit screens had (see add_edit_equipment_screen.dart
+    // and equipment_detail_screen.dart's Quick Edit dialog).
+    final importedDate = parseDate(row.purchaseDate);
+    final importedYear = parseInt(row.purchaseYear);
+    final DateTime? purchaseDate;
+    final int? purchaseYear;
+    if (importedDate != null) {
+      purchaseDate = importedDate;
+      purchaseYear = importedYear ?? importedDate.year;
+    } else if (importedYear != null) {
+      purchaseYear = importedYear;
+      purchaseDate = existing.purchaseDate?.year == importedYear
+          ? existing.purchaseDate
+          : null;
+    } else {
+      purchaseDate = existing.purchaseDate;
+      purchaseYear = existing.purchaseYear;
+    }
 
     return existing.copyWith(
       name: pickString(row.name) ?? existing.name,
@@ -1872,6 +2051,27 @@ class _InventoryScreenState extends State<InventoryScreen> {
   /// Find duplicate equipment based on serial number, asset tag, or name+brand+model
   Map<String, List<Equipment>> _findDuplicates(List<Equipment> equipment) {
     final duplicates = <String, List<Equipment>>{};
+
+    // Group by asset code (if exists) — the identifier an import matches
+    // existing items by, so two records sharing one mean the same source
+    // row got created twice (e.g. an import re-run with "Create" forced on
+    // an already-matched row) rather than genuinely different items. This
+    // check matters more than name+brand+model below: several real assets
+    // can legitimately share an identical product description (e.g. five
+    // tripods bought in one order, each with its own asset code) without
+    // being duplicates of each other.
+    final assetCodeMap = <String, List<Equipment>>{};
+    for (final item in equipment) {
+      if (item.assetCode != null && item.assetCode!.isNotEmpty) {
+        final key = item.assetCode!.toLowerCase().trim();
+        assetCodeMap.putIfAbsent(key, () => []).add(item);
+      }
+    }
+    for (final entry in assetCodeMap.entries) {
+      if (entry.value.length > 1) {
+        duplicates['Asset Code: ${entry.key}'] = entry.value;
+      }
+    }
 
     // Group by serial number (if exists)
     final serialMap = <String, List<Equipment>>{};
@@ -2695,9 +2895,20 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             onPressed: _showDuplicatesDialog,
                           ),
                           _buildHeaderActionButton(
+                            icon: Icons.tag,
+                            tooltip: 'Location Abbreviations',
+                            onPressed: () =>
+                                showLocationAbbreviationsSheet(context),
+                          ),
+                          _buildHeaderActionButton(
                             icon: Icons.print,
                             tooltip: 'Print Equipment List',
                             onPressed: _showPrintDialog,
+                          ),
+                          _buildHeaderActionButton(
+                            icon: Icons.grid_on,
+                            tooltip: 'Export to Excel',
+                            onPressed: _exportToExcel,
                           ),
                           _buildHeaderActionButton(
                             icon: Icons.qr_code_2,

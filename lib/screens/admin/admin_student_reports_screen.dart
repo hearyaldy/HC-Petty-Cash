@@ -157,6 +157,205 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
     }
   }
 
+  /// Finds reports showing a ฿0 total and recalculates them from their
+  /// actual linked timesheets. Two distinct causes land here: (1) a student
+  /// submitted before an admin set their hourly rate — the rate is baked in
+  /// at submission time, and setting it later doesn't retroactively touch
+  /// existing reports; (2) a report's own totalHours/totalAmount fields
+  /// went stale relative to its timesheets — e.g. entries were added to an
+  /// already-submitted report through a path that doesn't call
+  /// _updateReportTotals (student_monthly_report_detail_screen.dart) to
+  /// resync the parent doc. Case 2 means the report doc's own totalHours
+  /// can't be trusted as a "were hours logged" filter — it can read 0 even
+  /// with real entries underneath — so this always re-sums the actual
+  /// student_timesheets docs rather than trusting the stored total.
+  Future<void> _recalculateZeroAmountReports() async {
+    if (_profiles.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Student profiles are still loading — try again in a moment.')),
+      );
+      return;
+    }
+
+    final zeroReports = _reports.where((doc) {
+      final totalAmount = (doc.data()['totalAmount'] ?? 0.0).toDouble();
+      return totalAmount == 0;
+    }).toList();
+
+    if (zeroReports.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No ฿0 reports found.')),
+        );
+      }
+      return;
+    }
+
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 16),
+              Text('Checking timesheets for ฿0 reports…'),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // For each ฿0 report, re-sum its actual timesheets instead of trusting
+    // the report doc's own (possibly stale) totalHours field.
+    final candidates = <_ZeroReportFix>[];
+    for (final doc in zeroReports) {
+      final data = doc.data();
+      final studentId = data['studentId'] as String?;
+      final currentRate = (_profiles[studentId]?['hourlyRate'] as double?) ?? 0.0;
+      if (currentRate <= 0) continue;
+
+      final timesheetsSnap = await FirebaseFirestore.instance
+          .collection('student_timesheets')
+          .where('reportId', isEqualTo: doc.id)
+          .get();
+      final actualHours = timesheetsSnap.docs.fold<double>(
+        0.0,
+        (total, ts) => total + ((ts.data()['totalHours'] ?? 0.0) as num).toDouble(),
+      );
+      if (actualHours <= 0) continue;
+
+      candidates.add(_ZeroReportFix(
+        doc: doc,
+        timesheetDocs: timesheetsSnap.docs,
+        actualHours: actualHours,
+        rate: currentRate,
+      ));
+    }
+
+    if (mounted) Navigator.of(context, rootNavigator: true).pop(); // close progress dialog
+
+    if (candidates.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Found ฿0 reports, but none have both real timesheet hours and a '
+              "current student rate to recalculate from.",
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Recalculate ${candidates.length} Report(s)'),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'These reports show a ฿0 total but their timesheets add up '
+                "to real hours, and the student has a rate set. Recalculate "
+                'using each timesheet\'s actual hours and the current rate?',
+              ),
+              const SizedBox(height: 12),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 260),
+                child: ListView(
+                  shrinkWrap: true,
+                  children: candidates.map((c) {
+                    final data = c.doc.data();
+                    final newAmount = c.actualHours * c.rate;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Text(
+                        '${data['studentName'] ?? 'Unknown'} — '
+                        '${_formatReportPeriod(data)}: '
+                        '${c.actualHours.toStringAsFixed(2)}h × '
+                        '${AppConstants.currencySymbol}${c.rate.toStringAsFixed(2)} = '
+                        '${AppConstants.currencySymbol}${newAmount.toStringAsFixed(2)}',
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            child: Text('Recalculate ${candidates.length}'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    int fixed = 0;
+    int failed = 0;
+
+    for (final c in candidates) {
+      try {
+        final newAmount = c.actualHours * c.rate;
+
+        final batch = FirebaseFirestore.instance.batch();
+        batch.update(c.doc.reference, {
+          'hourlyRate': c.rate,
+          'totalHours': c.actualHours,
+          'totalAmount': newAmount,
+          'timesheetCount': c.timesheetDocs.length,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        for (final tsDoc in c.timesheetDocs) {
+          final tsHours = ((tsDoc.data()['totalHours'] ?? 0.0) as num).toDouble();
+          batch.update(tsDoc.reference, {
+            'hourlyRate': c.rate,
+            'totalAmount': tsHours * c.rate,
+          });
+        }
+
+        await batch.commit();
+        fixed++;
+      } catch (e) {
+        debugPrint('Error recalculating report ${c.doc.id}: $e');
+        failed++;
+      }
+    }
+
+    await _loadReports();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            failed == 0
+                ? 'Recalculated $fixed report(s) successfully'
+                : 'Recalculated $fixed report(s), $failed failed — check debug log',
+          ),
+          backgroundColor: failed == 0 ? Colors.green : Colors.orange,
+        ),
+      );
+    }
+  }
+
   Query<Map<String, dynamic>> _buildQuery() {
     Query<Map<String, dynamic>> query = FirebaseFirestore.instance
         .collection('student_monthly_reports')
@@ -526,6 +725,12 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
                         icon: Icons.refresh,
                         tooltip: 'Refresh',
                         onPressed: _loadReports,
+                      ),
+                      const SizedBox(width: 8),
+                      _buildHeaderActionButton(
+                        icon: Icons.calculate_outlined,
+                        tooltip: 'Recalculate ฿0 Reports',
+                        onPressed: _recalculateZeroAmountReports,
                       ),
                       const SizedBox(width: 8),
                       _buildHeaderActionButton(
@@ -1375,4 +1580,20 @@ class _AdminStudentReportsScreenState extends State<AdminStudentReportsScreen> {
       ),
     );
   }
+}
+
+/// A ฿0 report that's been confirmed fixable: real hours exist across its
+/// timesheets and the student has a current rate to recalculate with.
+class _ZeroReportFix {
+  final QueryDocumentSnapshot<Map<String, dynamic>> doc;
+  final List<QueryDocumentSnapshot<Map<String, dynamic>>> timesheetDocs;
+  final double actualHours;
+  final double rate;
+
+  _ZeroReportFix({
+    required this.doc,
+    required this.timesheetDocs,
+    required this.actualHours,
+    required this.rate,
+  });
 }

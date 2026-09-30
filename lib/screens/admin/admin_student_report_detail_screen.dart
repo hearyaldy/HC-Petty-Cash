@@ -584,6 +584,12 @@ class _AdminStudentReportDetailScreenState
                       onPressed: _showPaymentStatusDialog,
                     ),
                     const SizedBox(width: 8),
+                    _buildHeaderActionButton(
+                      icon: Icons.content_copy,
+                      tooltip: 'Find Duplicate Entries',
+                      onPressed: _checkForDuplicateEntries,
+                    ),
+                    const SizedBox(width: 8),
                     if (hasAdminActions)
                       PopupMenuButton<String>(
                         tooltip: 'Report Actions',
@@ -1440,11 +1446,158 @@ class _AdminStudentReportDetailScreenState
     }
   }
 
+  // The report doc's own 'totalHours' field goes stale whenever timesheets
+  // are added/edited/deleted through a path that doesn't resync it back
+  // (e.g. student_monthly_report_detail_screen.dart's per-entry actions
+  // aren't the only way entries end up linked to a report). _timesheets is
+  // always freshly queried from student_timesheets in _loadReportDetails,
+  // so summing it live is the one value that can't drift from reality.
+  double get _liveTotalHours =>
+      _timesheets.fold<double>(0.0, (total, ts) => total + ts.totalHours);
+
+  /// Finds entries in this report that share the same date and start/end
+  /// time — the shape duplicate entries took after the "Add Entry" button
+  /// in student_monthly_report_detail_screen.dart let an impatient tap or
+  /// web double-click fire the write twice before it disabled itself
+  /// (fixed, but doesn't clean up entries that already duplicated). Shows
+  /// what it found before deleting anything, keeps the earliest copy in
+  /// each group, and resyncs the report's stored totals afterward.
+  Future<void> _checkForDuplicateEntries() async {
+    final groups = <String, List<StudentTimesheet>>{};
+    for (final ts in _timesheets) {
+      final key = '${ts.date.year}-${ts.date.month}-${ts.date.day}_'
+          '${ts.startTime.hour}:${ts.startTime.minute}_'
+          '${ts.endTime.hour}:${ts.endTime.minute}';
+      groups.putIfAbsent(key, () => []).add(ts);
+    }
+
+    final duplicateGroups = groups.values.where((g) => g.length > 1).toList();
+
+    if (duplicateGroups.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No duplicate entries found in this report.')),
+        );
+      }
+      return;
+    }
+
+    // Keep the earliest-created entry in each group; the rest are the
+    // accidental re-submissions.
+    final toDelete = <StudentTimesheet>[];
+    for (final group in duplicateGroups) {
+      final sorted = [...group]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      toDelete.addAll(sorted.skip(1));
+    }
+
+    final dateFormat = DateFormat('dd/MM/yyyy');
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('${duplicateGroups.length} Duplicate Group(s) Found'),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Found ${toDelete.length} duplicate entr${toDelete.length == 1 ? 'y' : 'ies'} '
+                'across ${duplicateGroups.length} group(s) with the same date and '
+                'time. The earliest copy in each group will be kept; the rest '
+                'will be permanently deleted.',
+              ),
+              const SizedBox(height: 12),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 260),
+                child: ListView(
+                  shrinkWrap: true,
+                  children: duplicateGroups.map((group) {
+                    final first = group.first;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Text(
+                        '${dateFormat.format(first.date)}  '
+                        '${TimeOfDay.fromDateTime(first.startTime).format(dialogContext)}'
+                        '–${TimeOfDay.fromDateTime(first.endTime).format(dialogContext)}: '
+                        '${group.length} copies (keeping 1, deleting ${group.length - 1})',
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: Text('Delete ${toDelete.length} Duplicate(s)'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final batch = FirebaseFirestore.instance.batch();
+      for (final ts in toDelete) {
+        batch.delete(
+          FirebaseFirestore.instance.collection('student_timesheets').doc(ts.id),
+        );
+      }
+      await batch.commit();
+
+      // Resync the report's stored totals now that duplicates are gone —
+      // otherwise the report keeps counting hours/amount for entries that
+      // no longer exist.
+      await _loadReportDetails();
+      final hourlyRate = (_reportData?['hourlyRate'] ?? 0.0).toDouble();
+      await FirebaseFirestore.instance
+          .collection('student_monthly_reports')
+          .doc(widget.reportId)
+          .update({
+            'totalHours': _liveTotalHours,
+            'totalAmount': _liveTotalHours * hourlyRate,
+            'timesheetCount': _timesheets.length,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+      await _loadReportDetails();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Deleted ${toDelete.length} duplicate entr${toDelete.length == 1 ? 'y' : 'ies'} and resynced totals',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting duplicates: $e')),
+        );
+      }
+    }
+  }
+
   void _showRateAndGradeDialog() {
     final currentRate = (_reportData?['hourlyRate'] ?? 0.0).toDouble();
     final currentGrade = _studentProfile?['grade'] as String?;
     final studentRole = _studentProfile?['role'] as String? ?? 'Other';
-    final totalHours = (_reportData?['totalHours'] ?? 0.0).toDouble();
+    final totalHours = _liveTotalHours;
 
     final rateController = TextEditingController(
       text: currentRate.toStringAsFixed(2),
@@ -1777,7 +1930,7 @@ class _AdminStudentReportDetailScreenState
     try {
       final batch = FirebaseFirestore.instance.batch();
       final studentId = _reportData?['studentId'];
-      final totalHours = (_reportData?['totalHours'] ?? 0.0).toDouble();
+      final totalHours = _liveTotalHours;
       final newTotalAmount = totalHours * newRate;
 
       // Update the monthly report
@@ -1787,7 +1940,9 @@ class _AdminStudentReportDetailScreenState
 
       batch.update(reportRef, {
         'hourlyRate': newRate,
+        'totalHours': totalHours,
         'totalAmount': newTotalAmount,
+        'timesheetCount': _timesheets.length,
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
@@ -2008,9 +2163,9 @@ class _AdminStudentReportDetailScreenState
     final studentName = _reportData!['studentName'] ?? 'Unknown';
     final status = _reportData!['status'] ?? 'draft';
     final paymentStatus = _reportData!['paymentStatus'] ?? 'not_paid';
-    final totalHours = (_reportData!['totalHours'] ?? 0.0).toDouble();
+    final totalHours = _liveTotalHours;
     final hourlyRate = (_reportData!['hourlyRate'] ?? 0.0).toDouble();
-    final totalAmount = (_reportData!['totalAmount'] ?? 0.0).toDouble();
+    final totalAmount = totalHours * hourlyRate;
 
     Color statusColor;
     IconData statusIcon;

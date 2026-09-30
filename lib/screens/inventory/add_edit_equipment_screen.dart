@@ -484,6 +484,12 @@ class _AddEditEquipmentScreenState extends State<AddEditEquipmentScreen> {
       setState(() {
         if (isPurchaseDate) {
           _purchaseDate = picked;
+          // Keep the Year dropdown in sync — assetAgeYears (and the age
+          // preview below) always prefers purchaseDate over purchaseYear
+          // when both are set, so a stale year left over from a previous
+          // edit would otherwise silently agree with the old date, not
+          // this new one.
+          _purchaseYear = picked.year;
         } else {
           _warrantyExpiry = picked;
         }
@@ -1448,7 +1454,16 @@ class _AddEditEquipmentScreenState extends State<AddEditEquipmentScreen> {
   Widget _buildPurchaseInfoSection() {
     final dateFormat = DateFormat('dd MMM yyyy');
     final currentYear = DateTime.now().year;
-    final years = List.generate(30, (i) => currentYear - i);
+    // DropdownButtonFormField asserts its initialValue is present in items —
+    // equipment older than 30 years, or a bad/future year from a CSV
+    // import, would otherwise crash this screen on open.
+    final existingYear = _purchaseYear ?? _purchaseDate?.year;
+    final years =
+        (<int>{
+              for (var i = 0; i < 30; i++) currentYear - i,
+              if (existingYear != null) existingYear,
+            }.toList()
+            ..sort((a, b) => b.compareTo(a)));
 
     return _buildSectionCard(
       title: 'Purchase Information',
@@ -1509,6 +1524,16 @@ class _AddEditEquipmentScreenState extends State<AddEditEquipmentScreen> {
                 onChanged: (value) {
                   setState(() {
                     _purchaseYear = value;
+                    // assetAgeYears prefers purchaseDate over purchaseYear
+                    // whenever both are set, so an existing Purchase Date
+                    // would otherwise keep overriding the year the user
+                    // just picked here and the age would never visibly
+                    // change. Clear the now-inconsistent date so the
+                    // freshly chosen year actually takes effect; the user
+                    // can still re-pick an exact date afterward if needed.
+                    if (value != null && _purchaseDate?.year != value) {
+                      _purchaseDate = null;
+                    }
                   });
                 },
               ),

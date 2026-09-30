@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../providers/media_production_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../models/media_production.dart';
 import '../../models/media_season.dart';
 import '../../models/media_episode.dart';
@@ -10,6 +11,7 @@ import '../../models/media_engagement.dart';
 import '../../models/enums.dart';
 import '../../utils/constants.dart';
 import '../../utils/responsive_helper.dart';
+import 'planning/media_planning_tab.dart';
 
 class MediaProductionDetailScreen extends StatefulWidget {
   final String productionId;
@@ -25,12 +27,20 @@ class _MediaProductionDetailScreenState
     extends State<MediaProductionDetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  bool _isSyncingEngagement = false;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    _loadProduction();
+    _tabController = TabController(length: 4, vsync: this);
+    // Deferred to after the first frame — loadProductionWithDetails calls
+    // notifyListeners() before its first await, and calling that directly
+    // from initState fires it while the widget tree is still building
+    // ("setState() or markNeedsBuild() called during build").
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _loadProduction();
+    });
   }
 
   Future<void> _loadProduction() async {
@@ -116,9 +126,19 @@ class _MediaProductionDetailScreenState
             child: NestedScrollView(
               headerSliverBuilder: (context, innerBoxIsScrolled) => [
                 SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: _buildHeaderBanner(production),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: ResponsiveHelper.getMaxContentWidth(context),
+                      ),
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: ResponsiveHelper.getScreenPadding(context).horizontal / 2,
+                          vertical: 16,
+                        ),
+                        child: _buildHeaderBanner(production),
+                      ),
+                    ),
                   ),
                 ),
                 SliverPersistentHeader(
@@ -130,6 +150,7 @@ class _MediaProductionDetailScreenState
                       labelColor: Colors.pink,
                       unselectedLabelColor: Colors.grey,
                       tabs: const [
+                        Tab(icon: Icon(Icons.checklist), text: 'Planning'),
                         Tab(icon: Icon(Icons.info), text: 'Overview'),
                         Tab(icon: Icon(Icons.playlist_play), text: 'Content'),
                         Tab(icon: Icon(Icons.analytics), text: 'Engagement'),
@@ -141,6 +162,7 @@ class _MediaProductionDetailScreenState
               body: TabBarView(
                 controller: _tabController,
                 children: [
+                  MediaPlanningTab(productionId: production.id, productionTitle: production.title),
                   _buildOverviewTab(production, provider),
                   _buildContentTab(production, provider),
                   _buildEngagementTab(production, provider),
@@ -829,9 +851,50 @@ class _MediaProductionDetailScreenState
                     label: const Text('Add Season'),
                     onPressed: () => _showAddSeasonDialog(production.id),
                   ),
+                if (production.facebookPageUrl != null &&
+                    production.facebookPageUrl!.isNotEmpty)
+                  ActionChip(
+                    avatar: _isSyncingEngagement
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.sync, size: 18),
+                    label: const Text('Sync from Facebook'),
+                    onPressed: _isSyncingEngagement
+                        ? null
+                        : () => _syncFacebookEngagement(production.id),
+                  ),
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _syncFacebookEngagement(String productionId) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final provider = Provider.of<MediaProductionProvider>(context, listen: false);
+    final user = authProvider.currentUser;
+    if (user == null) return;
+
+    setState(() => _isSyncingEngagement = true);
+    final result = await provider.syncFacebookEngagement(
+      productionId: productionId,
+      enteredById: user.id,
+      enteredByName: 'Apify Auto-Sync',
+    );
+    if (!mounted) return;
+    setState(() => _isSyncingEngagement = false);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          result != null
+              ? 'Synced ${result.views} views, ${result.totalEngagement} engagements from Facebook'
+              : provider.error ?? 'Facebook sync failed',
         ),
       ),
     );
@@ -1292,7 +1355,19 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
     return Container(
       color: Colors.white,
-      child: tabBar,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: ResponsiveHelper.getMaxContentWidth(context),
+          ),
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: ResponsiveHelper.getScreenPadding(context).horizontal / 2,
+            ),
+            child: tabBar,
+          ),
+        ),
+      ),
     );
   }
 

@@ -96,6 +96,9 @@ import 'screens/hub/student_labor_budget_screen.dart';
 import 'screens/hub/production_language_budget_screen.dart';
 import 'screens/hub/hr_dashboard_screen.dart';
 import 'screens/hub/inventory_dashboard_screen.dart';
+import 'screens/boards/boards_home_screen.dart';
+import 'screens/boards/board_detail_screen.dart';
+import 'providers/kanban_board_provider.dart';
 import 'screens/admin/adcom_agenda_list_screen.dart';
 import 'screens/admin/adcom_agenda_edit_screen.dart';
 import 'screens/admin/adcom_agenda_view_screen.dart';
@@ -255,6 +258,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SurveyProvider()),
         ChangeNotifierProvider(create: (_) => ExpenseClaimProvider()),
         ChangeNotifierProvider(create: (_) => InternalDebitNoteProvider()),
+        ChangeNotifierProvider(create: (_) => KanbanBoardProvider()),
       ],
       child: Consumer2<AuthProvider, ThemeProvider>(
         builder: (context, authProvider, themeProvider, _) {
@@ -514,6 +518,18 @@ class MyApp extends StatelessWidget {
           path: '/inventory-dashboard',
           builder: (context, state) => const InventoryDashboardScreen(),
         ),
+        // Boards (Kanban) Routes
+        GoRoute(
+          path: '/boards',
+          builder: (context, state) => const BoardsHomeScreen(),
+        ),
+        GoRoute(
+          path: '/boards/:id',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            return BoardDetailScreen(boardId: id);
+          },
+        ),
         // Media Production Routes
         GoRoute(
           path: '/media-dashboard',
@@ -531,7 +547,12 @@ class MyApp extends StatelessWidget {
           path: '/media/productions/:id',
           builder: (context, state) {
             final id = state.pathParameters['id']!;
-            return MediaProductionDetailScreen(productionId: id);
+            // go_router keys pages by route *pattern*, not the resolved
+            // :id, so without an explicit key here Flutter can reuse the
+            // same widget/State across two different productions — the
+            // detail screen (and everything under it, incl. the Planning
+            // tab's own provider) then never reloads for the new id.
+            return MediaProductionDetailScreen(key: ValueKey('production_$id'), productionId: id);
           },
         ),
         GoRoute(
@@ -962,15 +983,20 @@ class MyApp extends StatelessWidget {
           },
         ),
         GoRoute(
+          // Must come before '/inventory/:equipmentId' below — GoRoute
+          // matches in declaration order, and that catch-all pattern would
+          // otherwise swallow this path first, treating "scan" as a literal
+          // equipment ID and opening the detail screen for a nonexistent
+          // document instead of the QR scanner.
+          path: '/inventory/scan',
+          builder: (context, state) => const QrScanScreen(),
+        ),
+        GoRoute(
           path: '/inventory/:equipmentId',
           builder: (context, state) {
             final equipmentId = state.pathParameters['equipmentId']!;
             return EquipmentDetailScreen(equipmentId: equipmentId);
           },
-        ),
-        GoRoute(
-          path: '/inventory/scan',
-          builder: (context, state) => const QrScanScreen(),
         ),
         // Meeting Routes
         GoRoute(
