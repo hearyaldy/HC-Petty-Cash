@@ -13,6 +13,97 @@ class EquipmentService {
   static const String equipmentCollection = 'equipment';
   static const String checkoutsCollection = 'equipment_checkouts';
   static const String editHistoryCollection = 'equipment_edit_history';
+  static const String editSessionsCollection = 'equipment_edit_sessions';
+
+  // How long since the last heartbeat before we stop trusting a session
+  // doc and treat it as abandoned (crashed tab, lost connection, etc.)
+  // rather than waiting on a server-side TTL policy to clean it up.
+  static const Duration editSessionStaleAfter = Duration(seconds: 90);
+  static const Duration editSessionHeartbeatInterval = Duration(seconds: 30);
+
+  String _editSessionDocId(String equipmentId, String userId) =>
+      '${equipmentId}_$userId';
+
+  /// Marks [userId] as currently editing [equipmentId]. One doc per
+  /// (equipment, user) pair — deliberately not one doc per equipment —
+  /// so a second person opening the same item doesn't overwrite/steal
+  /// the first person's presence marker; readers just see both.
+  Future<void> startEditSession({
+    required String equipmentId,
+    required String userId,
+    required String userName,
+  }) async {
+    try {
+      await _firestore
+          .collection(editSessionsCollection)
+          .doc(_editSessionDocId(equipmentId, userId))
+          .set({
+        'equipmentId': equipmentId,
+        'userId': userId,
+        'userName': userName,
+        'startedAt': FieldValue.serverTimestamp(),
+        'heartbeatAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('Error starting edit session: $e');
+    }
+  }
+
+  /// Keeps a session marked as active — called on a timer while an edit
+  /// screen/dialog stays open, so streamOtherEditSessions can tell a
+  /// genuinely-open editor apart from one abandoned without cleanup.
+  Future<void> heartbeatEditSession({
+    required String equipmentId,
+    required String userId,
+  }) async {
+    try {
+      await _firestore
+          .collection(editSessionsCollection)
+          .doc(_editSessionDocId(equipmentId, userId))
+          .update({'heartbeatAt': FieldValue.serverTimestamp()});
+    } catch (e) {
+      debugPrint('Error sending edit session heartbeat: $e');
+    }
+  }
+
+  /// Clears the presence marker — called when the edit screen/dialog
+  /// closes, however it closes (save, cancel, back button).
+  Future<void> endEditSession({
+    required String equipmentId,
+    required String userId,
+  }) async {
+    try {
+      await _firestore
+          .collection(editSessionsCollection)
+          .doc(_editSessionDocId(equipmentId, userId))
+          .delete();
+    } catch (e) {
+      debugPrint('Error ending edit session: $e');
+    }
+  }
+
+  /// Other users' active (non-stale) edit sessions for this equipment
+  /// item — i.e. who else currently has it open for editing.
+  Stream<List<EquipmentEditSession>> streamOtherEditSessions(
+    String equipmentId,
+    String currentUserId,
+  ) {
+    return _firestore
+        .collection(editSessionsCollection)
+        .where('equipmentId', isEqualTo: equipmentId)
+        .snapshots()
+        .map((snapshot) {
+      final now = DateTime.now();
+      return snapshot.docs
+          .map((doc) => EquipmentEditSession.fromFirestore(doc))
+          .where(
+            (s) =>
+                s.userId != currentUserId &&
+                now.difference(s.heartbeatAt) <= editSessionStaleAfter,
+          )
+          .toList();
+    });
+  }
 
   // Firestore key -> human-readable label, for the edit-history diff.
   // updatedAt/createdAt/createdBy are deliberately excluded — they're not

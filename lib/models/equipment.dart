@@ -211,6 +211,45 @@ class EquipmentEditLog {
   }
 }
 
+/// A "someone has this open for editing right now" presence marker.
+/// Purely informational (see EquipmentService for the write/read/cleanup
+/// logic) — it never blocks a second person from editing, it just lets
+/// the UI show a heads-up banner so people don't step on each other.
+class EquipmentEditSession {
+  final String id;
+  final String equipmentId;
+  final String userId;
+  final String userName;
+  final DateTime startedAt;
+  final DateTime heartbeatAt;
+
+  EquipmentEditSession({
+    required this.id,
+    required this.equipmentId,
+    required this.userId,
+    required this.userName,
+    required this.startedAt,
+    required this.heartbeatAt,
+  });
+
+  factory EquipmentEditSession.fromFirestore(
+    firestore.DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final data = doc.data()!;
+    DateTime parse(dynamic value) => value is firestore.Timestamp
+        ? value.toDate()
+        : DateTime.now();
+    return EquipmentEditSession(
+      id: doc.id,
+      equipmentId: data['equipmentId'] ?? '',
+      userId: data['userId'] ?? '',
+      userName: data['userName'] ?? 'Someone',
+      startedAt: parse(data['startedAt']),
+      heartbeatAt: parse(data['heartbeatAt']),
+    );
+  }
+}
+
 /// Main Equipment model
 class Equipment {
   final String id;

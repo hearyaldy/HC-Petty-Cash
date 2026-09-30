@@ -759,6 +759,18 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Equipment Edit Sessions collection ("someone else has this open"
+    // presence markers — see EquipmentService.startEditSession). Each
+    // user may only write/clear their own session doc, so no one can
+    // spoof or clear another user's presence marker.
+    match /equipment_edit_sessions/{sessionId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid;
+    }
+
     // Equipment History collection (for tracking checkout/return history)
     match /equipment_history/{historyId} {
       // All authenticated users can read equipment history

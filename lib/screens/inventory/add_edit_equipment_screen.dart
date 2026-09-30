@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -79,6 +80,9 @@ class _AddEditEquipmentScreenState extends State<AddEditEquipmentScreen> {
   bool _isEditing = false;
   Equipment? _existingEquipment;
 
+  Timer? _editSessionHeartbeat;
+  String? _editSessionUserId;
+
   @override
   void initState() {
     super.initState();
@@ -86,11 +90,37 @@ class _AddEditEquipmentScreenState extends State<AddEditEquipmentScreen> {
     if (widget.equipmentId != null) {
       _isEditing = true;
       _loadEquipment();
+      _startEditPresence();
     }
+  }
+
+  void _startEditPresence() {
+    final user = context.read<AuthProvider>().currentUser;
+    if (user == null) return;
+    _editSessionUserId = user.id;
+    _equipmentService.startEditSession(
+      equipmentId: widget.equipmentId!,
+      userId: user.id,
+      userName: user.name,
+    );
+    _editSessionHeartbeat = Timer.periodic(
+      EquipmentService.editSessionHeartbeatInterval,
+      (_) => _equipmentService.heartbeatEditSession(
+        equipmentId: widget.equipmentId!,
+        userId: user.id,
+      ),
+    );
   }
 
   @override
   void dispose() {
+    _editSessionHeartbeat?.cancel();
+    if (_editSessionUserId != null && widget.equipmentId != null) {
+      _equipmentService.endEditSession(
+        equipmentId: widget.equipmentId!,
+        userId: _editSessionUserId!,
+      );
+    }
     _nameController.dispose();
     _descriptionController.dispose();
     _brandController.dispose();

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -608,6 +609,55 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
     return null;
   }
 
+  /// "Someone else has this open" heads-up — informational only, never
+  /// blocks editing. Sourced from EquipmentEditSession docs written by
+  /// the full Add/Edit screen and the Quick Edit dialog while they're
+  /// open, filtered to non-stale sessions from other users.
+  Widget _buildEditPresenceBanner(Equipment equipment) {
+    final currentUserId = context.watch<AuthProvider>().currentUser?.id;
+    if (currentUserId == null) return const SizedBox.shrink();
+
+    return StreamBuilder<List<EquipmentEditSession>>(
+      stream: _equipmentService.streamOtherEditSessions(
+        equipment.id,
+        currentUserId,
+      ),
+      builder: (context, snapshot) {
+        final sessions = snapshot.data ?? [];
+        if (sessions.isEmpty) return const SizedBox.shrink();
+
+        final names = sessions.map((s) => s.userName).toSet().join(', ');
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.amber.shade50,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.amber.shade300),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.edit, size: 18, color: Colors.amber.shade800),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Currently being edited by $names',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.amber.shade900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildDetailsContent(
     Equipment equipment,
     NumberFormat currencyFormat,
@@ -617,6 +667,7 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _buildEditPresenceBanner(equipment),
         _buildHeaderCard(equipment, currencyFormat),
         if (checkInOutButton != null) ...[
           const SizedBox(height: 16),
@@ -1830,6 +1881,27 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
   }
 
   void _showEditDialog(Equipment equipment) {
+    // Presence marker for the "someone else is editing this" banner —
+    // started here, heartbeated on a timer, cleared in showDialog's
+    // .then() below so it fires however the dialog closes (Save,
+    // Cancel, back button, or tapping outside it).
+    final presenceUser = context.read<AuthProvider>().currentUser;
+    Timer? presenceHeartbeat;
+    if (presenceUser != null) {
+      _equipmentService.startEditSession(
+        equipmentId: equipment.id,
+        userId: presenceUser.id,
+        userName: presenceUser.name,
+      );
+      presenceHeartbeat = Timer.periodic(
+        EquipmentService.editSessionHeartbeatInterval,
+        (_) => _equipmentService.heartbeatEditSession(
+          equipmentId: equipment.id,
+          userId: presenceUser.id,
+        ),
+      );
+    }
+
     // Controllers for form fields
     final nameController = TextEditingController(text: equipment.name);
     final descriptionController = TextEditingController(text: equipment.description ?? '');
@@ -2632,7 +2704,15 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
           ),
         ),
       ),
-    );
+    ).then((_) {
+      presenceHeartbeat?.cancel();
+      if (presenceUser != null) {
+        _equipmentService.endEditSession(
+          equipmentId: equipment.id,
+          userId: presenceUser.id,
+        );
+      }
+    });
   }
 
   Widget _buildEditSection(String title, IconData icon, Color color, List<Widget> children) {
