@@ -707,40 +707,48 @@ class EquipmentService {
   /// Check in (return) equipment
   Future<void> checkInEquipment({
     required String equipmentId,
-    required String checkoutId,
+    // Nullable: an equipment item can end up with status "Checked Out"
+    // but no currentCheckoutId — e.g. imported from CSV/XLSX with that
+    // status already set in the spreadsheet, or status changed directly
+    // via Quick Edit — neither of which goes through checkOutEquipment
+    // to create a real checkout record. Check-in must still work for
+    // those items; it just has no checkout record to update.
+    String? checkoutId,
     required String returnedBy,
     required String returnedByName,
     required EquipmentCondition conditionAtReturn,
     String? notes,
   }) async {
     try {
-      // Update checkout record
-      final checkoutUpdate = <String, dynamic>{
-        'returnedAt': FieldValue.serverTimestamp(),
-        'returnedBy': returnedBy,
-        'returnedByName': returnedByName,
-        'conditionAtReturn': conditionAtReturn.name,
-      };
-      if (notes != null && notes.trim().isNotEmpty) {
-        // EquipmentCheckout.notes is a plain String (see
-        // EquipmentCheckout.toFirestore), not an array — the checkout
-        // record may already hold a string from checkOutEquipment above,
-        // and FieldValue.arrayUnion on a non-array field throws. Append
-        // as a string instead, same fix as markForMaintenance/
-        // retireEquipment's notes handling.
-        final existingDoc = await _firestore
+      if (checkoutId != null && checkoutId.isNotEmpty) {
+        // Update checkout record
+        final checkoutUpdate = <String, dynamic>{
+          'returnedAt': FieldValue.serverTimestamp(),
+          'returnedBy': returnedBy,
+          'returnedByName': returnedByName,
+          'conditionAtReturn': conditionAtReturn.name,
+        };
+        if (notes != null && notes.trim().isNotEmpty) {
+          // EquipmentCheckout.notes is a plain String (see
+          // EquipmentCheckout.toFirestore), not an array — the checkout
+          // record may already hold a string from checkOutEquipment above,
+          // and FieldValue.arrayUnion on a non-array field throws. Append
+          // as a string instead, same fix as markForMaintenance/
+          // retireEquipment's notes handling.
+          final existingDoc = await _firestore
+              .collection(checkoutsCollection)
+              .doc(checkoutId)
+              .get();
+          final existingNotes = existingDoc.data()?['notes'] as String?;
+          checkoutUpdate['notes'] = (existingNotes == null || existingNotes.isEmpty)
+              ? notes.trim()
+              : '$existingNotes\n$notes'.trim();
+        }
+        await _firestore
             .collection(checkoutsCollection)
             .doc(checkoutId)
-            .get();
-        final existingNotes = existingDoc.data()?['notes'] as String?;
-        checkoutUpdate['notes'] = (existingNotes == null || existingNotes.isEmpty)
-            ? notes.trim()
-            : '$existingNotes\n$notes'.trim();
+            .update(checkoutUpdate);
       }
-      await _firestore
-          .collection(checkoutsCollection)
-          .doc(checkoutId)
-          .update(checkoutUpdate);
 
       // Update equipment status
       await _firestore.collection(equipmentCollection).doc(equipmentId).update({

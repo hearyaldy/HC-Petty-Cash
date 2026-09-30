@@ -1840,7 +1840,7 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen>
                 try {
                   await _equipmentService.checkInEquipment(
                     equipmentId: equipment.id,
-                    checkoutId: equipment.currentCheckoutId!,
+                    checkoutId: equipment.currentCheckoutId,
                     returnedBy: user?.id ?? '',
                     returnedByName: user?.name ?? 'Unknown',
                     conditionAtReturn: selectedCondition,

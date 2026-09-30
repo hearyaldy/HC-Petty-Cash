@@ -4811,7 +4811,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             style: pw.TextStyle(font: ttf, fontSize: 8),
           ),
           pw.Text(
-            '≈ ${transaction.foreignCurrency} '
+            // '~' not '≈' — the bundled NotoSansThai PDF font doesn't
+            // reliably cover U+2248 (Almost Equal To), which can render
+            // as a tofu box right before the currency code.
+            '~ ${transaction.foreignCurrency} '
             '${fxNumFormat.format(transaction.foreignAmount)}',
             style: pw.TextStyle(font: ttf, fontSize: 6, color: PdfColors.teal700),
           ),

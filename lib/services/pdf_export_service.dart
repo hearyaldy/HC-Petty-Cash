@@ -1652,7 +1652,12 @@ class PdfExportService {
                 currencyFormat.format(tx.amount),
                 align: pw.TextAlign.right,
                 subText: (tx.foreignCurrency != null && tx.foreignAmount != null)
-                    ? '≈ ${tx.foreignCurrency} ${NumberFormat('#,##0.00').format(tx.foreignAmount)}'
+                    // '~' not '≈' — the bundled NotoSansThai PDF font
+                    // doesn't cover U+2248 (Almost Equal To), and its
+                    // Google Fonts fallback can silently fail (network
+                    // fetch wrapped in try/catch), producing a tofu box
+                    // right before the currency code.
+                    ? '~ ${tx.foreignCurrency} ${NumberFormat('#,##0.00').format(tx.foreignAmount)}'
                     : null,
               ),
             ],
@@ -1921,7 +1926,9 @@ class PdfExportService {
                 // the report-wide fx column — they can differ, e.g. an
                 // advance taken in MYR with one expense paid in VND.
                 subText: (t.foreignCurrency != null && t.foreignAmount != null)
-                    ? '≈ ${t.foreignCurrency} ${NumberFormat('#,##0.00').format(t.foreignAmount)}'
+                    // See the matching comment above — '~' avoids a
+                    // glyph the PDF font doesn't reliably cover.
+                    ? '~ ${t.foreignCurrency} ${NumberFormat('#,##0.00').format(t.foreignAmount)}'
                     : null,
               ),
               if (showFx)
